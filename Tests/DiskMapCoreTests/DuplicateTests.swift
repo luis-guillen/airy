@@ -235,11 +235,17 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         board.selectAllCopies()
         let removal = try #require(board.removals().first)
         #expect(removal.keep == a)
+        #expect(!removal.remove.isEmpty)
         var changed = blob(9); changed[0] ^= 0xFF
         try changed.write(to: URL(fileURLWithPath: a))
-        #expect(await f.finder().verify(removal)[a] == "La copia que conservas ha cambiado.")
+        let changedKeep = await f.finder().verify(removal)
+        #expect(changedKeep[a] == "La copia que conservas ha cambiado.")
+        // Ninguna otra copia pasa: quien filtre ruta a ruta nunca borra el grupo entero.
+        for path in removal.remove { #expect(changedKeep[path] == "La copia que conservas ha cambiado.") }
         try FileManager.default.removeItem(atPath: a)
-        #expect(await f.finder().verify(removal)[a] == "Ya no existe la copia que conservas.")
+        let missingKeep = await f.finder().verify(removal)
+        #expect(missingKeep[a] == "Ya no existe la copia que conservas.")
+        for path in removal.remove { #expect(missingKeep[path] == "Ya no existe la copia que conservas.") }
         let confirmable = await f.finder().confirmable([removal])
         #expect(confirmable.paths.isEmpty)
         #expect(confirmable.notes.count == 1)
@@ -254,10 +260,50 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         #expect(await finder.verify(removal)[a] == "Es la copia que conservas.")
         // La misma copia con otra forma de la ruta (mayúsculas en APFS) también es la conservada.
         let variant = DuplicateRemoval(keep: a, remove: [f.home + "/A.bin"], size: Int64(200 * kib))
+        let variantResult = await finder.verify(variant)
         if FileManager.default.fileExists(atPath: f.home + "/A.bin") {
-            #expect(await finder.verify(variant)[f.home + "/A.bin"] == "Es la copia que conservas.")
+            #expect(variantResult[f.home + "/A.bin"] == "Es la copia que conservas.")
+        } else {
+            #expect(variantResult[f.home + "/A.bin"] == "Ya no existe.")   // volumen que distingue mayúsculas
         }
         #expect(await finder.confirmable([removal]).paths.isEmpty)
+    }
+
+    @Test func verifyRefusesOtherNamesOfTheKeeper() async throws {
+        let f = Fixture()
+        let a = f.write("Documents/a.bin", blob(15))
+        let hard = f.home + "/Documents/hard.bin"
+        let soft = f.home + "/Documents/soft.bin"
+        #expect(link(a, hard) == 0)
+        #expect(symlink(a, soft) == 0)
+        #expect(symlink(f.home + "/Documents", f.home + "/Docs") == 0)
+        let viaLink = f.home + "/Docs/a.bin"
+        let removal = DuplicateRemoval(keep: a, remove: [hard, soft, viaLink], size: Int64(200 * kib))
+        let result = await f.finder().verify(removal)
+        #expect(result[hard] == "Es la copia que conservas.")
+        #expect(result[viaLink] == "Es la copia que conservas.")
+        #expect(result[soft] == "Ha cambiado desde la búsqueda.")      // un enlace simbólico nunca pasa
+        #expect(await f.finder().confirmable([removal]).paths.isEmpty)
+    }
+
+    @Test func readBudgetGivesIncompleteWithOnlyVerifiedGroups() async {
+        let f = Fixture()
+        for i in 0..<6 {
+            f.write("d\(i)/a.bin", blob(UInt8(40 + i)))
+            f.write("d\(i)/b.bin", blob(UInt8(40 + i)))
+        }
+        let root = await f.index()
+        var search = f.search
+        search.readBudget = Int64(6 * 2 * 2 * DuplicateFinder.partialChunk + 2 * 200 * kib)   // parciales + 1 grupo
+        let result = await f.finder().find(search, in: root)
+        #expect(!result.complete)
+        #expect(result.groups.count < 6)
+        for group in result.groups {
+            var board = DuplicateBoard(groups: [group])
+            board.selectAllCopies()
+            let removal = board.removals()[0]
+            #expect(await f.finder().verify(removal).isEmpty)
+        }
     }
 
     @Test func confirmablePassesOnlyVerifiedCopies() async throws {
@@ -302,7 +348,14 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         try DuplicateReport.save(result, to: url)
         let text = try String(contentsOf: url, encoding: .utf8)
         #expect(text.range(of: "[0-9a-fA-F]{64}", options: .regularExpression) == nil)
-        #expect(!String(describing: result).contains("SHA"))
+        for text in [String(describing: result), String(reflecting: result), String(describing: result.groups[0]),
+                     String(reflecting: DuplicateBoard(groups: result.groups).removals())] {
+            #expect(!text.contains("SHA"))
+            #expect(text.range(of: "[0-9a-fA-F]{64}", options: .regularExpression) == nil)
+        }
+        var dumped = ""
+        dump(result, to: &dumped)
+        #expect(dumped.range(of: "[0-9a-fA-F]{64}", options: .regularExpression) == nil)
         let json = try #require(try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
         #expect(Set(json.keys) == ["date", "complete", "files_examined", "groups"])
         let groups = try #require(json["groups"] as? [[String: Any]])
