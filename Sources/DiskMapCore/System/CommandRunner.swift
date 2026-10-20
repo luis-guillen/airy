@@ -31,8 +31,50 @@ public enum CommandError: Error, Sendable, CustomStringConvertible {
 public protocol CommandRunning: Sendable {
     /// `executable` es una ruta absoluta (resuelta con `resolve`).
     func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput
+    /// Igual que `run`, con texto para la entrada estándar y directorio de trabajo opcionales.
+    func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+             timeout: TimeInterval) async throws -> CommandOutput
+    /// Salida estándar línea a línea (sin el salto final) según llega. El plazo cubre toda la ejecución;
+    /// al cancelar el consumo se mata el proceso. El código de salida no se comunica.
+    func stream(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+                timeout: TimeInterval) -> AsyncThrowingStream<String, Error>
     /// Ruta absoluta de una herramienta por su nombre simple, o `nil` si no está instalada.
     func resolve(_ executable: String) async -> String?
+}
+
+extension CommandRunning {
+    /// Por defecto (dobles de prueba antiguos) ignora `stdin` y el directorio; `ProcessRunner` sí los aplica.
+    public func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+                    timeout: TimeInterval) async throws -> CommandOutput {
+        try await run(executable, arguments, timeout: timeout)
+    }
+
+    /// Por defecto: ejecuta entero y emite las líneas de la salida al final.
+    public func stream(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+                       timeout: TimeInterval) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let output = try await run(executable, arguments, stdin: stdin,
+                                               workingDirectory: workingDirectory, timeout: timeout)
+                    var lines = output.stdout.split(separator: "\n", omittingEmptySubsequences: false)
+                    if lines.last == "" { lines.removeLast() }
+                    for line in lines { continuation.yield(String(line)) }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}
+
+/// Bandera de cancelación compartida entre el consumidor y el hilo que espera al proceso.
+final class CancelFlag: Sendable {
+    private let value = Mutex(false)
+    func set() { value.withLock { $0 = true } }
+    var isSet: Bool { value.withLock { $0 } }
 }
 
 public struct ProcessRunner: CommandRunning {
@@ -96,12 +138,42 @@ public struct ProcessRunner: CommandRunning {
     }
 
     public func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
-        try await withCheckedThrowingContinuation { continuation in
+        try await run(executable, arguments, stdin: nil, workingDirectory: nil, timeout: timeout)
+    }
+
+    public func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+                    timeout: TimeInterval) async throws -> CommandOutput {
+        let flag = CancelFlag()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.global().async {
+                    do {
+                        continuation.resume(returning: try Self.runBlocking(
+                            executable, arguments, stdin: stdin, workingDirectory: workingDirectory,
+                            timeout: timeout, cancel: flag, onLine: nil))
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
+        } onCancel: {
+            flag.set()
+        }
+    }
+
+    public func stream(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+                       timeout: TimeInterval) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let flag = CancelFlag()
+            continuation.onTermination = { _ in flag.set() }
             DispatchQueue.global().async {
                 do {
-                    continuation.resume(returning: try Self.runBlocking(executable, arguments, timeout: timeout))
+                    _ = try Self.runBlocking(
+                        executable, arguments, stdin: stdin, workingDirectory: workingDirectory,
+                        timeout: timeout, cancel: flag, onLine: { continuation.yield($0) })
+                    continuation.finish()
                 } catch {
-                    continuation.resume(throwing: error)
+                    continuation.finish(throwing: error)
                 }
             }
         }
@@ -112,8 +184,35 @@ public struct ProcessRunner: CommandRunning {
 
     /// `posix_spawn` en un grupo de procesos propio para poder matar también a los nietos.
     /// Las tuberías se leen con `poll` y nunca más allá del plazo.
-    private static func runBlocking(_ executable: String, _ arguments: [String],
-                                    timeout: TimeInterval) throws -> CommandOutput {
+    /// `stdin` se escribe en un fichero temporal privado (0600) que se borra nada más lanzar el proceso:
+    /// así no hay tubería de entrada que pueda bloquear ni provocar SIGPIPE.
+    /// Con `onLine`, la salida estándar se entrega por líneas y no se acumula en el resultado.
+    private static func runBlocking(_ executable: String, _ arguments: [String], stdin: String?,
+                                    workingDirectory: String?, timeout: TimeInterval, cancel: CancelFlag?,
+                                    onLine: ((String) -> Void)?) throws -> CommandOutput {
+        var stdinFile: String?
+        if let stdin {
+            var template = Array((NSTemporaryDirectory() + "diskmap-stdin-XXXXXX").utf8CString)
+            let fd = mkstemp(&template)
+            guard fd >= 0 else { throw launchError(executable, errno) }
+            let path = String(decoding: template.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+            let bytes = Array(stdin.utf8)
+            var written = 0
+            while written < bytes.count {
+                let n = bytes[written...].withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+                if n < 0 && errno == EINTR { continue }
+                guard n > 0 else {
+                    let code = errno
+                    close(fd); unlink(path)
+                    throw launchError(executable, code)
+                }
+                written += n
+            }
+            close(fd)
+            stdinFile = path
+        }
+        defer { if let stdinFile { unlink(stdinFile) } }
+
         var outPipe: [Int32] = [-1, -1]
         var errPipe: [Int32] = [-1, -1]
         guard pipe(&outPipe) == 0 else { throw launchError(executable, errno) }
@@ -126,7 +225,8 @@ public struct ProcessRunner: CommandRunning {
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
-        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        posix_spawn_file_actions_addopen(&actions, 0, stdinFile ?? "/dev/null", O_RDONLY, 0)
+        if let workingDirectory { posix_spawn_file_actions_addchdir_np(&actions, workingDirectory) }
         posix_spawn_file_actions_adddup2(&actions, outPipe[1], 1)
         posix_spawn_file_actions_adddup2(&actions, errPipe[1], 2)
 
@@ -153,6 +253,8 @@ public struct ProcessRunner: CommandRunning {
         var pid: pid_t = 0
         let spawnResult = posix_spawn(&pid, executable, &actions, &attributes, argv, envp)
         close(outPipe[1]); close(errPipe[1])
+        // El hijo ya tiene abierta su entrada: el fichero temporal sobra.
+        if let stdinFile { unlink(stdinFile) }
         guard spawnResult == 0 else {
             close(outPipe[0]); close(errPipe[0])
             throw launchError(executable, spawnResult)
@@ -171,6 +273,10 @@ public struct ProcessRunner: CommandRunning {
             if exitedAt == nil, waitpid(pid, &status, WNOHANG) == pid { exitedAt = Date() }
             let open = fds.indices.filter { fds[$0] >= 0 }
             if exitedAt != nil && open.isEmpty { break }
+            if let cancel, cancel.isSet {
+                terminateGroup(pid, reaped: exitedAt != nil)
+                throw CancellationError()
+            }
             let now = Date()
             if exitedAt == nil && now >= deadline {
                 terminateGroup(pid, reaped: false)
@@ -188,11 +294,17 @@ public struct ProcessRunner: CommandRunning {
                 let count = read(fds[index], &chunk, chunk.count)
                 if count > 0 {
                     buffers[index].append(contentsOf: chunk[0..<count])
+                    if index == 0, let onLine { emitLines(&buffers[0], onLine) }
                 } else if count == 0 || (errno != EINTR && errno != EAGAIN) {
                     close(fds[index])
                     fds[index] = -1
                 }
             }
+        }
+
+        if let onLine, !buffers[0].isEmpty {
+            onLine(String(decoding: buffers[0], as: UTF8.self))
+            buffers[0].removeAll()
         }
 
         // Estado al estilo de la shell: código de salida, o 128 + señal.
@@ -202,6 +314,16 @@ public struct ProcessRunner: CommandRunning {
             status: code,
             stdout: String(decoding: buffers[0], as: UTF8.self),
             stderr: String(decoding: buffers[1], as: UTF8.self))
+    }
+
+    /// Entrega las líneas completas del búfer (sin `\n` ni `\r` final) y deja el resto.
+    private static func emitLines(_ buffer: inout Data, _ onLine: (String) -> Void) {
+        while let newline = buffer.firstIndex(of: 0x0A) {
+            var line = buffer[buffer.startIndex..<newline]
+            if line.last == 0x0D { line = line.dropLast() }
+            onLine(String(decoding: line, as: UTF8.self))
+            buffer.removeSubrange(buffer.startIndex...newline)
+        }
     }
 
     /// SIGTERM al grupo, espera hasta 2 s y SIGKILL; recoge siempre al hijo.
