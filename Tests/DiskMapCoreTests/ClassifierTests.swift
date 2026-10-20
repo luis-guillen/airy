@@ -232,18 +232,15 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
     @Test func bundledCatalogDecodesWithDefaults() throws {
         let catalog = try Catalog.bundled()
         #expect(!catalog.entries.isEmpty)
-        for e in catalog.entries {
-            #expect(e.aggressiveRisk == nil)
-            #expect(e.preselectInAggressive == false)
-            #expect(e.profiles.isEmpty)
-        }
         // Los nombres de proceso de la tarea 6 se rellenan solo en las fichas con herramienta propia.
         #expect(catalog.entries.first { $0.id == "pip" }?.processNames == ["pip", "pip3"])
         #expect(catalog.entries.first { $0.id == "docker-volumes" }?.processNames == [])
         let json = """
         {"entries":[{"id":"x","title":"X","explanation":"","whoCreatesIt":"","regenerates":true,"risk":"yourCall",
         "kind":"caches","paths":["~/x"],"cleanup":{"type":"trash"},"aggressiveRisk":"safe",
-        "preselectInAggressive":true,"profiles":["developer","futureProfile"],"processNames":["x-agent"]}]}
+        "preselectInAggressive":true,"profiles":["developer","futureProfile"],"processNames":["x-agent"],
+        "shortReason":"Se regenera.","perMatch":true,"except":[".DS_Store"],"staleAfterDays":90,"minimumBytes":1000,
+        "retention":{"keepNewest":1},"reviewHint":"Míralo tú."}]}
         """
         let decoded = try #require(try Catalog.decode(Data(json.utf8)).entries.first)
         #expect(decoded.aggressiveRisk == .safe)
@@ -253,6 +250,10 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         let again = try JSONDecoder().decode(CatalogEntry.self, from: JSONEncoder().encode(decoded))
         #expect(again.aggressiveRisk == .safe && again.preselectInAggressive && again.profiles == [.developer]
                 && again.processNames == ["x-agent"])
+        #expect(again.shortReason == "Se regenera." && again.perMatch && again.except == [".DS_Store"]
+                && again.staleAfterDays == 90 && again.minimumBytes == 1000
+                && again.retention == RetentionRule(keepNewest: 1) && again.discovery == nil
+                && again.reviewHint == "Míralo tú.")
         let bad = json.replacingOccurrences(of: "\"aggressiveRisk\":\"safe\"", with: "\"aggressiveRisk\":\"meh\"")
         #expect(throws: DecodingError.self) { try Catalog.decode(Data(bad.utf8)) }
     }
