@@ -14,6 +14,10 @@ import AppKit
 /// - `AIRY_REDUCE_MOTION`: "1" fuerza «Reducir movimiento» en el portero de `RootView`.
 /// - `AIRY_HIDE_AT` / `AIRY_UNHIDE_AT`: segundos tras el arranque a los que la app se oculta y vuelve
 ///   (`NSApp.hide`/`unhide`, solo la propia app); sirven para comprobar la pausa total.
+/// - `AIRY_SKIP_LAUNCH`: "1" salta la capa de arranque; también se salta con cualquier
+///   `AIRY_*_SCRIPT`, para que los guiones de depuración conserven sus tiempos.
+/// - `AIRY_SCAN_PREVIEW` (en `AppModel`): "1" enseña la pantalla de análisis con un progreso fijo
+///   sin analizar nada (para medir sus animaciones sin recorrer el disco).
 @MainActor
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
@@ -23,6 +27,15 @@ enum DebugSnapshot {
 
     /// `AIRY_REDUCE_MOTION=1`: el portero se comporta como con «Reducir movimiento».
     static var forcesReduceMotion: Bool { environment["AIRY_REDUCE_MOTION"] == "1" }
+
+    /// `AIRY_SKIP_LAUNCH=1` o algún `AIRY_*_SCRIPT`: sin capa de arranque.
+    static var skipsLaunch: Bool {
+        environment["AIRY_SKIP_LAUNCH"] == "1"
+            || environment.keys.contains { $0.hasPrefix("AIRY_") && $0.hasSuffix("_SCRIPT") }
+    }
+
+    /// `AIRY_SCAN_PREVIEW=1`: pantalla de análisis con progreso fijo, sin recorrer el disco.
+    static var previewsScan: Bool { environment["AIRY_SCAN_PREVIEW"] == "1" }
 
     static func configure(_ model: AppModel) {
         start = Date()

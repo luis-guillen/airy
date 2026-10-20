@@ -80,6 +80,14 @@ public enum WindMotion {
         }
     }
 
+    /// Opacidad común de las hojas del arranque: 1 hasta `gather + hold`, baja linealmente a 0
+    /// durante `fade` (no desaparecen de golpe al terminar).
+    public static func launchLeafFade(elapsed: Double) -> Double {
+        let t = launchTimeline(.running)
+        guard !elapsed.isNaN, t.fade > 0 else { return 1 }
+        return clamp(1 - (elapsed - t.gather - t.hold) / t.fade, 0, 1)
+    }
+
     /// Coordenadas normalizadas (centro 0). Sale de un radio 2,4…3,2, gira en espiral y llega al objetivo.
     public static func launchLeaf(index: Int, count: Int, progress: Double) -> LeafPose {
         let targets = AiryLogoGeometry.launchTargets(count: count)

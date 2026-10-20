@@ -44,6 +44,11 @@ struct ScanProgressView: View {
                 }
             }
             .frame(width: 168, height: 168)
+            // Hojas en órbita alrededor del anillo; el cuadro mayor no cambia la maqueta.
+            .background {
+                WindLeaves(mode: .orbit(radius: 98), count: 7)
+                    .frame(width: 240, height: 240)
+            }
 
             VStack(spacing: 8) {
                 Text("Analizando \(model.currentVolume.name)")
@@ -64,6 +69,7 @@ struct ScanProgressView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { BreezeBackground(intensity: .scan) }
     }
 
     private var compact: some View {
@@ -118,15 +124,16 @@ struct ScanProgressView: View {
     }
 }
 
-/// Anillo con el avance estimado y un destello que gira sin parar mientras se analiza.
-/// El giro es una animación `repeatForever` que interpola el servidor de render: el cuerpo no se
-/// recalcula en cada fotograma (con `TimelineView` el hilo principal se saturaba redibujando).
+/// Anillo con el avance estimado y un destello que gira sin parar mientras hay movimiento ambiente.
+/// El giro lo interpola el servidor de render (`SpinningGlint`): ni el cuerpo ni la app trabajan
+/// por fotograma (un `repeatForever` de SwiftUI costaba ≈ 10–16 % de CPU a 120 Hz, medido).
+/// En pausa o con «Reducir movimiento» no hay destello.
 struct ScanRing<Center: View>: View {
     let fraction: Double
     var lineWidth: CGFloat
     @ViewBuilder var center: Center
 
-    @ViewState private var spinning = false
+    @Environment(\.airyAmbientMotion) private var motion
 
     var body: some View {
         ZStack {
@@ -138,18 +145,47 @@ struct ScanRing<Center: View>: View {
                 .rotationEffect(.degrees(-90))
                 .animation(Theme.counterSpring, value: fraction)
             // Destello giratorio: indica actividad aunque la estimación avance despacio.
-            Circle()
-                .trim(from: 0, to: 0.12)
-                .stroke(.white.opacity(0.55), style: StrokeStyle(lineWidth: lineWidth * 0.45, lineCap: .round))
-                // La animación infinita se limita al giro: si no, también arrastraría la posición del anillo.
-                .animation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
-                    $0.rotationEffect(.degrees(spinning ? 270 : -90))
-                }
+            if motion == .running {
+                SpinningGlint(lineWidth: lineWidth)
+            }
             center
         }
         .padding(lineWidth / 2)
         // Un solo bloque geométrico: al moverse el anillo (entrada de la píldora) sus capas no se separan.
         .geometryGroup()
-        .onAppear { spinning = true }
+    }
+}
+
+/// Arco blanco (12 % de la vuelta) que da una vuelta cada 1,4 s empezando arriba.
+private struct SpinningGlint: View {
+    let lineWidth: CGFloat
+
+    static let period: Double = 1.4
+
+    var body: some View {
+        RenderServerLayer(key: lineWidth) { container, size in
+            let arc = CAShapeLayer()
+            arc.frame = CGRect(origin: .zero, size: size)
+            // Como `Circle().stroke`: el trazo va centrado en el círculo inscrito.
+            let radius = min(size.width, size.height) / 2
+            let path = CGMutablePath()
+            path.addArc(center: CGPoint(x: size.width / 2, y: size.height / 2), radius: radius,
+                        startAngle: 0, endAngle: 0.12 * 2 * .pi, clockwise: false)
+            arc.path = path
+            arc.fillColor = nil
+            arc.strokeColor = NSColor.white.withAlphaComponent(0.55).cgColor
+            arc.lineWidth = lineWidth * 0.45
+            arc.lineCap = .round
+            arc.contentsScale = container.contentsScale
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            // Con y hacia abajo, positivo es horario: de las 12 en punto a las 12 en punto.
+            spin.fromValue = -Double.pi / 2
+            spin.toValue = 1.5 * Double.pi
+            spin.duration = Self.period
+            spin.repeatCount = .infinity
+            spin.isRemovedOnCompletion = false
+            arc.add(spin, forKey: "spin")
+            container.addSublayer(arc)
+        }
     }
 }
