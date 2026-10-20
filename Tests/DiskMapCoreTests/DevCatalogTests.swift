@@ -97,10 +97,30 @@ private func devicesJSON(inUse: [String] = [ios18]) -> String {
     return "{\"devices\": {\(rows.joined(separator: ", "))\(rows.isEmpty ? "" : ", ")\"\(watch10)\": []}}"
 }
 
-private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJSON()) -> FakeRunner {
+private let xcodeSelect = "/usr/bin/xcode-select"
+private let goneMessage = "Ese entorno de simulador ya lo usa algún simulador o ya no está."
+
+/// Carpeta «Developer» de un Xcode de prueba (existe de verdad: la puerta lo comprueba).
+private let developerDir: String = {
+    let path = tempHome() + "/Xcode.app/Contents/Developer"
+    try! FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+    return path
+}()
+
+/// Home temporal con `~/Library/Developer/CoreSimulator` (la puerta de `SimulatorRuntimeSource`).
+private func simulatorHome() -> String {
+    let home = tempHome()
+    try! FileManager.default.createDirectory(atPath: home + "/Library/Developer/CoreSimulator",
+                                             withIntermediateDirectories: true)
+    return home
+}
+
+private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJSON(),
+                    runtimeStatus: Int32 = 0, select: CommandOutput? = nil) -> FakeRunner {
     let ok = { (s: String) in CommandOutput(status: 0, stdout: s, stderr: "") }
-    return FakeRunner(resolved: ["xcrun": xcrun], outputs: [
-        "\(xcrun) simctl runtime list -j": ok(runtimes),
+    return FakeRunner(resolved: ["xcrun": xcrun, "xcode-select": xcodeSelect], outputs: [
+        "\(xcodeSelect) -p": select ?? ok(developerDir + "\n"),
+        "\(xcrun) simctl runtime list -j": CommandOutput(status: runtimeStatus, stdout: runtimes, stderr: ""),
         "\(xcrun) simctl list devices -j": ok(devices),
     ])
 }
@@ -154,7 +174,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
             #expect(v.risk == .doNotTouch && !v.preselected, "\(id)")
         }
         // Lo que no se regenera o tarda en volver se queda en ámbar sin marcar.
-        for id in ["gradle-caches", "jetbrains-caches", "xcode-orphan-runtimes", "xcode-archives"] {
+        for id in ["gradle-caches", "jetbrains-caches", "xcode-orphan-runtimes", "xcode-archives", "dart-pub-cache"] {
             let v = try verdict(id)
             #expect(v.risk == .yourCall && !v.preselected, "\(id)")
         }
@@ -224,7 +244,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
             "bundler-cache": (.safe, nil, true, ["bundle", "bundler"]),
             "composer-cache": (.safe, nil, true, ["composer"]), "gradle-caches": (.yourCall, nil, true, ["gradle"]),
             "swiftpm-cache": (.safe, nil, true, ["swift-build", "swift-package"]),
-            "cocoapods-cache": (.safe, nil, true, ["pod"]), "dart-pub-cache": (.yourCall, .safe, true, ["dart", "flutter"]),
+            "cocoapods-cache": (.safe, nil, true, ["pod"]), "dart-pub-cache": (.yourCall, nil, true, ["dart", "flutter"]),
             "electron-cache": (.safe, nil, true, []), "node-gyp-cache": (.safe, nil, true, []),
             "prisma-cache": (.safe, nil, true, []), "terraform-plugins": (.safe, nil, true, ["terraform"]),
             "expo-cache": (.safe, nil, true, ["expo"]), "android-build-cache": (.safe, nil, true, []),
@@ -259,7 +279,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         #expect(catalog.entry(id: "xcode-archives")?.cleanup == .info)
         #expect(catalog.entry(id: "expo-cache")?.except == ["state.json"])
         #expect(catalog.entry(id: "gradle-caches")?.shortReason
-            == "Gradle tarda en volver a bajarlo todo y lo que compilas sin conexión deja de funcionar.")
+            == "Gradle tarda en volver a bajarlo todo y no podrás compilar sin conexión hasta entonces.")
         #expect(catalog.entry(id: "xcode-archives")?.reviewHint
             == "Bórralos desde Xcode › Window › Organizer: ahí ves cuáles ya subiste.")
     }
@@ -294,7 +314,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
 
     @Test func orphanRuntimeBecomesTargetedCommand() async throws {
         let catalog = try Catalog.bundled()
-        let home = tempHome()
+        let home = simulatorHome()
         let items = await scan(simctl(), home: home, catalog: catalog)
         let runtimes = items.filter { $0.entry.id == "xcode-orphan-runtimes" }
         #expect(runtimes.count == 1)
@@ -312,28 +332,30 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         }
         #expect(act.calls.last?.executable == xcrun)
         #expect(act.calls.last?.arguments == ["simctl", "runtime", "delete", r1])
+        // Directorio de trabajo neutro, nunca el heredado.
+        #expect(act.calls.last?.workingDirectory == "/")
         #expect(act.calls.filter { $0.arguments.contains("delete") }.count == 1)
     }
 
     @Test func runtimeWithNewDeviceIsRefusedAtAct() async throws {
         let catalog = try Catalog.bundled()
-        let home = tempHome()
+        let home = simulatorHome()
         let item = try #require(await scan(simctl(), home: home, catalog: catalog)
             .first { $0.entry.id == "xcode-orphan-runtimes" })
         let later = simctl(devices: devicesJSON(inUse: [ios17, ios18]))
         let outcome = await executor(later, home: home, catalog: catalog).execute(item)
-        #expect(outcome == .blocked(reason: "Ese runtime ya tiene simuladores o ya no está."))
+        #expect(outcome == .blocked(reason: goneMessage))
         #expect(!later.calls.contains { $0.arguments.contains("delete") })
 
         // Ya no aparece en la lista (lo borró Xcode) ⇒ también se rechaza.
         let gone = simctl(runtimes: "{}")
         #expect(await executor(gone, home: home, catalog: catalog).execute(item)
-            == .blocked(reason: "Ese runtime ya tiene simuladores o ya no está."))
+            == .blocked(reason: goneMessage))
         #expect(!gone.calls.contains { $0.arguments.contains("delete") })
     }
 
     @Test func malformedRuntimeIDIsDropped() async throws {
-        let items = await scan(simctl(runtimes: runtimeJSON("x; rm -rf ~")), home: tempHome(),
+        let items = await scan(simctl(runtimes: runtimeJSON("x; rm -rf ~")), home: simulatorHome(),
                                catalog: try Catalog.bundled())
         #expect(!items.contains { $0.entry.id == "xcode-orphan-runtimes" })
     }
@@ -343,33 +365,80 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         let entry = try #require(try Catalog.bundled().entry(id: "xcode-orphan-runtimes"))
         func discover(_ runner: FakeRunner) async -> [DiscoveredTarget] {
             await source.discover(entry, context: DiscoveryContext(
-                catalog: Catalog(entries: [entry]), home: tempHome(), runner: runner, processListing: NoProcesses(),
+                catalog: Catalog(entries: [entry]), home: simulatorHome(), runner: runner, processListing: NoProcesses(),
                 now: Date(), scan: nil))
         }
         #expect(await discover(FakeRunner()).isEmpty) // sin xcrun
         #expect(await discover(simctl(runtimes: "no es JSON")).isEmpty)
         #expect(await discover(simctl(devices: "[]")).isEmpty)
-        let failing = FakeRunner(resolved: ["xcrun": xcrun], outputs: [
-            "\(xcrun) simctl runtime list -j": CommandOutput(status: 1, stdout: runtimeJSON(), stderr: "error"),
-            "\(xcrun) simctl list devices -j": CommandOutput(status: 0, stdout: devicesJSON(), stderr: ""),
-        ])
-        #expect(await discover(failing).isEmpty)
+        #expect(await discover(simctl(runtimeStatus: 1)).isEmpty)
         // Las sondas son exactamente estas dos, y nunca se borra nada al detectar.
         let probe = simctl()
         let found = await discover(probe)
         #expect(found.map(\.idSuffix) == ["iOS 17.0"])
-        #expect(Set(probe.calls.map(\.arguments)) == [["simctl", "runtime", "list", "-j"],
+        #expect(Set(probe.calls.map(\.arguments)) == [["-p"], ["simctl", "runtime", "list", "-j"],
                                                        ["simctl", "list", "devices", "-j"]])
+    }
+
+    /// Sin CoreSimulator o sin Xcode no se lanza `xcrun` (en un Mac sin herramientas abriría el diálogo de
+    /// instalarlas, y con Xcode arranca CoreSimulatorService).
+    @Test func noXcodeMeansXcrunIsNeverLaunched() async throws {
+        let entry = try #require(try Catalog.bundled().entry(id: "xcode-orphan-runtimes"))
+        let source = SimulatorRuntimeSource(systemRoots: [])
+        func discover(_ runner: FakeRunner, home: String) async -> [DiscoveredTarget] {
+            await source.discover(entry, context: DiscoveryContext(
+                catalog: Catalog(entries: [entry]), home: home, runner: runner, processListing: NoProcesses(),
+                now: Date(), scan: nil))
+        }
+        // Sin carpeta de CoreSimulator: ni siquiera `xcode-select`.
+        let bare = simctl()
+        #expect(await discover(bare, home: tempHome()).isEmpty)
+        #expect(bare.calls.isEmpty)
+        #expect(!bare.resolveCalls.contains("xcrun"))
+        // `xcode-select -p` falla, o apunta a las Command Line Tools, o a una carpeta que no existe.
+        let fail = CommandOutput(status: 2, stdout: "", stderr: "xcode-select: error: unable to get active developer directory")
+        let clt = CommandOutput(status: 0, stdout: "/Library/Developer/CommandLineTools\n", stderr: "")
+        let missing = CommandOutput(status: 0, stdout: tempHome() + "/NoExiste.app/Contents/Developer\n", stderr: "")
+        for select in [fail, clt, missing] {
+            let runner = simctl(select: select)
+            #expect(await discover(runner, home: simulatorHome()).isEmpty)
+            #expect(runner.calls.map(\.executable) == [xcodeSelect])
+            #expect(!runner.resolveCalls.contains("xcrun"))
+        }
+        // Al actuar, la misma puerta: sin Xcode se rechaza sin lanzar `xcrun`.
+        let item = CleanupItem(id: "xcode-orphan-runtimes:iOS 17.0", entry: entry, paths: [], bytes: 1, risk: .yourCall,
+                               blockedByOpenApps: [], usedBy: [], targets: [r1])
+        let later = simctl(select: clt)
+        #expect(await source.revalidate(entry, item: item, context: DiscoveryContext(
+            catalog: Catalog(entries: [entry]), home: simulatorHome(), runner: later, processListing: NoProcesses(),
+            now: Date(), scan: nil)) == goneMessage)
+        #expect(!later.calls.contains { $0.executable == xcrun })
+    }
+
+    @Test func cleanupCommandsRunInANeutralDirectory() async throws {
+        let catalog = try Catalog.bundled()
+        let home = tempHome()
+        makeFolder(home + "/Library/Caches/Yarn")
+        let fake = FakeRunner(resolved: ["yarn": "/opt/homebrew/bin/yarn"])
+        let item = try #require(await scan(fake, home: home, catalog: catalog).first { $0.id == "yarn" })
+        guard case .freed = await executor(fake, home: home, catalog: catalog).execute(item) else {
+            Issue.record("esperaba .freed"); return
+        }
+        #expect(fake.calls.last?.arguments == ["cache", "clean"])
+        #expect(fake.calls.last?.workingDirectory == CleanupExecutor.commandWorkingDirectory)
+        #expect(CleanupExecutor.commandWorkingDirectory == "/")
     }
 
     @Test func expoKeepsStateJSON() async throws {
         let home = tempHome()
         makeFolder(home + "/.expo/cache")
         makeFolder(home + "/.expo/versions-cache")
+        makeFolder(home + "/.expo/codesigning") // credenciales de firma: no es caché
+        FileManager.default.createFile(atPath: home + "/.expo/settings.json", contents: Data(repeating: 3, count: 4096))
         FileManager.default.createFile(atPath: home + "/.expo/state.json", contents: Data(repeating: 2, count: 4096))
         let item = try #require(await scan(FakeRunner(), home: home, catalog: try Catalog.bundled())
             .first { $0.id == "expo-cache" })
         #expect(item.paths == [home + "/.expo/cache", home + "/.expo/versions-cache"])
-        #expect(!item.paths.contains { $0.hasSuffix("state.json") })
+        #expect(!item.paths.contains { $0.hasSuffix("state.json") || $0.hasSuffix("settings.json") })
     }
 }
