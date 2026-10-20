@@ -48,6 +48,14 @@ final class AssistantSession {
     @ObservationIgnored private var cached: (key: String, context: String, paths: [String])?
     @ObservationIgnored private let home = NSHomeDirectory()
 
+    init() {
+        // Con AIRY_SUPPORT_DIR (DEBUG) no se toca el UserDefaults real.
+        if AppPaths.standard().legacySupport != nil {
+            _ = DataMigration.migrateDefaults(from: UserDefaults(suiteName: AppPaths.legacyBundleID),
+                                              to: .standard, keys: [Self.claudePathKey])
+        }
+    }
+
     var isReportLoading: Bool { if case .loading = report { true } else { false } }
 
     /// Ruta elegida en "Elegir ejecutable…" (`UserDefaults` `claudePath`).
