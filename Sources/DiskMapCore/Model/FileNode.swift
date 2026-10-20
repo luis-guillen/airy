@@ -31,6 +31,15 @@ public enum Risk: Int, Codable, Comparable, Sendable {
         }
     }
 
+    /// Etiqueta corta del semáforo.
+    public var label: String {
+        switch self {
+        case .safe: "Sin problema"
+        case .yourCall: "Tú decides"
+        case .doNotTouch: "No borrar"
+        }
+    }
+
     public static func < (a: Risk, b: Risk) -> Bool { a.rawValue < b.rawValue }
 
     /// Devuelve el riesgo más estricto de los dos.

@@ -5,7 +5,7 @@ import Foundation
 public struct CleanupBoard: Sendable {
     public struct Group: Sendable, Identifiable {
         public let risk: Risk
-        /// Ordenados de mayor a menor tamaño (empates por id, para un orden estable).
+        /// Primero los destacados por perfil; luego de mayor a menor tamaño (empates por id, para un orden estable).
         public let items: [CleanupItem]
         public var id: Risk { risk }
         public var title: String { risk.title }
@@ -20,7 +20,10 @@ public struct CleanupBoard: Sendable {
         let visible = items.filter { !hidden.contains($0.id) }
         groups = [Risk.safe, .yourCall, .doNotTouch].compactMap { risk in
             let members = visible.filter { $0.risk == risk }
-                .sorted { ($0.bytes, $1.id) > ($1.bytes, $0.id) }
+                .sorted { a, b in
+                    if a.highlighted != b.highlighted { return a.highlighted }
+                    return (a.bytes, b.id) > (b.bytes, a.id)
+                }
             return members.isEmpty ? nil : Group(risk: risk, items: members)
         }
     }
@@ -69,16 +72,18 @@ public struct CleanupBoard: Sendable {
 
     // MARK: Selección
 
-    /// Tiene casilla si Airy puede actuar sobre él: ni "No tocar" ni solo informativo.
+    /// Tiene casilla si Airy puede actuar sobre él: ni "No tocar", ni protegido, ni solo informativo.
     public static func showsCheckbox(_ item: CleanupItem) -> Bool {
-        guard item.risk != .doNotTouch, item.entry.risk != .doNotTouch else { return false }
+        guard item.risk != .doNotTouch, item.entry.risk != .doNotTouch, item.protection == nil else { return false }
         if case .info = item.entry.cleanup { return false }
         return true
     }
 
-    /// Se puede marcar ahora: con casilla, sin apps abiertas que lo bloqueen y sin proyectos que lo usen.
+    /// Se puede marcar ahora: con casilla, sin apps abiertas que lo bloqueen, sin proyectos que lo usen,
+    /// sin protección y sin otro bloqueo.
     public static func canSelect(_ item: CleanupItem) -> Bool {
         showsCheckbox(item) && item.blockedByOpenApps.isEmpty && item.usedBy.isEmpty
+            && item.protection == nil && item.blockedReason == nil
     }
 
     /// Los marcados que siguen siendo válidos, en el orden de la pantalla.
