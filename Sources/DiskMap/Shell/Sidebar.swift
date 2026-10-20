@@ -162,8 +162,8 @@ private struct VolumePicker: View {
 
 private struct DiskCard: View {
     @Environment(AppModel.self) private var model
-    @ViewState private var confirmingEmpty = false
-    @ViewState private var emptying = false
+    /// Opcional: sin `CleanupFlow` en el entorno (vistas sueltas, vistas previas) no se cae; el botón queda inactivo.
+    @Environment(CleanupFlow.self) private var flow: CleanupFlow?
 
     var body: some View {
         let usage = model.diskUsage
@@ -217,11 +217,12 @@ private struct DiskCard: View {
                     }
 
                     // Activo también si no se puede leer: entonces lo vacía Finder.
+                    // La confirmación (qué, cuánto y el aviso de Finder) la abre `CleanupFlow`.
                     PrimaryButton("Vaciar Papelera", systemImage: "trash.slash", style: .secondary,
-                                  isBusy: emptying) {
-                        confirmingEmpty = true
+                                  isBusy: flow?.isEmptyingTrash ?? false) {
+                        flow?.requestEmptyTrash(model)
                     }
-                    .disabled(model.trashBytes == 0)
+                    .disabled(flow == nil || model.trashBytes == 0 || flow?.isRunning == true)
 
                     HStack(spacing: 6) {
                         Image(systemName: "leaf.fill")
@@ -237,23 +238,6 @@ private struct DiskCard: View {
                     }
                     .font(.callout)
                 }
-            }
-        }
-        .confirmationDialog("¿Vaciar la Papelera?", isPresented: $confirmingEmpty) {
-            Button(model.trashBytes.map { "Vaciar Papelera (\(Format.bytes($0)))" } ?? "Vaciar con Finder",
-                   role: .destructive) {
-                emptying = true
-                Task {
-                    await model.emptyTrash()
-                    emptying = false
-                }
-            }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            if let trash = model.trashBytes {
-                Text("Se borrarán definitivamente \(Format.bytes(trash)). No se puede deshacer. Si DiskMap no puede leer la Papelera, se la pedirá a Finder, que vacía también la de los discos externos.")
-            } else {
-                Text("DiskMap no puede leer la Papelera, así que no sabe cuánto ocupa. Se la pedirá a Finder, que la vacía definitivamente en todos los discos, también los externos. No se puede deshacer.")
             }
         }
     }
