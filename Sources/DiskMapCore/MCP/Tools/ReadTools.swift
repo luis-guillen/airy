@@ -246,7 +246,9 @@ public struct ListCleanupItemsTool: MCPTool {
     public var name: String { "list_cleanup_items" }
     public var description: String {
         "Lista las limpiezas que Airy detecta ahora en este Mac, en el orden de la pantalla Limpieza, con su riesgo, "
-            + "tamaño, método y si un agente puede ejecutarla (`actionable_by_agent`: solo «Borrar sin riesgo» sin bloqueo)."
+            + "tamaño, método y si un agente puede ejecutarla (`actionable_by_agent`: solo «Sin problema» sin bloqueo). "
+            + "Cada elemento trae `verdict` (la etiqueta), `why` (por qué) y `short_reason` (qué pierdes), y `review_only` "
+            + "marca los de «Solo revisar», que Airy no borra."
     }
     public var inputSchema: JSONValue { objectSchema() }
     public var annotations: MCPToolAnnotations { readOnly }
@@ -258,10 +260,13 @@ public struct ListCleanupItemsTool: MCPTool {
         }
         let tree = MCPFormat.loadIndex(env).scan?.root
         let board = CleanupBoard(items: await scanner.findItems(scan: tree))
-        let rows: [JSONValue] = board.items.map { item in
+        let rows: [JSONValue] = board.displayItems.map { item in
             var verdict = classifier.classify(entry: item.entry, paths: item.paths)
             verdict.risk = .strictest(verdict.risk, item.risk)
             verdict.protection = item.protection ?? verdict.protection
+            var shown = item // el riesgo y la protección que decide el clasificador vivo
+            shown.risk = verdict.risk
+            shown.protection = verdict.protection
             let method: String, command: JSONValue
             switch item.entry.cleanup {
             case .trash: method = "trash"; command = .null
@@ -279,6 +284,15 @@ public struct ListCleanupItemsTool: MCPTool {
                 "blocked_reason": MCPFormat.optional(item.blockedReason),
                 "preselected": .bool(item.preselected), "highlighted": .bool(item.highlighted),
                 "actionable_by_agent": .bool(verdict.risk == .safe && CleanupBoard.canSelect(item)),
+                "review_only": .bool(CleanupBoard.isReviewOnly(item)),
+                "details": .array(item.details.map { .string($0) }),
+                "size_note": MCPFormat.optional(item.sizeNote),
+                "size_partial": .bool(item.sizeIsPartial),
+                "verdict": .string(verdict.risk.label),
+                "short_reason": MCPFormat.optional(item.entry.shortReason.map {
+                    RiskExplanation.expand($0, bytes: item.bytes)
+                }),
+                "why": .string(RiskExplanation.why(shown, home: env.home)),
             ]
             row.merge(MCPFormat.risk(verdict)) { $1 }
             return .object(row)
