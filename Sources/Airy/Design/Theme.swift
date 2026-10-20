@@ -29,26 +29,18 @@ enum Theme {
 
     // MARK: - Paleta por tipo (mismo tono en oscuro y claro)
 
-    static func color(for kind: ContentKind) -> Color {
-        switch kind {
-        case .video: Color(hex: 0xFF375F)
-        case .images: Color(hex: 0xFF9F0A)
-        case .apps: Color(hex: 0xBF5AF2)
-        case .code: Color(hex: 0x0A84FF)
-        case .caches: Color(hex: 0x30D158)
-        case .aiModels: Color(hex: 0x64D2FF)
-        case .containers: Color(hex: 0x5E5CE6)
-        case .documents: Color(hex: 0xFFD60A)
-        case .system: Color(hex: 0x8E8E93)
-        case .other: Color(hex: 0xAC8E68)
-        }
-    }
+    static func color(for kind: ContentKind) -> Color { Color(hex: AiryPalette.kind(kind)) }
 
     /// Degradado sutil (más claro arriba) para bloques y segmentos del tipo.
     static func gradient(for kind: ContentKind) -> LinearGradient {
         let base = color(for: kind)
         return LinearGradient(colors: [base.mix(with: .white, by: 0.18), base],
                               startPoint: .top, endPoint: .bottom)
+    }
+
+    /// Tinta AA del tipo para texto e iconos en primer plano (el color puro solo sirve de relleno).
+    static func ink(for kind: ContentKind) -> Color {
+        Airy.dynamic(dark: AiryPalette.kindInk(kind, .dark), light: AiryPalette.kindInk(kind, .light))
     }
 
     static func symbol(for kind: ContentKind) -> String {
@@ -68,13 +60,9 @@ enum Theme {
 
     // MARK: - Riesgo
 
-    static func color(for risk: Risk) -> Color {
-        switch risk {
-        case .safe: Color(hex: 0x30D158)
-        case .yourCall: Color(hex: 0xFF9F0A)
-        case .doNotTouch: Color(hex: 0xFF453A)
-        }
-    }
+    /// Color fijo de la señal de seguridad: fondos y rellenos grandes. Para texto, iconos, puntos
+    /// y anillos en primer plano, `Theme.Airy.riskInk(_:)` (contraste AA también en modo claro).
+    static func color(for risk: Risk) -> Color { Airy.riskFill(risk) }
 
     static func symbol(for risk: Risk) -> String {
         switch risk {
@@ -87,16 +75,14 @@ enum Theme {
     // MARK: - Disco
 
     /// "Analizado" en el anillo de uso del disco.
-    static let userFiles = LinearGradient(colors: [Color(hex: 0x64D2FF), Color(hex: 0x0A84FF)],
-                                          startPoint: .topLeading, endPoint: .bottomTrailing)
-    static let userFilesColor = Color(hex: 0x0A84FF)
+    static let userFiles = Airy.logoGradient
+    static let userFilesColor = Airy.accent
     /// "Sistema y otros".
-    static let systemColor = Color(hex: 0x8E8E93)
+    static let systemColor = Color(hex: AiryPalette.kind(.system))
     /// "Purgable": lo que macOS libera solo cuando hace falta.
-    static let purgeableColor = Color(hex: 0xC7C7CC)
+    static let purgeableColor = Color(hex: 0x9fb3d9)
     /// Acento de marca: los botones principales y el progreso del análisis.
-    static let brand = LinearGradient(colors: [Color(hex: 0x64D2FF), Color(hex: 0x0A84FF), Color(hex: 0x5E5CE6)],
-                                      startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let brand = Airy.accentGradient
 
     // MARK: - Medidas
 
@@ -116,6 +102,61 @@ enum Theme {
 
     static func count(_ value: Int) -> String {
         value.formatted(.number.locale(locale))
+    }
+}
+
+// MARK: - Theme.Airy
+
+extension Theme {
+    /// Paleta de marca. Los colores dinámicos siguen la apariencia efectiva (oscuro/claro) de la vista.
+    enum Airy {
+        private static func dynamic(_ pick: @escaping (AiryTokens) -> UInt32) -> Color {
+            dynamic(dark: pick(AiryPalette.tokens(.dark)), light: pick(AiryPalette.tokens(.light)))
+        }
+
+        fileprivate static func dynamic(dark: UInt32, light: UInt32) -> Color {
+            Color(nsColor: NSColor(name: nil) { appearance in
+                let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                return NSColor(Color(hex: isDark ? dark : light))
+            })
+        }
+
+        static let background = dynamic(\.background)
+        static let backgroundRaised = dynamic(\.backgroundRaised)
+        static let text = dynamic(\.text)
+        static let textSecondary = dynamic(\.textSecondary)
+        static let accent = dynamic(\.accent)
+        static let sky = dynamic(\.sky)
+        static let accentFill = dynamic(\.accentFill)
+        static let onAccent = dynamic(\.onAccent)
+
+        static let logoTop = Color(hex: AiryPalette.logoTop)
+        static let logoBottom = Color(hex: AiryPalette.logoBottom)
+        /// Noche fija: tinta sobre fondos de señal claros (ámbar, verde).
+        static let night = Color(hex: 0x07112a)
+        static let leafSky = Color(hex: AiryPalette.leafSky)
+        static let destructiveTop = Color(hex: AiryPalette.destructiveTop)
+        static let destructiveBottom = Color(hex: AiryPalette.destructiveBottom)
+
+        static let accentGradient = LinearGradient(colors: [accentFill, logoBottom],
+                                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+        static let destructiveGradient = LinearGradient(colors: [destructiveTop, destructiveBottom],
+                                                        startPoint: .topLeading, endPoint: .bottomTrailing)
+        static let logoGradient = LinearGradient(colors: [logoTop, logoBottom],
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing)
+
+        /// Tinte del remolino de Rendimiento: azul de marca que se calienta con la temperatura.
+        static func swirlTint(_ state: ProcessInfo.ThermalState) -> Color {
+            Color(hex: AiryPalette.swirlTint(heat: WindMotion.heat(for: state)))
+        }
+
+        /// Señal de seguridad fija: solo fondos y rellenos grandes (y primer plano en oscuro).
+        static func riskFill(_ risk: Risk) -> Color { Color(hex: AiryPalette.riskFill(risk)) }
+
+        /// Tinta de riesgo para texto, iconos, puntos y anillos: AA sobre el fondo de cada modo.
+        static func riskInk(_ risk: Risk) -> Color {
+            dynamic(dark: AiryPalette.riskInk(risk, .dark), light: AiryPalette.riskInk(risk, .light))
+        }
     }
 }
 

@@ -6,34 +6,53 @@ struct Sidebar: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        List(selection: selection) {
-            SwiftUI.Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                brand
+                    .padding(.horizontal, -10)
+                    .padding(.top, 34)
+                    .padding(.bottom, 6)
                 ForEach(Section.available) { section in
-                    Label(section.title, systemImage: section.symbol)
-                        .tag(section)
+                    SidebarRow(section: section, selected: model.section == section) { select(section) }
                 }
-            }
 
-            SwiftUI.Section("Próximamente") {
+                Text("Próximamente")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 18)
+                    .padding(.bottom, 4)
+
                 ForEach(Section.comingSoon) { section in
                     HStack {
                         Label(section.title, systemImage: section.symbol)
-                        Spacer()
-                        Text("Próximamente")
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.quaternary.opacity(0.5), in: Capsule())
+                        Spacer(minLength: 0)
                     }
                     .foregroundStyle(.tertiary)
-                    .selectionDisabled()
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
                     .help("Llegará en la fase 2")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityHint("Próximamente")
+                    .accessibilityAddTraits(.isStaticText)
+                    .disabled(true)
                 }
             }
+            .padding(.horizontal, 10)
         }
-        .listStyle(.sidebar)
-        .safeAreaInset(edge: .top, spacing: 0) { brand }
+        .ignoresSafeArea(.container, edges: .top)
+        .focusable()
+        .focusEffectDisabled()
+        .onMoveCommand { direction in
+            let sections = Section.available
+            guard let index = sections.firstIndex(of: model.section) else { return }
+            switch direction {
+            case .up where index > 0: select(sections[index - 1])
+            case .down where index < sections.count - 1: select(sections[index + 1])
+            default: break
+            }
+        }
+        .background(Theme.Airy.backgroundRaised)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 VolumePicker()
@@ -47,18 +66,14 @@ struct Sidebar: View {
     }
 
     /// Las secciones de la fase 2 no se pueden elegir.
-    private var selection: Binding<Section?> {
-        Binding(
-            get: { model.section },
-            set: { newValue in
-                guard let newValue, newValue.isAvailable, newValue != model.section else { return }
-                withAnimation(Theme.sectionSpring) { model.section = newValue }
-            })
+    private func select(_ section: Section) {
+        guard section.isAvailable, section != model.section else { return }
+        withAnimation(Theme.sectionSpring) { model.section = section }
     }
 
     private var brand: some View {
         HStack(spacing: 10) {
-            AppGlyph(size: 26)
+            AiryLogo(size: 26, animated: true)
             Text("Airy")
                 .font(.system(.title3, design: .rounded, weight: .bold))
             Spacer()
@@ -69,32 +84,32 @@ struct Sidebar: View {
     }
 }
 
-/// Pequeño logotipo de bloques del treemap con los colores de la paleta.
-struct AppGlyph: View {
-    var size: CGFloat = 26
+// MARK: - Fila de sección
+
+/// Fila de la barra lateral con selección propia en azul Airy (la de `List` usa el acento del sistema).
+private struct SidebarRow: View {
+    let section: Section
+    let selected: Bool
+    var action: () -> Void
+    @ViewState private var hovering = false
 
     var body: some View {
-        let gap = size * 0.07
-        let radius = size * 0.12
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex: 0x1C1C2E), Color(hex: 0x2C2C44)],
-                                     startPoint: .top, endPoint: .bottom))
-            HStack(spacing: gap) {
-                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .code))
-                    .frame(width: size * 0.38)
-                VStack(spacing: gap) {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .video))
-                    HStack(spacing: gap) {
-                        RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .caches))
-                        RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .images))
-                    }
+        Button(action: action) {
+            Label(section.title, systemImage: section.symbol)
+                .foregroundStyle(selected ? Theme.Airy.onAccent : Theme.Airy.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(selected ? AnyShapeStyle(Theme.Airy.accentFill)
+                                       : AnyShapeStyle(Theme.Airy.accent.opacity(hovering ? 0.12 : 0)))
                 }
-            }
-            .padding(size * 0.16)
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .frame(width: size, height: size)
-        .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -232,7 +247,7 @@ private struct DiskCard: View {
 
                     HStack(spacing: 6) {
                         Image(systemName: "leaf.fill")
-                            .foregroundStyle(Theme.color(for: .caches))
+                            .foregroundStyle(Theme.Airy.riskInk(.safe))
                         Text("Liberado en total:")
                             .foregroundStyle(.secondary)
                         if model.totalFreedKnown {

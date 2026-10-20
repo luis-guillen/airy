@@ -38,6 +38,7 @@ struct KindLegend: View {
             Circle()
                 .fill(Theme.gradient(for: kind))
                 .frame(width: 9, height: 9)
+                .overlay(Circle().strokeBorder(Theme.ink(for: kind), lineWidth: 1))
                 .shadow(color: Theme.color(for: kind).opacity(active ? 0.7 : 0), radius: 4)
             Text(kind.title)
                 .font(.callout.weight(.medium))

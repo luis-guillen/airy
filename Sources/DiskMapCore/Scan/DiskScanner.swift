@@ -39,25 +39,40 @@ public struct ScanResult: Sendable {
     public let root: FileNode
     public let inaccessible: [String]
     public let duration: TimeInterval
+    /// Cuándo terminó el análisis completo que produjo el árbol. Volver a guardar el árbol tras
+    /// una limpieza o la Papelera no lo cambia. `nil`: no se sabe (índice de antes de guardarla).
+    public let scannedAt: Date?
 
-    public init(root: FileNode, inaccessible: [String], duration: TimeInterval) {
+    public init(root: FileNode, inaccessible: [String], duration: TimeInterval, scannedAt: Date? = nil) {
         self.root = root
         self.inaccessible = inaccessible
         self.duration = duration
+        self.scannedAt = scannedAt
     }
 }
 
 /// Escáner paralelo: `opendir/readdir` + `fstatat` sin seguir enlaces, tamaño asignado
 /// (`st_blocks * 512`), hard links contados una vez y sin cruzar a otros volúmenes.
+///
+/// El trabajo lo hacen `budget.workers` hilos propios con la QoS del presupuesto (nunca el pool
+/// cooperativo entero): una pila compartida de carpetas por leer y cada carpeta se cierra cuando
+/// llega su última subcarpeta. Así un análisis no puede ocupar más núcleos que los que se le dan.
 public final class DiskScanner: Sendable {
     public let options: ScanOptions
-    private let width = ProcessInfo.processInfo.activeProcessorCount * 2
+    public let budget: ScanBudget
 
-    public init(options: ScanOptions) {
+    public init(options: ScanOptions, budget: ScanBudget) {
         self.options = options
+        self.budget = budget
     }
 
-    /// Cancelable con `Task.cancel()` (lanza `CancellationError`). `progress` se llama como máximo cada 100 ms.
+    /// El presupuesto se calcula ahora con el estado del Mac (Bajo consumo, temperatura).
+    public convenience init(options: ScanOptions, intensity: ScanIntensity = .normal) {
+        self.init(options: options, budget: .current(intensity))
+    }
+
+    /// Cancelable con `Task.cancel()` (lanza `CancellationError`). `progress` se llama como máximo
+    /// cada 100 ms, desde los hilos del escáner.
     public func scan(progress: @escaping @Sendable (ScanProgress) -> Void) async throws -> ScanResult {
         let clock = ContinuousClock()
         let start = clock.now
@@ -81,14 +96,12 @@ public final class DiskScanner: Sendable {
                 device: info.st_dev,
                 excluded: excluded.filter { !Self.path(rootPath, isInside: $0) },
                 otherRoots: Set(rootPaths).subtracting([rootPath]),
-                threshold: options.pruneThreshold,
-                width: width,
                 shared: shared
             )
             let entry = DirectoryEntry(
                 path: rootPath, name: rootPath,
                 ownSize: Int64(info.st_blocks) * 512, modified: Self.date(info.st_mtimespec))
-            nodes.append(await scanDirectory(entry, context))
+            nodes.append(await scanTree(entry, context))
             try Task.checkCancellation()
         }
         try Task.checkCancellation()
@@ -96,16 +109,66 @@ public final class DiskScanner: Sendable {
         let root = nodes.count == 1 ? nodes[0] : Self.combine(nodes)
         let elapsed = clock.now - start
         let duration = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
-        return ScanResult(root: root, inaccessible: shared.inaccessibleSorted(), duration: duration)
+        return ScanResult(root: root, inaccessible: shared.inaccessibleSorted(), duration: duration, scannedAt: Date())
     }
 
     // MARK: - Recorrido
 
-    private func scanDirectory(_ directory: DirectoryEntry, _ context: ScanContext) async -> FileNode {
-        guard !Task.isCancelled else { return close(directory, children: [], context) }
+    /// Recorre una raíz con los hilos del presupuesto y devuelve su nodo cerrado. Sin bloquear
+    /// el pool cooperativo: la tarea espera en una continuación.
+    private func scanTree(_ root: DirectoryEntry, _ context: ScanContext) async -> FileNode {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<FileNode, Never>) in
+                let queue = WorkQueue { continuation.resume(returning: $0) }
+                queue.push([Job(entry: root, parent: nil)])
+                for index in 0..<max(1, budget.workers) {
+                    let thread = Thread { [self] in
+                        while let job = queue.next() { process(job, context, queue) }
+                    }
+                    thread.name = "Airy scan \(index)"
+                    thread.qualityOfService = budget.qos
+                    thread.start()
+                }
+            }
+        } onCancel: {
+            context.shared.cancel()
+        }
+    }
+
+    /// Lee una carpeta: si no tiene subcarpetas se cierra ya; si no, deja sus subcarpetas en la pila.
+    private func process(_ job: Job, _ context: ScanContext, _ queue: WorkQueue) {
+        // Cancelado: lo que queda se cierra vacío sin tocar el disco (el resultado se descarta).
+        guard !context.shared.isCancelled else {
+            deliver(close(job.entry, children: []), to: job.parent, queue)
+            return
+        }
+        let (files, subdirectories) = read(job.entry, context)
+        guard !subdirectories.isEmpty else {
+            deliver(close(job.entry, children: files), to: job.parent, queue)
+            return
+        }
+        let pending = PendingDirectory(entry: job.entry, children: files,
+                                       remaining: subdirectories.count, parent: job.parent)
+        queue.push(subdirectories.map { Job(entry: $0, parent: pending) })
+    }
+
+    /// Entrega un nodo cerrado a su padre; el último hijo en llegar cierra al padre, y así hacia
+    /// arriba. Cerrar la raíz termina el recorrido.
+    private func deliver(_ node: FileNode, to parent: PendingDirectory?, _ queue: WorkQueue) {
+        var node = node
+        var parent = parent
+        while let current = parent {
+            guard let children = queue.attach(node, to: current) else { return }
+            node = close(current.entry, children: children)
+            parent = current.parent
+        }
+        queue.finish(node)
+    }
+
+    private func read(_ directory: DirectoryEntry, _ context: ScanContext) -> ([FileNode], [DirectoryEntry]) {
         guard let handle = opendir(directory.path) else {
             context.shared.markInaccessible(directory.path)
-            return close(directory, children: [], context)
+            return ([], [])
         }
 
         var children: [FileNode] = []
@@ -140,26 +203,7 @@ public final class DiskScanner: Sendable {
         }
         closedir(handle)
         context.shared.record(files: children.count, bytes: fileBytes, path: directory.path)
-
-        let width = context.width
-        let scannedDirectories = await withTaskGroup(of: FileNode.self, returning: [FileNode].self) { group in
-            var pending = subdirectories.makeIterator()
-            for _ in 0..<width {
-                guard let next = pending.next() else { break }
-                group.addTask { await self.scanDirectory(next, context) }
-            }
-            var results: [FileNode] = []
-            results.reserveCapacity(subdirectories.count)
-            while let node = await group.next() {
-                results.append(node)
-                if let next = pending.next() {
-                    group.addTask { await self.scanDirectory(next, context) }
-                }
-            }
-            return results
-        }
-        children.append(contentsOf: scannedDirectories)
-        return close(directory, children: children, context)
+        return (children, subdirectories)
     }
 
     private func makeFile(name: String, directory: String, info: stat, shared: SharedScanState) -> FileNode {
@@ -177,7 +221,7 @@ public final class DiskScanner: Sendable {
     }
 
     /// Cierra una carpeta: suma tamaños y tipos, decide su `kind` y agrupa los hijos pequeños.
-    private func close(_ directory: DirectoryEntry, children: [FileNode], _ context: ScanContext) -> FileNode {
+    private func close(_ directory: DirectoryEntry, children: [FileNode]) -> FileNode {
         let folderKind = FileKindClassifier.kind(forDirectoryPath: directory.path)
         var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
         kindBytes[(folderKind ?? .other).index] = directory.ownSize
@@ -195,7 +239,7 @@ public final class DiskScanner: Sendable {
         let node = FileNode(
             name: directory.name, isDirectory: true,
             allocatedSize: kindBytes.reduce(0, +), lastModified: directory.modified,
-            kindBytes: kindBytes, children: Self.pruned(children, below: context.threshold),
+            kindBytes: kindBytes, children: Self.pruned(children, below: options.pruneThreshold),
             descendantCount: descendants)
         node.kind = folderKind ?? node.dominantKind
         return node
@@ -281,12 +325,80 @@ private struct ScanContext: Sendable {
     let device: dev_t
     let excluded: Set<String>
     let otherRoots: Set<String>
-    let threshold: Int64
-    let width: Int
     let shared: SharedScanState
 }
 
-/// Estado mutable compartido entre tareas, protegido por `Mutex`.
+/// Carpeta leída que espera a sus subcarpetas. Sus campos variables solo se tocan con el
+/// cerrojo de `WorkQueue` (`attach`).
+private final class PendingDirectory: @unchecked Sendable {
+    let entry: DirectoryEntry
+    let parent: PendingDirectory?
+    var children: [FileNode]
+    var remaining: Int
+
+    init(entry: DirectoryEntry, children: [FileNode], remaining: Int, parent: PendingDirectory?) {
+        self.entry = entry
+        self.children = children
+        self.remaining = remaining
+        self.parent = parent
+    }
+}
+
+private struct Job: Sendable {
+    let entry: DirectoryEntry
+    let parent: PendingDirectory?
+}
+
+/// Pila de carpetas por leer que comparten los hilos del escáner (LIFO: el recorrido va en
+/// profundidad y las carpetas a medias no se acumulan). Todo su estado va bajo `condition`.
+private final class WorkQueue: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var jobs: [Job] = []
+    private var finished = false
+    private let onFinish: @Sendable (FileNode) -> Void
+
+    init(onFinish: @escaping @Sendable (FileNode) -> Void) {
+        self.onFinish = onFinish
+    }
+
+    func push(_ new: [Job]) {
+        condition.lock()
+        jobs.append(contentsOf: new)
+        if new.count == 1 { condition.signal() } else { condition.broadcast() }
+        condition.unlock()
+    }
+
+    /// Espera trabajo; `nil` cuando la raíz ya se cerró (el hilo termina).
+    func next() -> Job? {
+        condition.lock()
+        defer { condition.unlock() }
+        while jobs.isEmpty, !finished { condition.wait() }
+        // La raíz solo se cierra cuando ya se entregó todo: con `finished` la pila está vacía.
+        return jobs.popLast()
+    }
+
+    /// Añade un hijo cerrado; devuelve los hijos del padre si era el último que faltaba.
+    func attach(_ node: FileNode, to parent: PendingDirectory) -> [FileNode]? {
+        condition.lock()
+        defer { condition.unlock() }
+        parent.children.append(node)
+        parent.remaining -= 1
+        guard parent.remaining == 0 else { return nil }
+        let children = parent.children
+        parent.children = []
+        return children
+    }
+
+    func finish(_ root: FileNode) {
+        condition.lock()
+        finished = true
+        condition.broadcast()
+        condition.unlock()
+        onFinish(root)
+    }
+}
+
+/// Estado mutable compartido entre hilos, protegido por `Mutex`.
 private final class SharedScanState: Sendable {
     private struct HardLinkKey: Hashable {
         let device: dev_t
@@ -299,15 +411,21 @@ private final class SharedScanState: Sendable {
         var lastReport: ContinuousClock.Instant
     }
 
+    private let cancelled = Mutex(false)
     private let hardLinks = Mutex<Set<HardLinkKey>>([])
     private let inaccessible = Mutex<[String]>([])
     private let progress: Mutex<Progress>
     private let report: @Sendable (ScanProgress) -> Void
 
     init(start: ContinuousClock.Instant, report: @escaping @Sendable (ScanProgress) -> Void) {
-        progress = Mutex(Progress(lastReport: start))
+        // El primer aviso sale enseguida; luego, como mucho cada 100 ms.
+        progress = Mutex(Progress(lastReport: start - .milliseconds(100)))
         self.report = report
     }
+
+    var isCancelled: Bool { cancelled.withLock { $0 } }
+
+    func cancel() { cancelled.withLock { $0 = true } }
 
     /// `true` la primera vez que se ve el par (dispositivo, inodo).
     func claimHardLink(device: dev_t, inode: ino_t) -> Bool {

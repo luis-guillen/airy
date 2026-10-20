@@ -146,7 +146,7 @@ final class AppModel {
     var selectedVolume: URL = URL(fileURLWithPath: "/") {
         didSet {
             guard oldValue != selectedVolume else { return }
-            startScan()
+            startScan(.automatic)
         }
     }
 
@@ -329,7 +329,7 @@ final class AppModel {
         switch pending.command {
         case .rescan:
             section = .map
-            if !isScanning { startScan() }
+            if !isScanning { startScan(.agent) }
         case .show(let path):
             section = .map
             guard await waitUntil({ $0.scan != nil }) else { return }
@@ -411,13 +411,24 @@ final class AppModel {
 
     /// Muestra al instante el índice guardado del volumen elegido, lo reanaliza en segundo
     /// plano con progreso, lo guarda y actualiza la limpieza. Cancela cualquier análisis anterior.
-    func startScan() {
+    /// Al abrir (`.automatic`) un índice de menos de 6 h no se reanaliza; los automáticos y los
+    /// de un agente van con intensidad `background` (ver `ScanSchedule` y `ScanBudget`).
+    func startScan(_ trigger: ScanTrigger = .user) {
         scanTask?.cancel()
         scanGeneration += 1
         let generation = scanGeneration
         dismiss(.scan)
         progress = nil
         isScanning = true
+        #if DEBUG
+        if DebugSnapshot.previewsScan {
+            // Solo la pantalla: nada se lee ni se analiza ni se guarda.
+            scan = nil
+            progress = ScanProgress(filesScanned: 184_302, bytesScanned: 61_000_000_000,
+                                    currentPath: "/Users/Shared/Ejemplo/Biblioteca/Fotos")
+            return
+        }
+        #endif
 
         // Llega como mucho cada 100 ms desde los hilos del escáner.
         let onProgress: @Sendable (ScanProgress) -> Void = { [weak self] snapshot in
@@ -435,9 +446,11 @@ final class AppModel {
             let store = self.store(for: volume)
 
             // 1. Índice guardado, leído fuera del hilo principal.
+            let expectedRoot = Self.expectedRootName(for: volume)
             let stored = await Task.detached(priority: .userInitiated) { () -> (ScanResult, Date?)? in
-                guard let result = try? store.loadScan(), result.root.name == volume.url.path else { return nil }
-                return (result, try? store.lastScanDate())
+                guard let result = try? store.loadScan(), result.root.name == expectedRoot else { return nil }
+                // La fecha del análisis va en el índice (no la del archivo: cada limpieza lo regraba).
+                return (result, result.scannedAt)
             }.value
             guard generation == self.scanGeneration else { return }
             if let (result, date) = stored {
@@ -449,10 +462,20 @@ final class AppModel {
                 self.navigation = MapNavigation(rootTitle: volume.name)
             }
 
-            // 2. Nuevo análisis en paralelo, cancelable.
+            // 2. ¿Hace falta? Un índice reciente se queda (el mapa dice «Último análisis: hace…»).
+            let intensity: ScanIntensity
+            switch ScanSchedule.plan(trigger, hasIndex: stored != nil, indexDate: stored?.1, now: Date()) {
+            case .skip:
+                self.isScanning = false
+                return
+            case .scan(let level):
+                intensity = level
+            }
+
+            // 3. Nuevo análisis con hilos y QoS limitados por la intensidad, cancelable.
             let scanStarted = Date()
-            let scanner = DiskScanner(options: ScanOptions(roots: [volume.url]))
-            let job = Task.detached(priority: .userInitiated) {
+            let scanner = DiskScanner(options: ScanOptions(roots: Self.scanRoots(for: volume)), intensity: intensity)
+            let job = Task.detached(priority: intensity == .background ? .background : .utility) {
                 try await scanner.scan(progress: onProgress)
             }
             let result: ScanResult
@@ -475,7 +498,7 @@ final class AppModel {
             }
             guard generation == self.scanGeneration else { return }
 
-            // 3. Lo que se limpió o se envió a la Papelera mientras se analizaba no vuelve a salir.
+            // 4. Lo que se limpió o se envió a la Papelera mientras se analizaba no vuelve a salir.
             let touched = self.touchedPaths.filter { $0.value >= scanStarted }.map(\.key)
             if !touched.isEmpty {
                 let measured = await Task.detached(priority: .userInitiated) {
@@ -487,8 +510,8 @@ final class AppModel {
             }
             self.touchedPaths = self.touchedPaths.filter { $0.value >= scanStarted }
 
-            // 4. Publicar, guardar y refrescar la limpieza.
-            self.show(result, date: Date(), volume: volume)
+            // 5. Publicar, guardar y refrescar la limpieza.
+            self.show(result, date: result.scannedAt ?? Date(), volume: volume)
             self.isScanning = false
             self.progress = nil
             self.refreshSystemState()
@@ -497,12 +520,31 @@ final class AppModel {
         }
     }
 
+    /// Raíces del análisis: el volumen entero. En DEBUG, `AIRY_SCAN_ROOTS` las sustituye
+    /// (comprobaciones de la app sobre una carpeta pequeña en vez del disco).
+    private static func scanRoots(for volume: Volume) -> [URL] {
+        #if DEBUG
+        if let roots = ScanRootsOverride.roots(from: ProcessInfo.processInfo.environment) { return roots }
+        #endif
+        return [volume.url]
+    }
+
+    /// Nombre de la raíz de un índice válido para este volumen (con varias raíces, el nodo sin nombre).
+    private static func expectedRootName(for volume: Volume) -> String {
+        let roots = scanRoots(for: volume)
+        return roots.count == 1 ? roots[0].path : ""
+    }
+
     /// Guarda el índice fuera del hilo principal. Recorre el árbol vivo, así que entra como
     /// lector de `treeGate` (no cancelable: un cambio espera a que termine de escribir).
     /// Los guardados de un mismo índice van de uno en uno (cada uno espera al anterior) y, justo
     /// antes de escribir, uno que ya no es el último pedido se salta: nunca queda en disco el
     /// árbol más antiguo.
     private func saveIndex(_ result: ScanResult, to store: IndexStore, key: String) async {
+        #if DEBUG
+        // Con AIRY_SCAN_ROOTS y sin AIRY_SUPPORT_DIR, el árbol parcial nunca pisa el índice real.
+        guard ScanRootsOverride.allowsSaving(environment: ProcessInfo.processInfo.environment) else { return }
+        #endif
         let sequencer = saveSequencer
         let ticket = sequencer.begin(key)
         let previous = lastSave[key]
@@ -564,7 +606,10 @@ final class AppModel {
             CleanupScanner(catalog: $0, runner: runner, probes: probes, references: ReferenceChecker(),
                            classifier: classifier)
         }
-        cleanupTask = Task { [weak self] in
+        // Prioridad `.utility` también para la tarea que espera: si la esperara una tarea del hilo
+        // principal (`.userInitiated`), la detección (que puede medir carpetas fuera del índice)
+        // subiría a esa prioridad.
+        cleanupTask = Task(priority: .utility) { [weak self] in
             await self?.refreshCounters()
             // Lee el árbol vivo: lector cancelable de `treeGate` (un cambio la cancela y la espera).
             guard let gate = self?.treeGate else { return }
