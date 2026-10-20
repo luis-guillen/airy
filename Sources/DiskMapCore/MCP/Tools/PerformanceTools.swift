@@ -19,6 +19,112 @@ extension MCPFormat {
     }
 }
 
+// MARK: - get_performance
+
+public struct GetPerformanceTool: MCPTool {
+    private let interval: Duration
+
+    public init(interval: Duration = .seconds(1)) {
+        self.interval = interval
+    }
+
+    public var name: String { "get_performance" }
+    public var description: String {
+        "Estado del Mac ahora: memoria, presión, swap, temperatura (sin grados), procesador y las apps que más pesan, "
+            + "con una frase de diagnóstico. Solo lectura; mide durante 1 s."
+    }
+    public var inputSchema: JSONValue {
+        .object(["type": .string("object"), "properties": .object([:]), "additionalProperties": .bool(false)])
+    }
+    public var annotations: MCPToolAnnotations { MCPToolAnnotations(readOnly: true, destructive: false, idempotent: true) }
+
+    /// Solo lectura: sin `AgentGate`, funciona con la app cerrada y solo mide durante la llamada.
+    public func call(_ arguments: [String: JSONValue], context: MCPCallContext) async -> MCPToolResult {
+        let env = context.environment
+        let catalog = env.appCatalog
+        let monitor = PerformanceMonitor(sampler: env.sampler, grouper: { raw, cpu, energy in
+            AppGrouper.group(raw, cpu: cpu, energy: energy, catalog: catalog)
+        })
+        _ = await monitor.refresh()
+        try? await Task.sleep(for: interval)
+        let snapshot = await monitor.refresh()
+        let verdict = await monitor.verdict(probes: DiagnosisProbes(runner: env.runner))
+        let policy = QuitPolicy()
+
+        let memory = snapshot.memory
+        let topology = snapshot.cpu?.topology ?? snapshot.raw.topology
+        let value: JSONValue = .object([
+            "health": .object([
+                "level": .string(verdict.level.rawValue), "light": .string(Self.light(verdict.level)),
+                "sentence": .string(verdict.sentence),
+            ]),
+            "findings": .array(verdict.findings.map {
+                .object(["id": .string($0.id), "sentence": .string($0.sentence)])
+            }),
+            "memory": .object([
+                "total_bytes": MCPFormat.number(memory.total), "used_bytes": MCPFormat.number(memory.used),
+                "free_bytes": MCPFormat.number(memory.free), "file_cache_bytes": MCPFormat.number(memory.fileCache),
+                "available_bytes": MCPFormat.number(memory.available),
+                "pressure": memory.pressure.map { .string($0.rawValue) } ?? .null,
+                "swap_used_bytes": MCPFormat.number(memory.swapUsed),
+                "swap_total_bytes": MCPFormat.number(memory.swapTotal),
+            ]),
+            "thermal": .object([
+                "state": .string(snapshot.thermal.level.rawValue), "label": .string(snapshot.thermal.level.label),
+                "throttling": .bool(snapshot.thermal.throttling),
+            ]),
+            "cpu": .object([
+                "total_percent": Self.optional(snapshot.cpu?.total),
+                "performance_percent": Self.optional(snapshot.cpu?.performance),
+                "efficiency_percent": Self.optional(snapshot.cpu?.efficiency),
+                "performance_cores": topology.map { .number(Double($0.performance)) } ?? .null,
+                "efficiency_cores": topology.map { .number(Double($0.efficiency)) } ?? .null,
+            ]),
+            "top_by_memory": .array(snapshot.groups.sorted { $0.memory > $1.memory }.prefix(5)
+                .map { Self.app($0, policy: policy) }),
+            "top_by_cpu": .array(snapshot.groups.filter { $0.cpuPercent != nil }
+                .sorted { ($0.cpuPercent ?? 0) > ($1.cpuPercent ?? 0) }.prefix(5)
+                .map { Self.app($0, policy: policy) }),
+            "battery": snapshot.battery.map { b in
+                .object([
+                    "percent": .number(Double(b.percent)), "charging": .bool(b.isCharging),
+                    "cycle_count": b.cycleCount.map { .number(Double($0)) } ?? .null,
+                    "health_percent": b.healthPercent.map { .number(Double($0)) } ?? .null,
+                ])
+            } ?? .null,
+            "uptime_seconds": Self.optional(snapshot.uptime),
+            "zombie_count": .number(Double(snapshot.zombies.count)),
+        ])
+        return .ok(value, summary: verdict.sentence)
+    }
+
+    static func light(_ level: HealthLevel) -> String {
+        switch level {
+        case .good: "green"
+        case .fair: "amber"
+        case .poor: "red"
+        }
+    }
+
+    private static func optional(_ value: Double?) -> JSONValue {
+        guard let value, value.isFinite else { return .null }
+        return .number((value * 10).rounded() / 10)
+    }
+
+    /// Nombre, bundle id y cifras: nunca rutas, PIDs, argumentos ni `detail` (la carpeta de trabajo).
+    private static func app(_ group: AppGroup, policy: QuitPolicy) -> JSONValue {
+        let eligibility = policy.eligibility(group)
+        let risk: JSONValue
+        if case .allowed(let r) = eligibility { risk = .string(MCPFormat.riskName(r)) } else { risk = .null }
+        return .object([
+            "name": .string(group.name), "bundle_id": group.bundleID.map { .string($0) } ?? .null,
+            "memory_bytes": MCPFormat.number(group.memory), "cpu_percent": optional(group.cpuPercent),
+            "process_count": .number(Double(group.pids.count)), "closable": .bool(eligibility.isAllowed),
+            "risk": risk,
+        ])
+    }
+}
+
 // MARK: - propose_quit_app
 
 public struct ProposeQuitAppTool: MCPTool {
