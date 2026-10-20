@@ -96,66 +96,128 @@ public struct ProcessRunner: CommandRunning {
     }
 
     public func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        process.standardInput = FileHandle.nullDevice
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        process.standardOutput = outPipe
-        process.standardError = errPipe
-
-        let finished = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in finished.signal() }
-        do {
-            try process.run()
-        } catch {
-            throw CommandError.launchFailed(executable: executable, message: error.localizedDescription)
-        }
-
-        // Leer las tuberías en paralelo evita bloqueos si la salida llena el búfer.
-        let outData = DataSink()
-        let errData = DataSink()
-        let reads = DispatchGroup()
-        for (handle, sink) in [(outPipe.fileHandleForReading, outData), (errPipe.fileHandleForReading, errData)] {
-            reads.enter()
+        try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
-                sink.set(handle.readDataToEndOfFile())
-                reads.leave()
+                do {
+                    continuation.resume(returning: try Self.runBlocking(executable, arguments, timeout: timeout))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
         }
-
-        let pid = process.processIdentifier
-        let timedOut: Bool = await withCheckedContinuation { continuation in
-            DispatchQueue.global().async {
-                if finished.wait(timeout: .now() + max(0, timeout)) == .success {
-                    continuation.resume(returning: false)
-                    return
-                }
-                // Tiempo agotado: SIGTERM y, si sigue vivo, SIGKILL.
-                kill(pid, SIGTERM)
-                if finished.wait(timeout: .now() + 2) != .success {
-                    kill(pid, SIGKILL)
-                    finished.wait()
-                }
-                continuation.resume(returning: true)
-            }
-        }
-        if timedOut {
-            throw CommandError.timedOut(executable: executable, seconds: timeout)
-        }
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            reads.notify(queue: .global()) { continuation.resume() }
-        }
-        return CommandOutput(
-            status: process.terminationStatus,
-            stdout: String(decoding: outData.get(), as: UTF8.self),
-            stderr: String(decoding: errData.get(), as: UTF8.self))
     }
-}
 
-private final class DataSink: Sendable {
-    private let data = Mutex(Data())
-    func set(_ value: Data) { data.withLock { $0 = value } }
-    func get() -> Data { data.withLock { $0 } }
+    /// Tras salir el proceso, cuánto se espera a que se cierren las tuberías (nietos que las heredan).
+    static let drainGrace: TimeInterval = 2
+
+    /// `posix_spawn` en un grupo de procesos propio para poder matar también a los nietos.
+    /// Las tuberías se leen con `poll` y nunca más allá del plazo.
+    private static func runBlocking(_ executable: String, _ arguments: [String],
+                                    timeout: TimeInterval) throws -> CommandOutput {
+        var outPipe: [Int32] = [-1, -1]
+        var errPipe: [Int32] = [-1, -1]
+        guard pipe(&outPipe) == 0 else { throw launchError(executable, errno) }
+        guard pipe(&errPipe) == 0 else {
+            let code = errno
+            close(outPipe[0]); close(outPipe[1])
+            throw launchError(executable, code)
+        }
+
+        var actions: posix_spawn_file_actions_t?
+        posix_spawn_file_actions_init(&actions)
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        posix_spawn_file_actions_adddup2(&actions, outPipe[1], 1)
+        posix_spawn_file_actions_adddup2(&actions, errPipe[1], 2)
+
+        var attributes: posix_spawnattr_t?
+        posix_spawnattr_init(&attributes)
+        defer { posix_spawnattr_destroy(&attributes) }
+        // Grupo propio (pgid = pid), solo los descriptores 0-2 y señales por defecto en el hijo.
+        let flags = POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF
+            | POSIX_SPAWN_SETSIGMASK
+        posix_spawnattr_setflags(&attributes, Int16(flags))
+        posix_spawnattr_setpgroup(&attributes, 0)
+        var emptyMask = sigset_t()
+        sigemptyset(&emptyMask)
+        posix_spawnattr_setsigmask(&attributes, &emptyMask)
+        var allSignals = sigset_t()
+        sigfillset(&allSignals)
+        posix_spawnattr_setsigdefault(&attributes, &allSignals)
+
+        let argv: [UnsafeMutablePointer<CChar>?] = ([executable] + arguments).map { strdup($0) } + [nil]
+        let envp: [UnsafeMutablePointer<CChar>?] = ProcessInfo.processInfo.environment
+            .map { strdup("\($0.key)=\($0.value)") } + [nil]
+        defer { for pointer in argv + envp { free(pointer) } }
+
+        var pid: pid_t = 0
+        let spawnResult = posix_spawn(&pid, executable, &actions, &attributes, argv, envp)
+        close(outPipe[1]); close(errPipe[1])
+        guard spawnResult == 0 else {
+            close(outPipe[0]); close(errPipe[0])
+            throw launchError(executable, spawnResult)
+        }
+
+        var fds = [outPipe[0], errPipe[0]]
+        var buffers = [Data(), Data()]
+        defer { for fd in fds where fd >= 0 { close(fd) } }
+
+        let deadline = Date().addingTimeInterval(max(0, timeout))
+        var status: Int32 = 0
+        var exitedAt: Date?
+        var chunk = [UInt8](repeating: 0, count: 65_536)
+
+        while true {
+            if exitedAt == nil, waitpid(pid, &status, WNOHANG) == pid { exitedAt = Date() }
+            let open = fds.indices.filter { fds[$0] >= 0 }
+            if exitedAt != nil && open.isEmpty { break }
+            let now = Date()
+            if exitedAt == nil && now >= deadline {
+                terminateGroup(pid, reaped: false)
+                throw CommandError.timedOut(executable: executable, seconds: timeout)
+            }
+            if let exitedAt, now >= min(deadline, exitedAt.addingTimeInterval(drainGrace)) {
+                // El proceso terminó pero un nieto retiene la salida: se mata el grupo y se devuelve lo leído.
+                kill(-pid, SIGKILL)
+                break
+            }
+            var pollFds = open.map { pollfd(fd: fds[$0], events: Int16(POLLIN), revents: 0) }
+            let ready = poll(&pollFds, nfds_t(pollFds.count), 50)
+            guard ready > 0 else { continue }
+            for (slot, index) in open.enumerated() where pollFds[slot].revents != 0 {
+                let count = read(fds[index], &chunk, chunk.count)
+                if count > 0 {
+                    buffers[index].append(contentsOf: chunk[0..<count])
+                } else if count == 0 || (errno != EINTR && errno != EAGAIN) {
+                    close(fds[index])
+                    fds[index] = -1
+                }
+            }
+        }
+
+        // Estado al estilo de la shell: código de salida, o 128 + señal.
+        let signal = status & 0x7f
+        let code = signal == 0 ? (status >> 8) & 0xff : 128 + signal
+        return CommandOutput(
+            status: code,
+            stdout: String(decoding: buffers[0], as: UTF8.self),
+            stderr: String(decoding: buffers[1], as: UTF8.self))
+    }
+
+    /// SIGTERM al grupo, espera hasta 2 s y SIGKILL; recoge siempre al hijo.
+    private static func terminateGroup(_ pid: pid_t, reaped: Bool) {
+        kill(-pid, SIGTERM)
+        var status: Int32 = 0
+        let limit = Date().addingTimeInterval(2)
+        var done = reaped
+        while !done && Date() < limit {
+            if waitpid(pid, &status, WNOHANG) == pid { done = true } else { usleep(20_000) }
+        }
+        kill(-pid, SIGKILL)
+        if !done { waitpid(pid, &status, 0) }
+    }
+
+    private static func launchError(_ executable: String, _ code: Int32) -> CommandError {
+        .launchFailed(executable: executable, message: String(cString: strerror(code)))
+    }
 }

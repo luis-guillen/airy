@@ -6,8 +6,10 @@ public protocol SystemProbing: Sendable {
     func runningBundleIDs() -> Set<String>
     func hasFullDiskAccess() -> Bool
     func trashSize() -> Int64
-    /// Borra definitivamente el contenido de la Papelera. Devuelve los bytes liberados.
-    func emptyTrash() throws -> Int64
+    /// Borra definitivamente el contenido de `~/.Trash`. Devuelve los bytes liberados.
+    /// Si no hay permiso para leerla, recurre a Finder ("empty trash"), que vacía las papeleras
+    /// de **todos** los volúmenes: la interfaz debe avisarlo antes de confirmar.
+    func emptyTrash() async throws -> Int64
     func localSnapshots() async -> [String]
 }
 
@@ -94,25 +96,37 @@ public struct SystemProbes: SystemProbing {
         return names.reduce(0) { $0 + (AllocatedSize.of(trashPath + "/" + $1) ?? 0) }
     }
 
-    public func emptyTrash() throws -> Int64 {
+    public static let finderTimeout: TimeInterval = 60
+
+    public func emptyTrash() async throws -> Int64 {
+        // Nunca a través de un enlace: `~/.Trash` debe ser una carpeta real del usuario actual.
+        var info = stat()
+        if lstat(trashPath, &info) != 0 {
+            if errno == ENOENT { return 0 }
+            throw CocoaError(.fileReadUnknown, userInfo: [NSFilePathErrorKey: trashPath])
+        }
+        guard (info.st_mode & S_IFMT) == S_IFDIR, info.st_uid == getuid() else {
+            throw CocoaError(.fileReadUnknown, userInfo: [
+                NSFilePathErrorKey: trashPath,
+                NSLocalizedDescriptionKey: "La Papelera no es una carpeta normal del usuario; no se toca.",
+            ])
+        }
         let names: [String]
         do {
             names = try FileManager.default.contentsOfDirectory(atPath: trashPath)
         } catch let error as NSError where Self.isPermissionError(error) {
-            return try emptyWithFinder()
-        } catch let error as NSError where error.code == NSFileReadNoSuchFileError {
-            return 0
+            return try await emptyWithFinder()
         }
         var freed: Int64 = 0
         for name in names {
             let path = trashPath + "/" + name
             let size = AllocatedSize.of(path) ?? 0
             do {
-                // `removeItem` borra el enlace, nunca su destino.
+                // `removeItem` sobre la entrada: un enlace se borra como enlace, nunca su destino.
                 try FileManager.default.removeItem(atPath: path)
                 freed += size
             } catch let error as NSError where Self.isPermissionError(error) {
-                return freed + (try emptyWithFinder())
+                return freed + (try await emptyWithFinder())
             }
         }
         return freed
@@ -125,19 +139,16 @@ public struct SystemProbes: SystemProbing {
         return posix.domain == NSPOSIXErrorDomain && (posix.code == Int(EPERM) || posix.code == Int(EACCES))
     }
 
-    private func emptyWithFinder() throws -> Int64 {
+    /// Vacía con Finder (todas las papeleras de todos los volúmenes), con tiempo máximo.
+    private func emptyWithFinder() async throws -> Int64 {
         guard allowFinderFallback else {
             throw CocoaError(.fileReadNoPermission, userInfo: [NSFilePathErrorKey: trashPath])
         }
         let before = Self.availableCapacity(home: home)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", "tell application \"Finder\" to empty trash"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
+        let output = try await runner.run(
+            "/usr/bin/osascript", ["-e", "tell application \"Finder\" to empty trash"],
+            timeout: Self.finderTimeout)
+        guard output.status == 0 else {
             throw CocoaError(.fileWriteNoPermission, userInfo: [
                 NSLocalizedDescriptionKey: "Finder no pudo vaciar la Papelera.",
             ])
