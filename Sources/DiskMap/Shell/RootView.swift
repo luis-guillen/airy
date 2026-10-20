@@ -143,10 +143,7 @@ private struct SectionContent: View {
         case .cleanup:
             CleanupView()
         case .assistant:
-            SectionPlaceholder(
-                section: section,
-                subtitle: "Informe y chat sobre tu disco",
-                line: "Claude revisa el análisis (solo rutas, tamaños y fechas, nunca el contenido) y te dice qué borrar sin riesgo, qué depende de ti y qué no tocar.")
+            AssistantView()
         default:
             SectionPlaceholder(section: section, subtitle: "Próximamente", line: "Llegará en la fase 2.")
         }

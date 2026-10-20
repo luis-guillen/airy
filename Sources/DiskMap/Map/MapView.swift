@@ -10,7 +10,8 @@ struct MapView: View {
     @ViewState private var scene = MapScene()
     @ViewState private var tracker = HoverTracker()
     @ViewState private var canvasSize: CGSize = .zero
-    @ViewState private var trashCandidate: TrashCandidate?
+    /// La confirmación única de la app (la misma hoja que Limpieza y el asistente).
+    @Environment(CleanupFlow.self) private var flow: CleanupFlow?
     @ViewState private var toast: MapToast?
     @FocusState private var focused: Bool
 
@@ -64,14 +65,6 @@ struct MapView: View {
             clearHover()
             scene.show(model.navigation.current, revision: revision)
         }
-        .alert(trashCandidate.map { "¿Mover «\($0.title)» a la Papelera?" } ?? "",
-               isPresented: Binding(get: { trashCandidate != nil }, set: { if !$0 { trashCandidate = nil } }),
-               presenting: trashCandidate) { candidate in
-            Button("Mover a la Papelera", role: .destructive) { moveToTrash(candidate) }
-            Button("Cancelar", role: .cancel) {}
-        } message: { candidate in
-            Text("\(candidate.tildePath)\nOcupa \(Format.bytes(candidate.bytes)). Podrás recuperarlo desde la Papelera; el espacio no se libera hasta que la vacíes.")
-        }
         #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .diskMapDebugToast)) { note in
             guard let outcome = note.userInfo?["outcome"] as? CleanupOutcome,
@@ -79,7 +72,7 @@ struct MapView: View {
             showToast(MapToast(outcome: outcome, title: title))
         }
         .task { await MapDebugScript.run(scene: scene, tracker: tracker, model: model,
-                                         openTrash: { trashCandidate = $0 }) }
+                                         openTrash: { requestTrash($0) }) }
         #endif
     }
 
@@ -195,18 +188,20 @@ struct MapView: View {
             if let risk = details.risk, risk != .doNotTouch {
                 Divider()
                 Button("Mover a la Papelera…", systemImage: "trash", role: .destructive) {
-                    trashCandidate = TrashCandidate(title: details.title, path: path, tildePath: tildePath,
-                                                    bytes: details.bytes)
+                    requestTrash(TrashCandidate(title: details.title, path: path, tildePath: tildePath,
+                                                bytes: details.bytes))
                 }
+                .disabled(flow == nil || flow?.isBusy == true)
             }
         }
     }
 
-    private func moveToTrash(_ candidate: TrashCandidate) {
-        Task {
-            let outcome = await model.trash(paths: [candidate.path], title: candidate.title)
-            showToast(MapToast(outcome: outcome, title: candidate.title))
-        }
+    /// Abre `ConfirmSheet` (`.trashPaths`); al terminar, el aviso del mapa cuenta el resultado.
+    private func requestTrash(_ candidate: TrashCandidate) {
+        let title = candidate.title
+        flow?.requestTrash(paths: [candidate.path], title: title, onOutcome: { outcome in
+            showToast(MapToast(outcome: outcome, title: title))
+        })
     }
 
     private func showToast(_ shown: MapToast) {
@@ -405,15 +400,6 @@ enum MapDebugScript {
                 if let best {
                     FPSMeter.log("[script] carpeta con más hijos: \(best.path) (\(best.children.count))")
                     model.navigation.zoom(into: best)
-                }
-            case "trashnow":
-                // Ejecuta de verdad el envío a la Papelera (sin el diálogo) y enseña el aviso.
-                let path = (argument ?? "").replacingOccurrences(of: "~", with: NSHomeDirectory())
-                Task {
-                    let outcome = await model.trash(paths: [path], title: (path as NSString).lastPathComponent)
-                    FPSMeter.log("[script] papelera: \(outcome)")
-                    NotificationCenter.default.post(name: .diskMapDebugToast, object: nil,
-                                                    userInfo: ["outcome": outcome, "title": (path as NSString).lastPathComponent])
                 }
             case "jump":
                 model.navigation.jump(to: Int(argument ?? "0") ?? 0)

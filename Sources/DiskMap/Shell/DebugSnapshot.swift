@@ -9,6 +9,7 @@ import AppKit
 /// - `DISKMAP_SNAPSHOT_PREFIX`: prefijo del nombre (por defecto "shot").
 /// - `DISKMAP_APPEARANCE`: "dark" o "light" para forzar el modo.
 /// - `DISKMAP_SECTION`: sección inicial ("map", "cleanup", "assistant").
+/// - `DISKMAP_SNAPSHOT_SHEET`: "1" recorta la captura a la hoja abierta, si la hay.
 /// - `DISKMAP_SUPPORT_DIR` (en `AppModel`): carpeta de datos alternativa.
 @MainActor
 enum DebugSnapshot {
@@ -72,7 +73,10 @@ enum DebugSnapshot {
         // De delante hacia atrás, como las devuelve el sistema; solo las de este proceso.
         let own = info.filter { ($0[kCGWindowOwnerPID as String] as? Int) == pid }
         let ids = own.compactMap { $0[kCGWindowNumber as String] as? Int }
-        let bounds = own.first { ($0[kCGWindowNumber as String] as? Int) == window.windowNumber }
+        // Con DISKMAP_SNAPSHOT_SHEET=1 y una hoja abierta, se recorta al marco de la hoja (misma
+        // composición de ventanas propias; nunca entran las de otras apps).
+        let target = environment["DISKMAP_SNAPSHOT_SHEET"] == "1" ? (window.attachedSheet ?? window) : window
+        let bounds = own.first { ($0[kCGWindowNumber as String] as? Int) == target.windowNumber }
             .flatMap { $0[kCGWindowBounds as String] as! CFDictionary? }
             .flatMap { CGRect(dictionaryRepresentation: $0) }
         if ids.contains(window.windowNumber), let bounds,
