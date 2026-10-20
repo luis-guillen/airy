@@ -218,6 +218,8 @@ final class HoverTracker {
     var details: TileDetails?
     /// Con un menú contextual abierto la tarjeta se aparta (los datos siguen para el menú).
     var menuOpen = false
+    /// El puntero está sobre el lienzo (aunque ahora mismo no haya tarjeta, p. ej. durante un zoom).
+    @ObservationIgnored var pointerInside = false
 }
 
 /// Capa que coloca la tarjeta junto al puntero, sin salirse del lienzo.

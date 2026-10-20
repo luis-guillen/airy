@@ -146,6 +146,10 @@ final class AppModel {
     private var scanGeneration = 0
     private var cleanupGeneration = 0
     private var observers: [NSObjectProtocol] = []
+    /// Turno de acceso al árbol vivo: lectores en segundo plano frente a cambios (Papelera).
+    let treeGate = TreeGate()
+    /// Almacén del índice que se está mostrando (para volver a guardarlo tras un cambio).
+    private var shownStore: IndexStore?
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -277,14 +281,20 @@ final class AppModel {
             self.progress = nil
             self.refreshSystemState()
             self.refreshCleanup()
-            let saveError = await Task.detached(priority: .utility) { () -> String? in
-                do { try store.saveScan(result); return nil } catch { return error.localizedDescription }
-            }.value
-            if let saveError {
-                self.report(.save, "No se pudo guardar el análisis (\(saveError)). Se ve bien ahora, pero al volver a abrir DiskMap habrá que analizar de nuevo.")
-            } else {
-                self.dismiss(.save)
-            }
+            await self.saveIndex(result, to: store)
+        }
+    }
+
+    /// Guarda el índice fuera del hilo principal. Recorre el árbol vivo, así que entra como
+    /// lector de `treeGate` (no cancelable: un cambio espera a que termine de escribir).
+    private func saveIndex(_ result: ScanResult, to store: IndexStore) async {
+        let saveError = await treeGate.read(cancellable: false) { () -> String? in
+            do { try store.saveScan(result); return nil } catch { return error.localizedDescription }
+        }.value
+        if let saveError {
+            report(.save, "No se pudo guardar el análisis (\(saveError)). Se ve bien ahora, pero al volver a abrir DiskMap habrá que analizar de nuevo.")
+        } else {
+            dismiss(.save)
         }
     }
 
@@ -300,6 +310,7 @@ final class AppModel {
     private func show(_ result: ScanResult, date: Date?, volume: Volume) {
         let sameRoot = navigation.root?.name == result.root.name && navigation.rootTitle == volume.name
         scan = result
+        shownStore = store(for: volume)
         lastScanDate = date
         navigation = sameRoot ? navigation.restoring(in: result.root)
                               : MapNavigation(root: result.root, rootTitle: volume.name)
@@ -326,7 +337,9 @@ final class AppModel {
         }
         cleanupTask = Task { [weak self] in
             await self?.refreshCounters()
-            let job = Task.detached(priority: .utility) {
+            // Lee el árbol vivo: lector cancelable de `treeGate` (un cambio la cancela y la espera).
+            guard let gate = self?.treeGate else { return }
+            let job = gate.read(cancellable: true) {
                 await scanner?.findItems(scan: root) ?? []
             }
             // La tarea suelta no hereda la cancelación: se le pasa a mano.
@@ -356,14 +369,24 @@ final class AppModel {
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
         let outcome = await executor.trashPaths(paths, title: title)
         // Lo que ya no está en su sitio sale del mapa (también si se movió solo una parte).
-        var removed = false
-        for path in paths {
+        // Orden: (1) se buscan los nodos aquí (hilo principal, dueño del árbol); (2) `treeGate`
+        // cancela la detección de limpiezas en curso y ESPERA a todos los lectores (también a
+        // que termine de guardarse el índice); (3) se cambia el árbol; (4) se vuelve a guardar
+        // el índice ya sin lo borrado y se detectan de nuevo las limpiezas.
+        let gone = paths.compactMap { path -> FileNode? in
             var info = stat()
-            guard lstat(path, &info) != 0, let node = node(atPath: path) else { continue }
-            node.removeFromParent()
-            removed = true
+            return lstat(path, &info) != 0 ? node(atPath: path) : nil
         }
-        if removed { treeRevision += 1 }
+        if !gone.isEmpty, let scan {
+            cleanupTask?.cancel()
+            await treeGate.mutate { [weak self] in
+                for node in gone { node.removeFromParent() }
+                self?.treeRevision += 1
+            }
+            if let shownStore, self.scan?.root === scan.root {
+                await saveIndex(scan, to: shownStore)
+            }
+        }
         await refreshCounters()
         await refreshVolumes()
         refreshCleanup()

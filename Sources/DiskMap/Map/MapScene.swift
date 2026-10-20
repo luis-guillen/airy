@@ -223,6 +223,8 @@ final class MapScene {
     /// `true` solo mientras hay algo que animar: con `false` el `TimelineView` queda en pausa.
     private(set) var isAnimating = false
     private(set) var hover = Fade<Int>()
+    /// Sube cada vez que termina un zoom: la vista vuelve a mirar qué hay bajo el puntero.
+    private(set) var settledCount = 0
     private(set) var dim = Fade<ContentKind>()
 
     @ObservationIgnored private(set) var canvasSize: CGSize = .zero
@@ -239,6 +241,9 @@ final class MapScene {
     @ObservationIgnored private var fadesUntil: Double = 0
     private var animatingUntil: Double { max(transitionUntil, fadesUntil) }
     @ObservationIgnored private var stopToken = 0
+    /// Hay un cambio de nivel esperando su layout: mientras, no se señala ninguna tesela
+    /// (el layout visible aún es el del nivel anterior).
+    @ObservationIgnored private var awaitingLayout = false
 
     var isZooming: Bool {
         guard let transition, transition.kind == .zoomIn || transition.kind == .zoomOut else { return false }
@@ -268,8 +273,13 @@ final class MapScene {
         displayed = node
         let path = node.path
         defer { displayedPath = path }
-        // Árbol nuevo (reanálisis): fuera los layouts viejos, que retendrían nodos del árbol anterior.
-        if let previous, Self.root(of: previous) !== Self.root(of: node) { cache.removeAll() }
+        // Árbol nuevo (reanálisis) o cambiado (Papelera): fuera los layouts viejos, que
+        // retendrían nodos del árbol anterior o lo ya borrado.
+        if let previous, Self.root(of: previous) !== Self.root(of: node) {
+            cache.removeAll()
+        } else if revisionChanged {
+            cache.removeAll(exceptRevision: newRevision)
+        }
 
         let kind: MapTransition.Kind
         var focusID: Int?
@@ -291,16 +301,21 @@ final class MapScene {
         transition = nil
         generation += 1
         let gen = generation
+        awaitingLayout = true
 
         if kind == .zoomIn, let from = previousLayout, let focusID, let focus = from.tile(id: focusID) {
             let now = CACurrentMediaTime()
             transition = MapTransition(kind: .zoomIn, start: now, from: from, to: nil,
                                        toStart: now, focusID: focusID, focusRect: focus.rect)
+            #if DEBUG
             FPSMeter.shared.begin("zoom hacia dentro")
+            #endif
             keepAnimating(transitionEnd: transition!.end)
             requestLayout(for: node, generation: gen) { [weak self] layout in
-                guard let self, var running = self.transition, running.kind == .zoomIn else {
-                    self?.layout = layout
+                guard let self else { return }
+                self.awaitingLayout = false
+                guard var running = self.transition, running.kind == .zoomIn else {
+                    self.layout = layout
                     return
                 }
                 running.to = layout
@@ -315,6 +330,7 @@ final class MapScene {
 
         requestLayout(for: node, generation: gen) { [weak self] layout in
             guard let self else { return }
+            self.awaitingLayout = false
             let now = CACurrentMediaTime()
             var effective = kind
             var focusRect = CGRect.zero
@@ -334,7 +350,9 @@ final class MapScene {
                 focusID: effective == .zoomOut ? focusID : nil, focusRect: focusRect)
             self.layout = layout
             self.transition = transition
+            #if DEBUG
             FPSMeter.shared.begin(effective.label)
+            #endif
             self.keepAnimating(transitionEnd: transition.end)
         }
     }
@@ -388,7 +406,7 @@ final class MapScene {
 
     /// Tesela bajo el punto en el layout asentado (durante un zoom, ninguna).
     func tile(at point: CGPoint) -> MapTile? {
-        guard !isZooming, let layout else { return nil }
+        guard !isZooming, !awaitingLayout, let layout else { return nil }
         let p = scaledToLayout(point, layout)
         return layout.tile(at: p)
     }
@@ -399,8 +417,11 @@ final class MapScene {
         guard bounds.width >= 1, cache.get(LayoutCache.Key(node.id, bounds.size, revision)) == nil else { return }
         let input = LayoutInput(node: node)
         let key = LayoutCache.Key(node.id, bounds.size, revision)
+        let root = Self.root(of: node)
         Self.compute(input, in: bounds, qos: .utility) { [weak self] layout in
-            self?.cache.put(key, layout)
+            // Si mientras tanto cambió el árbol o su revisión, el resultado ya no vale.
+            guard let self, self.isCurrent(root: root, revision: key.revision) else { return }
+            self.cache.put(key, layout)
         }
     }
 
@@ -428,19 +449,30 @@ final class MapScene {
             return
         }
         let input = LayoutInput(node: node)
+        let root = Self.root(of: node)
+        #if DEBUG
         let path = FPSMeter.isEnabled ? node.path : ""
+        #endif
         Self.compute(input, in: bounds, qos: .userInteractive) { [weak self] layout in
             guard let self else { return }
-            self.cache.put(key, layout)
+            if self.isCurrent(root: root, revision: key.revision) { self.cache.put(key, layout) }
+            #if DEBUG
             if FPSMeter.isEnabled {
                 FPSMeter.log(String(format: "[layout] %@ · %d teselas · %.2f ms (%.0f×%.0f)",
                                     path, layout.tiles.count, layout.milliseconds,
                                     bounds.width, bounds.height))
             }
+            #endif
             // Cálculos viejos (otro zoom o tamaño posterior) se guardan en caché pero no se aplican.
             guard gen == self.generation else { return }
             apply(layout)
         }
+    }
+
+    /// El layout pedido para `root`/`revision` sigue siendo del árbol que se muestra.
+    private func isCurrent(root: FileNode, revision requested: Int) -> Bool {
+        guard requested == revision, let displayed else { return false }
+        return Self.root(of: displayed) === root
     }
 
     /// Cola propia para los layouts, con la vuelta por `DispatchQueue.main` en vez de `Task`/`await`:
@@ -452,7 +484,8 @@ final class MapScene {
 
     private nonisolated static func compute(_ input: LayoutInput, in bounds: CGRect, qos: DispatchQoS,
                                             then deliver: @escaping @MainActor (MapLayout) -> Void) {
-        layoutQueue.async(qos: qos) {
+        // `.enforceQoS`: la prioridad pedida manda aunque la cola tenga otra (la precarga es `.utility`).
+        layoutQueue.async(qos: qos, flags: .enforceQoS) {
             let layout = input.layout(in: bounds)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { deliver(layout) }
@@ -487,9 +520,15 @@ final class MapScene {
     }
 
     private func finishAnimating() {
+        if let transition, transition.kind == .zoomIn || transition.kind == .zoomOut,
+           CACurrentMediaTime() >= transition.end {
+            settledCount += 1
+        }
         if let transition, CACurrentMediaTime() >= transition.end { self.transition = nil }
         isAnimating = false
+        #if DEBUG
         FPSMeter.shared.end()
+        #endif
     }
 
     static func root(of node: FileNode) -> FileNode {
@@ -564,6 +603,12 @@ struct LayoutCache {
     mutating func removeAll() {
         storage.removeAll()
         order.removeAll()
+    }
+
+    /// Quita lo calculado para otras revisiones del árbol (retendrían subárboles ya borrados).
+    mutating func removeAll(exceptRevision revision: Int) {
+        order.removeAll { $0.revision != revision }
+        storage = storage.filter { $0.key.revision == revision }
     }
 
     mutating func put(_ key: Key, _ layout: MapLayout) {

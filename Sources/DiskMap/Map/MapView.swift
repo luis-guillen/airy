@@ -56,6 +56,10 @@ struct MapView: View {
             clearHover()
             scene.show(model.navigation.current, revision: model.treeRevision)
         }
+        .onChange(of: scene.settledCount) { _, _ in
+            // Al acabar un zoom, si el puntero sigue encima, vuelve la tarjeta de lo que hay debajo.
+            if tracker.pointerInside { hover(at: tracker.location) }
+        }
         .onChange(of: model.treeRevision) { _, revision in
             clearHover()
             scene.show(model.navigation.current, revision: revision)
@@ -118,8 +122,12 @@ struct MapView: View {
         .contentShape(Rectangle())
         .onContinuousHover(coordinateSpace: .local) { phase in
             switch phase {
-            case .active(let point): hover(at: point)
-            case .ended: clearHover()
+            case .active(let point):
+                tracker.pointerInside = true
+                hover(at: point)
+            case .ended:
+                tracker.pointerInside = false
+                clearHover()
             }
         }
         .onTapGesture(count: 1, coordinateSpace: .local) { point in tap(at: point) }
