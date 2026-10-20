@@ -68,6 +68,11 @@ public struct CleanupExecutor: Sendable {
             }
             return await trash(item.paths, title: title, mustBeClosed: live.mustBeClosed + item.entry.mustBeClosed)
         case .command(let executable, let arguments, _):
+            // Las referencias se comprueban de nuevo también aquí: no se fía de `item.usedBy`
+            // (puede venir vacío de una detección cancelada o anterior a la referencia).
+            if live.referenceCheck != nil, let reason = await referenceReason(item.paths) {
+                return .blocked(reason: reason)
+            }
             return await runCommand(executable: executable, arguments: arguments, title: title)
         }
     }
