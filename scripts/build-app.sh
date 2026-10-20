@@ -97,6 +97,12 @@ else
 fi
 codesign --verify --deep --strict "$APP"
 codesign --verify --strict "$MCP"
+# airy-mcp debe conservar su propio identificador (no el de la app): si no, la compilación falla.
+MCP_IDENTIFIER="$(codesign -dv "$MCP" 2>&1 | sed -n 's/^Identifier=//p')"
+if [ "$MCP_IDENTIFIER" != "local.airy.Airy.mcp" ]; then
+    echo "✗ airy-mcp quedó firmado como \"$MCP_IDENTIFIER\", no como local.airy.Airy.mcp." >&2
+    exit 1
+fi
 if [ "$SIGNED_WITH_IDENTITY" = 1 ]; then
     echo "✓ Firmada con \"$IDENTITY\""
 fi

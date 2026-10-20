@@ -47,17 +47,21 @@ final class FakeProbes: SystemProbing, Sendable {
     let running: Set<String>
     let trash: Int64
     let trashReadable: Bool
+    /// `true`: la lectura al momento de las apps abiertas falla (`currentRunningBundleIDs` = `nil`).
+    let currentUnknown: Bool
     private let emptied = Mutex(0)
 
-    init(running: Set<String> = [], trash: Int64 = 0, trashReadable: Bool = true) {
+    init(running: Set<String> = [], trash: Int64 = 0, trashReadable: Bool = true, currentUnknown: Bool = false) {
         self.running = running
         self.trash = trash
         self.trashReadable = trashReadable
+        self.currentUnknown = currentUnknown
     }
 
     var emptyCount: Int { emptied.withLock { $0 } }
 
     func runningBundleIDs() -> Set<String> { running }
+    func currentRunningBundleIDs() -> Set<String>? { currentUnknown ? nil : running }
     func hasFullDiskAccess() -> Bool { true }
     func trashSize() -> Int64 { trash }
     func trashSizeIfReadable() -> Int64? { trashReadable ? trash : nil }

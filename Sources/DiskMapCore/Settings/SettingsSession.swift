@@ -52,9 +52,35 @@ public struct SettingsSession: Sendable {
         return after.mode != before.mode || after.protectedPaths != before.protectedPaths
     }
 
-    /// Aparta el fichero ilegible y vuelve a los valores por defecto.
-    public mutating func reset() throws {
-        load = .loaded(try store.resetUnreadable())
+    /// Lo que explica la confirmación de «Restablecer ajustes» (antes de hacerlo): qué se conserva y qué se
+    /// pierde. `nil` si el fichero ya se puede leer (no hay nada que restablecer).
+    public mutating func resetConfirmation() -> String? {
+        reload()
+        guard load.isUnreadable else { return nil }
+        let salvage = store.salvage()
+        let s = salvage.settings
+        var parts = ["Airy apartará el settings.json que no puede leer (guarda una copia junto a él) y empezará con ajustes nuevos."]
+        if salvage.recoveredProtectedPaths {
+            let n = s.protectedPaths.count
+            parts.append(n == 0 ? "Tu lista «Proteger esto» está vacía."
+                         : "Se conservará tu lista «Proteger esto» (\(n) \(n == 1 ? "ruta" : "rutas")).")
+        } else {
+            parts.append("Tu lista «Proteger esto» no se puede recuperar: quedará vacía.")
+        }
+        parts.append(s.agentsEnabled ? "Los agentes seguirán activos."
+                     : "Los agentes quedarán desactivados hasta que los actives en Ajustes › Agentes.")
+        return parts.joined(separator: " ")
+    }
+
+    /// Vuelve a leer el fichero y, solo si sigue ilegible, lo aparta y escribe ajustes nuevos con lo que se
+    /// pudo rescatar (`SettingsStore.resetUnreadable`). `nil` si ya se podía leer: no se toca nada.
+    @discardableResult
+    public mutating func reset() throws -> SettingsReset? {
+        reload()
+        guard load.isUnreadable else { return nil }
+        let result = try store.resetUnreadable()
+        load = .loaded(result.settings)
+        return result
     }
 
     private static func trimmed(_ reason: String) -> String {

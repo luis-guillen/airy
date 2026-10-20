@@ -27,7 +27,12 @@ struct ConfirmSheet: View {
         .padding(24)
         .frame(width: 540)
         .animation(Theme.sectionSpring, value: warningAccepted)
-        .task(id: request.id) { await loadPreview() }
+        // Con aviso previo («Esto depende de ti», propuesta por enlace), la vista previa espera a que el
+        // usuario lo acepte: abrir la hoja no consulta nada al ejecutor.
+        .task(id: warningAccepted) {
+            guard request.warning == nil || warningAccepted, blockReasons == nil else { return }
+            await loadPreview()
+        }
         #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .airyAssistantDebug)) { note in
             switch note.userInfo?["action"] as? String {

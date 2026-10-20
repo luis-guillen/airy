@@ -116,11 +116,15 @@ public actor MCPServer {
         default:
             return Self.error(id: id, code: RPCError.invalidParams, message: "Los argumentos deben ser un objeto.")
         }
-        let result: MCPToolResult
+        var result: MCPToolResult
         if let problem = MCPSchemaValidator.violation(of: .object(arguments), against: tool.inputSchema) {
             result = .error("Argumentos no válidos para \(name): \(problem)")
         } else {
+            _ = environment.log.takeWriteFailure()  // solo cuentan los fallos de esta llamada
             result = await tool.call(arguments, context: MCPCallContext(environment: environment, client: clientName))
+            if let failure = environment.log.takeWriteFailure() {
+                result = Self.withAuditWarning(result, failure)
+            }
         }
         var payload: [String: JSONValue] = [
             "content": .array([.object(["type": .string("text"), "text": .string(result.text)])]),
@@ -135,6 +139,17 @@ public actor MCPServer {
     }
 
     // MARK: - Utilidades
+
+    /// Un fallo al anotar en el registro o el historial no se calla: se añade al resultado (`audit_warning`).
+    static func withAuditWarning(_ result: MCPToolResult, _ failure: String) -> MCPToolResult {
+        let warning = "Aviso: \(failure). El registro de operaciones de Airy puede estar incompleto."
+        var structured = result.structured
+        if case .object(var object)? = structured {
+            object["audit_warning"] = .string(warning)
+            structured = .object(object)
+        }
+        return MCPToolResult(text: result.text + "\n" + warning, structured: structured, isError: result.isError)
+    }
 
     /// Sin caracteres de control, recortado y como mucho 64 caracteres; vacío ⇒ «agente».
     static func sanitisedClientName(_ raw: String?) -> String {
