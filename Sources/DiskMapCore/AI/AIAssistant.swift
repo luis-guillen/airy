@@ -120,6 +120,11 @@ public struct AIAssistant: Sendable {
     Responde en español de España, en frases cortas, sin tecnicismos innecesarios.
     """
 
+    /// En el chat Claude no puede hacer nada por su cuenta: solo explica.
+    static let chatSystemPrompt = systemPrompt + " " + """
+    En esta conversación no puedes realizar ninguna acción tú mismo y no debes ofrecerte a hacerla     ("¿quieres que lo borre?"); el usuario actúa desde la sección Limpieza o con los botones del Informe de DiskMap.
+    """
+
     private let claudePath: String
     private let runner: any CommandRunning
     private let catalog: Catalog
@@ -134,9 +139,11 @@ public struct AIAssistant: Sendable {
 
     /// Argumentos comunes. `--setting-sources ""` evita hooks y plugins del usuario (verificado: mantiene
     /// la sesión iniciada, a diferencia de `--bare`). `--tools ""`: Claude no puede leer ni ejecutar nada.
-    var baseArguments: [String] {
+    var baseArguments: [String] { arguments(systemPrompt: Self.systemPrompt) }
+
+    func arguments(systemPrompt: String) -> [String] {
         ["-p", "--setting-sources", "", "--tools", "", "--strict-mcp-config", "--disable-slash-commands",
-         "--no-session-persistence", "--system-prompt", Self.systemPrompt]
+         "--no-session-persistence", "--system-prompt", systemPrompt]
     }
 
     // MARK: Informe
@@ -277,7 +284,7 @@ public struct AIAssistant: Sendable {
 
     /// Texto de la respuesta según llega. Se envía la conversación entera en cada turno.
     public func chat(history: [ChatMessage], context: String) -> AsyncThrowingStream<String, Error> {
-        let arguments = baseArguments + ["--output-format", "stream-json", "--verbose", "--include-partial-messages"]
+        let arguments = arguments(systemPrompt: Self.chatSystemPrompt) + ["--output-format", "stream-json", "--verbose", "--include-partial-messages"]
         let conversation = history.map { "\($0.role == .user ? "Usuario" : "Asistente"): \($0.text)" }
             .joined(separator: "\n\n")
         let prompt = """

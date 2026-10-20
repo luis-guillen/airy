@@ -113,7 +113,7 @@ struct AssistantGlyph: View {
 /// Coste y tiempo, sin precios: la llamada usa la cuenta de Claude Code del usuario.
 struct CostNote: View {
     var body: some View {
-        Text("Usa tu Claude Code · tarda unos segundos")
+        Text("Usa tu Claude Code · puede tardar hasta un minuto")
             .font(.caption)
             .foregroundStyle(.tertiary)
     }

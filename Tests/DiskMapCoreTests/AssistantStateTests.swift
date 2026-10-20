@@ -134,13 +134,15 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
 
     @Test func safeCommandUsesDetectedItem() throws {
         let detected = item("docker-build-cache", paths: [], bytes: 5_000)
-        let r = rec("docker-build-cache", .safe, action: .runCatalogCommand(id: "docker-build-cache"))
+        let r = rec("docker-build-cache", .safe, bytes: 10, action: .runCatalogCommand(id: "docker-build-cache"))
         guard case .offer(let offer) = AssistantOffer.make(for: r, items: [detected], catalog: catalog, home: home),
               case .perform(let target) = offer.action else { Issue.record("sin oferta"); return }
         #expect(target.id == "docker-build-cache")
         #expect(offer.isCommand)
         #expect(!offer.needsSecondConfirmation)
         #expect(offer.method == "Comando oficial: docker builder prune -a -f")
+        // "Cuánto" es lo que se limpia de verdad (el elemento), no la cifra de la IA.
+        #expect(offer.bytes == 5_000)
     }
 
     @Test func catalogCommandOnTrashEntryIsShownAsTrash() {
@@ -161,26 +163,40 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         }
     }
 
-    @Test func safeTrashUsesDetectedItemOrNarrowsIt() {
-        let path = "/Users/ana/Library/Logs/a"
-        let detected = item("user-logs", paths: [path, "/Users/ana/Library/Logs/b"], bytes: 900)
-        let r = rec(path, .safe, bytes: 300, action: .trash(path: path))
-        guard case .offer(let offer) = AssistantOffer.make(for: r, items: [detected], catalog: catalog, home: home),
+    @Test func safeCommandNeverFallsBackToAnUnrelatedItem() {
+        // Un elemento de la misma ficha pero de otra ruta no es lo que muestra la tarjeta.
+        let other = item("uv", paths: ["/Users/ana/otra/uv"], bytes: 9_999)
+        let r = rec("/Users/ana/.cache/uv", .safe, action: .runCatalogCommand(id: "uv"))
+        guard case .unavailable = AssistantOffer.make(for: r, items: [other], catalog: catalog, home: home) else {
+            Issue.record("no debe actuar sobre otro elemento"); return
+        }
+        // Sí sirve el de esa misma ruta.
+        let same = item("uv", paths: ["/Users/ana/.cache/uv"], bytes: 700)
+        guard case .offer(let offer) = AssistantOffer.make(for: r, items: [other, same], catalog: catalog, home: home),
               case .perform(let target) = offer.action else { Issue.record("sin oferta"); return }
-        #expect(target.id == "user-logs")
-        #expect(target.paths == [path])
-        #expect(target.bytes == 300)
-        #expect(offer.method == "A la Papelera")
-        #expect(!offer.isCommand)
+        #expect(target.paths == ["/Users/ana/.cache/uv"])
+        #expect(offer.bytes == 700)
     }
 
-    @Test func safeTrashSynthesizesFromCatalogWhenNotDetected() {
-        let path = "/Users/ana/Library/Caches/ms-playwright"
-        let r = rec(path, .safe, action: .trash(path: path))
-        guard case .offer(let offer) = AssistantOffer.make(for: r, items: [], catalog: catalog, home: home),
+    @Test func safeTrashUsesExactDetectedItemElseTrashPaths() {
+        let path = "/Users/ana/Library/Logs/a"
+        let exact = item("user-logs", paths: [path], bytes: 900)
+        let r = rec(path, .safe, bytes: 300, action: .trash(path: path))
+        guard case .offer(let offer) = AssistantOffer.make(for: r, items: [exact], catalog: catalog, home: home),
               case .perform(let target) = offer.action else { Issue.record("sin oferta"); return }
-        #expect(target.entry.id == "playwright")
-        #expect(target.paths == [path])
+        #expect(target.id == "user-logs")
+        #expect(offer.bytes == 900)
+        #expect(offer.method == "A la Papelera")
+        #expect(!offer.isCommand)
+        // Un elemento con varias rutas (o ninguno) ⇒ la ruta suelta por `trashPaths`.
+        let several = item("user-logs", paths: [path, "/Users/ana/Library/Logs/b"], bytes: 900)
+        guard case .offer(let loose) = AssistantOffer.make(for: r, items: [several], catalog: catalog, home: home),
+              case .trashPaths(let paths) = loose.action else { Issue.record("sin oferta"); return }
+        #expect(paths == [path])
+        #expect(loose.bytes == 300)
+        #expect(!loose.needsSecondConfirmation)
+        guard case .offer(let none) = AssistantOffer.make(for: r, items: [], catalog: catalog, home: home),
+              case .trashPaths = none.action else { Issue.record("sin oferta"); return }
     }
 
     @Test func safeWithoutActionHasNoButton() {
@@ -189,23 +205,24 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
 
     @Test func yourCallPlainPathGoesToTrashPathsWithSecondConfirmation() {
         let path = "/Users/ana/Downloads/grande.iso"
-        guard case .offer(let offer) = AssistantOffer.make(for: rec(path, .yourCall), items: [], catalog: catalog,
-                                                           home: home),
+        guard case .offer(let offer) = AssistantOffer.make(for: rec(path, .yourCall, bytes: 42), items: [],
+                                                           catalog: catalog, home: home),
               case .trashPaths(let paths) = offer.action else { Issue.record("sin oferta"); return }
         #expect(paths == [path])
         #expect(offer.needsSecondConfirmation)
+        #expect(offer.bytes == 42)
     }
 
-    @Test func yourCallCatalogTrashGoesThroughPerformToKeepAppChecks() {
+    @Test func yourCallCatalogTrashAlsoGoesThroughTrashPaths() {
+        // `trashPaths` reúne las apps que deben cerrarse y las referencias de las fichas relacionadas.
         let path = "/Users/ana/Library/Caches/com.spotify.client"
-        guard case .offer(let offer) = AssistantOffer.make(for: rec(path, .yourCall), items: [], catalog: catalog,
-                                                           home: home),
-              case .perform(let target) = offer.action else { Issue.record("sin oferta"); return }
-        #expect(target.entry.id == "spotify-cache")
-        #expect(offer.needsSecondConfirmation)
-        // Dentro de la caché de Spotify (no es la ruta de la ficha) no hay forma segura: sin botón.
-        #expect(AssistantOffer.make(for: rec(path + "/Data", .yourCall), items: [], catalog: catalog, home: home)
-                == .none)
+        for candidate in [path, path + "/Data"] {
+            guard case .offer(let offer) = AssistantOffer.make(for: rec(candidate, .yourCall), items: [],
+                                                               catalog: catalog, home: home),
+                  case .trashPaths(let paths) = offer.action else { Issue.record("sin oferta"); return }
+            #expect(paths == [candidate])
+            #expect(offer.needsSecondConfirmation)
+        }
     }
 
     @Test func yourCallNeverTrashesCommandOrInfoLocations() {
@@ -230,8 +247,29 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
             Issue.record("debería no estar disponible"); return
         }
         #expect(reason.contains("/p/train.py"))
-        // Sin detección no se pudo comprobar quién lo usa: sin botón.
-        #expect(AssistantOffer.make(for: rec(path, .yourCall), items: [], catalog: catalog, home: home) == .none)
+        // Sin detección, `trashPaths` vuelve a comprobar las referencias al ejecutar.
+        guard case .offer(let offer) = AssistantOffer.make(for: rec(path, .yourCall), items: [], catalog: catalog,
+                                                           home: home),
+              case .trashPaths = offer.action else { Issue.record("sin oferta"); return }
+    }
+}
+
+// MARK: - Texto del chat
+
+@Suite struct ChatTextTests {
+    @Test func linksAreStrippedButInlineStylesKept() {
+        let text = "Mira [esto](file:///tmp/x.command) y [web](https://example.com) o <x-app://abrir>, **ojo**\nfin"
+        let rendered = ChatText.rendered(text)
+        #expect(!rendered.runs.contains { $0.link != nil })
+        #expect(String(rendered.characters).contains("esto"))
+        #expect(String(rendered.characters).contains("\n"))
+        #expect(rendered.runs.contains { $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true })
+    }
+
+    @Test func stripLinksRemovesExplicitLinkAttributes() {
+        var attributed = AttributedString("abre")
+        attributed.link = URL(string: "file:///Applications/Calculator.app")
+        #expect(ChatText.stripLinks(attributed).runs.allSatisfy { $0.link == nil })
     }
 }
 

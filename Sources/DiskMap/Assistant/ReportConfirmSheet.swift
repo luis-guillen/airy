@@ -88,7 +88,7 @@ struct ReportConfirmSheet: View {
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 9) {
                 row("Qué", what)
-                row("Cuánto", Format.bytes(confirmation.rec.bytes))
+                row("Cuánto", Format.bytes(offer.bytes))
                 row("Método", offer.method, monospaced: offer.isCommand)
             }
             .padding(14)

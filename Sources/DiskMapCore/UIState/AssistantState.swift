@@ -121,13 +121,15 @@ public struct AssistantActionOffer: Sendable {
     /// Método para la confirmación: "A la Papelera" o "Comando oficial: …".
     public var method: String
     public var isCommand: Bool
+    /// Tamaño de lo que de verdad se toca (el elemento de limpieza, o la ruta suelta).
+    public var bytes: Int64
 }
 
 /// Botón (o ausencia de botón) de una recomendación del informe, ya validada por `AIAssistant`:
 /// - "No tocar": nunca hay botón.
 /// - "Borrar sin riesgo" con acción: un toque (y la confirmación de siempre), por el elemento de limpieza.
-/// - "Depende de ti": solo "Mover a la Papelera…", con segunda confirmación, y nunca donde la limpieza
-///   correcta es un comando oficial o la ficha es solo informativa.
+/// - "Depende de ti": solo "Mover a la Papelera…" (`AppModel.trash(paths:title:)`), con segunda
+///   confirmación, y nunca donde la limpieza correcta es un comando oficial o la ficha es solo informativa.
 public enum AssistantOffer: Sendable, Equatable {
     case none
     case offer(AssistantActionOffer)
@@ -144,24 +146,26 @@ public enum AssistantOffer: Sendable, Equatable {
         case .safe:
             switch rec.action {
             case .runCatalogCommand(let id):
-                let related = items.filter { $0.entry.id == id }
-                let target = related.first { item in
-                    item.id == rec.path || item.paths.contains { overlaps($0, rec.path) }
-                } ?? related.first
+                // Solo el elemento que la tarjeta muestra: el de esa ruta (o el id de un elemento sin rutas).
+                let target = items.first { item in
+                    item.entry.id == id && (item.id == rec.path || item.paths.contains { overlaps($0, rec.path) })
+                }
                 guard let target else { return .unavailable(notDetected) }
                 if !target.usedBy.isEmpty { return .unavailable(usedByReason(target.usedBy)) }
                 return .offer(AssistantActionOffer(action: .perform(target), needsSecondConfirmation: false,
                                                    method: method(for: target.entry.cleanup),
-                                                   isCommand: !isTrash(target.entry.cleanup)))
+                                                   isCommand: !isTrash(target.entry.cleanup), bytes: target.bytes))
             case .trash(let path):
-                switch resolveTrash(path: path, bytes: rec.bytes, verdict: rec.verdict, items: items,
-                                    catalog: catalog, home: home) {
-                case .item(let target):
-                    return .offer(AssistantActionOffer(action: .perform(target), needsSecondConfirmation: false,
-                                                       method: method(for: .trash), isCommand: false))
-                case .unavailable(let reason): return .unavailable(reason)
-                case .none: return .unavailable(notDetected)
+                // El elemento detectado de esa misma ruta (revalida apps abiertas y ficha) o, si no, la
+                // ruta suelta: `trashPaths` aplica igualmente apps abiertas, referencias y ubicaciones protegidas.
+                if let detected = detectedTrashItem(exactly: path, items: items) {
+                    if !detected.usedBy.isEmpty { return .unavailable(usedByReason(detected.usedBy)) }
+                    return .offer(AssistantActionOffer(action: .perform(detected), needsSecondConfirmation: false,
+                                                       method: method(for: .trash), isCommand: false,
+                                                       bytes: detected.bytes))
                 }
+                return .offer(AssistantActionOffer(action: .trashPaths([path]), needsSecondConfirmation: false,
+                                                   method: method(for: .trash), isCommand: false, bytes: rec.bytes))
             case nil:
                 return .none
             }
@@ -173,46 +177,21 @@ public enum AssistantOffer: Sendable, Equatable {
                 !isTrash(item.entry.cleanup) && item.paths.contains { overlaps($0, path) }
             }
             if handsOff { return .none }
-            if let entry = catalog?.match(path: path, home: home) {
-                guard isTrash(entry.cleanup) else { return .none }
-                switch resolveTrash(path: path, bytes: rec.bytes, verdict: rec.verdict, items: items,
-                                    catalog: catalog, home: home) {
-                case .item(let target):
-                    return .offer(AssistantActionOffer(action: .perform(target), needsSecondConfirmation: true,
-                                                       method: method(for: .trash), isCommand: false))
-                case .unavailable(let reason): return .unavailable(reason)
-                // Dentro de una ficha (o sin poder comprobar referencias): sin forma segura de hacerlo.
-                case .none: return .none
-                }
+            if let entry = catalog?.match(path: path, home: home), !isTrash(entry.cleanup) { return .none }
+            if let detected = detectedTrashItem(exactly: path, items: items), !detected.usedBy.isEmpty {
+                return .unavailable(usedByReason(detected.usedBy))
             }
             return .offer(AssistantActionOffer(action: .trashPaths([path]), needsSecondConfirmation: true,
-                                               method: method(for: .trash), isCommand: false))
+                                               method: method(for: .trash), isCommand: false, bytes: rec.bytes))
         }
     }
 
-    private enum TrashResolution { case item(CleanupItem), unavailable(String), none }
-
-    /// Elemento de limpieza (con Papelera) que corresponde exactamente a `path`: el detectado, acotado
-    /// a esa ruta si tenía varias, o uno nuevo de su ficha si la ruta es la de la ficha y la ficha no
-    /// necesita comprobar referencias (eso solo lo sabe la detección).
-    private static func resolveTrash(path: String, bytes: Int64, verdict: Risk, items: [CleanupItem],
-                                     catalog: Catalog?, home: String) -> TrashResolution {
+    /// Elemento detectado (con Papelera) cuya única ruta es exactamente `path`.
+    private static func detectedTrashItem(exactly path: String, items: [CleanupItem]) -> CleanupItem? {
         let key = RiskPolicy.canonical(path)
-        if let detected = items.first(where: { item in
-            isTrash(item.entry.cleanup) && item.paths.contains { RiskPolicy.canonical($0) == key }
-        }) {
-            if !detected.usedBy.isEmpty { return .unavailable(usedByReason(detected.usedBy)) }
-            if detected.paths.count == 1 { return .item(detected) }
-            var narrowed = detected
-            narrowed.paths = [path]
-            narrowed.bytes = bytes
-            return .item(narrowed)
+        return items.first { item in
+            isTrash(item.entry.cleanup) && item.paths.count == 1 && RiskPolicy.canonical(item.paths[0]) == key
         }
-        guard let entry = catalog?.match(path: path, home: home), isTrash(entry.cleanup),
-              entry.referenceCheck == nil,
-              entry.paths.contains(where: { patternMatchesExactly($0, path: path, home: home) }) else { return .none }
-        return .item(CleanupItem(id: entry.id, entry: entry, paths: [path], bytes: bytes, risk: verdict,
-                                 blockedByOpenApps: [], usedBy: []))
     }
 
     static func method(for cleanup: CleanupMethod) -> String {
@@ -239,23 +218,13 @@ public enum AssistantOffer: Sendable, Equatable {
         return RiskPolicy.isInside(a, root: b) || RiskPolicy.isInside(b, root: a)
     }
 
-    /// El patrón de la ficha describe la ruta entera (no una carpeta que la contiene).
-    private static func patternMatchesExactly(_ pattern: String, path: String, home: String) -> Bool {
-        let expanded = RiskPolicy.canonical(AIPaths.expand(pattern, home: home))
-        let patternParts = expanded.split(separator: "/").map(String.init)
-        let pathParts = RiskPolicy.canonical(path).split(separator: "/").map(String.init)
-        guard patternParts.count == pathParts.count else { return false }
-        return zip(patternParts, pathParts).allSatisfy { pattern, name in
-            pattern.contains("*") ? fnmatch(pattern, name, 0) == 0 : pattern == name
-        }
-    }
-
     public static func == (a: AssistantOffer, b: AssistantOffer) -> Bool {
         switch (a, b) {
         case (.none, .none): return true
         case (.unavailable(let x), .unavailable(let y)): return x == y
         case (.offer(let x), .offer(let y)):
-            guard x.method == y.method, x.needsSecondConfirmation == y.needsSecondConfirmation else { return false }
+            guard x.method == y.method, x.needsSecondConfirmation == y.needsSecondConfirmation,
+                  x.bytes == y.bytes else { return false }
             switch (x.action, y.action) {
             case (.perform(let i), .perform(let j)): return i.id == j.id && i.paths == j.paths
             case (.trashPaths(let p), .trashPaths(let q)): return p == q
@@ -362,5 +331,26 @@ public struct ChatTranscript: Sendable {
     private mutating func append(_ role: ChatMessage.Role, _ text: String, _ status: ChatBubble.Status) {
         nextID += 1
         bubbles.append(ChatBubble(id: nextID, role: role, text: text, status: status, routes: []))
+    }
+}
+
+// MARK: - Texto del chat
+
+public enum ChatText {
+    /// Markdown solo en línea (negritas, cursivas, `código`), conservando los saltos de línea y **sin
+    /// enlaces**: una respuesta nunca puede abrir nada fuera de la app (`file://…/x.command`, esquemas…).
+    public static func rendered(_ text: String) -> AttributedString {
+        var result = (try? AttributedString(
+            markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)
+        result = stripLinks(result)
+        return result
+    }
+
+    public static func stripLinks(_ text: AttributedString) -> AttributedString {
+        var copy = text
+        for run in copy.runs where run.link != nil {
+            copy[run.range].link = nil
+        }
+        return copy
     }
 }
