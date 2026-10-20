@@ -96,8 +96,8 @@ struct SelectableFileRow: View {
 
     /// «Abierto hace 8 meses» si Spotlight sabe la apertura; si no, «Modificado hace 8 meses».
     private var dateLine: String {
-        if let opened = file.lastOpened { return "Abierto \(Format.relativeDate(opened))" }
-        if let modified = file.lastModified { return "Modificado \(Format.relativeDate(modified))" }
+        if let opened = file.lastOpened { return "Abierto \(Theme.relative(opened))" }
+        if let modified = file.lastModified { return "Modificado \(Theme.relative(modified))" }
         return "Sin fecha"
     }
 }
