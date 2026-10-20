@@ -100,6 +100,24 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         #expect(GetDiskSummaryTool().description.contains("proceso del agente"))
     }
 
+    @Test func listLargestAndSummaryReportPartial() async throws {
+        let f = try fixture()
+        let root = dir("/Users/x", 300, children: [
+            dir("Library", 200, children: [dir("Mail", 100)]), dir("Documents", 100),
+        ])
+        try f.saveScan(root, inaccessible: ["/Users/x/Library/Mail/Sub"])
+        let summary = await f.call(GetDiskSummaryTool())
+        #expect(summary.structured?["scan_status"]?.stringValue == "partial")
+        let largest = await f.call(ListLargestTool(), ["path": .string("/Users/x")])
+        guard case .array(let rows)? = largest.structured?["children"] else { Issue.record("children"); return }
+        let byName = Dictionary(uniqueKeysWithValues: rows.map { ($0["name"]!.stringValue!, $0) })
+        #expect(byName["Library"]?["size_partial"]?.boolValue == true)
+        #expect(byName["Documents"]?["size_partial"]?.boolValue == false)
+        let clean = try fixture()
+        try clean.saveScan(dir("/Users/x", 10, children: [file("a", 10)]))
+        #expect(await clean.call(GetDiskSummaryTool()).structured?["scan_status"]?.stringValue == "complete")
+    }
+
     @Test func summaryScanCompleteWhenNothingInaccessible() async throws {
         let f = try fixture()
         try f.saveScan(dir("/Users/x", 10, children: [file("a", 10)]))
