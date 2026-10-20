@@ -165,6 +165,10 @@
       "partialCleanup": true,
       "processNames": [
         "brew"
+      ],
+      "shortReason": "Solo quita descargas y versiones antiguas que Homebrew ya no usa.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -191,6 +195,10 @@
       "processNames": [
         "pip",
         "pip3"
+      ],
+      "shortReason": "pip vuelve a descargar los paquetes cuando los necesita.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -215,6 +223,10 @@
       "mustBeClosed": [],
       "processNames": [
         "uv"
+      ],
+      "shortReason": "uv vuelve a descargar los paquetes cuando los necesita.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -240,6 +252,10 @@
       "partialCleanup": true,
       "processNames": [
         "pnpm"
+      ],
+      "shortReason": "Solo quita los paquetes que ya no usa ningún proyecto.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -259,6 +275,10 @@
       "mustBeClosed": [],
       "processNames": [
         "pnpm"
+      ],
+      "shortReason": "pnpm la vuelve a crear cuando la necesita.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -284,6 +304,10 @@
       "mustBeClosed": [],
       "processNames": [
         "npm"
+      ],
+      "shortReason": "npm vuelve a descargar los paquetes cuando los necesita.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -304,6 +328,10 @@
       "mustBeClosed": [],
       "processNames": [
         "cargo"
+      ],
+      "shortReason": "Cargo vuelve a bajar las librerías la próxima vez que compiles.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -331,6 +359,589 @@
       "partialCleanup": true,
       "processNames": [
         "conda"
+      ],
+      "shortReason": "Solo quita paquetes y descargas que ningún entorno usa.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "yarn",
+      "title": "Caché de Yarn",
+      "explanation": "Paquetes de JavaScript que Yarn descargó antes. Se vacía con su comando; Yarn los descarga de nuevo cuando los necesita.",
+      "whoCreatesIt": "Yarn (Node.js)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/Yarn"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "yarn",
+        "arguments": [
+          "cache",
+          "clean"
+        ]
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "yarn"
+      ],
+      "shortReason": "Yarn vuelve a descargar los paquetes cuando los necesita.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "yarn-berry",
+      "title": "Caché de Yarn moderno",
+      "explanation": "Copias comprimidas de los paquetes que guarda Yarn 2 o posterior para todos tus proyectos. Si la mandas a la Papelera, Yarn la vuelve a llenar en la próxima instalación.",
+      "whoCreatesIt": "Yarn (Node.js)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.yarn/berry/cache"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "yarn"
+      ],
+      "shortReason": "Yarn vuelve a descargar los paquetes en la próxima instalación.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "bun",
+      "title": "Caché de Bun",
+      "explanation": "Paquetes de JavaScript que Bun descargó antes. Se vacía con su comando; Bun los descarga de nuevo cuando los necesita.",
+      "whoCreatesIt": "Bun",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.bun/install/cache"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "bun",
+        "arguments": [
+          "pm",
+          "cache",
+          "rm"
+        ]
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "bun"
+      ],
+      "shortReason": "Bun vuelve a descargar los paquetes cuando los necesita.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "corepack",
+      "title": "Caché de Corepack",
+      "explanation": "Copias de gestores de paquetes (pnpm, Yarn) que Corepack descargó para tus proyectos. Corepack las vuelve a bajar cuando un proyecto las pide.",
+      "whoCreatesIt": "Corepack (Node.js)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.cache/node/corepack"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "corepack"
+      ],
+      "shortReason": "Corepack vuelve a descargar el gestor que pida cada proyecto.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "go-build-cache",
+      "title": "Caché de compilación de Go",
+      "explanation": "Resultados de compilaciones anteriores de Go para compilar más rápido. Se vacía con su comando; Go la rehace al compilar.",
+      "whoCreatesIt": "Go",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/go-build"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "go",
+        "arguments": [
+          "clean",
+          "-cache"
+        ]
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "go"
+      ],
+      "shortReason": "Go la vuelve a generar al compilar; la primera vez tarda algo más.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "go-mod-cache",
+      "title": "Módulos descargados de Go",
+      "explanation": "Código de los módulos de Go que han descargado tus proyectos. Se vacía con su comando; Go los vuelve a bajar al compilar, aunque sin conexión no podrás.",
+      "whoCreatesIt": "Go",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "caches",
+      "paths": [
+        "~/go/pkg/mod"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "go",
+        "arguments": [
+          "clean",
+          "-modcache"
+        ]
+      },
+      "mustBeClosed": [],
+      "aggressiveRisk": "safe",
+      "processNames": [
+        "go"
+      ],
+      "shortReason": "Go vuelve a descargar los módulos al compilar; sin conexión no podrás hasta entonces.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "poetry-cache",
+      "title": "Caché de Poetry",
+      "explanation": "Paquetes de Python que Poetry descargó antes. Los entornos virtuales de tus proyectos no se tocan.",
+      "whoCreatesIt": "Poetry (Python)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/pypoetry/cache",
+        "~/Library/Caches/pypoetry/artifacts"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "poetry"
+      ],
+      "shortReason": "Poetry vuelve a descargar los paquetes; tus entornos virtuales no se tocan.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "pyenv-cache",
+      "title": "Caché de pyenv",
+      "explanation": "Instaladores de Python que pyenv descargó para compilar versiones. Las versiones ya instaladas no se tocan.",
+      "whoCreatesIt": "pyenv (Python)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.pyenv/cache"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Son descargas; las versiones de Python instaladas se quedan.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "bundler-cache",
+      "title": "Caché de Bundler",
+      "explanation": "Gemas de Ruby que Bundler descargó antes. Bundler las vuelve a bajar cuando un proyecto las necesita.",
+      "whoCreatesIt": "Bundler (Ruby)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.bundle/cache"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "bundle",
+        "bundler"
+      ],
+      "shortReason": "Bundler vuelve a descargar las gemas cuando las necesita.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "composer-cache",
+      "title": "Caché de Composer",
+      "explanation": "Paquetes de PHP que Composer descargó antes. Se vacía con su comando; Composer los descarga de nuevo cuando los necesita.",
+      "whoCreatesIt": "Composer (PHP)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/composer",
+        "~/.composer/cache"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "composer",
+        "arguments": [
+          "clear-cache"
+        ]
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "composer"
+      ],
+      "shortReason": "Composer vuelve a descargar los paquetes cuando los necesita.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "gradle-caches",
+      "title": "Cachés de Gradle",
+      "explanation": "Dependencias y resultados de compilación que Gradle guarda para proyectos de Java, Kotlin o Android. Se rehacen, pero bajarlo todo otra vez puede tardar mucho.",
+      "whoCreatesIt": "Gradle",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "caches",
+      "paths": [
+        "~/.gradle/caches"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "gradle"
+      ],
+      "shortReason": "Gradle tarda en volver a bajarlo todo y lo que compilas sin conexión deja de funcionar.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "swiftpm-cache",
+      "title": "Caché de Swift Package Manager",
+      "explanation": "Copias de los paquetes de Swift que han descargado tus proyectos. SwiftPM las vuelve a bajar al compilar.",
+      "whoCreatesIt": "Swift Package Manager",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/org.swift.swiftpm"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "swift-build",
+        "swift-package"
+      ],
+      "shortReason": "SwiftPM vuelve a descargar los paquetes al compilar.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "cocoapods-cache",
+      "title": "Caché de CocoaPods",
+      "explanation": "Copias de los pods que CocoaPods descargó antes. Se vacía con su comando; CocoaPods los descarga de nuevo en el próximo «pod install».",
+      "whoCreatesIt": "CocoaPods",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/CocoaPods"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "pod",
+        "arguments": [
+          "cache",
+          "clean",
+          "--all"
+        ]
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "pod"
+      ],
+      "shortReason": "CocoaPods vuelve a descargar los pods en la próxima instalación.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "dart-pub-cache",
+      "title": "Paquetes de Dart y Flutter",
+      "explanation": "Paquetes que han descargado tus proyectos de Dart o Flutter. Se vacía con su comando; hay que volver a ejecutar «pub get» en cada proyecto.",
+      "whoCreatesIt": "Dart y Flutter",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "caches",
+      "paths": [
+        "~/.pub-cache"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "dart",
+        "arguments": [
+          "pub",
+          "cache",
+          "clean",
+          "--force"
+        ]
+      },
+      "mustBeClosed": [],
+      "aggressiveRisk": "safe",
+      "processNames": [
+        "dart",
+        "flutter"
+      ],
+      "shortReason": "Tendrás que ejecutar «pub get» otra vez en cada proyecto.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "electron-cache",
+      "title": "Caché de Electron",
+      "explanation": "Copias de Electron que se descargan al instalar o empaquetar apps de escritorio hechas con él. Se vuelven a bajar cuando hacen falta.",
+      "whoCreatesIt": "Electron",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/electron"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se vuelve a descargar al instalar o empaquetar la próxima vez.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "node-gyp-cache",
+      "title": "Cabeceras de node-gyp",
+      "explanation": "Archivos de Node.js que node-gyp descarga para compilar módulos nativos. Se vuelven a bajar cuando hacen falta.",
+      "whoCreatesIt": "node-gyp (Node.js)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/node-gyp",
+        "~/.node-gyp"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "node-gyp los vuelve a descargar al compilar un módulo nativo.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "prisma-cache",
+      "title": "Caché de Prisma",
+      "explanation": "Motores de Prisma descargados para tus proyectos. Prisma los vuelve a bajar cuando los necesita.",
+      "whoCreatesIt": "Prisma",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.cache/prisma"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Prisma vuelve a descargar sus motores cuando los necesita.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "terraform-plugins",
+      "title": "Caché de plugins de Terraform",
+      "explanation": "Proveedores de Terraform guardados para no descargarlos en cada proyecto. Se vuelven a bajar con «terraform init».",
+      "whoCreatesIt": "Terraform",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.terraform.d/plugin-cache"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "terraform"
+      ],
+      "shortReason": "Terraform los vuelve a descargar con «terraform init».",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "expo-cache",
+      "title": "Caché de Expo",
+      "explanation": "Descargas y archivos temporales de Expo para apps de React Native. Tu sesión de Expo (state.json) se queda.",
+      "whoCreatesIt": "Expo",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.expo/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "expo"
+      ],
+      "shortReason": "Expo lo vuelve a descargar; tu sesión se queda.",
+      "profiles": [
+        "developer"
+      ],
+      "except": [
+        "state.json"
+      ]
+    },
+    {
+      "id": "android-build-cache",
+      "title": "Caché de compilación de Android",
+      "explanation": "Resultados de compilación y descargas de las herramientas de Android. Se rehacen al compilar.",
+      "whoCreatesIt": "Herramientas de Android",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.android/build-cache",
+        "~/.android/cache"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se vuelve a generar al compilar; la primera vez tarda más.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "jetbrains-caches",
+      "title": "Cachés de los IDE de JetBrains",
+      "explanation": "Índices y cachés de IntelliJ IDEA, PyCharm, WebStorm, Android Studio y otros. Se rehacen solos, pero al abrir cada proyecto el IDE tardará en volver a indexarlo.",
+      "whoCreatesIt": "JetBrains y Android Studio",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/JetBrains/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "idea",
+        "pycharm",
+        "webstorm",
+        "goland",
+        "clion",
+        "rider",
+        "phpstorm",
+        "rubymine",
+        "datagrip",
+        "studio"
+      ],
+      "shortReason": "El IDE vuelve a indexar cada proyecto al abrirlo, y con proyectos grandes tarda.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "vscode-caches",
+      "title": "Cachés de Visual Studio Code",
+      "explanation": "Archivos temporales de VS Code: caché del navegador interno, código compilado y extensiones descargadas. Tu configuración y tus extensiones instaladas no se tocan.",
+      "whoCreatesIt": "Visual Studio Code",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Application Support/Code/Cache",
+        "~/Library/Application Support/Code/CachedData",
+        "~/Library/Application Support/Code/Code Cache",
+        "~/Library/Application Support/Code/GPUCache",
+        "~/Library/Application Support/Code/CachedExtensionVSIXs"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "com.microsoft.VSCode"
+      ],
+      "shortReason": "VS Code los vuelve a crear; tu configuración y extensiones se quedan.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "cursor-caches",
+      "title": "Cachés de Cursor",
+      "explanation": "Archivos temporales de Cursor: caché del navegador interno, código compilado y extensiones descargadas. Tu configuración y tus extensiones instaladas no se tocan.",
+      "whoCreatesIt": "Cursor",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Application Support/Cursor/Cache",
+        "~/Library/Application Support/Cursor/CachedData",
+        "~/Library/Application Support/Cursor/Code Cache",
+        "~/Library/Application Support/Cursor/GPUCache",
+        "~/Library/Application Support/Cursor/CachedExtensionVSIXs"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "com.todesktop.230313mzl4w4u92"
+      ],
+      "shortReason": "Cursor los vuelve a crear; tu configuración y extensiones se quedan.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -349,7 +960,11 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "referenceCheck": "{name}"
+      "referenceCheck": "{name}",
+      "shortReason": "Tendrías que volver a descargar el modelo para usarlo.",
+      "profiles": [
+        "localAI"
+      ]
     },
     {
       "id": "ollama-models",
@@ -368,7 +983,12 @@
       "mustBeClosed": [],
       "processNames": [
         "ollama"
-      ]
+      ],
+      "shortReason": "Tendrías que volver a descargar el modelo con Ollama.",
+      "profiles": [
+        "localAI"
+      ],
+      "reviewHint": "Bórralos con «ollama rm» y el nombre del modelo; «ollama list» te dice cuáles tienes."
     },
     {
       "id": "whisper-cache",
@@ -387,6 +1007,10 @@
       "mustBeClosed": [],
       "processNames": [
         "whisper"
+      ],
+      "shortReason": "Whisper vuelve a descargar el modelo la próxima vez, y puede tardar.",
+      "profiles": [
+        "localAI"
       ]
     },
     {
@@ -403,7 +1027,11 @@
       "cleanup": {
         "type": "trash"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "shortReason": "Las pruebas fallarán hasta que vuelvas a instalar los navegadores.",
+      "profiles": [
+        "developer"
+      ]
     },
     {
       "id": "brave-cache",
@@ -496,6 +1124,10 @@
       "processNames": [
         "Xcode",
         "xcodebuild"
+      ],
+      "shortReason": "Xcode lo vuelve a generar al compilar; la primera compilación tarda más.",
+      "profiles": [
+        "developer"
       ]
     },
     {
@@ -523,7 +1155,189 @@
       "processNames": [
         "Simulator",
         "xcodebuild"
+      ],
+      "shortReason": "Solo quita simuladores que tu Xcode ya no puede usar.",
+      "profiles": [
+        "developer"
       ]
+    },
+    {
+      "id": "xcode-device-support",
+      "title": "Soporte de dispositivos de Xcode",
+      "explanation": "Copias de símbolos de cada versión de iOS, watchOS, tvOS o visionOS de los dispositivos que has conectado para depurar. Se conservan las 2 versiones más recientes de cada tipo.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Developer/Xcode/iOS DeviceSupport/*",
+        "~/Library/Developer/Xcode/watchOS DeviceSupport/*",
+        "~/Library/Developer/Xcode/tvOS DeviceSupport/*",
+        "~/Library/Developer/Xcode/visionOS DeviceSupport/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "Xcode",
+        "xcodebuild"
+      ],
+      "shortReason": "Xcode vuelve a copiarlo al conectar el dispositivo; se conservan las 2 más recientes.",
+      "profiles": [
+        "developer"
+      ],
+      "retention": {
+        "keepNewest": 2
+      }
+    },
+    {
+      "id": "xcode-coresimulator-caches",
+      "title": "Cachés del simulador",
+      "explanation": "Archivos temporales del simulador de iPhone y iPad. El simulador los vuelve a crear al arrancar.",
+      "whoCreatesIt": "Simulador de Xcode (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Developer/CoreSimulator/Caches"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "Simulator",
+        "xcodebuild"
+      ],
+      "shortReason": "El simulador los vuelve a crear al arrancar.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "xcode-test-devices",
+      "title": "Simuladores de pruebas de Xcode",
+      "explanation": "Copias de simuladores que Xcode crea para ejecutar pruebas en paralelo. Las vuelve a crear en las próximas pruebas.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "containers",
+      "paths": [
+        "~/Library/Developer/XCTestDevices/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "Xcode",
+        "xcodebuild"
+      ],
+      "shortReason": "Xcode los vuelve a crear en las próximas pruebas.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "xcode-doc-cache",
+      "title": "Caché de documentación de Xcode",
+      "explanation": "Documentación que Xcode guardó para consultarla. La vuelve a descargar cuando la abres.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Developer/Xcode/DocumentationCache"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "Xcode"
+      ],
+      "shortReason": "Xcode la vuelve a descargar cuando la consultas.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "xcode-caches",
+      "title": "Caché de Xcode",
+      "explanation": "Archivos temporales de Xcode (descargas, índices de ayuda). Xcode los vuelve a crear.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/com.apple.dt.Xcode"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "Xcode"
+      ],
+      "shortReason": "Xcode los vuelve a crear cuando los necesita.",
+      "profiles": [
+        "developer"
+      ]
+    },
+    {
+      "id": "xcode-orphan-runtimes",
+      "title": "Runtimes del simulador sin usar",
+      "explanation": "Versiones de iOS, watchOS, tvOS o visionOS para el simulador que ningún simulador usa. Se borran con el comando oficial de Xcode; si más adelante la necesitas, hay que volver a descargarla.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "containers",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "xcrun",
+        "arguments": [
+          "simctl",
+          "runtime",
+          "delete",
+          "{target}"
+        ]
+      },
+      "mustBeClosed": [],
+      "processNames": [
+        "Simulator",
+        "Xcode",
+        "xcodebuild"
+      ],
+      "shortReason": "Tendrías que volver a descargar el runtime desde Xcode.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "simulatorRuntimes"
+      }
+    },
+    {
+      "id": "xcode-archives",
+      "title": "Archivos de Xcode",
+      "explanation": "Copias de cada versión de tus apps que archivaste para subirla o distribuirla. Sirven para leer informes de fallos de esas versiones, así que Airy solo te los muestra.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/Library/Developer/Xcode/Archives"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Si los borras, no podrás leer los informes de fallos de esas versiones.",
+      "profiles": [
+        "developer"
+      ],
+      "reviewHint": "Bórralos desde Xcode › Window › Organizer: ahí ves cuáles ya subiste."
     },
     {
       "id": "user-logs",
@@ -539,7 +1353,11 @@
       "cleanup": {
         "type": "trash"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "shortReason": "Las apps los crean de nuevo; solo sirven para diagnosticar fallos.",
+      "profiles": [
+        "basic"
+      ]
     },
     {
       "id": "codex-stale-installs",
@@ -555,7 +1373,11 @@
       "cleanup": {
         "type": "trash"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "shortReason": "Son instalaciones a medias que Codex ya no usa.",
+      "profiles": [
+        "developer"
+      ]
     },
     {
       "id": "codex-runtime",
@@ -589,6 +1411,10 @@
       },
       "mustBeClosed": [
         "com.anthropic.claudefordesktop"
+      ],
+      "shortReason": "Claude vuelve a descargar su máquina virtual si la necesita, y ocupa varios GB.",
+      "profiles": [
+        "localAI"
       ]
     },
     {
