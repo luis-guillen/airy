@@ -64,6 +64,7 @@ public protocol CleanupTargetSource: Sendable {
 public enum CleanupTargets {
     /// `discovery` ⇒ su fuente; `retention` ⇒ `RetentionSource`; si no, `StaticPatternSource`.
     public static func source(for entry: CatalogEntry) -> any CleanupTargetSource {
+        if entry.section == .maintenance { return MaintenanceSource() }
         if entry.discovery == .docker { return DockerSource() }
         if entry.discovery == .simulatorRuntimes { return SimulatorRuntimeSource() }
         if case .projectArtifacts = entry.discovery { return ProjectArtifactSource() }
