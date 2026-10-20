@@ -44,9 +44,9 @@
     {
       "id": "docker-images",
       "title": "Imágenes de Docker",
-      "explanation": "Son las plantillas con las que Docker crea contenedores. Puedes borrar las que no uses, pero tendrás que descargarlas de nuevo si las necesitas; decide tú cuáles.",
+      "explanation": "Son las plantillas con las que Docker crea contenedores. Las descargadas se pueden bajar de nuevo, pero las que hayas construido tú habrá que reconstruirlas; decide tú cuáles sobran.",
       "whoCreatesIt": "Docker",
-      "regenerates": true,
+      "regenerates": false,
       "risk": "yourCall",
       "kind": "containers",
       "paths": [],
@@ -122,7 +122,7 @@
     {
       "id": "pnpm",
       "title": "Almacén de pnpm",
-      "explanation": "Copia de los paquetes de JavaScript que descargó pnpm. Se limpia con su comando y se vuelve a llenar al instalar dependencias.",
+      "explanation": "Copia de los paquetes de JavaScript que descargó pnpm. El comando solo quita los paquetes que ningún proyecto usa, así que puede liberar menos de lo que se muestra; pnpm vuelve a descargar lo que haga falta.",
       "whoCreatesIt": "pnpm",
       "regenerates": true,
       "risk": "safe",
@@ -256,9 +256,9 @@
     {
       "id": "playwright",
       "title": "Navegadores de Playwright",
-      "explanation": "Copias de navegadores que usa Playwright para pruebas automáticas. Se vuelven a descargar solas cuando ejecutas pruebas de nuevo.",
+      "explanation": "Copias de los navegadores que usa Playwright para las pruebas automáticas. Si las borras, las pruebas fallarán hasta que ejecutes «npx playwright install» para volver a instalarlas.",
       "whoCreatesIt": "Playwright",
-      "regenerates": true,
+      "regenerates": false,
       "risk": "safe",
       "kind": "caches",
       "paths": [
@@ -327,10 +327,10 @@
     {
       "id": "spotify-cache",
       "title": "Caché de Spotify",
-      "explanation": "Canciones y portadas que Spotify guarda para no descargarlas otra vez. Vuelve a llenarse sola al escuchar música; cierra Spotify antes de limpiar.",
+      "explanation": "Canciones y portadas que Spotify guarda para no descargarlas otra vez; puede incluir las canciones descargadas para escuchar sin conexión, que habría que volver a descargar. Cierra Spotify antes de limpiar.",
       "whoCreatesIt": "Spotify",
       "regenerates": true,
-      "risk": "safe",
+      "risk": "yourCall",
       "kind": "caches",
       "paths": [
         "~/Library/Caches/com.spotify.client"
@@ -361,7 +361,7 @@
     {
       "id": "xcode-simulators",
       "title": "Simuladores no disponibles de Xcode",
-      "explanation": "Simuladores de iPhone o iPad antiguos que ya no funcionan con tu versión de Xcode. Se eliminan con el comando oficial de Xcode y no se pierde nada útil.",
+      "explanation": "Elimina los simuladores de iPhone o iPad que ya no están disponibles con tu versión de Xcode, junto con los datos de apps que contienen. Se hace con el comando oficial de Xcode.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": false,
       "risk": "safe",
@@ -447,7 +447,7 @@
     {
       "id": "time-machine-snapshots",
       "title": "Instantáneas locales de Time Machine",
-      "explanation": "Copias temporales que Time Machine guarda en tu Mac cuando no está conectado el disco de copias. macOS las borra solo si falta espacio; puedes reducirlas ahora, pero perderás esos puntos de restauración.",
+      "explanation": "Mientras Time Machine está activado, macOS crea copias locales cada hora, esté o no conectado el disco de copias, y las borra solo pasadas unas 24 horas o si falta espacio. Puedes reducirlas ahora, pero perderás esos puntos de restauración.",
       "whoCreatesIt": "Time Machine (Apple)",
       "regenerates": true,
       "risk": "yourCall",

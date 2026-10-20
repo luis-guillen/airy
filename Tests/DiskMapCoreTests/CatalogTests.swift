@@ -99,4 +99,53 @@ import Foundation
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: .safe, ai: nil) == .safe)
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: .safe) == .safe)
     }
+
+    @Test func pathsAreCanonicalized() {
+        #expect(RiskPolicy.minimumRisk(forPath: home + "/documents/x", home: home) == .yourCall)
+        #expect(RiskPolicy.minimumRisk(forPath: home + "/Library/../Documents/x", home: home) == .yourCall)
+        #expect(RiskPolicy.minimumRisk(forPath: home + "//Documents/./x", home: home) == .yourCall)
+        #expect(RiskPolicy.minimumRisk(forPath: "/system/library", home: home) == .doNotTouch)
+    }
+
+    @Test func matchIsCanonicalAndCaseInsensitive() throws {
+        let catalog = try Catalog.bundled()
+        #expect(catalog.match(path: home + "/library/CACHES/homebrew", home: home)?.id == "homebrew")
+        #expect(catalog.match(path: home + "/Library/Logs/../Caches/Homebrew", home: home)?.id == "homebrew")
+    }
+
+    @Test func mostSpecificPatternWins() {
+        func e(_ id: String, _ p: String) -> CatalogEntry {
+            CatalogEntry(id: id, title: id, explanation: "x", whoCreatesIt: "x", regenerates: true,
+                         risk: .safe, kind: .caches, paths: [p], cleanup: .info)
+        }
+        let c = Catalog(entries: [e("broad", "~/a/*"), e("narrow", "~/a/keep"), e("mid", "~/a/ke*")])
+        #expect(c.match(path: home + "/a/keep/f", home: home)?.id == "narrow")
+        #expect(c.match(path: home + "/a/kex", home: home)?.id == "mid")
+        #expect(c.match(path: home + "/a/other", home: home)?.id == "broad")
+    }
+
+    @Test func starDoesNotCrossSlash() {
+        let entry = CatalogEntry(id: "s", title: "s", explanation: "x", whoCreatesIt: "x", regenerates: true,
+                                 risk: .safe, kind: .caches, paths: ["~/x/a*b"], cleanup: .info)
+        let c = Catalog(entries: [entry])
+        #expect(c.match(path: home + "/x/a1b", home: home)?.id == "s")
+        #expect(c.match(path: home + "/x/a1/2b", home: home) == nil)
+        #expect(c.match(path: home + "/x/ab", home: home)?.id == "s")
+    }
+
+    @Test func referenceNeedleTransform() throws {
+        let catalog = try Catalog.bundled()
+        let hf = try #require(catalog.entry(id: "huggingface-model"))
+        #expect(hf.referenceNeedle(forMatchedFolder: "models--mlx-community--whisper-small-mlx") == "mlx-community/whisper-small-mlx")
+        #expect(hf.referenceNeedle(forMatchedFolder: "datasets--a--b") == "a/b")
+        #expect(try #require(catalog.entry(id: "pip")).referenceNeedle(forMatchedFolder: "x") == nil)
+    }
+
+    @Test func correctedCopyAndRisks() throws {
+        let catalog = try Catalog.bundled()
+        #expect(catalog.entry(id: "playwright")?.regenerates == false)
+        #expect(catalog.entry(id: "playwright")?.explanation.contains("npx playwright install") == true)
+        #expect(catalog.entry(id: "spotify-cache")?.risk == .yourCall)
+        #expect(catalog.entry(id: "docker-images")?.regenerates == false)
+    }
 }

@@ -6,10 +6,11 @@ public enum RiskPolicy {
         "Documents", "Desktop", "Pictures", "Movies", "Music", "Downloads", "orca", "Projects",
     ]
 
-    public static func minimumRisk(forPath path: String, home: String) -> Risk {
-        if isInside(path, root: "/System") { return .doNotTouch }
-        let base = home.hasSuffix("/") ? String(home.dropLast()) : home
-        for name in personalRoots where isInside(path, root: base + "/" + name) {
+    public static func minimumRisk(forPath rawPath: String, home rawHome: String) -> Risk {
+        let path = canonical(rawPath)
+        if isInside(path, root: "/system") { return .doNotTouch }
+        let base = canonical(rawHome)
+        for name in personalRoots where isInside(path, root: (base == "/" ? "" : base) + "/" + name.lowercased()) {
             return .yourCall
         }
         return .safe
@@ -22,6 +23,18 @@ public enum RiskPolicy {
         if let catalog { risk = .strictest(risk, catalog) }
         if let ai { risk = .strictest(risk, ai) }
         return risk
+    }
+
+    /// Colapsa `.`, `..` y barras repetidas, y pasa a minúsculas (APFS no distingue mayúsculas).
+    /// No resuelve enlaces simbólicos ni quita `/private`.
+    static func canonical(_ path: String) -> String {
+        var parts: [Substring] = []
+        for part in path.split(separator: "/", omittingEmptySubsequences: true) {
+            if part == "." { continue }
+            if part == ".." { _ = parts.popLast(); continue }
+            parts.append(part)
+        }
+        return "/" + parts.joined(separator: "/").lowercased()
     }
 
     static func isInside(_ path: String, root: String) -> Bool {
