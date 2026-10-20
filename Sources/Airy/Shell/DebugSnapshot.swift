@@ -19,6 +19,9 @@ import AppKit
 /// - `AIRY_SCAN_PREVIEW` (en `AppModel`): "1" enseña la pantalla de análisis con un progreso fijo
 ///   sin analizar nada (para medir sus animaciones sin recorrer el disco).
 @MainActor
+/// - `AIRY_MOTION_GALLERY`: "1" sustituye el contenido por la galería de movimiento (`MotionGallery`) y
+///   no analiza el disco.
+/// - `AIRY_GALLERY_AUTOPLAY`: segundos tras el arranque a los que la galería pulsa sola «Simular borrado».
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
     /// Reloj común de capturas y guiones de depuración (p. ej. `AIRY_MAP_SCRIPT`).
@@ -36,6 +39,9 @@ enum DebugSnapshot {
 
     /// `AIRY_SCAN_PREVIEW=1`: pantalla de análisis con progreso fijo, sin recorrer el disco.
     static var previewsScan: Bool { environment["AIRY_SCAN_PREVIEW"] == "1" }
+
+    /// `AIRY_MOTION_GALLERY=1`: galería de movimiento en lugar de la sección, sin analizar el disco.
+    static var showsGallery: Bool { environment["AIRY_MOTION_GALLERY"] == "1" }
 
     static func configure(_ model: AppModel) {
         start = Date()
