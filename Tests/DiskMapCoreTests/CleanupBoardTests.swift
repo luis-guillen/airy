@@ -86,6 +86,17 @@ import Testing
         #expect(CleanupBoard.commandLine(["echo", "a b"]) == "echo 'a b'")
     }
 
+    @Test func blockedRowSaysWhyInline() {
+        var blocked = item("pip", bytes: 100, risk: .safe)
+        blocked.blockedReason = "pip se está ejecutando; ciérralo y vuelve a intentarlo."
+        #expect(CleanupBoard.showsCheckbox(blocked) && !CleanupBoard.canSelect(blocked))
+        #expect(CleanupBoard.blockedReasonText(blocked) == "pip se está ejecutando; ciérralo y vuelve a intentarlo.")
+        #expect(CleanupBoard.blockedReasonText(item("logs", bytes: 1, risk: .safe)) == nil)
+        // Protegida: manda el texto de la protección, no el bloqueo.
+        blocked.protection = ProtectionMatch(source: .user, pattern: "~/x", reason: "Lo has protegido tú (~/x).")
+        #expect(CleanupBoard.blockedReasonText(blocked) == nil)
+    }
+
     // MARK: Grupos
 
     @Test func groupsByRiskInFixedOrderSortedBySize() {

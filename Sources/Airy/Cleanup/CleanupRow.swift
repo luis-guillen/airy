@@ -88,7 +88,7 @@ struct CleanupRow: View {
         } else if showsCheckbox {
             CheckCircle(isOn: isSelected, enabled: canSelect)
                 .onTapGesture { if canSelect { onToggle() } }
-                .help(canSelect ? (isSelected ? "Quitar de la selección" : "Seleccionar") : "No se puede limpiar ahora")
+                .help(canSelect ? (isSelected ? "Quitar de la selección" : "Seleccionar") : CleanupBoard.blockedReasonText(item) ?? "No se puede limpiar ahora")
         } else {
             Image(systemName: isInfo && item.risk != .doNotTouch ? "info.circle" : "lock.fill")
                 .font(.system(size: 13, weight: .semibold))
@@ -144,6 +144,12 @@ struct CleanupRow: View {
                 .font(.callout.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+        }
+        if let reason = CleanupBoard.blockedReasonText(item) {
+            Label(reason, systemImage: "hand.raised.fill")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(Theme.color(for: .yourCall))
+                .lineLimit(3)
         }
         if let used = CleanupBoard.usedByMessage(item.usedBy) {
             Label(used, systemImage: "link")

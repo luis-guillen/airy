@@ -152,6 +152,14 @@ public struct CleanupBoard: Sendable {
         argv.map(displayQuoted).joined(separator: " ")
     }
 
+    /// Por qué una fila con casilla no se puede limpiar ahora (procesos abiertos, comprobación
+    /// incompleta…), para enseñarlo en la propia fila. `nil` si no está bloqueada así o está protegida
+    /// (entonces lo dice `protectionText`).
+    public static func blockedReasonText(_ item: CleanupItem) -> String? {
+        guard item.protection == nil, let reason = item.blockedReason, !reason.isEmpty else { return nil }
+        return reason
+    }
+
     /// Qué dice una fila protegida: «Protegido por ti» o «Protegido por Airy: <motivo>».
     public static func protectionText(_ protection: ProtectionMatch) -> String {
         switch protection.source {
