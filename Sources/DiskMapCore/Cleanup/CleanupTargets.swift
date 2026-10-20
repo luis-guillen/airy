@@ -68,6 +68,7 @@ public enum CleanupTargets {
         if entry.discovery == .simulatorRuntimes { return SimulatorRuntimeSource() }
         if case .projectArtifacts = entry.discovery { return ProjectArtifactSource() }
         if entry.discovery == .installers { return InstallerSource() }
+        if entry.discovery == .appSupportCaches { return AppSupportCacheSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()
@@ -111,7 +112,11 @@ struct PendingDiscoverySource: CleanupTargetSource {
 /// Los patrones de la ficha (comportamiento de la fase 1), con `except`, `perMatch`, `staleAfterDays`,
 /// `minimumBytes` y `{target}`.
 public struct StaticPatternSource: CleanupTargetSource {
-    public init() {}
+    private let measureBudget: Duration
+
+    public init() { measureBudget = TimeBudget.sizeMeasure }
+
+    init(measureBudget: Duration) { self.measureBudget = measureBudget }
 
     public func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
         let unique = CleanupTargets.livePaths(of: entry, home: context.home)
@@ -141,9 +146,12 @@ public struct StaticPatternSource: CleanupTargetSource {
         }
 
         var result: [DiscoveredTarget] = []
+        // Un solo plazo para todas las medidas de esta ficha (p. ej. cada elemento de Descargas).
+        let deadline = ContinuousClock().now.advanced(by: measureBudget)
         for var group in groups {
             if entry.staleAfterDays != nil || entry.minimumBytes != nil {
-                guard measure(&group, entry: entry, now: context.now, scan: context.scan) else { continue }
+                guard measure(&group, entry: entry, now: context.now, scan: context.scan, deadline: deadline)
+                else { continue }
             }
             if entry.cleanup.usesTargets { group.targets = group.paths }
             result.append(group)
@@ -176,7 +184,8 @@ public struct StaticPatternSource: CleanupTargetSource {
 
     /// Aplica `staleAfterDays` (quita las rutas recientes o sin medir) y `minimumBytes`. `false` ⇒ fuera.
     /// Sin `staleAfterDays`, el tamaño del índice basta (no hace falta recorrer el disco).
-    private func measure(_ group: inout DiscoveredTarget, entry: CatalogEntry, now: Date, scan: FileNode?) -> Bool {
+    private func measure(_ group: inout DiscoveredTarget, entry: CatalogEntry, now: Date, scan: FileNode?,
+                         deadline: ContinuousClock.Instant) -> Bool {
         let cutoff = entry.staleAfterDays.map { now.addingTimeInterval(-Double($0) * 86_400) }
         var kept: [String] = []
         var bytes: Int64 = 0
@@ -187,7 +196,9 @@ public struct StaticPatternSource: CleanupTargetSource {
                 bytes += node.allocatedSize
                 continue
             }
-            guard let summary = TreeWalk.summarize(path, budget: TimeBudget.sizeMeasure) else { continue }
+            // Sin tiempo no se sabe: no se ofrece.
+            guard let summary = TreeWalk.summarize(path, budget: max(.zero, ContinuousClock().now.duration(to: deadline)))
+            else { continue }
             if let cutoff {
                 guard let modified = summary.latestModification, modified < cutoff else { continue }
             }
