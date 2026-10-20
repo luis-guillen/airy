@@ -12,8 +12,9 @@ public enum AppGrouper {
         return "/" + parts[...i].joined(separator: "/")
     }
 
+    /// Sin ruta conocida cuenta como sistema: nunca se ofrece cerrar algo que no se sabe qué es.
     private static func isSystem(_ path: String?) -> Bool {
-        guard let path else { return false }
+        guard let path else { return true }
         return systemPrefixes.contains { path.hasPrefix($0) }
     }
 
@@ -86,6 +87,14 @@ public enum AppGrouper {
                                bundleID: app?.bundleID, bundlePath: path, kind: kind, members: members, lead: lead,
                                cpu: cpu, energy: energy,
                                explanation: catalog?.entry(bundleID: app?.bundleID, processName: lead.name)?.explanation))
+        }
+
+        // El mismo bundle id desde dos rutas (una copia de la app) daría dos grupos con el mismo id:
+        // se distinguen por PID para que nunca se confunda una instancia con otra al revalidar o cerrar.
+        var seen: [String: Int] = [:]
+        for g in groups { seen[g.id, default: 0] += 1 }
+        for i in groups.indices where seen[groups[i].id, default: 0] > 1 {
+            groups[i].id += "#\(groups[i].leadPID)"
         }
 
         let total = raw.memory.total, cores = raw.cores.count

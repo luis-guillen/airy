@@ -69,6 +69,8 @@ public final class QuitExecutor: Sendable {
     public static let forceFirstMessage = "Primero hay que intentar cerrarla normalmente."
     public static let requestFailedMessage = "No se pudo pedir que se cerrara."
     public static let forceFailedMessage = "No se pudo forzar el cierre."
+    /// Lo que se espera a que desaparezca tras forzar (como mucho `wait`).
+    static let forceGrace: Duration = .seconds(2)
 
     private enum Check { case ok(AppGroup), stop(QuitOutcome) }
 
@@ -140,11 +142,7 @@ public final class QuitExecutor: Sendable {
             return (.failed(Self.requestFailedMessage), current)
         }
         let deadline = ContinuousClock.now + wait
-        while ContinuousClock.now < deadline {
-            if !terminator.isAlive(pid: current.leadPID, startedAt: current.leadStart) { return (.closed, current) }
-            do { try await Task.sleep(for: poll) } catch { break }
-        }
-        if !terminator.isAlive(pid: current.leadPID, startedAt: current.leadStart) { return (.closed, current) }
+        if await waitForExit(current, within: wait) { return (.closed, current) }
         // Solo cuenta como «no responde» si de verdad se esperó todo el plazo (no si se canceló la espera).
         if ContinuousClock.now >= deadline {
             unresponsive.withLock { _ = $0.insert(Key(pid: current.leadPID, start: current.leadStart)) }
@@ -163,8 +161,22 @@ public final class QuitExecutor: Sendable {
         guard terminator.forceQuit(pid: current.leadPID, isApp: current.kind == .app) else {
             return (.failed(Self.forceFailedMessage), current)
         }
+        // Que se enviara no basta: solo se dice «cerrada» cuando el proceso ya no está.
+        guard await waitForExit(current, within: min(wait, Self.forceGrace)) else {
+            return (.failed(Self.forceFailedMessage), current)
+        }
         unresponsive.withLock { _ = $0.remove(key) }
         return (.closed, current)
+    }
+
+    /// Sondea `isAlive` cada `poll` hasta `within`; true si el proceso terminó. Una cancelación corta la espera.
+    private func waitForExit(_ group: AppGroup, within: Duration) async -> Bool {
+        let deadline = ContinuousClock.now + within
+        while ContinuousClock.now < deadline {
+            if !terminator.isAlive(pid: group.leadPID, startedAt: group.leadStart) { return true }
+            do { try await Task.sleep(for: poll) } catch { break }
+        }
+        return !terminator.isAlive(pid: group.leadPID, startedAt: group.leadStart)
     }
 
     private func record(_ outcome: QuitOutcome, action: String, group: AppGroup, context: OperationContext) {
