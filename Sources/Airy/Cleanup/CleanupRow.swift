@@ -64,6 +64,12 @@ struct CleanupRow: View {
         .background(.primary.opacity(hovering && canSelect ? 0.035 : 0))
         .contentShape(Rectangle())
         .onTapGesture { if canSelect { onToggle() } }
+        .contextMenu {
+            // No destructivo: sin confirmación. Lo ya protegido (o sin rutas, como Docker) no lo ofrece.
+            if item.protection == nil, !item.paths.isEmpty {
+                Button("Proteger esto", systemImage: "lock") { model.protect(paths: item.paths) }
+            }
+        }
         .onHover { hovering in withAnimation(Theme.pressSpring) { self.hovering = hovering } }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(showsCheckbox ? .isButton : [])
@@ -87,7 +93,7 @@ struct CleanupRow: View {
             Image(systemName: isInfo && item.risk != .doNotTouch ? "info.circle" : "lock.fill")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.tertiary)
-                .help(isInfo ? "Solo informativo" : "No tocar")
+                .help(item.protection.map(CleanupBoard.protectionText) ?? (isInfo ? "Solo informativo" : "No tocar"))
         }
     }
 
@@ -132,6 +138,12 @@ struct CleanupRow: View {
                         .foregroundStyle(Theme.color(for: .yourCall))
                 }
             }
+        }
+        if let protection = item.protection {
+            Label(CleanupBoard.protectionText(protection), systemImage: "lock.fill")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
         if let used = CleanupBoard.usedByMessage(item.usedBy) {
             Label(used, systemImage: "link")

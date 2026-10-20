@@ -93,7 +93,7 @@ struct Volume: Identifiable, Hashable, Sendable {
 
 /// Aviso no bloqueante que la interfaz muestra como banner descartable.
 struct Notice: Identifiable, Equatable {
-    enum Kind: String { case scan, save, history, catalog, migration, url }
+    enum Kind: String { case scan, save, history, catalog, migration, url, settings }
     let kind: Kind
     let message: String
     var id: String { kind.rawValue }
@@ -152,6 +152,11 @@ final class AppModel {
 
     let catalog: Catalog?
     let catalogError: String?
+    let paths: AppPaths
+    /// Registro de operaciones compartido con `airy-mcp`.
+    let operationLog: OperationLog
+    /// `settings.json`: se vuelve a leer al volver a la app y antes de cada acción destructiva.
+    private var settingsSession: SettingsSession
     private let runner = ProcessRunner()
     private let probes = SystemProbes()
     private let appDirectory: URL
@@ -175,10 +180,14 @@ final class AppModel {
 
     init() {
         let paths = AppPaths.standard()
+        self.paths = paths
         appDirectory = paths.support
+        operationLog = OperationLog(file: paths.operationsFile)
         var migrationFailure: String?
         if case .failed(let reason) = DataMigration.migrateIfNeeded(paths) { migrationFailure = reason }
         store = IndexStore(directory: appDirectory)
+        // Tras la migración: puede haber traído el `settings.json` del legado.
+        settingsSession = SettingsSession(store: SettingsStore(file: paths.settingsFile))
         do {
             catalog = try Catalog.bundled()
             catalogError = nil
@@ -190,8 +199,80 @@ final class AppModel {
         if let migrationFailure {
             notices.append(Notice(kind: .migration, message: "No se pudieron copiar los datos de \(AppPaths.legacyFolderName) (\(migrationFailure)). Siguen en su carpeta; Airy lo intentará otra vez al abrirse."))
         }
+        syncSettingsNotice()
         observeSystem()
         refreshSystemState()
+    }
+
+    // MARK: Ajustes
+
+    var settingsLoad: SettingsLoad { settingsSession.load }
+    var settings: AirySettings { settingsLoad.effective }
+
+    /// Aplica un cambio y lo guarda; si cambia el modo o la lista protegida, se vuelve a detectar.
+    /// Con `settings.json` ilegible no guarda nada: antes hay que restablecerlo.
+    func updateSettings(_ change: (inout AirySettings) -> Void) {
+        do {
+            if try settingsSession.update(change) { refreshCleanup() }
+            syncSettingsNotice()
+        } catch is SettingsSession.Unreadable {
+            syncSettingsNotice()
+        } catch {
+            report(.settings, "No se pudieron guardar los ajustes (\(error.localizedDescription)).")
+        }
+    }
+
+    /// «Restablecer ajustes»: aparta el `settings.json` ilegible y vuelve a los valores por defecto.
+    func resetSettings() {
+        do {
+            try settingsSession.reset()
+            dismiss(.settings)
+            refreshCleanup()
+        } catch {
+            report(.settings, "No se pudieron restablecer los ajustes (\(error.localizedDescription)).")
+        }
+    }
+
+    /// «Proteger esto» (no destructivo: sin confirmación).
+    func protect(path: String) { protect(paths: [path]) }
+
+    func protect(paths: [String]) {
+        let home = NSHomeDirectory()
+        updateSettings { settings in for path in paths { _ = settings.protect(path, home: home) } }
+    }
+
+    func unprotect(_ pattern: String) {
+        updateSettings { $0.unprotect(pattern) }
+    }
+
+    /// Aviso mientras `settings.json` no se puede leer, o `nil`.
+    var unreadableSettingsNotice: String? { settingsSession.unreadableNotice }
+
+    /// Motivo para no borrar nada ahora mismo (ajustes ilegibles), o `nil`.
+    var destructiveRefusal: String? { settingsSession.destructiveRefusal }
+
+    /// Clasificador con los ajustes cargados: el mismo para Limpieza, el mapa y el asistente.
+    var classifier: RiskClassifier {
+        RiskClassifier(catalog: catalog ?? Catalog(entries: []), settings: settings, home: NSHomeDirectory())
+    }
+
+    func classify(path: String) -> Classification { classifier.classify(path: path) }
+
+    /// Vuelve a leer `settings.json`; si cambió, avisa y vuelve a detectar.
+    func reloadSettings() {
+        guard settingsSession.reload() else { return }
+        syncSettingsNotice()
+        refreshCleanup()
+    }
+
+    private func syncSettingsNotice() {
+        if let notice = settingsSession.unreadableNotice { report(.settings, notice) } else { dismiss(.settings) }
+    }
+
+    /// Fallo cerrado: con los ajustes ilegibles no se borra nada (ni la Papelera).
+    private func settingsRefusal() -> CleanupOutcome? {
+        reloadSettings()
+        return settingsSession.destructiveRefusal.map { .blocked(reason: $0) }
     }
 
     // MARK: Avisos
@@ -449,8 +530,10 @@ final class AppModel {
         let generation = cleanupGeneration
         isRefreshingCleanup = true
         let root = scan?.root
+        let classifier = classifier
         let scanner = catalog.map {
-            CleanupScanner(catalog: $0, runner: runner, probes: probes, references: ReferenceChecker())
+            CleanupScanner(catalog: $0, runner: runner, probes: probes, references: ReferenceChecker(),
+                           classifier: classifier)
         }
         cleanupTask = Task { [weak self] in
             await self?.refreshCounters()
@@ -469,11 +552,24 @@ final class AppModel {
         }
     }
 
+    /// Lo que haría cada elemento ahora (mismo plan que `perform`), sin hacerlo: la hoja de confirmación
+    /// lo enseña fila a fila y no ejecuta lo bloqueado.
+    func preview(_ items: [CleanupItem], context: OperationContext = .user()) async -> [String: CleanupPreview] {
+        guard let executor else {
+            return Dictionary(items.map { ($0.id, .blocked(reason: "No se pudo cargar el catálogo de limpiezas.")) },
+                              uniquingKeysWith: { a, _ in a })
+        }
+        var previews: [String: CleanupPreview] = [:]
+        for item in items { previews[item.id] = await executor.preview(item, context: context) }
+        return previews
+    }
+
     /// Ejecuta una limpieza del catálogo (con revalidación completa) y refresca los contadores.
     /// La interfaz es la que confirma antes de llamar aquí.
-    func perform(_ item: CleanupItem) async -> CleanupOutcome {
+    func perform(_ item: CleanupItem, context: OperationContext = .user()) async -> CleanupOutcome {
+        if let refusal = settingsRefusal() { return refusal }
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
-        let outcome = await executor.execute(item)
+        let outcome = await executor.execute(item, context: context)
         switch outcome {
         case .freed, .movedToTrash: await updateTree(afterTouching: item.paths)
         case .blocked, .failed: break
@@ -487,9 +583,10 @@ final class AppModel {
     /// Envía rutas elegidas en el mapa a la Papelera con todas las comprobaciones de
     /// `CleanupExecutor.trashPaths`, las quita del árbol mostrado y refresca como `perform`.
     /// La interfaz es la que confirma antes de llamar aquí.
-    func trash(paths: [String], title: String) async -> CleanupOutcome {
+    func trash(paths: [String], title: String, context: OperationContext = .user()) async -> CleanupOutcome {
+        if let refusal = settingsRefusal() { return refusal }
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
-        let outcome = await executor.trashPaths(paths, title: title)
+        let outcome = await executor.trashPaths(paths, title: title, context: context)
         // Lo que ya no está en su sitio sale del mapa (también si se movió solo una parte).
         // Orden: (1) se buscan los nodos aquí (hilo principal, dueño del árbol); (2) `treeGate`
         // cancela la detección de limpiezas en curso y ESPERA a todos los lectores (también a
@@ -590,10 +687,12 @@ final class AppModel {
     /// Ojo: si `~/.Trash` no se puede leer, se recurre a Finder, que vacía la Papelera de
     /// **todos** los volúmenes, no solo la del disco de arranque; la confirmación debe avisarlo.
     @discardableResult
-    func emptyTrash() async -> CleanupOutcome {
+    func emptyTrash(context: OperationContext = .user()) async -> CleanupOutcome {
         let outcome: CleanupOutcome
-        if let executor {
-            outcome = await executor.emptyTrash()
+        if let refusal = settingsRefusal() {
+            outcome = refusal
+        } else if let executor {
+            outcome = await executor.emptyTrash(context: context)
         } else {
             outcome = .failed("No se pudo cargar el catálogo de limpiezas.")
         }
@@ -605,11 +704,11 @@ final class AppModel {
 
     /// Ajustes leídos de disco en cada operación (nunca cacheados) y registro de operaciones compartido con `airy-mcp`.
     private var executor: CleanupExecutor? {
-        let paths = AppPaths.standard()
-        let settings = SettingsStore(file: paths.settingsFile)
+        let settings = settingsSession.store
+        let log = operationLog
         return catalog.map {
             CleanupExecutor(runner: runner, probes: probes, store: store, catalog: $0,
-                            settings: { settings.load() }, log: OperationLog(file: paths.operationsFile))
+                            settings: { settings.load() }, log: log)
         }
     }
 
@@ -665,7 +764,10 @@ final class AppModel {
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification,
                                             object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshSystemState() }
+            MainActor.assumeIsolated {
+                self?.reloadSettings()
+                self?.refreshSystemState()
+            }
         })
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {

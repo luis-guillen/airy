@@ -66,6 +66,26 @@ import Testing
         ]
     }
 
+    // MARK: Protegidos
+
+    @Test func protectedItemHasNoCheckbox() {
+        // Riesgo verde a propósito: solo la protección debe quitarle la casilla.
+        var protected = item("mine", bytes: 800, risk: .safe)
+        protected.protection = ProtectionMatch(source: .user, pattern: "~/Library/Caches/mine",
+                                               reason: "Lo has protegido tú (~/Library/Caches/mine).")
+        #expect(CleanupBoard.canSelect(protected) == false)
+        #expect(CleanupBoard.showsCheckbox(protected) == false)
+        let board = CleanupBoard(items: [protected, item("logs", bytes: 50, risk: .safe)])
+        #expect(board.readySafeItems.map(\.id) == ["logs"])
+        #expect(board.safeBytes == 50)
+        #expect(CleanupBoard.protectionText(protected.protection!) == "Protegido por ti")
+        #expect(CleanupBoard.protectionText(ProtectionMatch(source: .airy, pattern: "~/Library/Mail",
+                                                            reason: "Correo de Mail."))
+                == "Protegido por Airy: Correo de Mail.")
+        #expect(CleanupBoard.commandLine(["uv", "cache", "clean"]) == "uv cache clean")
+        #expect(CleanupBoard.commandLine(["echo", "a b"]) == "echo 'a b'")
+    }
+
     // MARK: Grupos
 
     @Test func groupsByRiskInFixedOrderSortedBySize() {

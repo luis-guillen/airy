@@ -27,6 +27,8 @@ final class CleanupFlow {
         }
 
         let id = UUID()
+        /// Una tanda: su vista previa y su ejecución quedan en el registro con este mismo `runID`.
+        let runID = UUID()
         let kind: Kind
         var warning: Warning? = nil
         /// Agente que propuso esto (por `airy://propose`); la confirmación del usuario lo deja en el
@@ -36,6 +38,9 @@ final class CleanupFlow {
         /// confirmación (p. ej. la tarjeta del asistente o el aviso del mapa).
         var onConfirm: (@MainActor () -> Void)? = nil
         var onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil
+
+        /// Lo confirma el usuario; si lo propuso un agente, queda anotado como tal.
+        var context: OperationContext { .user(runID: runID, proposedBy: proposedBy) }
     }
 
     struct SnapshotNotice: Identifiable {
@@ -116,23 +121,35 @@ final class CleanupFlow {
     func cancelSheet() { sheet = nil }
 
     /// El usuario confirmó en la hoja. El estado "ocupado" se fija aquí mismo, antes de lanzar la
-    /// tarea, para que un segundo clic no pueda arrancar otra tanda.
-    func confirm(_ request: ConfirmRequest, model: AppModel) {
+    /// tarea, para que un segundo clic no pueda arrancar otra tanda. `blocked`: ids de elementos (o
+    /// rutas sueltas) que la vista previa dio por bloqueados: no se ejecutan.
+    func confirm(_ request: ConfirmRequest, model: AppModel, blocked: Set<String> = []) {
         guard !isBusy else { return }
+        let context = request.context
+        switch request.kind {
+        case .items(let all):
+            let items = all.filter { !blocked.contains($0.id) }
+            guard !items.isEmpty else { return }
+            start(request)
+            queuedIDs = items.map(\.id)
+            Task { await run(items, model: model, context: context, onOutcome: request.onOutcome) }
+        case .emptyTrash:
+            start(request)
+            isEmptyingTrash = true
+            Task { await emptyTrash(model: model, context: context) }
+        case .trashPaths(let all, let title):
+            let paths = all.filter { !blocked.contains($0) }
+            guard !paths.isEmpty else { return }
+            start(request)
+            queuedIDs = [title]
+            Task { await trash(paths: paths, title: title, model: model, context: context, onOutcome: request.onOutcome) }
+        }
+    }
+
+    private func start(_ request: ConfirmRequest) {
         sheet = nil
         lastResult = nil
         request.onConfirm?()
-        switch request.kind {
-        case .items(let items):
-            queuedIDs = items.map(\.id)
-            Task { await run(items, model: model, onOutcome: request.onOutcome) }
-        case .emptyTrash:
-            isEmptyingTrash = true
-            Task { await emptyTrash(model: model) }
-        case .trashPaths(let paths, let title):
-            queuedIDs = [title]
-            Task { await trash(paths: paths, title: title, model: model, onOutcome: request.onOutcome) }
-        }
     }
 
     /// La nueva detección ya refleja lo limpiado: nada que ocultar a mano.
@@ -143,7 +160,7 @@ final class CleanupFlow {
 
     // MARK: Limpiar
 
-    private func run(_ items: [CleanupItem], model: AppModel,
+    private func run(_ items: [CleanupItem], model: AppModel, context: OperationContext,
                      onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
         let summary = await CleanupBatch.run(items, onStart: { [weak self] index in
             guard let self else { return }
@@ -157,7 +174,7 @@ final class CleanupFlow {
                 onOutcome?(gone)
                 return gone
             }
-            let outcome = await model.perform(current)
+            let outcome = await model.perform(current, context: context)
             switch outcome {
             case .freed, .movedToTrash:
                 // La fila se colapsa con el muelle en cuanto termina (la detección llega después).
@@ -178,11 +195,11 @@ final class CleanupFlow {
         return lstat(path, &info) == 0
     }
 
-    private func trash(paths: [String], title: String, model: AppModel,
+    private func trash(paths: [String], title: String, model: AppModel, context: OperationContext,
                        onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
         currentID = title
         queuedIDs = []
-        let outcome = await model.trash(paths: paths, title: title)
+        let outcome = await model.trash(paths: paths, title: title, context: context)
         currentID = nil
         onOutcome?(outcome)
         var summary = CleanupRunSummary()
@@ -192,14 +209,14 @@ final class CleanupFlow {
 
     // MARK: Vaciar Papelera
 
-    private func emptyTrash(model: AppModel) async {
+    private func emptyTrash(model: AppModel, context: OperationContext) async {
         defer { isEmptyingTrash = false }
         let home = NSHomeDirectory()
         // Lo que hay ahora (no lo que había al abrir la hoja), leído fuera del hilo principal.
         let probes = probes
         let expected = await Task.detached(priority: .userInitiated) { probes.trashSizeIfReadable() }.value
         let freeBefore = await Self.freeSpace(home: home)
-        let outcome = await model.emptyTrash()
+        let outcome = await model.emptyTrash(context: context)
         switch outcome {
         case .freed:
             var freeAfter = await Self.freeSpace(home: home)
