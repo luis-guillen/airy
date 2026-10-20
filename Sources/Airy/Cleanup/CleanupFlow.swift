@@ -16,6 +16,10 @@ final class CleanupFlow {
             case emptyTrash(Int64?)
             /// Rutas sueltas (mapa o asistente) que irán a la Papelera con `AppModel.trash(paths:title:)`.
             case trashPaths([String], title: String)
+            /// Desinstalador: apps (una a una), restos huérfanos (Papelera) y enlaces rotos (se borran).
+            case uninstall([UninstallRequest])
+            case orphans([OrphanGroup])
+            case brokenLinks([BrokenLink])
         }
         /// Primer paso opcional ("Esto depende de ti" del asistente): la confirmación real llega
         /// solo tras "Sí, quiero moverlo…".
@@ -133,6 +137,25 @@ final class CleanupFlow {
                                         onConfirm: onConfirm, onOutcome: onOutcome))
     }
 
+    /// Desinstalar una o varias apps (con aviso previo opcional, p. ej. una propuesta de un agente).
+    func requestUninstall(_ requests: [UninstallRequest], warning: ConfirmRequest.Warning? = nil,
+                          proposedBy: String? = nil, proposedVia: String? = nil,
+                          onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
+        guard !requests.isEmpty, !isBusy else { return }
+        sheet = .confirm(ConfirmRequest(kind: .uninstall(requests), warning: warning, proposedBy: proposedBy,
+                                        proposedVia: proposedVia, onOutcome: onOutcome))
+    }
+
+    func requestTrashOrphans(_ groups: [OrphanGroup], onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
+        guard !groups.isEmpty, !isBusy else { return }
+        sheet = .confirm(ConfirmRequest(kind: .orphans(groups), onOutcome: onOutcome))
+    }
+
+    func requestRemoveBrokenLinks(_ links: [BrokenLink], onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
+        guard !links.isEmpty, !isBusy else { return }
+        sheet = .confirm(ConfirmRequest(kind: .brokenLinks(links), onOutcome: onOutcome))
+    }
+
     func cancelSheet() { sheet = nil }
 
     /// El usuario confirmó en la hoja. El estado "ocupado" se fija aquí mismo, antes de lanzar la
@@ -160,7 +183,76 @@ final class CleanupFlow {
             start(request)
             queuedIDs = [title]
             Task { await trash(paths: paths, title: title, model: model, context: context, onOutcome: request.onOutcome) }
+        case .uninstall(let all):
+            let requests = all.filter { !blocked.contains($0.id) }
+            guard !requests.isEmpty else { return }
+            start(request)
+            uninstallResult = nil
+            queuedIDs = requests.map(\.id)
+            startGust(order: BatchMotion.gustOrder(ids: queuedIDs))
+            Task { await uninstall(requests, model: model, context: context, onOutcome: request.onOutcome) }
+        case .orphans(let groups):
+            start(request)
+            uninstallResult = nil
+            queuedIDs = groups.map(\.id)
+            Task {
+                await single(id: "orphans", title: "Restos huérfanos", onOutcome: request.onOutcome) {
+                    await model.trashOrphans(groups, context: context)
+                }
+            }
+        case .brokenLinks(let links):
+            start(request)
+            uninstallResult = nil
+            queuedIDs = links.map(\.id)
+            Task {
+                await single(id: "links", title: "Enlaces rotos", onOutcome: request.onOutcome) {
+                    await model.removeBrokenLinks(links, context: context)
+                }
+            }
         }
+    }
+
+    // MARK: Desinstalar
+
+    /// Resultado de la última tanda del Desinstalador (apps, huérfanos o enlaces).
+    private(set) var uninstallResult: LastResult?
+    /// Apps ya desinstaladas (ruta del `.app`): sus filas se van con el viento sin esperar a «Actualizar».
+    private(set) var uninstalledPaths: Set<String> = []
+
+    /// Una a una, en orden, con progreso por fila (`currentID`) y resumen final, como `CleanupBatch`.
+    private func uninstall(_ requests: [UninstallRequest], model: AppModel, context: OperationContext,
+                           onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
+        var summary = CleanupRunSummary()
+        for request in requests {
+            currentID = request.id
+            queuedIDs.removeAll { $0 == request.id }
+            let report = await model.uninstall(request, context: context)
+            let name = request.plan.app.name
+            summary.record(id: request.id, title: name, outcome: report.outcome)
+            for note in report.notes { summary.problems.append(.init(title: name, message: note)) }
+            switch report.outcome {
+            case .freed, .movedToTrash:
+                withAnimation(Theme.zoomSpring) { _ = uninstalledPaths.insert(request.id) }
+            case .blocked, .failed: break
+            }
+            onOutcome?(report.outcome)
+        }
+        currentID = nil
+        queuedIDs = []
+        withAnimation(Theme.sectionSpring) { uninstallResult = LastResult(summary: summary) }
+        if summary.freed > 0 { celebration = Celebration(bytes: summary.freed) }
+    }
+
+    private func single(id: String, title: String, onOutcome: (@MainActor (CleanupOutcome) -> Void)?,
+                        _ action: () async -> CleanupOutcome) async {
+        currentID = id
+        let outcome = await action()
+        currentID = nil
+        queuedIDs = []
+        onOutcome?(outcome)
+        var summary = CleanupRunSummary()
+        summary.record(id: id, title: title, outcome: outcome)
+        withAnimation(Theme.sectionSpring) { uninstallResult = LastResult(summary: summary) }
     }
 
     private func start(_ request: ConfirmRequest) {
