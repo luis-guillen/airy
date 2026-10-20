@@ -17,6 +17,8 @@ struct RootView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 1100, minHeight: 720)
+        .tint(Theme.Airy.accent)
+        .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
         .environment(cleanupFlow)
         .sheet(item: $cleanupFlow.sheet) { sheet in
             Group {
@@ -25,6 +27,8 @@ struct RootView: View {
                 case .snapshots(let notice): SnapshotsSheet(notice: notice)
                 }
             }
+            .tint(Theme.Airy.accent)
+            .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
             .environment(model)
             .environment(cleanupFlow)
         }
@@ -112,16 +116,17 @@ extension RootView {
     }
 }
 
-/// Fondo del contenido: color de ventana con un halo muy suave de la marca.
+/// Fondo del contenido: noche (o cielo claro) de la marca con dos halos suaves.
 private struct DetailBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let dark = colorScheme == .dark
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
-            RadialGradient(colors: [Color(hex: 0x0A84FF, opacity: colorScheme == .dark ? 0.10 : 0.06), .clear],
+            Theme.Airy.background
+            RadialGradient(colors: [Theme.Airy.accent.opacity(dark ? 0.10 : 0.06), .clear],
                            center: .topTrailing, startRadius: 0, endRadius: 700)
-            RadialGradient(colors: [Color(hex: 0x5E5CE6, opacity: colorScheme == .dark ? 0.08 : 0.04), .clear],
+            RadialGradient(colors: [Theme.Airy.logoBottom.opacity(dark ? 0.08 : 0.04), .clear],
                            center: .bottomLeading, startRadius: 0, endRadius: 600)
         }
         .ignoresSafeArea()
@@ -224,7 +229,7 @@ private struct NoticeBanner: View {
         HStack(spacing: 12) {
             Image(systemName: notice.kind == .scan ? "exclamationmark.triangle.fill" : "exclamationmark.circle.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.color(for: .yourCall))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
             Text(notice.message)
                 .font(.callout)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -256,7 +261,7 @@ private struct ScanErrorView: View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 40))
-                .foregroundStyle(Theme.color(for: .yourCall))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
             Text(message)
                 .font(.headline)
                 .multilineTextAlignment(.center)

@@ -117,7 +117,7 @@ struct ReportView: View {
                     .textCase(.uppercase)
                 BytesCounter(bytes: report.reclaimableBytes,
                              font: .system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.color(for: .safe))
+                    .foregroundStyle(Theme.Airy.riskInk(.safe))
                     .help("Suma de lo marcado «Borrar sin riesgo» con acción, sin contar dos veces una carpeta dentro de otra. Lo calcula Airy, no el texto de Claude.")
                 PrimaryButton("Analizar de nuevo", systemImage: "arrow.clockwise", style: .secondary) {
                     session.runReport(model: model)
@@ -228,7 +228,7 @@ private struct RiskColumn: View {
             HStack(spacing: 8) {
                 Image(systemName: Theme.symbol(for: column.risk))
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.Airy.night)
                     .frame(width: 24, height: 24)
                     .background(tint.gradient, in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
@@ -307,7 +307,7 @@ private struct RecommendationCard: View {
                 Text(Format.bytes(rec.bytes))
                     .font(.system(.callout, design: .rounded, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundStyle(tint)
+                    .foregroundStyle(Theme.Airy.riskInk(rec.verdict))
             }
             Text(ReportText.subtitle(rec, model: model))
                 .font(.caption.monospaced())
@@ -448,13 +448,13 @@ private struct OutcomeLine: View {
     private var parts: (String, Color, String) {
         switch outcome {
         case .movedToTrash(let bytes):
-            ("trash.fill", Theme.color(for: .safe), "En la Papelera (\(Format.bytes(bytes))). Se libera al vaciarla.")
+            ("trash.fill", Theme.Airy.riskInk(.safe), "En la Papelera (\(Format.bytes(bytes))). Se libera al vaciarla.")
         case .freed(let bytes):
-            ("checkmark.circle.fill", Theme.color(for: .safe), "Liberados \(Format.bytes(bytes)).")
+            ("checkmark.circle.fill", Theme.Airy.riskInk(.safe), "Liberados \(Format.bytes(bytes)).")
         case .blocked(let reason):
-            ("hand.raised.fill", Theme.color(for: .yourCall), "No se ha hecho: \(reason)")
+            ("hand.raised.fill", Theme.Airy.riskInk(.yourCall), "No se ha hecho: \(reason)")
         case .failed(let reason):
-            ("exclamationmark.triangle.fill", Theme.color(for: .doNotTouch), reason)
+            ("exclamationmark.triangle.fill", Theme.Airy.riskInk(.doNotTouch), reason)
         }
     }
 }
@@ -521,7 +521,7 @@ private struct EmptyColumnsHint: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             ForEach([Risk.safe, .yourCall, .doNotTouch], id: \.self) { risk in
-                let tint = Theme.color(for: risk)
+                let tint = Theme.Airy.riskInk(risk)
                 VStack(alignment: .leading, spacing: 8) {
                     Label(risk.title, systemImage: Theme.symbol(for: risk))
                         .font(.headline)
@@ -558,7 +558,7 @@ private struct ReportErrorCard: View {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.color(for: .yourCall))
+                    .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 VStack(alignment: .leading, spacing: 4) {
                     Text("No se pudo preparar el informe")
                         .font(.headline)
