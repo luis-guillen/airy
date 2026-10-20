@@ -13,6 +13,8 @@ public struct DiscoveryContext: Sendable {
     public let docker: DockerState?
     /// Paseo de proyectos de esta pasada, compartido por todas las fichas `projectArtifacts`.
     let projectWalk = ProjectWalkMemo()
+    /// Detección de versiones de herramientas de esta pasada, compartida por todas las fichas `toolchains`.
+    let toolchains = ToolchainMemo()
 
     public init(catalog: Catalog, home: String, runner: any CommandRunning, processListing: any ProcessListing,
                 now: Date, scan: FileNode?, docker: DockerState? = nil) {
@@ -68,7 +70,7 @@ public enum CleanupTargets {
         if entry.discovery == .simulatorRuntimes { return SimulatorRuntimeSource() }
         if case .projectArtifacts = entry.discovery { return ProjectArtifactSource() }
         if entry.discovery == .installers { return InstallerSource() }
-        if case .toolchains = entry.discovery { return PendingDiscoverySource() }
+        if case .toolchains = entry.discovery { return ToolchainSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()
