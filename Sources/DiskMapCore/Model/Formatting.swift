@@ -8,6 +8,11 @@ public enum Format {
         value.formatted(.byteCount(style: .file).locale(locale))
     }
 
+    /// Con «+» si el análisis no pudo leer todo lo que hay dentro: «12,3 GB+».
+    public static func bytes(_ value: Int64, partial: Bool) -> String {
+        bytes(value) + (partial ? "+" : "")
+    }
+
     public static func relativeDate(_ date: Date?) -> String {
         guard let date else { return "—" }
         let formatter = RelativeDateTimeFormatter()

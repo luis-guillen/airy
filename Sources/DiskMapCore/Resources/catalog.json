@@ -1671,7 +1671,7 @@
       "mustBeClosed": [
         "ai.elementlabs.lmstudio"
       ],
-      "shortReason": "Tendrías que volver a descargar el modelo.",
+      "shortReason": "Tendrías que volver a descargar {size}.",
       "profiles": [
         "localAI"
       ],
