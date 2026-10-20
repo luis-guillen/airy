@@ -190,7 +190,17 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
             == "Airy nunca borra volúmenes de Docker.")
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["container", "rm", "--volumes=true", "x"]) != nil)
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["volumes"]) != nil)
+        for args in [["rm", "-v", "web"], ["rm", "-fv", "web"], ["container", "rm", "web"], ["compose", "down", "-v"],
+                     ["compose", "down"], ["container", "prune", "-vf"], ["run", "-v", "/x:/y", "img"]] {
+            #expect(CommandPolicy.refusal(executable: "/usr/local/bin/docker", arguments: args)
+                == "Airy nunca borra volúmenes de Docker.", "\(args)")
+        }
+        #expect(CommandPolicy.refusal(executable: "/usr/local/bin/docker-compose", arguments: ["down", "-v"]) != nil)
+        #expect(CommandPolicy.refusal(executable: "docker-compose", arguments: ["down"]) != nil)
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["image", "prune", "-a", "-f"]) == nil)
+        #expect(CommandPolicy.refusal(executable: "docker", arguments: ["container", "prune", "-f"]) == nil)
+        #expect(CommandPolicy.refusal(executable: "docker", arguments: ["builder", "prune", "-a", "-f"]) == nil)
+        #expect(CommandPolicy.refusal(executable: "docker", arguments: ["network", "prune", "-f"]) == nil)
         #expect(CommandPolicy.refusal(executable: "/usr/bin/xcrun", arguments: ["simctl", "delete\n", "x"])
             == "Orden no válida.")
         #expect(CommandPolicy.refusal(executable: "uv", arguments: ["cache", "clean\u{0}"]) == "Orden no válida.")
@@ -242,5 +252,7 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
             #expect(entry.shortReason != nil, "\(entry.id)")
         }
         #expect(catalog.entry(id: "docker-images")?.regenerates == true)
+        // Avisa de que se van todas las imágenes sin usar y hay que volver a bajarlas o construirlas.
+        #expect(catalog.entry(id: "docker-images")?.shortReason?.contains("todas las imágenes") == true)
     }
 }

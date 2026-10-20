@@ -14,11 +14,21 @@ public enum CommandPolicy {
         }) {
             return invalidReason
         }
-        guard (executable as NSString).lastPathComponent == "docker" else { return nil }
-        // Volúmenes: ni `volume …`, ni `--volumes`, ni `system prune` (que con o sin opciones puede llevárselos).
-        if arguments.contains(where: { $0 == "volume" || $0 == "volumes" || $0.hasPrefix("--volumes") }) {
-            return dockerVolumesReason
+        let name = (executable as NSString).lastPathComponent.lowercased()
+        // `docker-compose down -v` y compañía: Compose entero queda fuera.
+        if name.hasPrefix("docker-compose") { return dockerVolumesReason }
+        guard name == "docker" else { return nil }
+        for argument in arguments {
+            // `volume …`, `--volumes…`, y `compose`/`rm` (que con `-v` se llevan volúmenes).
+            if ["volume", "volumes", "compose", "rm"].contains(argument) || argument.hasPrefix("--volumes") {
+                return dockerVolumesReason
+            }
+            // Opción corta con `v` en su grupo: `-v`, `-fv`, `-vf`…
+            if argument.hasPrefix("-"), !argument.hasPrefix("--"), argument.dropFirst().contains("v") {
+                return dockerVolumesReason
+            }
         }
+        // `system prune`, con o sin opciones, puede llevárselos.
         if let system = arguments.firstIndex(of: "system"), arguments[system...].contains("prune") {
             return dockerVolumesReason
         }

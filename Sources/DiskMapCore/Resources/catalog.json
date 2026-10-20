@@ -78,7 +78,7 @@
       },
       "mustBeClosed": [],
       "aggressiveRisk": "safe",
-      "shortReason": "Docker la vuelve a descargar o construir cuando la necesita.",
+      "shortReason": "Borra todas las imágenes que no usa ningún contenedor: Docker las vuelve a descargar o tendrás que reconstruirlas.",
       "profiles": [
         "developer"
       ],
