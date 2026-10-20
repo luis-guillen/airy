@@ -2,13 +2,14 @@ import SwiftUI
 import DiskMapCore
 
 /// Celebración sobria al liberar espacio: un anillo que se llena, el `BytesCounter` contando y
-/// partículas suaves durante 1,2 s (todas en un único `Canvas`). Con "Reducir movimiento" no hay
-/// partículas y el anillo aparece ya lleno. Se cierra sola o al hacer clic.
+/// partículas suaves durante 1,2 s (todas en un único `Canvas`). Sigue el portero de movimiento
+/// (`airyTransientMotion`): con «Reducir movimiento» solo fundidos (anillo ya lleno, sin partículas);
+/// con la ventana oculta o tapada, nada se anima y las partículas se retiran. Se cierra sola o al hacer clic.
 struct FreedCelebration: View {
     let bytes: Int64
     var onDone: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.airyTransientMotion) private var motion
     @Environment(\.colorScheme) private var colorScheme
     @ViewState private var fill: CGFloat = 0
     @ViewState private var shown = false
@@ -31,16 +32,16 @@ struct FreedCelebration: View {
                         .stroke(.primary.opacity(0.08), lineWidth: 14)
                     Circle()
                         .trim(from: 0, to: fill)
-                        .stroke(LinearGradient(colors: [Color(hex: 0x30D158), Color(hex: 0x64D2FF)],
+                        .stroke(LinearGradient(colors: [Theme.Airy.riskFill(.safe), Theme.Airy.sky],
                                                startPoint: .topLeading, endPoint: .bottomTrailing),
                                 style: StrokeStyle(lineWidth: 14, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                     VStack(spacing: 2) {
                         Image(systemName: "leaf.fill")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Theme.color(for: .caches))
+                            .foregroundStyle(Theme.Airy.riskInk(.safe))
                         BytesCounter(bytes: bytes, font: .system(size: 30, weight: .bold, design: .rounded),
-                                     countsUpOnAppear: !reduceMotion)
+                                     countsUpOnAppear: motion == .running)
                         Text("liberados")
                             .font(.callout.weight(.medium))
                             .foregroundStyle(.secondary)
@@ -71,7 +72,7 @@ struct FreedCelebration: View {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .strokeBorder(.white.opacity(0.18), lineWidth: 0.75)
             }
-            .scaleEffect(shown || reduceMotion ? 1 : 0.92)
+            .scaleEffect(shown || motion != .running ? 1 : 0.92)
             .opacity(shown ? 1 : 0)
             .onTapGesture(perform: onDone)
         }
@@ -79,13 +80,20 @@ struct FreedCelebration: View {
         .accessibilityLabel("Liberados \(Format.bytes(bytes))")
         .accessibilityAddTraits(.isModal)
         .onAppear(perform: start)
+        // Si la ventana deja de verse (o se reduce el movimiento) a mitad, las partículas se van ya.
+        .onChange(of: motion) { _, now in if now != .running { particlesStart = nil; fill = 1 } }
     }
 
     private func start() {
-        if reduceMotion {
+        switch motion {
+        case .paused:
+            // Nada que animar con la ventana oculta: aparece ya completa.
+            fill = 1
+            shown = true
+        case .reduced:
             fill = 1
             withAnimation(.easeOut(duration: 0.2)) { shown = true }
-        } else {
+        case .running:
             withAnimation(Theme.zoomSpring) { shown = true }
             withAnimation(.spring(response: 1.0, dampingFraction: 0.92).delay(0.1)) { fill = 1 }
             particlesStart = Date()
@@ -101,15 +109,17 @@ struct FreedCelebration: View {
 private struct ParticleBurst: View {
     let start: Date
     let ringRadius: CGFloat
+    @Environment(\.airyTransientMotion) private var motion
 
     private static let count = 42
     private static let colors: [Color] = [
-        Color(hex: 0x30D158), Color(hex: 0x64D2FF), Color(hex: 0x0A84FF),
-        Color(hex: 0xBF5AF2), Color(hex: 0xFF9F0A), Color(hex: 0xFFD60A),
+        Theme.Airy.riskFill(.safe), Theme.Airy.sky, Theme.Airy.accent,
+        Theme.Airy.leafSky, Theme.Airy.logoTop,
     ]
 
     var body: some View {
-        TimelineView(.animation) { context in
+        // Se pausa con el portero; la vista además desaparece a los 1,2 s o si el movimiento se para.
+        TimelineView(.animation(minimumInterval: nil, paused: motion != .running)) { context in
             Canvas(rendersAsynchronously: true) { canvas, size in
                 let elapsed = context.date.timeIntervalSince(start)
                 let progress = min(max(elapsed / FreedCelebration.particleDuration, 0), 1)

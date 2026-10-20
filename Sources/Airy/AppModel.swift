@@ -420,6 +420,15 @@ final class AppModel {
         dismiss(.scan)
         progress = nil
         isScanning = true
+        #if DEBUG
+        if DebugSnapshot.previewsScan {
+            // Solo la pantalla: nada se lee ni se analiza ni se guarda.
+            scan = nil
+            progress = ScanProgress(filesScanned: 184_302, bytesScanned: 61_000_000_000,
+                                    currentPath: "/Users/Shared/Ejemplo/Biblioteca/Fotos")
+            return
+        }
+        #endif
 
         // Llega como mucho cada 100 ms desde los hilos del escáner.
         let onProgress: @Sendable (ScanProgress) -> Void = { [weak self] snapshot in
@@ -632,7 +641,9 @@ final class AppModel {
 
     /// Ejecuta una limpieza del catálogo (con revalidación completa) y refresca los contadores.
     /// La interfaz es la que confirma antes de llamar aquí.
-    func perform(_ item: CleanupItem, context: OperationContext = .user()) async -> CleanupOutcome {
+    /// `refreshesCleanup: false` para tandas: quien llama refresca la detección una sola vez al final.
+    func perform(_ item: CleanupItem, context: OperationContext = .user(),
+                 refreshesCleanup: Bool = true) async -> CleanupOutcome {
         if let refusal = settingsRefusal() { return refusal }
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
         let outcome = await executor.execute(item, context: context)
@@ -642,7 +653,7 @@ final class AppModel {
         }
         await refreshCounters()
         await refreshVolumes()
-        refreshCleanup()
+        if refreshesCleanup { refreshCleanup() }
         reportAuditFailure()
         return outcome
     }
