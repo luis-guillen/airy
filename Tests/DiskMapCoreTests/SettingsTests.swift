@@ -129,4 +129,45 @@ import Testing
         s.unprotect("~/Work")
         #expect(s.protectedPaths.isEmpty)
     }
+
+    // MARK: Ajustes en la app
+
+    @Test func unreadableSettingsBlockDestructiveActionsUntilReset() throws {
+        let file = tempFile()
+        try write("{ no es json", to: file)
+        var session = SettingsSession(store: SettingsStore(file: file))
+        #expect(session.load.isUnreadable)
+        #expect(session.destructiveRefusal != nil)
+        #expect(session.unreadableNotice
+                == "No se pudieron leer los ajustes (settings.json no es válido). Los agentes no pueden limpiar hasta que los restablezcas.")
+        // Con el fichero ilegible no se guarda nada encima: lo decide el usuario con «Restablecer ajustes».
+        #expect(throws: SettingsSession.Unreadable.self) { _ = try session.update { $0.mode = .prudent } }
+        #expect(try String(contentsOf: file, encoding: .utf8) == "{ no es json")
+        try session.reset()
+        #expect(session.load == .loaded(.defaults))
+        #expect(session.destructiveRefusal == nil && session.unreadableNotice == nil)
+        let aside = try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path)
+            .filter { $0.hasPrefix("settings.unreadable-") }
+        #expect(aside.count == 1)
+    }
+
+    @Test func settingsSessionSavesAndSaysWhenRiskInputsChange() throws {
+        let file = tempFile()
+        var session = SettingsSession(store: SettingsStore(file: file))
+        #expect(session.load == .missing && session.destructiveRefusal == nil)
+        #expect(try session.update { $0.agentsEnabled = false } == false)
+        #expect(try session.update { $0.mode = .prudent } == true)
+        #expect(try session.update { _ = $0.protect("~/Work", home: h) } == true)
+        #expect(try session.update { $0.mode = .prudent } == false)
+        var expected = AirySettings.defaults
+        expected.agentsEnabled = false
+        expected.mode = .prudent
+        expected.protectedPaths = ["~/Work"]
+        #expect(SettingsStore(file: file).load() == .loaded(expected))
+        #expect(session.effective == expected)
+        // Otro proceso (o el usuario) lo estropea: se nota al volver a leer y bloquea.
+        try write("[]", to: file)
+        #expect(session.reload() == true)
+        #expect(session.destructiveRefusal != nil)
+    }
 }

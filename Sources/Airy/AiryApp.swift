@@ -22,6 +22,9 @@ struct AiryApp: App {
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1240, height: 800)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("Acerca de Airy") { AppDelegate.showAbout() }
+            }
             CommandGroup(replacing: .newItem) {}
             CommandMenu("Análisis") {
                 Button("Analizar de nuevo") { model.startScan() }
@@ -30,6 +33,11 @@ struct AiryApp: App {
                     .keyboardShortcut(".")
                     .disabled(!model.isScanning)
             }
+        }
+
+        Settings {
+            SettingsView()
+                .environment(model)
         }
     }
 }
@@ -41,6 +49,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApplication.shared.activate()
+    }
+
+    /// Panel estándar con el crédito a Mole (GPL-3.0): se adaptan ideas y listas de rutas, no código.
+    @MainActor static func showAbout() {
+        let credits = NSAttributedString(
+            string: "Airy adapta ideas y listas de rutas de Mole (github.com/tw93/Mole, GPL-3.0). No incluye código de Mole.",
+            attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+                         .foregroundColor: NSColor.secondaryLabelColor])
+        NSApplication.shared.orderFrontStandardAboutPanel(options: [.applicationName: "Airy", .credits: credits])
         NSApplication.shared.activate()
     }
 

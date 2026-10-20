@@ -138,7 +138,10 @@ final class AssistantSession {
     }
 
     private func assistant(path: String, model: AppModel) -> AIAssistant? {
-        model.catalog.map { AIAssistant(claudePath: path, runner: runner, catalog: $0, home: home) }
+        model.catalog.map {
+            AIAssistant(claudePath: path, runner: runner, catalog: $0, home: home,
+                        classifier: RiskClassifier(catalog: $0, settings: model.settings, home: home))
+        }
     }
 
     private static let catalogMissing = "No se pudo cargar el catálogo de Airy, así que el asistente no puede validar lo que proponga Claude."
