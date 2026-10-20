@@ -60,7 +60,7 @@ struct Sidebar: View {
 
     private var brand: some View {
         HStack(spacing: 10) {
-            AiryLogo(size: 26)
+            AiryLogo(size: 26, animated: true)
             Text("Airy")
                 .font(.system(.title3, design: .rounded, weight: .bold))
             Spacer()

@@ -11,12 +11,18 @@ import AppKit
 /// - `AIRY_SECTION`: sección inicial ("map", "cleanup", "assistant").
 /// - `AIRY_SNAPSHOT_SHEET`: "1" recorta la captura a la hoja abierta, si la hay.
 /// - `AIRY_SUPPORT_DIR` (en `AppModel`): carpeta de datos alternativa.
+/// - `AIRY_REDUCE_MOTION`: "1" fuerza «Reducir movimiento» en el portero de `RootView`.
+/// - `AIRY_HIDE_AT` / `AIRY_UNHIDE_AT`: segundos tras el arranque a los que la app se oculta y vuelve
+///   (`NSApp.hide`/`unhide`, solo la propia app); sirven para comprobar la pausa total.
 @MainActor
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
     /// Reloj común de capturas y guiones de depuración (p. ej. `AIRY_MAP_SCRIPT`).
     nonisolated(unsafe) static private(set) var start = Date()
     private static var activity: NSObjectProtocol?
+
+    /// `AIRY_REDUCE_MOTION=1`: el portero se comporta como con «Reducir movimiento».
+    static var forcesReduceMotion: Bool { environment["AIRY_REDUCE_MOTION"] == "1" }
 
     static func configure(_ model: AppModel) {
         start = Date()
@@ -28,9 +34,21 @@ enum DebugSnapshot {
         if let raw = environment["AIRY_SECTION"], let section = Section(rawValue: raw) {
             model.section = section
         }
+        // Las variables nuevas se leen antes de la salida temprana de las capturas.
+        let hideAt = environment["AIRY_HIDE_AT"].flatMap(Double.init)
+        let unhideAt = environment["AIRY_UNHIDE_AT"].flatMap(Double.init)
+        if hideAt != nil || unhideAt != nil {
+            // Sin App Nap: el reloj de `unhide` llega a tiempo y la medida de CPU oculta no la rebaja
+            // el sistema (lo que cuenta es que la app no anime nada, no que macOS la frene).
+            activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical],
+                                                             reason: "Ocultar y mostrar de depuración")
+        }
+        if let hideAt { at(hideAt) { NSApp.hide(nil) } }
+        // `unhide` no reactiva la app; antes de ocultarse era la activa, así que vuelve a serlo.
+        if let unhideAt { at(unhideAt) { NSApp.unhide(nil); NSApp.activate() } }
         guard let directory = environment["AIRY_SNAPSHOT_DIR"] else { return }
         // Sin App Nap: con la ventana tapada, macOS retrasa los temporizadores y las capturas no llegan.
-        activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical],
+        activity = activity ?? ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical],
                                                          reason: "Capturas de depuración")
         let prefix = environment["AIRY_SNAPSHOT_PREFIX"] ?? "shot"
         let times = (environment["AIRY_SNAPSHOT_TIMES"] ?? "2,6")
