@@ -11,6 +11,8 @@ public struct DiscoveryContext: Sendable {
     public let scan: FileNode?
     /// Estado de Docker de esta pasada (una sola sonda); `nil` ⇒ `DockerSource` lo pregunta.
     public let docker: DockerState?
+    /// Paseo de proyectos de esta pasada, compartido por todas las fichas `projectArtifacts`.
+    let projectWalk = ProjectWalkMemo()
 
     public init(catalog: Catalog, home: String, runner: any CommandRunning, processListing: any ProcessListing,
                 now: Date, scan: FileNode?, docker: DockerState? = nil) {
@@ -39,6 +41,8 @@ public struct DiscoveredTarget: Sendable, Equatable {
     public var floorReason: String? = nil
     public var blockedReason: String? = nil
     public var sizeNote: String? = nil
+    /// `false` ⇒ nunca se marca de entrada, aunque el clasificador lo permita (solo baja la preselección).
+    public var preselectable: Bool = true
 
     public init(idSuffix: String? = nil, paths: [String], targets: [String] = [], bytes: Int64? = nil,
                 details: [String] = [], lastModified: Date? = nil, needle: String? = nil, floor: Risk? = nil,

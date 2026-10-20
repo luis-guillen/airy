@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Reglas de «proyectos sin tocar»: qué es un proyecto, qué cuenta como señal de uso y dónde se busca.
 public enum ProjectArtifactRules {
@@ -73,19 +74,40 @@ public enum ProjectArtifactRules {
         return (try? handle.read(upToCount: signature.count)) == signature
     }
 
-    /// `bin` solo en proyectos .NET (con `bin/Debug` o `bin/Release`); `vendor` solo con Composer.
-    static func qualifies(_ folder: String, name: String) -> Bool {
+    /// Nombres genéricos (pueden ser código del usuario): fuera de Git nunca se marcan de entrada.
+    static let genericNames: Set<String> = ["build", "dist", "target", "obj", "venv"]
+
+    /// Marcadores del ecosistema que crea cada nombre genérico, buscados en el padre o en la raíz del proyecto.
+    static let ecosystemMarkers: [String: [String]] = [
+        "target": ["Cargo.toml"],
+        "dist": ["package.json"], ".next": ["package.json"],
+        "build": ["build.gradle", "build.gradle.kts", "package.json", "CMakeLists.txt"],
+        "venv": ["pyproject.toml", "requirements.txt"], ".venv": ["pyproject.toml", "requirements.txt"],
+    ]
+
+    /// Un nombre que podría ser código solo vale con su ecosistema: `bin` con un proyecto .NET y `bin/Debug`
+    /// o `bin/Release`; `vendor` con Composer y `vendor/autoload.php`; `obj` con un proyecto .NET; `target`,
+    /// `dist`, `.next`, `build`, `venv` y `.venv` con su marcador en el padre o en la raíz del proyecto.
+    static func qualifies(_ folder: String, name: String, project: String) -> Bool {
         let parent = (folder as NSString).deletingLastPathComponent
+        let places = parent == project ? [parent] : [parent, project]
         switch name {
         case "bin":
-            let names = (try? FileManager.default.contentsOfDirectory(atPath: parent)) ?? []
-            let dotnet = names.contains { $0.hasSuffix(".csproj") || $0.hasSuffix(".fsproj") || $0.hasSuffix(".vbproj") }
-            return dotnet && (isRealDirectory(folder + "/Debug") || isRealDirectory(folder + "/Release"))
+            return hasDotNetProject(parent)
+                && (isRealDirectory(folder + "/Debug") || isRealDirectory(folder + "/Release"))
         case "vendor":
             return exists(parent + "/composer.json") && exists(folder + "/autoload.php")
+        case "obj":
+            return places.contains(where: hasDotNetProject)
         default:
-            return true
+            guard let markers = ecosystemMarkers[name] else { return true }
+            return places.contains { place in markers.contains { exists(place + "/" + $0) } }
         }
+    }
+
+    private static func hasDotNetProject(_ folder: String) -> Bool {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+        return names.contains { $0.hasSuffix(".csproj") || $0.hasSuffix(".fsproj") || $0.hasSuffix(".vbproj") }
     }
 
     static let dateFormatter: DateFormatter = {
@@ -98,9 +120,26 @@ public enum ProjectArtifactRules {
     static func day(_ date: Date) -> String { dateFormatter.string(from: date) }
 }
 
+/// Resultado del paseo de proyectos de una pasada de detección (por id de ficha). Lo comparten todas las
+/// fichas `projectArtifacts` del mismo `DiscoveryContext`: un solo paseo y un solo plazo por pasada.
+final class ProjectWalkMemo: Sendable {
+    private let state = Mutex<[String: [DiscoveredTarget]]?>(nil)
+
+    func targets(compute: () async -> [String: [DiscoveredTarget]]) async -> [String: [DiscoveredTarget]] {
+        if let done = state.withLock({ $0 }) { return done }
+        let fresh = await compute()
+        return state.withLock { current in
+            if let current { return current }
+            current = fresh
+            return fresh
+        }
+    }
+}
+
 /// Fichas `discovery {"type":"projectArtifacts"}`: carpetas regenerables (node_modules, target…) de proyectos
-/// en los que no se ha cambiado nada en `staleAfter`. Un paseo secuencial (sin tareas en paralelo), con plazo
-/// por proyecto y plazo total; al agotarse el total se devuelve solo lo ya revisado del todo.
+/// en los que no se ha cambiado nada en `staleAfter`. Un solo paseo secuencial por pasada (sin tareas en
+/// paralelo) para todas las fichas, con plazo por proyecto y un plazo total; al agotarse el total se devuelve
+/// solo lo ya revisado del todo.
 public struct ProjectArtifactSource: CleanupTargetSource {
     static let gitTimeout: TimeInterval = 10
 
@@ -108,35 +147,64 @@ public struct ProjectArtifactSource: CleanupTargetSource {
     private let maxDepth: Int
     private let projectBudget: Duration
     private let totalBudget: Duration
+    private let isUbiquitous: @Sendable (String) -> Bool
+    /// Solo para pruebas: se llama cada vez que empieza un paseo completo de las raíces.
+    private let onWalk: (@Sendable () -> Void)?
 
     public init(searchRoots: [String]? = nil, maxDepth: Int = 6,
                 projectBudget: Duration = .seconds(5), totalBudget: Duration = .seconds(30)) {
+        self.init(searchRoots: searchRoots, maxDepth: maxDepth, projectBudget: projectBudget,
+                  totalBudget: totalBudget, isUbiquitous: ProjectArtifactRules.isUbiquitous, onWalk: nil)
+    }
+
+    init(searchRoots: [String]? = nil, maxDepth: Int = 6, projectBudget: Duration = .seconds(5),
+         totalBudget: Duration = .seconds(30), isUbiquitous: @escaping @Sendable (String) -> Bool,
+         onWalk: (@Sendable () -> Void)? = nil) {
         self.searchRoots = searchRoots; self.maxDepth = maxDepth
         self.projectBudget = projectBudget; self.totalBudget = totalBudget
+        self.isUbiquitous = isUbiquitous; self.onWalk = onWalk
     }
 
     // MARK: - Detección
 
     public func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
-        guard case .projectArtifacts(let names, let cachedirTag) = entry.discovery else { return [] }
+        guard case .projectArtifacts = entry.discovery else { return [] }
+        let all = await context.projectWalk.targets { await walk(context: context, including: entry) }
+        return all[entry.id] ?? []
+    }
+
+    /// Un paseo para todas las fichas `projectArtifacts` del catálogo (en su orden), con un solo plazo.
+    private func walk(context: DiscoveryContext, including entry: CatalogEntry) async -> [String: [DiscoveredTarget]] {
+        onWalk?()
+        var fichas: [(id: String, names: Set<String>, cachedirTag: Bool)] = []
+        for candidate in context.catalog.entries.contains(where: { $0.id == entry.id })
+            ? context.catalog.entries : context.catalog.entries + [entry] {
+            if case .projectArtifacts(let names, let cachedirTag) = candidate.discovery {
+                fichas.append((candidate.id, Set(names), cachedirTag))
+            }
+        }
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: totalBudget)
-        let skipped = Self.artifactNames(in: context.catalog)
+        let skipped = Self.artifactNames(in: context.catalog).union(fichas.flatMap(\.names))
         let homeReal = CleanupTargets.realPath(context.home) ?? context.home
-        var result: [DiscoveredTarget] = []
+        let cutoff = context.now.addingTimeInterval(-ProjectArtifactRules.staleAfter)
+        var result: [String: [DiscoveredTarget]] = [:]
         for root in roots(home: context.home) {
             for project in projects(in: root, skipped: skipped, deadline: deadline) {
                 guard clock.now < deadline, !Task.isCancelled else { return result }
-                guard let signal = Self.signal(of: project, budget: budget(until: deadline)) else { continue }
-                guard signal < context.now.addingTimeInterval(-ProjectArtifactRules.staleAfter) else { continue }
-                let folders = Self.artifacts(in: project, names: Set(names), cachedirTag: cachedirTag,
-                                             skipped: skipped, deadline: deadline)
-                for folder in folders {
-                    guard clock.now < deadline else { return result }
-                    let verdict = await inspect(folder, root: root, deadline: deadline, runner: context.runner)
-                    // Sin tiempo total, lo que estaba a medias no se ofrece.
-                    if case .blocked = verdict, clock.now >= deadline { return result }
-                    result.append(target(folder, verdict: verdict, signal: signal, home: homeReal))
+                guard let signal = Self.signal(of: project, budget: budget(until: deadline)), signal < cutoff
+                else { continue }
+                for ficha in fichas {
+                    let folders = artifacts(in: project, names: ficha.names, cachedirTag: ficha.cachedirTag,
+                                            skipped: skipped, deadline: deadline)
+                    for folder in folders {
+                        guard clock.now < deadline, !Task.isCancelled else { return result }
+                        let verdict = await inspect(folder, root: root, deadline: deadline, runner: context.runner)
+                        // Sin tiempo total, lo que estaba a medias no se ofrece.
+                        if case .blocked = verdict, clock.now >= deadline { return result }
+                        result[ficha.id, default: []].append(
+                            target(folder, verdict: verdict, signal: signal, home: homeReal))
+                    }
                 }
             }
         }
@@ -151,8 +219,10 @@ public struct ProjectArtifactSource: CleanupTargetSource {
                       ProjectArtifactRules.regenerationHint(for: name)],
             lastModified: signal)
         switch verdict {
-        case .ok(let bytes):
+        case .ok(let bytes, let inGit):
             target.bytes = bytes
+            // Un nombre genérico sin Git que diga que es un resto ignorado se ofrece, pero sin marcar.
+            if !inGit, ProjectArtifactRules.genericNames.contains(name) { target.preselectable = false }
         case .floor(let reason, let bytes):
             target.bytes = bytes
             target.floor = .doNotTouch
@@ -192,7 +262,7 @@ public struct ProjectArtifactSource: CleanupTargetSource {
                                              skipped: Self.artifactNames(in: context.catalog)) else {
             return "Ya no está dentro de un proyecto."
         }
-        if names.contains(name), !ProjectArtifactRules.qualifies(real, name: name) {
+        if names.contains(name), !ProjectArtifactRules.qualifies(real, name: name, project: project) {
             return "No es una carpeta regenerable de «\(entry.title)»: \(path)."
         }
         let deadline = ContinuousClock().now.advanced(by: totalBudget)
@@ -208,19 +278,18 @@ public struct ProjectArtifactSource: CleanupTargetSource {
         }
     }
 
-    /// Primera carpeta con marcador bajando desde `root` hasta el padre de `folder`, sin pasar por carpetas
-    /// que la búsqueda poda ni pasar de `maxDepth`.
+    /// Primera carpeta con marcador bajando desde `root` hasta el padre de `folder`, sin pasar de `maxDepth`;
+    /// ningún componente entre `root` y `folder` puede ser una carpeta que la detección no recorre.
     private func outermostProject(containing folder: String, root: String, skipped: Set<String>) -> String? {
         let parent = (folder as NSString).deletingLastPathComponent
         let rest = parent == root ? [] : parent.dropFirst(root.count + 1).split(separator: "/").map(String.init)
+        if rest.contains(where: { $0 == ".git" || ProjectArtifactRules.walkPruned.contains($0) || skipped.contains($0) }) {
+            return nil
+        }
         var current = root
         for depth in 0...rest.count {
-            if depth > 0 {
-                let component = rest[depth - 1]
-                if ProjectArtifactRules.walkPruned.contains(component) || skipped.contains(component) { return nil }
-                current += "/" + component
-            }
-            guard depth <= maxDepth, !ProjectArtifactRules.isUbiquitous(current) else { return nil }
+            if depth > 0 { current += "/" + rest[depth - 1] }
+            guard depth <= maxDepth, !isUbiquitous(current) else { return nil }
             if ProjectArtifactRules.isProjectRoot(current) { return current }
         }
         return nil
@@ -229,12 +298,15 @@ public struct ProjectArtifactSource: CleanupTargetSource {
     // MARK: - Piezas
 
     enum Verdict: Equatable {
-        case ok(Int64)
+        /// `inGit`: dentro de un repositorio que dice que la carpeta está ignorada y sin archivos guardados.
+        case ok(Int64, inGit: Bool)
         case floor(String, Int64)
         case blocked(String)
     }
 
-    /// Guardias de una carpeta candidata: repositorio anidado, claves y archivos guardados en Git.
+    /// Guardias de una carpeta candidata: repositorio anidado, claves y, dentro de Git, que no guarde archivos
+    /// y que esté ignorada. `TreeWalk.watched` tiene un máximo: cualquier entrada vigilada ya sube el riesgo,
+    /// así que el orden de las comprobaciones solo elige el motivo.
     private func inspect(_ folder: String, root: String, deadline: ContinuousClock.Instant,
                          runner: any CommandRunning) async -> Verdict {
         guard let summary = TreeWalk.summarize(folder, budget: budget(until: deadline), watch: {
@@ -248,25 +320,42 @@ public struct ProjectArtifactSource: CleanupTargetSource {
             return .floor("Contiene claves (\(key)): no se regeneran.", summary.bytes)
         }
         let parent = (folder as NSString).deletingLastPathComponent
-        guard Self.underGit(parent, root: root) else { return .ok(summary.bytes) }
+        guard Self.underGit(parent) else { return .ok(summary.bytes, inGit: false) }
         let failure = Verdict.blocked("No se pudo comprobar con Git si guarda archivos aquí.")
+        let name = (folder as NSString).lastPathComponent
         guard let git = await runner.resolve("git"),
-              let output = try? await runner.run(git, ["-C", parent, "ls-files", "-z", "--",
-                                                       (folder as NSString).lastPathComponent],
-                                                 timeout: Self.gitTimeout),
-              output.status == 0 else { return failure }
-        if !output.stdout.isEmpty {
+              let tracked = await Self.git(git, ["ls-files", "-z", "--", name], in: parent, runner: runner,
+                                           deadline: deadline),
+              tracked.status == 0 else { return failure }
+        if !tracked.stdout.isEmpty {
             return .floor("Git guarda archivos aquí: no es solo un resto de compilación.", summary.bytes)
         }
-        return .ok(summary.bytes)
+        guard let ignored = await Self.git(git, ["check-ignore", "-q", "--", name], in: parent, runner: runner,
+                                           deadline: deadline) else { return failure }
+        switch ignored.status {
+        case 0: return .ok(summary.bytes, inGit: true)
+        case 1: return .floor("Git no la ignora: puede ser tuya, no un resto de compilación.", summary.bytes)
+        default: return failure
+        }
     }
 
-    /// Alguna carpeta desde `folder` hasta `root` (incluidas) tiene `.git`.
-    static func underGit(_ folder: String, root: String) -> Bool {
+    /// `git -c core.fsmonitor=false -C <carpeta> …` con plazo = mín(10 s, lo que queda); `nil` sin tiempo o si
+    /// falla.
+    static func git(_ git: String, _ arguments: [String], in folder: String, runner: any CommandRunning,
+                    deadline: ContinuousClock.Instant) async -> CommandOutput? {
+        let left = ContinuousClock().now.duration(to: deadline)
+        let seconds = Double(left.components.seconds) + Double(left.components.attoseconds) / 1e18
+        guard seconds > 0 else { return nil }
+        return try? await runner.run(git, ["-c", "core.fsmonitor=false", "-C", folder] + arguments,
+                                     timeout: min(gitTimeout, seconds))
+    }
+
+    /// Alguna carpeta desde `folder` hasta `/` tiene `.git` (también un repositorio por encima de la raíz).
+    static func underGit(_ folder: String) -> Bool {
         var current = folder
         while true {
             if ProjectArtifactRules.exists(current + "/.git") { return true }
-            if current == root || current.count <= root.count || current == "/" { return false }
+            if current == "/" || current.isEmpty { return false }
             current = (current as NSString).deletingLastPathComponent
         }
     }
@@ -303,7 +392,7 @@ public struct ProjectArtifactSource: CleanupTargetSource {
             }
             let canonical = RiskPolicy.canonical(real)
             if homes.contains(where: { RiskPolicy.isInside(canonical, root: $0 + "/library") }) { continue }
-            if ProjectArtifactRules.isUbiquitous(real) { continue }
+            if isUbiquitous(real) { continue }
             if result.contains(where: { RiskPolicy.isInside(canonical, root: RiskPolicy.canonical($0)) }) { continue }
             result.removeAll { RiskPolicy.isInside(RiskPolicy.canonical($0), root: canonical) }
             result.append(real)
@@ -319,7 +408,7 @@ public struct ProjectArtifactSource: CleanupTargetSource {
         for depth in 0...maxDepth {
             var next: [String] = []
             for folder in level {
-                guard clock.now < deadline else { return found }
+                guard clock.now < deadline, !Task.isCancelled else { return found }
                 if ProjectArtifactRules.isProjectRoot(folder) {
                     found.append(folder)
                     continue
@@ -329,8 +418,7 @@ public struct ProjectArtifactSource: CleanupTargetSource {
                 for name in names.sorted()
                 where !ProjectArtifactRules.walkPruned.contains(name) && !skipped.contains(name) {
                     let child = folder + "/" + name
-                    guard ProjectArtifactRules.isRealDirectory(child), !ProjectArtifactRules.isUbiquitous(child)
-                    else { continue }
+                    guard ProjectArtifactRules.isRealDirectory(child), !isUbiquitous(child) else { continue }
                     next.append(child)
                 }
             }
@@ -340,10 +428,10 @@ public struct ProjectArtifactSource: CleanupTargetSource {
         return found
     }
 
-    /// Carpetas reales con nombre de la ficha (o `CACHEDIR.TAG`) dentro del proyecto, sin entrar en `.git`,
-    /// en lo ya encontrado ni en las carpetas de las otras fichas.
-    static func artifacts(in project: String, names: Set<String>, cachedirTag: Bool, skipped: Set<String>,
-                          deadline: ContinuousClock.Instant) -> [String] {
+    /// Carpetas reales con nombre de la ficha (y su ecosistema) o `CACHEDIR.TAG` dentro del proyecto, sin
+    /// entrar en `.git`, en lo ya encontrado ni en las carpetas de las otras fichas.
+    private func artifacts(in project: String, names: Set<String>, cachedirTag: Bool, skipped: Set<String>,
+                           deadline: ContinuousClock.Instant) -> [String] {
         let clock = ContinuousClock()
         var found: [String] = []
         var stack = [project]
@@ -354,7 +442,7 @@ public struct ProjectArtifactSource: CleanupTargetSource {
                 let child = folder + "/" + name
                 guard ProjectArtifactRules.isRealDirectory(child) else { continue }
                 if names.contains(name) {
-                    if ProjectArtifactRules.qualifies(child, name: name) { found.append(child) }
+                    if ProjectArtifactRules.qualifies(child, name: name, project: project) { found.append(child) }
                 } else if skipped.contains(name) {
                     continue
                 } else if cachedirTag, ProjectArtifactRules.hasCachedirTag(child) {
