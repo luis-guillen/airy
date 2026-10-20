@@ -264,7 +264,7 @@ private struct GroupSection: View {
         switch risk {
         case .safe: "Se regenera solo; puedes borrarlo sin pensarlo."
         case .yourCall: "Se puede borrar, pero pierdes algo: lee qué es."
-        case .doNotTouch: "DiskMap solo te lo enseña."
+        case .doNotTouch: "Airy solo te lo enseña."
         }
     }
 }
@@ -368,11 +368,11 @@ private struct ResultBanner: View {
 // MARK: - Depuración
 
 #if DEBUG
-/// Solo Debug, para capturas: `DISKMAP_CLEANUP_SCRIPT="accion[:arg]@segundos,…"`.
+/// Solo Debug, para capturas: `AIRY_CLEANUP_SCRIPT="accion[:arg]@segundos,…"`.
 /// - `select:<id>`: marca o desmarca una fila.
 /// - `cleansafe` / `clean:<id>`: abren la confirmación (no ejecutan nada).
 /// - `scrollto:<id>`: desplaza la lista hasta esa fila.
-/// - `cleantest`: abre la confirmación de `user-logs` reducida a `~/Library/Logs/DiskMapPrueba`.
+/// - `cleantest`: abre la confirmación de `user-logs` reducida a `~/Library/Logs/AiryPrueba`.
 /// Ningún paso confirma nada: las hojas se abren para verlas y se cierran con `cancel`.
 /// - `emptytrash`: abre la confirmación de vaciar la Papelera (nunca la confirma).
 /// - `snapshots:<n>:<bytes>`: muestra el aviso de instantáneas con datos de ejemplo.
@@ -383,14 +383,14 @@ private struct ResultBanner: View {
 @MainActor
 enum CleanupDebugScript {
     private static var started = false
-    private static let testRoot = NSHomeDirectory() + "/Library/Logs/DiskMapPrueba"
+    private static let testRoot = NSHomeDirectory() + "/Library/Logs/AiryPrueba"
 
     private static func isTestPath(_ path: String) -> Bool {
         path == testRoot || path.hasPrefix(testRoot + "/")
     }
 
     static func run(model: AppModel, flow: CleanupFlow, select: @escaping (String) -> Void) {
-        guard !started, let script = ProcessInfo.processInfo.environment["DISKMAP_CLEANUP_SCRIPT"] else { return }
+        guard !started, let script = ProcessInfo.processInfo.environment["AIRY_CLEANUP_SCRIPT"] else { return }
         started = true
         for raw in script.split(separator: ",") {
             let parts = raw.split(separator: "@")
@@ -412,7 +412,7 @@ enum CleanupDebugScript {
         case "clean": flow.requestClean(board.items.filter { $0.id == argument })
         case "scrollto": flow.debugScrollTarget = argument
         case "cleantest":
-            // Solo la carpeta de prueba: el elemento `user-logs` reducido a lo que hay en DiskMapPrueba.
+            // Solo la carpeta de prueba: el elemento `user-logs` reducido a lo que hay en AiryPrueba.
             let narrowed = board.items.compactMap { item -> CleanupItem? in
                 guard item.entry.id == "user-logs" else { return nil }
                 var copy = item

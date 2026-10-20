@@ -5,7 +5,7 @@ import Testing
 @Suite struct IndexStoreTests {
     private func tempDir() -> URL {
         FileManager.default.temporaryDirectory
-            .appendingPathComponent("diskmap-store-\(UUID().uuidString)/nested")
+            .appendingPathComponent("airy-store-\(UUID().uuidString)/nested")
     }
 
     private func sampleTree() -> FileNode {

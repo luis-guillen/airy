@@ -4,36 +4,36 @@ import AppKit
 /// Solo en Debug: captura la propia ventana a PNG para revisar la interfaz sin permiso de
 /// Grabación de pantalla (una app puede capturar sus propias ventanas).
 ///
-/// - `DISKMAP_SNAPSHOT_DIR`: carpeta de salida; sin ella no hace nada.
-/// - `DISKMAP_SNAPSHOT_TIMES`: segundos tras el arranque, separados por comas (por defecto "2,6").
-/// - `DISKMAP_SNAPSHOT_PREFIX`: prefijo del nombre (por defecto "shot").
-/// - `DISKMAP_APPEARANCE`: "dark" o "light" para forzar el modo.
-/// - `DISKMAP_SECTION`: sección inicial ("map", "cleanup", "assistant").
-/// - `DISKMAP_SNAPSHOT_SHEET`: "1" recorta la captura a la hoja abierta, si la hay.
-/// - `DISKMAP_SUPPORT_DIR` (en `AppModel`): carpeta de datos alternativa.
+/// - `AIRY_SNAPSHOT_DIR`: carpeta de salida; sin ella no hace nada.
+/// - `AIRY_SNAPSHOT_TIMES`: segundos tras el arranque, separados por comas (por defecto "2,6").
+/// - `AIRY_SNAPSHOT_PREFIX`: prefijo del nombre (por defecto "shot").
+/// - `AIRY_APPEARANCE`: "dark" o "light" para forzar el modo.
+/// - `AIRY_SECTION`: sección inicial ("map", "cleanup", "assistant").
+/// - `AIRY_SNAPSHOT_SHEET`: "1" recorta la captura a la hoja abierta, si la hay.
+/// - `AIRY_SUPPORT_DIR` (en `AppModel`): carpeta de datos alternativa.
 @MainActor
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
-    /// Reloj común de capturas y guiones de depuración (p. ej. `DISKMAP_MAP_SCRIPT`).
+    /// Reloj común de capturas y guiones de depuración (p. ej. `AIRY_MAP_SCRIPT`).
     nonisolated(unsafe) static private(set) var start = Date()
     private static var activity: NSObjectProtocol?
 
     static func configure(_ model: AppModel) {
         start = Date()
-        switch environment["DISKMAP_APPEARANCE"] {
+        switch environment["AIRY_APPEARANCE"] {
         case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
         case "light": NSApp.appearance = NSAppearance(named: .aqua)
         default: break
         }
-        if let raw = environment["DISKMAP_SECTION"], let section = Section(rawValue: raw) {
+        if let raw = environment["AIRY_SECTION"], let section = Section(rawValue: raw) {
             model.section = section
         }
-        guard let directory = environment["DISKMAP_SNAPSHOT_DIR"] else { return }
+        guard let directory = environment["AIRY_SNAPSHOT_DIR"] else { return }
         // Sin App Nap: con la ventana tapada, macOS retrasa los temporizadores y las capturas no llegan.
         activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical],
                                                          reason: "Capturas de depuración")
-        let prefix = environment["DISKMAP_SNAPSHOT_PREFIX"] ?? "shot"
-        let times = (environment["DISKMAP_SNAPSHOT_TIMES"] ?? "2,6")
+        let prefix = environment["AIRY_SNAPSHOT_PREFIX"] ?? "shot"
+        let times = (environment["AIRY_SNAPSHOT_TIMES"] ?? "2,6")
             .split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
         for time in times {
             at(time) {
@@ -73,9 +73,9 @@ enum DebugSnapshot {
         // De delante hacia atrás, como las devuelve el sistema; solo las de este proceso.
         let own = info.filter { ($0[kCGWindowOwnerPID as String] as? Int) == pid }
         let ids = own.compactMap { $0[kCGWindowNumber as String] as? Int }
-        // Con DISKMAP_SNAPSHOT_SHEET=1 y una hoja abierta, se recorta al marco de la hoja (misma
+        // Con AIRY_SNAPSHOT_SHEET=1 y una hoja abierta, se recorta al marco de la hoja (misma
         // composición de ventanas propias; nunca entran las de otras apps).
-        let target = environment["DISKMAP_SNAPSHOT_SHEET"] == "1" ? (window.attachedSheet ?? window) : window
+        let target = environment["AIRY_SNAPSHOT_SHEET"] == "1" ? (window.attachedSheet ?? window) : window
         let bounds = own.first { ($0[kCGWindowNumber as String] as? Int) == target.windowNumber }
             .flatMap { $0[kCGWindowBounds as String] as! CFDictionary? }
             .flatMap { CGRect(dictionaryRepresentation: $0) }

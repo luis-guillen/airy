@@ -133,7 +133,7 @@ private struct ChatWelcome: View {
             VStack(spacing: 6) {
                 Text("Pregunta lo que quieras sobre tu disco")
                     .font(.title3.weight(.semibold))
-                Text("Claude conoce el análisis (rutas, tamaños, fechas y el catálogo de DiskMap), nunca el contenido de tus archivos.")
+                Text("Claude conoce el análisis (rutas, tamaños, fechas y el catálogo de Airy), nunca el contenido de tus archivos.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

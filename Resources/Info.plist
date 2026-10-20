@@ -9,23 +9,23 @@
 		<string>es</string>
 	</array>
 	<key>CFBundleExecutable</key>
-	<string>DiskMap</string>
+	<string>Airy</string>
 	<key>CFBundleIdentifier</key>
-	<string>local.diskmap.DiskMap</string>
+	<string>local.airy.Airy</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>DiskMap</string>
+	<string>Airy</string>
 	<key>CFBundleDisplayName</key>
-	<string>DiskMap</string>
+	<string>Airy</string>
 	<key>CFBundleIconFile</key>
-	<string>DiskMap</string>
+	<string>Airy</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>LSApplicationCategoryType</key>
@@ -35,6 +35,17 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>DiskMap usa Finder para vaciar la Papelera.</string>
+	<string>Airy usa Finder para vaciar la Papelera.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>local.airy.Airy</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>airy</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

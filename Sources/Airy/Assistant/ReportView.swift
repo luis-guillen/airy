@@ -34,7 +34,7 @@ struct ReportView: View {
         .scrollIndicators(.automatic)
         .animation(Theme.sectionSpring, value: phaseKey)
         #if DEBUG
-        .onReceive(NotificationCenter.default.publisher(for: .diskMapAssistantDebug)) { note in
+        .onReceive(NotificationCenter.default.publisher(for: .airyAssistantDebug)) { note in
             debugAction(note.userInfo?["action"] as? String ?? "", note.userInfo?["argument"] as? String ?? "")
         }
         #endif
@@ -70,7 +70,7 @@ struct ReportView: View {
                 Text(session.isReportLoading ? "Claude está revisando tu disco…" : "Informe de tu disco")
                     .font(.title3.weight(.semibold))
                     .contentTransition(.opacity)
-                Text("Separa lo que ocupa espacio en «Borrar sin riesgo», «Depende de ti» y «No tocar», con el porqué de cada cosa. Todo lo que proponga se comprueba antes con el catálogo de DiskMap.")
+                Text("Separa lo que ocupa espacio en «Borrar sin riesgo», «Depende de ti» y «No tocar», con el porqué de cada cosa. Todo lo que proponga se comprueba antes con el catálogo de Airy.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -118,7 +118,7 @@ struct ReportView: View {
                 BytesCounter(bytes: report.reclaimableBytes,
                              font: .system(size: 30, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.color(for: .safe))
-                    .help("Suma de lo marcado «Borrar sin riesgo» con acción, sin contar dos veces una carpeta dentro de otra. Lo calcula DiskMap, no el texto de Claude.")
+                    .help("Suma de lo marcado «Borrar sin riesgo» con acción, sin contar dos veces una carpeta dentro de otra. Lo calcula Airy, no el texto de Claude.")
                 PrimaryButton("Analizar de nuevo", systemImage: "arrow.clockwise", style: .secondary) {
                     session.runReport(model: model)
                 }

@@ -24,7 +24,7 @@ struct ConfirmSheet: View {
         .frame(width: 540)
         .animation(Theme.sectionSpring, value: warningAccepted)
         #if DEBUG
-        .onReceive(NotificationCenter.default.publisher(for: .diskMapAssistantDebug)) { note in
+        .onReceive(NotificationCenter.default.publisher(for: .airyAssistantDebug)) { note in
             switch note.userInfo?["action"] as? String {
             case "second": warningAccepted = true
             case "cancel": flow.cancelSheet()
@@ -204,7 +204,7 @@ struct ConfirmSheet: View {
         switch request.kind {
         case .emptyTrash(let bytes):
             return bytes.map { "Se borrarán definitivamente \(Format.bytes($0))." }
-                ?? "DiskMap no puede leer la Papelera, así que no sabe cuánto ocupa."
+                ?? "Airy no puede leer la Papelera, así que no sabe cuánto ocupa."
         case .trashPaths(let paths, _):
             let total = paths.compactMap { model.node(atPath: $0)?.allocatedSize }.reduce(0, +)
             return total > 0 ? "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla."

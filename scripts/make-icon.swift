@@ -1,11 +1,11 @@
 #!/usr/bin/env swift
-// Genera el icono de DiskMap con CoreGraphics.
+// Genera el icono de Airy con CoreGraphics.
 //
 //   swift scripts/make-icon.swift Resources/
 //
 // Escribe en la carpeta indicada:
-//   DiskMap-1024.png   maestro de 1024×1024
-//   DiskMap.icns       todos los tamaños (16…1024, @1x/@2x)
+//   Airy-1024.png   maestro de 1024×1024
+//   Airy.icns       todos los tamaños (16…1024, @1x/@2x)
 //
 // Los tamaños de 64 px en adelante salen del maestro con `sips`. Los de 16 y 32 px se dibujan
 // directamente a su tamaño con una versión simplificada (menos bloques, separaciones de 1 px
@@ -280,11 +280,11 @@ let args = CommandLine.arguments.dropFirst()
 let outDir = URL(fileURLWithPath: args.first ?? "Resources", isDirectory: true)
 try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
-let master = outDir.appendingPathComponent("DiskMap-1024.png")
+let master = outDir.appendingPathComponent("Airy-1024.png")
 writePNG(renderIcon(px: 1024, small: false), to: master)
 
 let iconset = FileManager.default.temporaryDirectory
-    .appendingPathComponent("DiskMap-\(ProcessInfo.processInfo.processIdentifier).iconset", isDirectory: true)
+    .appendingPathComponent("Airy-\(ProcessInfo.processInfo.processIdentifier).iconset", isDirectory: true)
 try? FileManager.default.removeItem(at: iconset)
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
@@ -307,7 +307,7 @@ for (name, px) in entries {
     }
 }
 // Vistas previas para revisar a mano los tamaños pequeños.
-if ProcessInfo.processInfo.environment["DISKMAP_ICON_PREVIEW"] != nil {
+if ProcessInfo.processInfo.environment["AIRY_ICON_PREVIEW"] != nil {
     for px in [16, 32, 64] {
         try? FileManager.default.removeItem(at: outDir.appendingPathComponent("preview-\(px).png"))
         let src = entries.first { $0.1 == px }!.0
@@ -316,7 +316,7 @@ if ProcessInfo.processInfo.environment["DISKMAP_ICON_PREVIEW"] != nil {
     }
 }
 
-let icns = outDir.appendingPathComponent("DiskMap.icns")
+let icns = outDir.appendingPathComponent("Airy.icns")
 run("/usr/bin/iconutil", ["-c", "icns", iconset.path, "-o", icns.path])
 try? FileManager.default.removeItem(at: iconset)
 print("Icono generado: \(master.path) y \(icns.path)")

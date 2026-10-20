@@ -59,7 +59,7 @@ struct Sidebar: View {
     private var brand: some View {
         HStack(spacing: 10) {
             AppGlyph(size: 26)
-            Text("DiskMap")
+            Text("Airy")
                 .font(.system(.title3, design: .rounded, weight: .bold))
             Spacer()
         }

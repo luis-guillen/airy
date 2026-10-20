@@ -54,7 +54,7 @@ final class AssistantSession {
     var chosenPath: String? {
         #if DEBUG
         // Solo para revisar la interfaz sin tocar los ajustes del usuario (p. ej. una ruta inexistente).
-        if let override = ProcessInfo.processInfo.environment["DISKMAP_CLAUDE_PATH"] { return override }
+        if let override = ProcessInfo.processInfo.environment["AIRY_CLAUDE_PATH"] { return override }
         #endif
         return UserDefaults.standard.string(forKey: Self.claudePathKey).flatMap { $0.isEmpty ? nil : $0 }
     }
@@ -133,7 +133,7 @@ final class AssistantSession {
         model.catalog.map { AIAssistant(claudePath: path, runner: runner, catalog: $0, home: home) }
     }
 
-    private static let catalogMissing = "No se pudo cargar el catálogo de DiskMap, así que el asistente no puede validar lo que proponga Claude."
+    private static let catalogMissing = "No se pudo cargar el catálogo de Airy, así que el asistente no puede validar lo que proponga Claude."
 
     // MARK: Informe
 
@@ -283,13 +283,13 @@ extension AppModel {
 }
 
 #if DEBUG
-/// Solo en Debug: guarda la última respuesta real en `DISKMAP_SUPPORT_DIR` y, con
-/// `DISKMAP_ASSISTANT_REPLAY=1`, la repite sin llamar a Claude (para revisar la interfaz sin coste).
+/// Solo en Debug: guarda la última respuesta real en `AIRY_SUPPORT_DIR` y, con
+/// `AIRY_ASSISTANT_REPLAY=1`, la repite sin llamar a Claude (para revisar la interfaz sin coste).
 enum DebugReplay {
     private static var directory: URL? {
-        ProcessInfo.processInfo.environment["DISKMAP_SUPPORT_DIR"].map { URL(fileURLWithPath: $0) }
+        ProcessInfo.processInfo.environment["AIRY_SUPPORT_DIR"].map { URL(fileURLWithPath: $0) }
     }
-    private static var replaying: Bool { ProcessInfo.processInfo.environment["DISKMAP_ASSISTANT_REPLAY"] == "1" }
+    private static var replaying: Bool { ProcessInfo.processInfo.environment["AIRY_ASSISTANT_REPLAY"] == "1" }
 
     static func report() async throws -> AIReport? {
         guard replaying, let url = directory?.appendingPathComponent("assistant-report.json"),

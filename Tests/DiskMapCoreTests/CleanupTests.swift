@@ -73,7 +73,7 @@ final class FakeFreeSpace: Sendable {
 
 // MARK: - Utilidades
 
-private func makeTempDir(_ label: String = "diskmap-cleanup") -> String {
+private func makeTempDir(_ label: String = "airy-cleanup") -> String {
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("\(label)-\(UUID().uuidString)")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -115,7 +115,7 @@ private func item(
 }
 
 private func makeStore() -> IndexStore {
-    IndexStore(directory: URL(fileURLWithPath: makeTempDir("diskmap-cleanup-store")))
+    IndexStore(directory: URL(fileURLWithPath: makeTempDir("airy-cleanup-store")))
 }
 
 private let uvEntry = entry(
@@ -668,7 +668,7 @@ private func executor(
         let runner = ProcessRunner(searchPath: [dir + "/vacio", dir])
         #expect(await runner.resolve("herramienta") == tool)
         #expect(await runner.resolve("noejecutable") == nil)
-        #expect(await runner.resolve("inexistente-diskmap") == nil)
+        #expect(await runner.resolve("inexistente-airy") == nil)
     }
 
     // Sin shell de login: el PATH sale de /etc/paths, /etc/paths.d, el entorno de la app y el respaldo.

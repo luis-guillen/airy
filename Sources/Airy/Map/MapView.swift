@@ -66,7 +66,7 @@ struct MapView: View {
             scene.show(model.navigation.current, revision: revision)
         }
         #if DEBUG
-        .onReceive(NotificationCenter.default.publisher(for: .diskMapDebugToast)) { note in
+        .onReceive(NotificationCenter.default.publisher(for: .airyDebugToast)) { note in
             guard let outcome = note.userInfo?["outcome"] as? CleanupOutcome,
                   let title = note.userInfo?["title"] as? String else { return }
             showToast(MapToast(outcome: outcome, title: title))
@@ -320,10 +320,10 @@ private struct MapToastView: View {
 }
 
 extension Notification.Name {
-    static let diskMapDebugToast = Notification.Name("DiskMapDebugToast")
+    static let airyDebugToast = Notification.Name("AiryDebugToast")
 }
 
-/// Contador de fotogramas en pantalla (solo con DISKMAP_FPS=1).
+/// Contador de fotogramas en pantalla (solo con AIRY_FPS=1).
 private struct FPSBadge: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
@@ -338,13 +338,13 @@ private struct FPSBadge: View {
 }
 
 /// Solo en Debug: acciones programadas sobre el mapa para revisarlo sin ratón.
-/// `DISKMAP_MAP_SCRIPT="zoom@3,hover@5,legend:video@6,back@7"`. Acciones: `zoom[:nombre]`,
+/// `AIRY_MAP_SCRIPT="zoom@3,hover@5,legend:video@6,back@7"`. Acciones: `zoom[:nombre]`,
 /// `back`, `jump:N`, `hover[:nombre]`, `unhover`, `legend:<tipo>|none`, `trash[:nombre]` (abre la confirmación).
 @MainActor
 enum MapDebugScript {
     static func run(scene: MapScene, tracker: HoverTracker, model: AppModel,
                     openTrash: @escaping (TrashCandidate) -> Void) async {
-        guard let script = ProcessInfo.processInfo.environment["DISKMAP_MAP_SCRIPT"] else { return }
+        guard let script = ProcessInfo.processInfo.environment["AIRY_MAP_SCRIPT"] else { return }
         let start = DebugSnapshot.start
         let steps = script.split(separator: ",").compactMap { raw -> (String, String?, Double)? in
             let parts = raw.split(separator: "@")

@@ -492,7 +492,7 @@ final class MapScene {
     /// durante un análisis el *pool* cooperativo va saturado de E/S, y mientras el lienzo anima a
     /// 120 fps los trabajos del actor principal llegaban con 200–330 ms de retraso (medido). Así el
     /// cálculo (≈ 1 ms) sale del hilo principal y vuelve en el siguiente ciclo.
-    private nonisolated static let layoutQueue = DispatchQueue(label: "local.diskmap.layout",
+    private nonisolated static let layoutQueue = DispatchQueue(label: "local.airy.layout",
                                                                qos: .userInteractive, attributes: .concurrent)
 
     private nonisolated static func compute(_ input: LayoutInput, in bounds: CGRect, qos: DispatchQoS,

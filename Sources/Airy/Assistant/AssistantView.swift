@@ -233,7 +233,7 @@ struct MapRouteChip: View {
 
 #if DEBUG
 /// Solo en Debug: pasos programados del asistente para revisarlo sin ratón.
-/// `DISKMAP_ASSISTANT_SCRIPT="report@3,chat@20,ask:¿Qué ocupa más?@21,confirm:0@30,missing@40"`.
+/// `AIRY_ASSISTANT_SCRIPT="report@3,chat@20,ask:¿Qué ocupa más?@21,confirm:0@30,missing@40"`.
 /// Acciones: `report` (lanza el informe), `chat`, `informe`, `ask:<pregunta>`, `stop`,
 /// `confirm:<columna>` (abre la confirmación de la primera recomendación con botón de esa columna),
 /// `second` (pasa a la segunda confirmación), `cancel`, `pending:<pregunta>` (como "Explicar con IA").
@@ -242,7 +242,7 @@ enum AssistantDebugScript {
     nonisolated(unsafe) static var didRun = false
 
     static func run(model: AppModel) async {
-        guard !didRun, let script = ProcessInfo.processInfo.environment["DISKMAP_ASSISTANT_SCRIPT"] else { return }
+        guard !didRun, let script = ProcessInfo.processInfo.environment["AIRY_ASSISTANT_SCRIPT"] else { return }
         didRun = true
         let start = DebugSnapshot.start
         for raw in script.split(separator: ",") {
@@ -269,7 +269,7 @@ enum AssistantDebugScript {
             if let path = session.transcript.bubbles.last?.routes.first { model.showInMap(path: path) }
         case "pending": model.section = .map; model.pendingAssistantQuestion = argument; model.section = .assistant
         case "confirm", "second", "cancel":
-            NotificationCenter.default.post(name: .diskMapAssistantDebug, object: nil,
+            NotificationCenter.default.post(name: .airyAssistantDebug, object: nil,
                                             userInfo: ["action": action, "argument": argument ?? ""])
         default: break
         }
@@ -277,6 +277,6 @@ enum AssistantDebugScript {
 }
 
 extension Notification.Name {
-    static let diskMapAssistantDebug = Notification.Name("DiskMapAssistantDebug")
+    static let airyAssistantDebug = Notification.Name("AiryAssistantDebug")
 }
 #endif

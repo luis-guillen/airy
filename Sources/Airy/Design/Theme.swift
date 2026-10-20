@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Sistema visual de DiskMap: paleta por tipo, muelles y medidas compartidas por todas las vistas.
+/// Sistema visual de Airy: paleta por tipo, muelles y medidas compartidas por todas las vistas.
 /// Toda animación pasa por aquí para que el movimiento sea coherente en la app.
 enum Theme {
     // MARK: - Movimiento

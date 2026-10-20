@@ -171,7 +171,7 @@ import Foundation
         #expect(result.root.allocatedSize >= 4 * Self.mb)
     }
 
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DISKMAP_REAL"] != nil))
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AIRY_REAL"] != nil))
     func realHome() async throws {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let result = try await DiskScanner(options: ScanOptions(roots: [home])).scan { _ in }
