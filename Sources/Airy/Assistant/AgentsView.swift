@@ -60,7 +60,7 @@ struct AgentsView: View {
                 if serverExists {
                     Label("Servidor MCP listo", systemImage: "checkmark.circle.fill")
                         .font(.headline)
-                        .foregroundStyle(Theme.color(for: .safe))
+                        .foregroundStyle(Theme.Airy.riskInk(.safe))
                     HStack(spacing: 10) {
                         Text(serverPath)
                             .font(.callout.monospaced())
@@ -78,7 +78,7 @@ struct AgentsView: View {
                 } else {
                     Label("No se encuentra airy-mcp junto a Airy. Vuelve a empaquetar con scripts/build-app.sh.",
                           systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Theme.color(for: .yourCall))
+                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 }
             }
         }
@@ -156,7 +156,7 @@ struct AgentsView: View {
                     Button("Exportar registro…", systemImage: "square.and.arrow.up") { export() }
                 }
                 if let exportError {
-                    Text(exportError).font(.caption).foregroundStyle(Theme.color(for: .doNotTouch))
+                    Text(exportError).font(.caption).foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
                 }
                 if records.isEmpty {
                     Text("Ningún agente ha usado Airy todavía.")
