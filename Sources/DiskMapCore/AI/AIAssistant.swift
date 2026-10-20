@@ -136,12 +136,16 @@ public struct AIAssistant: Sendable {
     private let runner: any CommandRunning
     private let catalog: Catalog
     private let home: String
+    /// Si existe, decide el veredicto (modo, protecciones del usuario y duras) en lugar de `RiskPolicy`.
+    private let classifier: RiskClassifier?
 
-    public init(claudePath: String, runner: any CommandRunning, catalog: Catalog, home: String = NSHomeDirectory()) {
+    public init(claudePath: String, runner: any CommandRunning, catalog: Catalog, home: String = NSHomeDirectory(),
+                classifier: RiskClassifier? = nil) {
         self.claudePath = claudePath
         self.runner = runner
         self.catalog = catalog
         self.home = home
+        self.classifier = classifier
     }
 
     /// Argumentos comunes. `--setting-sources ""` evita hooks y plugins del usuario (verificado: mantiene
@@ -249,7 +253,14 @@ public struct AIAssistant: Sendable {
             let pathEntry = match.isItemID
                 ? match.itemCatalogIds.first.flatMap { catalog.entry(id: $0) }
                 : catalog.match(path: match.path, home: home)
-            var verdict = RiskPolicy.effectiveRisk(path: match.path, home: home, catalog: pathEntry?.risk, ai: rec.verdict)
+            var verdict: Risk
+            if let classifier, match.isItemID, let pathEntry {
+                verdict = classifier.classify(entry: pathEntry, paths: [], ai: rec.verdict).risk
+            } else if let classifier, !match.isItemID {
+                verdict = classifier.classify(path: match.path, ai: rec.verdict).risk
+            } else {
+                verdict = RiskPolicy.effectiveRisk(path: match.path, home: home, catalog: pathEntry?.risk, ai: rec.verdict)
+            }
             if let itemRisk = match.itemRisk { verdict = .strictest(verdict, itemRisk) }
 
             var action: AIAction?
@@ -264,7 +275,7 @@ public struct AIAssistant: Sendable {
             case .runCatalogCommand(let id):
                 let related = id == pathEntry?.id || match.itemCatalogIds.contains(id)
                 if related, let entry = catalog.entry(id: id), entry.cleanup != .info {
-                    verdict = .strictest(verdict, entry.risk)
+                    verdict = .strictest(verdict, classifier?.baseRisk(of: entry) ?? entry.risk)
                     action = .runCatalogCommand(id: id)
                 }
             case nil:

@@ -80,17 +80,30 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
     /// `true` si el comando oficial solo quita una parte (p. ej. `pnpm store prune` deja lo que usan
     /// los proyectos): la interfaz muestra "hasta X" y no lo suma como seguro en "Puedes liberar".
     public var partialCleanup: Bool
+    /// Riesgo en modo Agresivo. Solo puede bajar el de `risk` si la ficha se regenera y no es «No tocar»;
+    /// subirlo, siempre (véase `RiskClassifier.baseRisk(of:)`). `nil` ⇒ el de `risk`.
+    public var aggressiveRisk: Risk?
+    /// En modo Agresivo, se marca de entrada aunque sea «Depende de ti».
+    public var preselectInAggressive: Bool
+    /// Perfiles de uso para los que esta ficha se destaca (nunca cambian el riesgo).
+    public var profiles: [UsageProfile]
+    /// Procesos que deben estar cerrados antes de limpiar (los rellena la tarea 6).
+    public var processNames: [String]
 
     public init(
         id: String, title: String, explanation: String, whoCreatesIt: String, regenerates: Bool,
         risk: Risk, kind: ContentKind, paths: [String], cleanup: CleanupMethod,
-        mustBeClosed: [String] = [], referenceCheck: String? = nil, partialCleanup: Bool = false
+        mustBeClosed: [String] = [], referenceCheck: String? = nil, partialCleanup: Bool = false,
+        aggressiveRisk: Risk? = nil, preselectInAggressive: Bool = false, profiles: [UsageProfile] = [],
+        processNames: [String] = []
     ) {
         self.id = id; self.title = title; self.explanation = explanation
         self.whoCreatesIt = whoCreatesIt; self.regenerates = regenerates; self.risk = risk
         self.kind = kind; self.paths = paths; self.cleanup = cleanup
         self.mustBeClosed = mustBeClosed; self.referenceCheck = referenceCheck
         self.partialCleanup = partialCleanup
+        self.aggressiveRisk = aggressiveRisk; self.preselectInAggressive = preselectInAggressive
+        self.profiles = profiles; self.processNames = processNames
     }
 
     /// Cadena de búsqueda para una carpeta concreta (p. ej. `models--a--b` ⇒ `a/b`).
@@ -108,6 +121,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case id, title, explanation, whoCreatesIt, regenerates, risk, kind, paths, cleanup
         case mustBeClosed, referenceCheck, partialCleanup
+        case aggressiveRisk, preselectInAggressive, profiles, processNames
     }
 
     public init(from decoder: Decoder) throws {
@@ -134,6 +148,19 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         mustBeClosed = try c.decodeIfPresent([String].self, forKey: .mustBeClosed) ?? []
         referenceCheck = try c.decodeIfPresent(String.self, forKey: .referenceCheck)
         partialCleanup = try c.decodeIfPresent(Bool.self, forKey: .partialCleanup) ?? false
+        if let name = try c.decodeIfPresent(String.self, forKey: .aggressiveRisk) {
+            guard let aggressive = Risk(jsonName: name) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .aggressiveRisk, in: c, debugDescription: "Riesgo agresivo desconocido: \(name)")
+            }
+            aggressiveRisk = aggressive
+        } else {
+            aggressiveRisk = nil
+        }
+        preselectInAggressive = try c.decodeIfPresent(Bool.self, forKey: .preselectInAggressive) ?? false
+        // Perfiles desconocidos (de una versión futura) se ignoran: solo sirven para destacar.
+        profiles = (try c.decodeIfPresent([String].self, forKey: .profiles) ?? []).compactMap(UsageProfile.init(rawValue:))
+        processNames = try c.decodeIfPresent([String].self, forKey: .processNames) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -150,6 +177,10 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         try c.encode(mustBeClosed, forKey: .mustBeClosed)
         try c.encodeIfPresent(referenceCheck, forKey: .referenceCheck)
         if partialCleanup { try c.encode(true, forKey: .partialCleanup) }
+        try c.encodeIfPresent(aggressiveRisk?.jsonName, forKey: .aggressiveRisk)
+        if preselectInAggressive { try c.encode(true, forKey: .preselectInAggressive) }
+        if !profiles.isEmpty { try c.encode(profiles.map(\.rawValue), forKey: .profiles) }
+        if !processNames.isEmpty { try c.encode(processNames, forKey: .processNames) }
     }
 }
 

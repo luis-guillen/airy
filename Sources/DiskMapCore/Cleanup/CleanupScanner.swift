@@ -13,11 +13,22 @@ public struct CleanupItem: Sendable, Identifiable {
     public var blockedByOpenApps: [String]
     /// Ficheros de proyectos que referencian este elemento.
     public var usedBy: [String]
+    /// Se marca de entrada (según el clasificador y el modo).
+    public var preselected: Bool
+    /// Coincide con algún perfil de uso del usuario: va primero dentro de su grupo.
+    public var highlighted: Bool
+    /// Protección que lo deja en «No tocar», sin casilla.
+    public var protection: ProtectionMatch?
+    /// Por qué no se puede limpiar ahora (procesos abiertos, comprobación incompleta…), o `nil`.
+    public var blockedReason: String?
 
     public init(id: String, entry: CatalogEntry, paths: [String], bytes: Int64, risk: Risk,
-                blockedByOpenApps: [String], usedBy: [String]) {
+                blockedByOpenApps: [String], usedBy: [String], preselected: Bool = false, highlighted: Bool = false,
+                protection: ProtectionMatch? = nil, blockedReason: String? = nil) {
         self.id = id; self.entry = entry; self.paths = paths; self.bytes = bytes
         self.risk = risk; self.blockedByOpenApps = blockedByOpenApps; self.usedBy = usedBy
+        self.preselected = preselected; self.highlighted = highlighted
+        self.protection = protection; self.blockedReason = blockedReason
     }
 
     /// Título para la interfaz y el historial (incluye la carpeta en elementos por carpeta).
@@ -38,14 +49,17 @@ public struct CleanupScanner: Sendable {
     private let probes: any SystemProbing
     private let references: ReferenceChecker
     private let home: String
+    private let classifier: RiskClassifier
 
+    /// `classifier`: `nil` ⇒ ajustes por defecto con este catálogo y este home.
     public init(catalog: Catalog, runner: any CommandRunning, probes: any SystemProbing,
-                references: ReferenceChecker, home: String = NSHomeDirectory()) {
+                references: ReferenceChecker, home: String = NSHomeDirectory(), classifier: RiskClassifier? = nil) {
         self.catalog = catalog
         self.runner = runner
         self.probes = probes
         self.references = references
         self.home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
+        self.classifier = classifier ?? RiskClassifier(catalog: catalog, settings: .defaults, home: self.home)
     }
 
     private struct Candidate {
@@ -71,16 +85,25 @@ public struct CleanupScanner: Sendable {
         let references = needles.isEmpty
             ? [:] : await self.references.references(toAny: needles, timeout: Self.referenceTimeout)
 
-        return candidates.map { candidate in
+        return candidates.compactMap { candidate in
             let usedBy = candidate.needle.flatMap { references[$0] } ?? []
-            var risk = candidate.paths.reduce(candidate.entry.risk) { risk, path in
-                .strictest(risk, RiskPolicy.effectiveRisk(path: path, home: home, catalog: candidate.entry.risk, ai: nil))
-            }
+            let verdict = classifier.classify(entry: candidate.entry, paths: candidate.paths)
+            var risk = verdict.risk
             if !usedBy.isEmpty { risk = .doNotTouch }
+            // Sin las rutas protegidas, el tamaño es solo el de las que quedan. Si no queda ninguna,
+            // el elemento se muestra en rojo con su tamaño original.
+            var paths = candidate.paths
+            var bytes = candidate.bytes
+            if !verdict.keptPaths.isEmpty, verdict.keptPaths != candidate.paths {
+                paths = verdict.keptPaths
+                bytes = paths.reduce(Int64(0)) { $0 + size(of: $1, scan: scan) }
+                guard bytes > 0 else { return nil }
+            }
             return CleanupItem(
-                id: candidate.id, entry: candidate.entry, paths: candidate.paths, bytes: candidate.bytes,
+                id: candidate.id, entry: candidate.entry, paths: paths, bytes: bytes,
                 risk: risk, blockedByOpenApps: candidate.entry.mustBeClosed.filter { running.contains($0) },
-                usedBy: usedBy)
+                usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch,
+                highlighted: verdict.highlighted, protection: verdict.protection)
         }
     }
 
