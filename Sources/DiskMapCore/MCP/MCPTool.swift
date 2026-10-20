@@ -80,7 +80,9 @@ public struct MCPToolRegistry: Sendable {
     }
 
     /// Herramientas de solo lectura (Task 12).
-    static func readTools() -> [any MCPTool] { [] }
+    static func readTools() -> [any MCPTool] {
+        [GetDiskSummaryTool(), ListLargestTool(), ExplainPathTool(), ListCleanupItemsTool()]
+    }
 
     /// Herramientas de acción, siempre tras el embudo de seguridad (Task 13).
     static func actionTools() -> [any MCPTool] { [] }
