@@ -18,7 +18,9 @@ struct TreemapCanvas: View {
             let tick = timeline.date
             Canvas { context, size in
                 _ = tick
+                #if DEBUG
                 FPSMeter.shared.tick()
+                #endif
                 MapRenderer.draw(&context, size: size, frame: frame, now: CACurrentMediaTime())
             }
             .drawingGroup()
@@ -70,6 +72,10 @@ enum MapRenderer {
 
     private static func clamp(_ x: Double) -> Double { min(max(x, 0), 1) }
 
+    /// Los rótulos que se van desaparecen antes que sus teselas (a 0 al 35 % del muelle),
+    /// para que dos niveles de texto no se crucen a mitad de zoom.
+    private static func labelFadeOut(_ s: Double) -> Double { 1 - clamp(s / 0.35) }
+
     static func draw(_ context: inout GraphicsContext, size: CGSize, frame: MapFrame, now: Double) {
         let canvas = CGRect(origin: .zero, size: size)
         if let transition = frame.transition, now < transition.end {
@@ -106,7 +112,7 @@ enum MapRenderer {
                     for tile in from.tiles where tile.id != t.focusID {
                         let r = RectMath.map(tile.rect, from: t.focusRect, to: window)
                         guard r.intersects(canvas) else { continue }
-                        drawTile(tile, in: r, context: context, opacity: fade, labelOpacity: fade,
+                        drawTile(tile, in: r, context: context, opacity: fade, labelOpacity: labelFadeOut(s),
                                  frame: frame, now: now)
                     }
                 }
@@ -118,7 +124,7 @@ enum MapRenderer {
                     let backdrop = t.to == nil ? 1 : 1 - clamp(spring.value(at: now - t.toStart - 0.12))
                     if backdrop > 0.004 {
                         drawTile(focus, in: window, context: context, opacity: backdrop,
-                                 labelOpacity: 1 - clamp(s * 2.6), frame: frame, now: now, hoverable: false,
+                                 labelOpacity: labelFadeOut(s), frame: frame, now: now, hoverable: false,
                                  previewOpacity: t.to == nil ? 1 : 0)
                     }
                 }
@@ -156,9 +162,9 @@ enum MapRenderer {
                     let base = RectMath.map(tile.rect, from: canvas, to: window)
                     if let target = targets[tile.id] {
                         drawTile(tile, in: RectMath.lerp(base, target, s), context: context,
-                                 opacity: 1 - settle, labelOpacity: fade, frame: frame, now: now, hoverable: false)
+                                 opacity: 1 - settle, labelOpacity: labelFadeOut(s), frame: frame, now: now, hoverable: false)
                     } else if fade > 0.004 {
-                        drawTile(tile, in: base, context: context, opacity: fade, labelOpacity: fade,
+                        drawTile(tile, in: base, context: context, opacity: fade, labelOpacity: labelFadeOut(s),
                                  frame: frame, now: now, hoverable: false)
                     }
                 }
@@ -355,18 +361,13 @@ enum MapRenderer {
 
 // MARK: - Contador de FPS (solo Debug con DISKMAP_FPS=1)
 
+#if DEBUG
 /// Cuenta los fotogramas que dibuja el lienzo durante cada animación y los escribe en stderr.
 /// Fuera de Debug, o sin `DISKMAP_FPS=1`, cada llamada sale en la primera línea.
 final class FPSMeter: Sendable {
     static let shared = FPSMeter()
 
-    static let isEnabled: Bool = {
-        #if DEBUG
-        ProcessInfo.processInfo.environment["DISKMAP_FPS"] == "1"
-        #else
-        false
-        #endif
-    }()
+    static let isEnabled: Bool = ProcessInfo.processInfo.environment["DISKMAP_FPS"] == "1"
 
     private struct State {
         var label: String?
@@ -421,12 +422,9 @@ final class FPSMeter: Sendable {
     }
 
     static func log(_ line: String) {
-        #if DEBUG
         let elapsed = Date().timeIntervalSince(DebugSnapshot.start)
-        #else
-        let elapsed = 0.0
-        #endif
         FileHandle.standardError.write(Data((String(format: "%6.2f ", elapsed) + line + "\n").utf8))
     }
 
 }
+#endif
