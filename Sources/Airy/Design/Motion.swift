@@ -132,7 +132,8 @@ private struct HoverSway: ViewModifier {
 struct RenderServerLayer: NSViewRepresentable {
     /// Cuando cambia, la capa se reconstruye (además de con cada cambio de tamaño).
     var key: AnyHashable
-    /// Llena `container` (coordenadas con y hacia abajo, como SwiftUI) para el tamaño dado.
+    /// Llena `container` (coordenadas con y hacia abajo, como SwiftUI) para el tamaño dado;
+    /// `container.contentsScale` es la escala de la pantalla.
     var build: @MainActor (_ container: CALayer, _ size: CGSize) -> Void
 
     func makeNSView(context: Context) -> HostView {
@@ -172,11 +173,19 @@ struct RenderServerLayer: NSViewRepresentable {
             if builtSize != bounds.size { rebuild() }
         }
 
+        /// Las capas hechas a mano no heredan la escala de la pantalla: se rehacen al cambiar.
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            if builtSize != nil { rebuild() }
+        }
+
         func rebuild() {
             builtSize = bounds.size
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             container.frame = bounds
+            // Quien construye copia esta escala en sus capas rasterizadas (trazos, formas).
+            container.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
             container.sublayers?.forEach { $0.removeFromSuperlayer() }
             if bounds.width > 0, bounds.height > 0 { build?(container, bounds.size) }
             CATransaction.commit()

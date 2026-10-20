@@ -41,6 +41,17 @@ struct WindMotionTests {
         }
     }
 
+    @Test func launchLeavesFadeOutDuringTheFadeSegment() {
+        let t = WindMotion.launchTimeline(.running)
+        let end = t.gather + t.hold + t.fade
+        #expect(WindMotion.launchLeafFade(elapsed: 0) == 1)
+        #expect(WindMotion.launchLeafFade(elapsed: t.gather + t.hold) == 1)
+        #expect(abs(WindMotion.launchLeafFade(elapsed: t.gather + t.hold + t.fade / 2) - 0.5) < 1e-9)
+        #expect(WindMotion.launchLeafFade(elapsed: end) == 0)
+        #expect(WindMotion.launchLeafFade(elapsed: end + 5) == 0)
+        #expect(WindMotion.launchLeafFade(elapsed: .nan) == 1)
+    }
+
     @Test func orbitStaysOnTheRing() {
         for i in 0..<7 { for t in stride(from: 0.0, through: 10, by: 0.37) {
             let p = WindMotion.orbitLeaf(index: i, count: 7, time: t, radius: 100)

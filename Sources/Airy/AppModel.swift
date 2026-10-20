@@ -308,6 +308,15 @@ final class AppModel {
         dismiss(.scan)
         progress = nil
         isScanning = true
+        #if DEBUG
+        if DebugSnapshot.previewsScan {
+            // Solo la pantalla: nada se lee ni se analiza ni se guarda.
+            scan = nil
+            progress = ScanProgress(filesScanned: 184_302, bytesScanned: 61_000_000_000,
+                                    currentPath: "/Users/Shared/Ejemplo/Biblioteca/Fotos")
+            return
+        }
+        #endif
 
         // Llega como mucho cada 100 ms desde los hilos del escáner.
         let onProgress: @Sendable (ScanProgress) -> Void = { [weak self] snapshot in

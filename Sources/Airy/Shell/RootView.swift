@@ -12,6 +12,16 @@ struct RootView: View {
     @ViewState private var windowVisible = false
     @ViewState private var appActive = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    /// Capa de arranque (`LaunchSwirl`): una sola vez por proceso, aunque se abra otra ventana.
+    @ViewState private var launching = RootView.launchPending
+    static var hasPlayed = false
+
+    private static var launchPending: Bool {
+        #if DEBUG
+        if DebugSnapshot.skipsLaunch { return false }
+        #endif
+        return !hasPlayed
+    }
 
     private var reduceMotion: Bool {
         #if DEBUG
@@ -38,6 +48,8 @@ struct RootView: View {
         .frame(minWidth: 1100, minHeight: 720)
         .tint(Theme.Airy.accent)
         .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
+        // Por encima de todo; el análisis arranca a la vez (`.task` no la espera).
+        .overlay { launchLayer }
         .environment(cleanupFlow)
         .environment(\.airyAmbientMotion, ambientMotion)
         .environment(\.airyTransientMotion, transientMotion)
@@ -132,6 +144,13 @@ struct RootView: View {
 }
 
 extension RootView {
+    @ViewBuilder fileprivate var launchLayer: some View {
+        if launching {
+            LaunchSwirl { launching = false }
+                .onAppear { RootView.hasPlayed = true }
+        }
+    }
+
     /// Celebración al liberar espacio, encima del contenido (venga de Limpieza o de la barra lateral).
     @ViewBuilder fileprivate var celebrationLayer: some View {
         if let celebration = cleanupFlow.celebration {
