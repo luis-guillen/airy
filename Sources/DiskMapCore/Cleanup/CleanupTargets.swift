@@ -13,6 +13,8 @@ public struct DiscoveryContext: Sendable {
     public let docker: DockerState?
     /// Paseo de proyectos de esta pasada, compartido por todas las fichas `projectArtifacts`.
     let projectWalk = ProjectWalkMemo()
+    /// Detección de versiones de herramientas de esta pasada, compartida por todas las fichas `toolchains`.
+    let toolchains = ToolchainMemo()
 
     public init(catalog: Catalog, home: String, runner: any CommandRunning, processListing: any ProcessListing,
                 now: Date, scan: FileNode?, docker: DockerState? = nil) {
@@ -43,6 +45,8 @@ public struct DiscoveredTarget: Sendable, Equatable {
     public var sizeNote: String? = nil
     /// `false` ⇒ nunca se marca de entrada, aunque el clasificador lo permita (solo baja la preselección).
     public var preselectable: Bool = true
+    /// Título propio para la interfaz (en vez de «ficha: sufijo»), p. ej. «Python 3.12 (Homebrew)».
+    public var label: String? = nil
 
     public init(idSuffix: String? = nil, paths: [String], targets: [String] = [], bytes: Int64? = nil,
                 details: [String] = [], lastModified: Date? = nil, needle: String? = nil, floor: Risk? = nil,
@@ -69,6 +73,9 @@ public enum CleanupTargets {
         if case .projectArtifacts = entry.discovery { return ProjectArtifactSource() }
         if entry.discovery == .installers { return InstallerSource() }
         if entry.discovery == .appSupportCaches { return AppSupportCacheSource() }
+        if case .toolchains = entry.discovery { return ToolchainSource() }
+        if entry.discovery == .toolchainSystemInfo { return ToolchainSystemInfoSource() }
+        if entry.discovery == .dependencyDuplicates { return DependencyDuplicateSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()

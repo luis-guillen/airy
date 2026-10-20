@@ -83,8 +83,14 @@ public enum DiscoveryKind: Codable, Sendable, Equatable {
     case simulatorRuntimes
     case appSupportCaches
     case docker
+    /// Versiones instaladas de herramientas de desarrollo de un gestor (`{"type":"toolchains","manager":"pyenv"}`).
+    case toolchains(manager: ToolchainManager)
+    /// Instalaciones del sistema (Xcode, /Library): solo informativas.
+    case toolchainSystemInfo
+    /// Paquetes de Node repetidos entre proyectos: solo informativa.
+    case dependencyDuplicates
 
-    private enum CodingKeys: String, CodingKey { case type, names, cachedirTag }
+    private enum CodingKeys: String, CodingKey { case type, names, cachedirTag, manager }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -97,6 +103,9 @@ public enum DiscoveryKind: Codable, Sendable, Equatable {
         case "simulatorRuntimes": self = .simulatorRuntimes
         case "appSupportCaches": self = .appSupportCaches
         case "docker": self = .docker
+        case "toolchains": self = .toolchains(manager: try c.decode(ToolchainManager.self, forKey: .manager))
+        case "toolchainSystemInfo": self = .toolchainSystemInfo
+        case "dependencyDuplicates": self = .dependencyDuplicates
         case let other:
             throw DecodingError.dataCorruptedError(
                 forKey: .type, in: c, debugDescription: "Fuente de objetivos desconocida: \(other)")
@@ -114,8 +123,18 @@ public enum DiscoveryKind: Codable, Sendable, Equatable {
         case .simulatorRuntimes: try c.encode("simulatorRuntimes", forKey: .type)
         case .appSupportCaches: try c.encode("appSupportCaches", forKey: .type)
         case .docker: try c.encode("docker", forKey: .type)
+        case .toolchains(let manager):
+            try c.encode("toolchains", forKey: .type)
+            try c.encode(manager, forKey: .manager)
+        case .toolchainSystemInfo: try c.encode("toolchainSystemInfo", forKey: .type)
+        case .dependencyDuplicates: try c.encode("dependencyDuplicates", forKey: .type)
         }
     }
+}
+
+/// Gestor de versiones de una herramienta de desarrollo (cada uno con su forma de quitar una versión).
+public enum ToolchainManager: String, Codable, Sendable, CaseIterable {
+    case pyenv, conda, nvm, fnm, volta, asdf, rbenv, rvm, sdkman, rustup, goSDK, homebrew, system
 }
 
 extension Risk {

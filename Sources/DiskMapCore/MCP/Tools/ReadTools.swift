@@ -297,6 +297,7 @@ public struct ListCleanupItemsTool: MCPTool {
                     RiskExplanation.expand($0, bytes: item.bytes)
                 }),
                 "why": .string(RiskExplanation.why(shown, home: env.home)),
+                "risk_reason": MCPFormat.optional(item.riskReason),
             ]
             row.merge(MCPFormat.risk(verdict)) { $1 }
             return .object(row)

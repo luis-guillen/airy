@@ -32,6 +32,8 @@ public struct CleanupItem: Sendable, Identifiable {
     public var riskReason: String?
     /// El tamaño no incluye todo (partes sin leer).
     public var sizeIsPartial: Bool
+    /// Título propio de la fuente (véase `DiscoveredTarget.label`).
+    public var label: String? = nil
 
     public init(id: String, entry: CatalogEntry, paths: [String], bytes: Int64, risk: Risk,
                 blockedByOpenApps: [String], usedBy: [String], preselected: Bool = false, highlighted: Bool = false,
@@ -48,6 +50,7 @@ public struct CleanupItem: Sendable, Identifiable {
 
     /// Título para la interfaz y el historial (incluye la carpeta en elementos por carpeta).
     public var title: String {
+        if let label, !label.isEmpty { return label }
         guard let colon = id.firstIndex(of: ":"), id[..<colon] == entry.id else { return entry.title }
         return "\(entry.title): \(id[id.index(after: colon)...])"
     }
@@ -190,7 +193,7 @@ public struct CleanupScanner: Sendable {
             if blockedReason == nil, target.needle != nil, !checked.complete {
                 blockedReason = "No se pudo comprobar a tiempo si lo usa algún proyecto."
             }
-            return CleanupItem(
+            var item = CleanupItem(
                 id: candidate.id, entry: candidate.entry, paths: paths, bytes: bytes,
                 risk: risk, blockedByOpenApps: candidate.entry.mustBeClosed.filter { running.contains($0) },
                 usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch && target.preselectable,
@@ -198,6 +201,8 @@ public struct CleanupScanner: Sendable {
                 details: target.details, targets: targets, sizeNote: target.sizeNote,
                 lastModified: target.lastModified, riskReason: target.floorReason ?? verdict.protection?.reason,
                 sizeIsPartial: Self.isPartialSize(paths, scan: scan, index: partialIndex))
+            item.label = target.label
+            return item
         }
     }
 
