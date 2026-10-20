@@ -698,7 +698,10 @@ public struct CleanupExecutor: Sendable {
         let before = freeSpace()
         let output: CommandOutput
         do {
-            output = try await runner.run(resolved, arguments, timeout: commandTimeout)
+            // Directorio neutro: nunca el heredado (un `yarn cache clean` dentro de un proyecto Berry vaciaría la
+            // caché del proyecto; `go` podría bajar otra toolchain por un go.mod).
+            output = try await runner.run(resolved, arguments, stdin: nil,
+                                          workingDirectory: Self.commandWorkingDirectory, timeout: commandTimeout)
         } catch {
             return .failure(CommandFailureMessage(String(describing: error)))
         }
@@ -709,6 +712,9 @@ public struct CleanupExecutor: Sendable {
         }
         return .success(max(0, freeSpace() - before))
     }
+
+    /// Directorio de trabajo de todo comando de limpieza.
+    public static let commandWorkingDirectory = "/"
 
     /// `{target}` sustituido (argumento exacto) por `target`.
     static func substitute(_ target: String, in arguments: [String]) -> [String] {

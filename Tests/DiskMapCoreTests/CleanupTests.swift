@@ -10,6 +10,7 @@ final class FakeRunner: CommandRunning, Sendable {
         var executable: String
         var arguments: [String]
         var timeout: TimeInterval
+        var workingDirectory: String? = nil
     }
 
     private let state = Mutex<(calls: [Call], resolveCalls: [String])>(([], []))
@@ -31,6 +32,19 @@ final class FakeRunner: CommandRunning, Sendable {
 
     func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
         let call = Call(executable: executable, arguments: arguments, timeout: timeout)
+        state.withLock { $0.calls.append(call) }
+        onRun?(call)
+        let key = ([executable] + arguments).joined(separator: " ")
+        return outputs[key] ?? CommandOutput(status: 0, stdout: "", stderr: "")
+    }
+
+    func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+             timeout: TimeInterval) async throws -> CommandOutput {
+        guard stdin == nil else {
+            throw CommandError.launchFailed(executable: executable, message: "FakeRunner no admite stdin")
+        }
+        let call = Call(executable: executable, arguments: arguments, timeout: timeout,
+                        workingDirectory: workingDirectory)
         state.withLock { $0.calls.append(call) }
         onRun?(call)
         let key = ([executable] + arguments).joined(separator: " ")

@@ -337,7 +337,7 @@
     {
       "id": "conda",
       "title": "Paquetes de conda",
-      "explanation": "Paquetes descargados por conda o Anaconda que ya no se usan. Se limpia con su comando oficial, que conserva los paquetes que usan tus entornos, así que puede liberar menos de lo que se muestra.",
+      "explanation": "Paquetes descargados por conda o Anaconda que ya no se usan. Se limpia con su comando oficial, que puede liberar menos de lo que se muestra; si un entorno necesita luego alguno de esos paquetes, conda lo vuelve a descargar.",
       "whoCreatesIt": "conda (Anaconda)",
       "regenerates": true,
       "risk": "safe",
@@ -360,7 +360,7 @@
       "processNames": [
         "conda"
       ],
-      "shortReason": "Solo quita paquetes y descargas que ningún entorno usa.",
+      "shortReason": "Quita descargas y paquetes sin usar; conda los vuelve a bajar si un entorno los necesita.",
       "profiles": [
         "developer"
       ]
@@ -395,7 +395,7 @@
     },
     {
       "id": "yarn-berry",
-      "title": "Caché de Yarn moderno",
+      "title": "Caché global de Yarn 2 o posterior",
       "explanation": "Copias comprimidas de los paquetes que guarda Yarn 2 o posterior para todos tus proyectos. Si la mandas a la Papelera, Yarn la vuelve a llenar en la próxima instalación.",
       "whoCreatesIt": "Yarn (Node.js)",
       "regenerates": true,
@@ -411,7 +411,7 @@
       "processNames": [
         "yarn"
       ],
-      "shortReason": "Yarn vuelve a descargar los paquetes en la próxima instalación.",
+      "shortReason": "Los proyectos que la usan fallarán hasta que ejecutes «yarn install», que la vuelve a descargar.",
       "profiles": [
         "developer"
       ]
@@ -463,7 +463,7 @@
       "processNames": [
         "corepack"
       ],
-      "shortReason": "Corepack vuelve a descargar el gestor que pida cada proyecto.",
+      "shortReason": "Corepack vuelve a descargar el gestor que pida cada proyecto; para eso necesita conexión.",
       "profiles": [
         "developer"
       ]
@@ -499,7 +499,7 @@
     {
       "id": "go-mod-cache",
       "title": "Módulos descargados de Go",
-      "explanation": "Código de los módulos de Go que han descargado tus proyectos. Se vacía con su comando; Go los vuelve a bajar al compilar, aunque sin conexión no podrás.",
+      "explanation": "Código de los módulos de Go que han descargado tus proyectos. Se vacía con su comando; Go los vuelve a descargar en la próxima compilación, y para eso necesitas conexión a internet.",
       "whoCreatesIt": "Go",
       "regenerates": true,
       "risk": "yourCall",
@@ -520,7 +520,7 @@
       "processNames": [
         "go"
       ],
-      "shortReason": "Go vuelve a descargar los módulos al compilar; sin conexión no podrás hasta entonces.",
+      "shortReason": "Go vuelve a descargar los módulos al compilar, y para eso necesitas conexión.",
       "profiles": [
         "developer"
       ]
@@ -564,7 +564,7 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Son descargas; las versiones de Python instaladas se quedan.",
+      "shortReason": "Son descargas; las versiones de Python instaladas se conservan.",
       "profiles": [
         "developer"
       ]
@@ -619,7 +619,8 @@
       "shortReason": "Composer vuelve a descargar los paquetes cuando los necesita.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "partialCleanup": true
     },
     {
       "id": "gradle-caches",
@@ -639,7 +640,7 @@
       "processNames": [
         "gradle"
       ],
-      "shortReason": "Gradle tarda en volver a bajarlo todo y lo que compilas sin conexión deja de funcionar.",
+      "shortReason": "Gradle tarda en volver a bajarlo todo y no podrás compilar sin conexión hasta entonces.",
       "profiles": [
         "developer"
       ]
@@ -695,12 +696,13 @@
       "shortReason": "CocoaPods vuelve a descargar los pods en la próxima instalación.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "partialCleanup": true
     },
     {
       "id": "dart-pub-cache",
       "title": "Paquetes de Dart y Flutter",
-      "explanation": "Paquetes que han descargado tus proyectos de Dart o Flutter. Se vacía con su comando; hay que volver a ejecutar «pub get» en cada proyecto.",
+      "explanation": "Paquetes que han descargado tus proyectos de Dart o Flutter y las herramientas que instalaste con «dart pub global activate». Se vacía entera con su comando: tendrás que volver a ejecutar «pub get» en cada proyecto y volver a instalar esas herramientas.",
       "whoCreatesIt": "Dart y Flutter",
       "regenerates": true,
       "risk": "yourCall",
@@ -719,12 +721,11 @@
         ]
       },
       "mustBeClosed": [],
-      "aggressiveRisk": "safe",
       "processNames": [
         "dart",
         "flutter"
       ],
-      "shortReason": "Tendrás que ejecutar «pub get» otra vez en cada proyecto.",
+      "shortReason": "Borra también las herramientas que instalaste con «pub global activate»; hay que volver a instalarlas y ejecutar «pub get» en cada proyecto.",
       "profiles": [
         "developer"
       ]
@@ -792,7 +793,7 @@
     },
     {
       "id": "terraform-plugins",
-      "title": "Caché de plugins de Terraform",
+      "title": "Caché de proveedores de Terraform",
       "explanation": "Proveedores de Terraform guardados para no descargarlos en cada proyecto. Se vuelven a bajar con «terraform init».",
       "whoCreatesIt": "Terraform",
       "regenerates": true,
@@ -808,7 +809,7 @@
       "processNames": [
         "terraform"
       ],
-      "shortReason": "Terraform los vuelve a descargar con «terraform init».",
+      "shortReason": "Los proyectos que la usan fallarán hasta que ejecutes «terraform init», que los vuelve a descargar.",
       "profiles": [
         "developer"
       ]
@@ -816,13 +817,13 @@
     {
       "id": "expo-cache",
       "title": "Caché de Expo",
-      "explanation": "Descargas y archivos temporales de Expo para apps de React Native. Tu sesión de Expo (state.json) se queda.",
+      "explanation": "Descargas y cachés de Expo para apps de React Native. Tu sesión de Expo y su configuración se conservan.",
       "whoCreatesIt": "Expo",
       "regenerates": true,
       "risk": "safe",
       "kind": "caches",
       "paths": [
-        "~/.expo/*"
+        "~/.expo/*cache*"
       ],
       "cleanup": {
         "type": "trash"
@@ -831,7 +832,7 @@
       "processNames": [
         "expo"
       ],
-      "shortReason": "Expo lo vuelve a descargar; tu sesión se queda.",
+      "shortReason": "Expo lo vuelve a descargar; tu sesión y tu configuración se conservan.",
       "profiles": [
         "developer"
       ],
@@ -863,8 +864,8 @@
     {
       "id": "jetbrains-caches",
       "title": "Cachés de los IDE de JetBrains",
-      "explanation": "Índices y cachés de IntelliJ IDEA, PyCharm, WebStorm, Android Studio y otros. Se rehacen solos, pero al abrir cada proyecto el IDE tardará en volver a indexarlo.",
-      "whoCreatesIt": "JetBrains y Android Studio",
+      "explanation": "Índices y cachés de IntelliJ IDEA, PyCharm, WebStorm y los demás IDE de JetBrains. Se rehacen solos, pero al abrir cada proyecto el IDE tardará en volver a indexarlo.",
+      "whoCreatesIt": "JetBrains",
       "regenerates": true,
       "risk": "yourCall",
       "kind": "caches",
@@ -913,7 +914,7 @@
       "mustBeClosed": [
         "com.microsoft.VSCode"
       ],
-      "shortReason": "VS Code los vuelve a crear; tu configuración y extensiones se quedan.",
+      "shortReason": "VS Code los vuelve a crear; tu configuración y extensiones se conservan.",
       "profiles": [
         "developer"
       ]
@@ -939,7 +940,7 @@
       "mustBeClosed": [
         "com.todesktop.230313mzl4w4u92"
       ],
-      "shortReason": "Cursor los vuelve a crear; tu configuración y extensiones se quedan.",
+      "shortReason": "Cursor los vuelve a crear; tu configuración y extensiones se conservan.",
       "profiles": [
         "developer"
       ]
@@ -1164,7 +1165,7 @@
     {
       "id": "xcode-device-support",
       "title": "Soporte de dispositivos de Xcode",
-      "explanation": "Copias de símbolos de cada versión de iOS, watchOS, tvOS o visionOS de los dispositivos que has conectado para depurar. Se conservan las 2 versiones más recientes de cada tipo.",
+      "explanation": "Copias de símbolos de cada versión de iOS, watchOS, tvOS o visionOS de los dispositivos que has conectado para depurar. De cada tipo se conservan las 2 que usaste más recientemente.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1183,7 +1184,7 @@
         "Xcode",
         "xcodebuild"
       ],
-      "shortReason": "Xcode vuelve a copiarlo al conectar el dispositivo; se conservan las 2 más recientes.",
+      "shortReason": "Xcode vuelve a copiarlo al conectar el dispositivo; se conservan las 2 que usaste más recientemente.",
       "profiles": [
         "developer"
       ],
@@ -1265,7 +1266,7 @@
     {
       "id": "xcode-caches",
       "title": "Caché de Xcode",
-      "explanation": "Archivos temporales de Xcode (descargas, índices de ayuda). Xcode los vuelve a crear.",
+      "explanation": "Archivos temporales de Xcode. Xcode los vuelve a crear cuando los necesita.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1287,8 +1288,8 @@
     },
     {
       "id": "xcode-orphan-runtimes",
-      "title": "Runtimes del simulador sin usar",
-      "explanation": "Versiones de iOS, watchOS, tvOS o visionOS para el simulador que ningún simulador usa. Se borran con el comando oficial de Xcode; si más adelante la necesitas, hay que volver a descargarla.",
+      "title": "Entornos de simulador sin usar",
+      "explanation": "Versiones de iOS, watchOS, tvOS o visionOS para el simulador (runtimes) que ningún simulador usa. Se borran con el comando oficial de Xcode; si más adelante necesitas alguna, hay que volver a descargarla.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -1310,7 +1311,7 @@
         "Xcode",
         "xcodebuild"
       ],
-      "shortReason": "Tendrías que volver a descargar el runtime desde Xcode.",
+      "shortReason": "Tendrías que volver a descargar ese entorno de simulador desde Xcode.",
       "profiles": [
         "developer"
       ],
@@ -1320,7 +1321,7 @@
     },
     {
       "id": "xcode-archives",
-      "title": "Archivos de Xcode",
+      "title": "Versiones archivadas de Xcode",
       "explanation": "Copias de cada versión de tus apps que archivaste para subirla o distribuirla. Sirven para leer informes de fallos de esas versiones, así que Airy solo te los muestra.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": false,
@@ -1456,7 +1457,7 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Son instalaciones a medias que Codex ya no usa.",
+      "shortReason": "Son restos de instalaciones antiguas que Codex ya no usa.",
       "profiles": [
         "developer"
       ]
