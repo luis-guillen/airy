@@ -56,15 +56,26 @@ private func scanner(_ entries: [CatalogEntry], home: String, runner: FakeRunner
 
 private func executor(_ entries: [CatalogEntry], home: String, runner: FakeRunner = FakeRunner(),
                       listing: SchemaListing = SchemaListing(), freeSpace: FakeFreeSpace = FakeFreeSpace([0]),
-                      protected: [String] = []) -> CleanupExecutor {
+                      protected: [String] = [], log: OperationLog? = nil,
+                      beforeRun: (@Sendable (String) -> Void)? = nil) -> CleanupExecutor {
     var settings = AirySettings()
     settings.protectedPaths = protected
     let load = SettingsLoad.loaded(settings)
     return CleanupExecutor(
         runner: runner, probes: FakeProbes(), store: IndexStore(directory: URL(fileURLWithPath: tempDir("airy-schema-store"))),
         catalog: Catalog(entries: entries), references: ReferenceChecker(roots: []), home: home,
-        freeSpace: { freeSpace.next() }, trashSettleDelay: .zero, settings: { load },
-        processGuard: ProcessGuard(listing: listing), processListing: listing)
+        freeSpace: { freeSpace.next() }, trashSettleDelay: .zero, settings: { load }, log: log,
+        processGuard: ProcessGuard(listing: listing), processListing: listing, beforeMove: beforeRun)
+}
+
+private func makeLog() -> OperationLog {
+    OperationLog(file: URL(fileURLWithPath: tempDir("airy-schema-log")).appendingPathComponent("ops.jsonl"))
+}
+
+/// Sustituye `path` por un enlace simbólico a `destination`.
+private func replaceWithLink(_ path: String, to destination: String) {
+    try? FileManager.default.removeItem(atPath: path)
+    try! FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: destination)
 }
 
 // MARK: - Pruebas
@@ -126,6 +137,7 @@ private func executor(_ entries: [CatalogEntry], home: String, runner: FakeRunne
     @Test func treeWalkStopsAtBudgetAndDoesNotFollowLinks() throws {
         let root = tempDir()
         let big = tempDir("airy-schema-big")
+        defer { try? FileManager.default.removeItem(atPath: big) }
         writeFile(big + "/blob", bytes: 10_000_000)
         writeFile(root + "/small", bytes: 4_096)
         try FileManager.default.createSymbolicLink(atPath: root + "/link", withDestinationPath: big)
@@ -179,18 +191,19 @@ private func executor(_ entries: [CatalogEntry], home: String, runner: FakeRunne
 
     @Test func perMatchExceptStaleAndMinimum() async {
         let home = tempDir()
+        defer { try? FileManager.default.removeItem(atPath: home) }
         let downloads = home + "/Downloads"
-        writeFile(downloads + "/a.bin", bytes: 200 * 1_048_576)
-        writeFile(downloads + "/b.bin", bytes: 200 * 1_048_576)
+        writeFile(downloads + "/a.bin", bytes: 20 * 1_048_576)
+        writeFile(downloads + "/b.bin", bytes: 20 * 1_048_576)
         writeFile(downloads + "/c.bin", bytes: 1 * 1_048_576)
-        writeFile(downloads + "/.DS_Store", bytes: 100 * 1_048_576)
+        writeFile(downloads + "/.DS_Store", bytes: 10 * 1_048_576)
         for name in ["a.bin", "c.bin", ".DS_Store"] { setModified(downloads + "/" + name, daysAgo: 400) }
         let old = entry("old", risk: .yourCall, paths: ["~/Downloads/*"], perMatch: true,
-                        except: [".DS_Store"], staleAfterDays: 180, minimumBytes: 50 * 1_048_576)
+                        except: [".DS_Store"], staleAfterDays: 180, minimumBytes: 5 * 1_048_576)
         let items = await scanner([old], home: home).findItems(scan: nil)
         #expect(items.map(\.id) == ["old:~/Downloads/a.bin"])
         #expect(items.first?.paths == [downloads + "/a.bin"])
-        #expect((items.first?.bytes ?? 0) >= 200 * 1_048_576)
+        #expect((items.first?.bytes ?? 0) >= 20 * 1_048_576)
         #expect(items.first?.lastModified != nil)
         #expect(items.first?.title == "Prueba old: ~/Downloads/a.bin")
     }
@@ -344,13 +357,24 @@ private func executor(_ entries: [CatalogEntry], home: String, runner: FakeRunne
                 Issue.record("debió bloquearse con \(targets)"); continue
             }
         }
-        // Un objetivo de la ficha que el usuario ha protegido lo para `PathGate` (sin la propia ficha).
+        // Un objetivo que el usuario ha protegido: lo para el clasificador (rutas de la ficha) antes de `PathGate`.
         item.targets = [db1, db2]
         let guarded = executor([compact], home: home, runner: quiet, protected: ["~/Library/Safari/Other.db"])
         guard case .blocked(let reason) = await guarded.execute(item) else {
             Issue.record("debió bloquearse por la lista del usuario"); return
         }
         #expect(reason.contains("Lo has protegido tú"), "\(reason)")
+        // Un enlace de la ficha que apunta a los Llaveros: solo `PathGate` (que resuelve enlaces) lo para.
+        let evil = home + "/Library/Safari/Evil.db"
+        try FileManager.default.createSymbolicLink(atPath: evil, withDestinationPath: keychain)
+        item.targets = [db1, evil]
+        guard case .blocked(let linkReason) = await blockedExec.execute(item) else {
+            Issue.record("el enlace a los Llaveros debió bloquearse"); return
+        }
+        // Rechazo de `PathGate` (forma resuelta: Llaveros o componente «keychain»), no de la pertenencia.
+        #expect(linkReason.contains("No se ejecuta «Prueba safari-compact» sobre \(evil)"), "\(linkReason)")
+        #expect(linkReason.contains("Llaveros") || linkReason.contains("keychain"), "\(linkReason)")
+        try FileManager.default.removeItem(atPath: evil)
         #expect(quiet.calls.isEmpty)
 
         // El primer fallo detiene la tanda.
@@ -361,6 +385,72 @@ private func executor(_ entries: [CatalogEntry], home: String, runner: FakeRunne
             Issue.record("debió fallar"); return
         }
         #expect(failing.calls.count == 1)
+    }
+
+    @Test func targetBatchChecksEachTargetAtActAndLogsPartial() async throws {
+        let home = tempDir()
+        let db1 = home + "/Library/Safari/History.db"
+        let db2 = home + "/Library/Safari/Other.db"
+        let keychain = home + "/Library/Keychains/login.keychain-db"
+        for path in [db1, db2, keychain] { writeFile(path) }
+        let compact = entry("safari-compact", paths: ["~/Library/Safari/*.db"],
+                            cleanup: .command(executable: "sqlite3", arguments: ["{target}", "VACUUM;"], sizeProbe: nil))
+        let detected = try #require(await scanner(
+            [compact], home: home, runner: FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])).findItems(scan: nil).first)
+        var item = detected
+        item.targets = [db1, db2]
+
+        // El primer objetivo pasa a ser un enlace entre el plan y su ejecución: no se ejecuta nada.
+        let first = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])
+        let swapFirst = executor([compact], home: home, runner: first, beforeRun: { path in
+            if path == db1 { replaceWithLink(db1, to: keychain) }
+        })
+        guard case .blocked(let reason) = await swapFirst.execute(item) else {
+            Issue.record("debió bloquearse en el primer objetivo"); return
+        }
+        #expect(first.calls.isEmpty, "\(reason)")
+        try FileManager.default.removeItem(atPath: db1)
+        writeFile(db1)
+
+        // El segundo cambia tras ejecutar el primero: se para y el registro es «partial» con lo ejecutado.
+        let second = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])
+        let log = makeLog()
+        let swapSecond = executor([compact], home: home, runner: second, freeSpace: FakeFreeSpace([0, 40]), log: log,
+                                  beforeRun: { path in if path == db2 { replaceWithLink(db2, to: keychain) } })
+        guard case .blocked = await swapSecond.execute(item) else { Issue.record("debió bloquearse"); return }
+        #expect(second.calls.map(\.arguments) == [[db1, "VACUUM;"]])
+        let blockedRecord = try #require(try log.records().last)
+        #expect(blockedRecord.outcome == "partial" && blockedRecord.paths == [db1] && blockedRecord.bytes == 40)
+        try FileManager.default.removeItem(atPath: db2)
+        writeFile(db2)
+
+        // El primero sale bien y el segundo falla: «partial» con el primero y sus bytes.
+        let failing = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"],
+                                 outputs: ["/usr/bin/sqlite3 \(db2) VACUUM;": CommandOutput(status: 1, stdout: "", stderr: "locked")])
+        let failLog = makeLog()
+        guard case .failed = await executor([compact], home: home, runner: failing, freeSpace: FakeFreeSpace([0, 70, 70]),
+                                            log: failLog).execute(item) else { Issue.record("debió fallar"); return }
+        let failRecord = try #require(try failLog.records().last)
+        #expect(failRecord.outcome == "partial" && failRecord.paths == [db1] && failRecord.bytes == 70)
+
+        // Todo bien: el registro anota el comando que de verdad se ejecutó.
+        let okLog = makeLog()
+        guard case .freed = await executor([compact], home: home, runner: FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"]),
+                                           log: okLog).execute(item) else { Issue.record("debió ejecutarse"); return }
+        let okRecord = try #require(try okLog.records().last)
+        #expect(okRecord.command == ["sqlite3", db1, "VACUUM;"] && okRecord.paths == [db1, db2])
+    }
+
+    @Test func funnelRefusesItemsTheScanBlocked() async throws {
+        let home = tempDir()
+        writeFile(home + "/Library/Caches/full/data", bytes: 50_000)
+        let full = entry("full", paths: ["~/Library/Caches/full"])
+        let item = try #require(await scanner([full], home: home, measureBudget: .zero).findItems(scan: nil).first)
+        #expect(item.blockedReason == "No se pudo medir a tiempo.")
+        let runner = FakeRunner()
+        let outcome = await executor([full], home: home, runner: runner).execute(item)
+        #expect(outcome == .blocked(reason: "«Prueba full» no se puede limpiar ahora: No se pudo medir a tiempo."))
+        #expect(FileManager.default.fileExists(atPath: home + "/Library/Caches/full/data"))
     }
 
     @Test func classifierFloorOnlyRaises() {
