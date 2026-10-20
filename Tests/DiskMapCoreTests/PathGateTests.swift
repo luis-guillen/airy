@@ -78,6 +78,39 @@ private func link(_ path: String, to target: String) {
         #expect(gate().validate(tmp + "/enlace/x").failure != nil)
     }
 
+    @Test func unresolvableParentFailsClosed() {
+        // La ruta literal es corta y `lstat` funciona, pero la real pasa de PATH_MAX: `realpath` falla con
+        // ENAMETOOLONG. Sin resolverla no se sabe que está dentro de ~/Library/Mail: se rechaza.
+        // tmp/l1 → ~/Library/Mail;  ~/Library/Mail/l2 → "aaa…/bbb…/ccc…/ddd…" (relativo);  x dentro.
+        let mail = h + "/Library/Mail"
+        mkdir(mail)
+        link(tmp + "/l1", to: mail)
+        let names = ["a", "b", "c", "d"].map { String(repeating: $0, count: 250) }
+        var fd = open(mail, O_RDONLY | O_DIRECTORY)
+        #expect(fd >= 0)
+        for name in names {
+            #expect(mkdirat(fd, name, 0o755) == 0)
+            let next = openat(fd, name, O_RDONLY | O_DIRECTORY)
+            close(fd)
+            fd = next
+        }
+        let file = openat(fd, "x", O_CREAT | O_WRONLY, 0o644)
+        #expect(file >= 0)
+        close(file); close(fd)
+        #expect(symlink(names.joined(separator: "/"), mail + "/l2") == 0)
+        let tail = tmp + "/l1/l2"
+        var info = stat()
+        #expect(lstat(tail + "/x", &info) == 0)
+        #expect(realpath(tail, nil) == nil)
+        let refusal = gate().validate(tail + "/x").failure
+        #expect(refusal?.reason == "No se puede resolver la ruta real; no se toca.")
+        // Enlace roto: se sigue aceptando (el destino no existe; se comprueba su texto).
+        link(tmp + "/roto", to: tmp + "/no-existe")
+        #expect(gate().validate(tmp + "/roto").failure == nil)
+        link(tmp + "/roto-mail", to: h + "/Library/Mail/no-existe")
+        #expect(gate().validate(tmp + "/roto-mail").failure != nil)
+    }
+
     @Test func symlinkTargetIsValidated() {
         mkdir(h + "/Library/Keychains")
         link(tmp + "/enlace", to: h + "/Library/Keychains")
