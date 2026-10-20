@@ -31,12 +31,16 @@ public struct AiryEnvironment: Sendable {
     public let runner: any CommandRunning, probes: any SystemProbing, processGuard: ProcessGuard
     public let references: ReferenceChecker, urlOpener: any URLOpening
     public let capacity: @Sendable () -> VolumeCapacity?
+    /// Rendimiento: solo mide cuando una herramienta lo llama.
+    public let sampler: any PerformanceSampling
+    public let appCatalog: AppCatalog?
 
     public init(home: String, paths: AppPaths, catalog: Catalog?, catalogError: String?,
                 settings: SettingsStore, index: IndexStore, log: OperationLog,
                 runner: any CommandRunning, probes: any SystemProbing, processGuard: ProcessGuard,
                 references: ReferenceChecker, urlOpener: any URLOpening,
-                capacity: @escaping @Sendable () -> VolumeCapacity?) {
+                capacity: @escaping @Sendable () -> VolumeCapacity?,
+                sampler: any PerformanceSampling = LiveSampler(), appCatalog: AppCatalog? = try? AppCatalog.bundled()) {
         self.home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
         self.paths = paths
         self.catalog = catalog; self.catalogError = catalogError
@@ -44,6 +48,7 @@ public struct AiryEnvironment: Sendable {
         self.runner = runner; self.probes = probes; self.processGuard = processGuard
         self.references = references; self.urlOpener = urlOpener
         self.capacity = capacity
+        self.sampler = sampler; self.appCatalog = appCatalog
     }
 
     /// Entorno real del usuario. Sin acceso a la Papelera, nunca recurre a Finder (vaciaría las
@@ -66,7 +71,8 @@ public struct AiryEnvironment: Sendable {
             probes: SystemProbes(home: home, runner: runner, allowFinderFallback: false),
             processGuard: ProcessGuard(), references: ReferenceChecker(home: home),
             urlOpener: WorkspaceURLOpener(),
-            capacity: { SystemProbes.volumeCapacity(home: home) })
+            capacity: { SystemProbes.volumeCapacity(home: home) },
+            sampler: LiveSampler(runner: runner))
     }
 
     /// Clasificador con los ajustes leídos ahora (`effective`: ilegibles ⇒ agentes apagados). `nil` sin catálogo.
