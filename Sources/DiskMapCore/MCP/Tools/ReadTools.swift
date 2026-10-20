@@ -108,6 +108,7 @@ public struct GetDiskSummaryTool: MCPTool {
         let value: JSONValue = .object([
             "scan_available": .bool(true),
             "scan_complete": .bool(scan.inaccessible.isEmpty),
+            "scan_status": .string(ScanCompleteness.of(scan).jsonName),
             "inaccessible_count": .number(Double(scan.inaccessible.count)),
             "last_scan": MCPFormat.iso(lastScan),
             "total_bytes": capacity.map { MCPFormat.number($0.total) } ?? .null,
@@ -167,12 +168,14 @@ public struct ListLargestTool: MCPTool {
             path = scan.root.name.isEmpty ? "/" : scan.root.name; node = scan.root
         }
 
+        let partial = PartialScanIndex(inaccessible: scan.inaccessible)
         let children = node.children.sorted { ($0.allocatedSize, $1.name) > ($1.allocatedSize, $0.name) }.prefix(limit)
         let rows: [JSONValue] = children.map { child in
             if child.aggregatedCount > 0 {
                 return .object([
                     "name": .string("Otros"), "aggregated_count": .number(Double(child.aggregatedCount)),
                     "bytes": MCPFormat.number(child.allocatedSize), "path": .null,
+                    "size_partial": .bool(partial.isPartial(path)),
                 ])
             }
             let childPath = MCPFormat.join(path, child.name)
@@ -180,6 +183,7 @@ public struct ListLargestTool: MCPTool {
                 "name": .string(child.name), "path": .string(childPath),
                 "bytes": MCPFormat.number(child.allocatedSize), "kind": .string(child.dominantKind.rawValue),
                 "last_modified": MCPFormat.iso(child.lastModified), "is_directory": .bool(child.isDirectory),
+                "size_partial": .bool(partial.isPartial(childPath)),
             ]
             row.merge(MCPFormat.risk(classifier.classify(path: childPath))) { $1 }
             return .object(row)
@@ -246,7 +250,9 @@ public struct ListCleanupItemsTool: MCPTool {
     public var name: String { "list_cleanup_items" }
     public var description: String {
         "Lista las limpiezas que Airy detecta ahora en este Mac, en el orden de la pantalla Limpieza, con su riesgo, "
-            + "tamaño, método y si un agente puede ejecutarla (`actionable_by_agent`: solo «Borrar sin riesgo» sin bloqueo)."
+            + "tamaño, método y si un agente puede ejecutarla (`actionable_by_agent`: solo «Sin problema» sin bloqueo). "
+            + "Cada elemento trae `verdict` (la etiqueta), `why` (por qué) y `short_reason` (qué pierdes), y `review_only` "
+            + "marca los de «Solo revisar», que Airy no borra."
     }
     public var inputSchema: JSONValue { objectSchema() }
     public var annotations: MCPToolAnnotations { readOnly }
@@ -256,12 +262,15 @@ public struct ListCleanupItemsTool: MCPTool {
         guard let scanner = env.makeScanner(), let classifier = env.classifier() else {
             return .error(env.catalogError ?? "El catálogo no está disponible.")
         }
-        let tree = MCPFormat.loadIndex(env).scan?.root
-        let board = CleanupBoard(items: await scanner.findItems(scan: tree))
-        let rows: [JSONValue] = board.items.map { item in
+        let loaded = MCPFormat.loadIndex(env).scan
+        let board = CleanupBoard(items: await scanner.findItems(scan: loaded?.root, inaccessible: loaded?.inaccessible ?? []))
+        let rows: [JSONValue] = board.displayItems.map { item in
             var verdict = classifier.classify(entry: item.entry, paths: item.paths)
             verdict.risk = .strictest(verdict.risk, item.risk)
             verdict.protection = item.protection ?? verdict.protection
+            var shown = item // el riesgo y la protección que decide el clasificador vivo
+            shown.risk = verdict.risk
+            shown.protection = verdict.protection
             let method: String, command: JSONValue
             switch item.entry.cleanup {
             case .trash: method = "trash"; command = .null
@@ -279,6 +288,15 @@ public struct ListCleanupItemsTool: MCPTool {
                 "blocked_reason": MCPFormat.optional(item.blockedReason),
                 "preselected": .bool(item.preselected), "highlighted": .bool(item.highlighted),
                 "actionable_by_agent": .bool(verdict.risk == .safe && CleanupBoard.canSelect(item)),
+                "review_only": .bool(CleanupBoard.isReviewOnly(item)),
+                "details": .array(item.details.map { .string($0) }),
+                "size_note": MCPFormat.optional(item.sizeNote),
+                "size_partial": .bool(item.sizeIsPartial),
+                "verdict": .string(verdict.risk.label),
+                "short_reason": MCPFormat.optional(item.entry.shortReason.map {
+                    RiskExplanation.expand($0, bytes: item.bytes)
+                }),
+                "why": .string(RiskExplanation.why(shown, home: env.home)),
             ]
             row.merge(MCPFormat.risk(verdict)) { $1 }
             return .object(row)
