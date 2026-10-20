@@ -51,6 +51,8 @@ struct TreemapTests {
         let others = tiles.first { $0.node == nil }
         #expect(others?.othersCount == 5000)
         #expect(others?.id == -root.id - 1)
+        #expect(others?.size == Int64(5_120_000))
+        #expect(tiles.first { $0.node === big }?.size == Int64(1_000_000_000))
         #expect(tiles.contains { $0.node === big })
     }
 
@@ -79,5 +81,50 @@ struct TreemapTests {
         #expect(Treemap.tiles(for: root, in: CGRect(x: 0, y: 0, width: 100, height: 100)).isEmpty)
         let z = FileNode(name: "r", isDirectory: true, children: [FileNode(name: "z", isDirectory: false)])
         #expect(Treemap.tiles(for: z, in: CGRect(x: 0, y: 0, width: 100, height: 100)).isEmpty)
+    }
+}
+
+struct TreemapStabilityTests {
+    /// Hermanos del mismo tamaño: el orden (y por tanto la posición) no depende del orden de entrada.
+    @Test func equalSizedSiblingsKeepStableOrder() {
+        let kids = (0..<8).map { FileNode(name: "k\($0)", isDirectory: true, allocatedSize: 1_000_000) }
+        let big = FileNode(name: "big", isDirectory: true, allocatedSize: 9_000_000)
+        let root = FileNode(name: "r", isDirectory: true, allocatedSize: 17_000_000, children: [big] + kids)
+        let rect = CGRect(x: 0, y: 0, width: 640, height: 400)
+        let first = Treemap.tiles(for: root, in: rect)
+        root.children = [kids[5], kids[2], big, kids[7], kids[0], kids[3], kids[6], kids[1], kids[4]]
+        let second = Treemap.tiles(for: root, in: rect)
+        root.children.reverse()
+        let third = Treemap.tiles(for: root, in: rect)
+        #expect(first.map(\.id) == second.map(\.id))
+        #expect(first.map(\.id) == third.map(\.id))
+        #expect(first.map(\.rect) == third.map(\.rect))
+        // Empates: por id ascendente, tras el mayor.
+        #expect(first.map(\.id) == [big.id] + kids.map(\.id).sorted())
+    }
+
+    /// El agregado "Otros" empata con un hijo real: también orden determinista.
+    @Test func othersTileTiesAreDeterministic() {
+        let a = FileNode(name: "a", isDirectory: false, allocatedSize: 1_000_000_000)
+        let tiny = (0..<10).map { FileNode(name: "t\($0)", isDirectory: false, allocatedSize: 10) }
+        let root = FileNode(name: "r", isDirectory: true, allocatedSize: 1_000_000_100, children: [a] + tiny)
+        let rect = CGRect(x: 0, y: 0, width: 300, height: 200)
+        let ids1 = Treemap.tiles(for: root, in: rect).map(\.id)
+        root.children.shuffle()
+        let ids2 = Treemap.tiles(for: root, in: rect).map(\.id)
+        #expect(ids1 == ids2)
+    }
+
+    /// La instantánea (tomada en el hilo principal) da el mismo resultado que leer el nodo.
+    @Test func snapshotLayoutMatchesNodeLayout() {
+        let kids = (1...30).map { FileNode(name: "f\($0)", isDirectory: $0 % 2 == 0, allocatedSize: Int64($0 * $0) * 1000) }
+        let root = FileNode(name: "r", isDirectory: true, allocatedSize: 9_455_000, children: kids)
+        let rect = CGRect(x: 0, y: 0, width: 800, height: 500)
+        let direct = Treemap.tiles(for: root, in: rect)
+        let snap = Treemap.Snapshot(of: root)
+        let viaSnapshot = Treemap.tiles(for: snap, in: rect)
+        #expect(direct.map(\.id) == viaSnapshot.map(\.id))
+        #expect(direct.map(\.rect) == viaSnapshot.map(\.rect))
+        #expect(snap.parentID == root.id)
     }
 }

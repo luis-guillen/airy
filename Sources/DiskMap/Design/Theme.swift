@@ -8,6 +8,8 @@ enum Theme {
 
     /// Muelle de zoom del mapa (y de cualquier cambio de nivel o selección).
     static let zoomSpring = Animation.spring(response: 0.45, dampingFraction: 0.82)
+    /// La misma curva, calculada a mano, para lo que el mapa interpola en su `Canvas`.
+    static let springCurve = SpringCurve(response: 0.45, dampingFraction: 0.82)
     /// Cambio de sección en la ventana: el mismo muelle, un poco más vivo.
     static let sectionSpring = Animation.spring(response: 0.38, dampingFraction: 0.86)
     /// Números que cuentan y anillos que crecen.

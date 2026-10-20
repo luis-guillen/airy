@@ -15,4 +15,13 @@ public enum Format {
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: Date())
     }
+
+    /// Ruta con la carpeta personal abreviada como "~" ("/Users/ana/Library" → "~/Library").
+    public static func tildePath(_ path: String, home: String = NSHomeDirectory()) -> String {
+        let base = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
+        guard !base.isEmpty, base != "/" else { return path }
+        if path == base { return "~" }
+        if path.hasPrefix(base + "/") { return "~" + path.dropFirst(base.count) }
+        return path
+    }
 }

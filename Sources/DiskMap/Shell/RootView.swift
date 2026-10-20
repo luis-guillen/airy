@@ -96,7 +96,7 @@ private struct DetailBackground: View {
     }
 }
 
-/// Contenido de cada sección. Las tareas 9–11 sustituyen los marcadores por el mapa, la limpieza y el asistente.
+/// Contenido de cada sección. Las tareas 10–11 sustituyen los marcadores de la limpieza y el asistente.
 private struct SectionContent: View {
     @Environment(AppModel.self) private var model
     let section: Section
@@ -110,10 +110,7 @@ private struct SectionContent: View {
     @ViewBuilder private func content(now: Date) -> some View {
         switch section {
         case .map:
-            SectionPlaceholder(
-                section: section,
-                subtitle: mapSubtitle(now: now),
-                line: "Aquí verás el disco como un mapa de bloques: cada rectángulo es una carpeta, a escala de lo que ocupa. Haz clic para entrar y usa la ruta de arriba para volver.")
+            MapView(subtitle: mapSubtitle(now: now))
         case .cleanup:
             SectionPlaceholder(
                 section: section,
@@ -187,11 +184,6 @@ private struct SectionPlaceholder: View {
             }
             .frame(maxWidth: 680, alignment: .leading)
 
-            if section == .map, let root = model.scan?.root {
-                KindSummary(root: root)
-                    .frame(maxWidth: 680, alignment: .leading)
-            }
-
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.contentPadding)
@@ -200,66 +192,6 @@ private struct SectionPlaceholder: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear { withAnimation(Theme.zoomSpring) { appeared = true } }
-    }
-}
-
-/// Reparto por tipo del análisis: barra apilada con la paleta y leyenda escalonada.
-private struct KindSummary: View {
-    let root: FileNode
-    @ViewState private var appeared = false
-
-    private var slices: [(kind: ContentKind, bytes: Int64)] {
-        zip(ContentKind.allCases, root.kindBytes)
-            .map { (kind: $0, bytes: $1) }
-            .filter { $0.bytes > 0 }
-            .sorted { $0.bytes > $1.bytes }
-    }
-
-    var body: some View {
-        let total = Double(max(root.allocatedSize, 1))
-        GlassCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Qué ocupa el espacio")
-                    .font(.headline)
-                GeometryReader { proxy in
-                    HStack(spacing: 2) {
-                        ForEach(Array(slices.enumerated()), id: \.element.kind) { index, slice in
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(Theme.gradient(for: slice.kind))
-                                .frame(width: max(appeared ? proxy.size.width * Double(slice.bytes) / total - 2 : 0, 0))
-                                .animation(Theme.stagger(index: index), value: appeared)
-                                .help("\(slice.kind.title): \(Format.bytes(slice.bytes))")
-                        }
-                    }
-                }
-                .frame(height: 14)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 10, alignment: .leading)],
-                          alignment: .leading, spacing: 8) {
-                    ForEach(Array(slices.enumerated()), id: \.element.kind) { index, slice in
-                        HStack(spacing: 8) {
-                            Image(systemName: Theme.symbol(for: slice.kind))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.color(for: slice.kind))
-                                .frame(width: 16)
-                            Text(slice.kind.title)
-                                .font(.callout)
-                            Spacer(minLength: 4)
-                            Text(Format.bytes(slice.bytes))
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                        .padding(.trailing, 10)
-                        .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : 6)
-                        .animation(Theme.stagger(index: index), value: appeared)
-                    }
-                }
-            }
-        }
-        .onAppear { appeared = true }
     }
 }
 
