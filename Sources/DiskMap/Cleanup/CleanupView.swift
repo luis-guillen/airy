@@ -232,7 +232,7 @@ private struct GroupSection: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                Text(Format.bytes(group.bytes))
+                Text(CleanupBoard.amountText(group.bytes, upperBound: group.items.contains(where: CleanupBoard.isPartial)))
                     .font(.callout.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
