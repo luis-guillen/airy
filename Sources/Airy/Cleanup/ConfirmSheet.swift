@@ -50,10 +50,10 @@ struct ConfirmSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 14) {
                 ZStack {
-                    Circle().fill(Theme.color(for: .yourCall).opacity(0.16))
+                    Circle().fill(Theme.Airy.riskFill(.yourCall).opacity(0.16))
                     Image(systemName: Theme.symbol(for: .yourCall))
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Theme.color(for: .yourCall))
+                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 }
                 .frame(width: 44, height: 44)
                 VStack(alignment: .leading, spacing: 3) {
@@ -70,7 +70,7 @@ struct ConfirmSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.color(for: .yourCall).opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Theme.Airy.riskFill(.yourCall).opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             Text(warning.note)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -205,8 +205,7 @@ struct ConfirmSheet: View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle().fill(isEmptyTrash
-                              ? AnyShapeStyle(LinearGradient(colors: [Color(hex: 0xFF6961), Color(hex: 0xFF3B30)],
-                                                             startPoint: .top, endPoint: .bottom))
+                              ? AnyShapeStyle(Theme.Airy.destructiveGradient)
                               : AnyShapeStyle(Theme.brand))
                 Image(systemName: isEmptyTrash ? "trash.fill" : "sparkles")
                     .font(.system(size: 20, weight: .semibold))
@@ -261,13 +260,13 @@ struct ConfirmSheet: View {
     private var rows: [ConfirmRow] {
         switch request.kind {
         case .emptyTrash(let bytes):
-            return [ConfirmRow(id: "trash", title: "Vaciar Papelera", symbol: "trash.fill", tint: Theme.color(for: .doNotTouch),
+            return [ConfirmRow(id: "trash", title: "Vaciar Papelera", symbol: "trash.fill", tint: Theme.Airy.riskInk(.doNotTouch),
                                size: bytes.map(Format.bytes) ?? "Tamaño desconocido",
                                method: .text(bytes == nil ? "Lo hace Finder, en todos los discos" : "Borrado definitivo"),
                                location: "~/.Trash", blockedReason: blockReasons?["trash"])]
         case .trashPaths(let paths, _):
             return paths.map { path in
-                ConfirmRow(id: path, title: (path as NSString).lastPathComponent, symbol: "doc", tint: Theme.userFilesColor,
+                ConfirmRow(id: path, title: (path as NSString).lastPathComponent, symbol: "doc", tint: Theme.Airy.accent,
                            size: model.node(atPath: path).map { Format.bytes($0.allocatedSize) } ?? "—",
                            method: .text(blockReasons == nil ? "A la Papelera" : "Irá a la Papelera"),
                            location: Format.tildePath(path), blockedReason: blockReasons?[path])
@@ -284,7 +283,7 @@ struct ConfirmSheet: View {
                 case .blocked, nil: nil
                 }
                 return ConfirmRow(id: item.id, title: item.title, symbol: CleanupIcon.symbol(for: item.entry),
-                                  tint: Theme.color(for: item.entry.kind), size: size,
+                                  tint: Theme.ink(for: item.entry.kind), size: size,
                                   method: planned ?? CleanupBoard.commandLine(method).map(ConfirmRow.Method.command)
                                       ?? .text(CleanupBoard.methodDescription(method)),
                                   // Dónde: imprescindible cuando una ficha abarca muchas carpetas (p. ej. ~/Library/Logs/*).
@@ -305,14 +304,14 @@ struct ConfirmSheet: View {
             return [Note(symbol: "hourglass", tint: .secondary, text: "Comprobando qué se hará con cada elemento…")]
         }
         guard !blockReasons.isEmpty else { return [] }
-        return [Note(symbol: "nosign", tint: Theme.color(for: .doNotTouch),
+        return [Note(symbol: "nosign", tint: Theme.Airy.riskInk(.doNotTouch),
                      text: "Lo tachado no se hará: Airy no puede hacerlo ahora.")]
     }
 
     private var kindNotes: [Note] {
         switch request.kind {
         case .emptyTrash(let bytes):
-            let red = Theme.color(for: .doNotTouch)
+            let red = Theme.Airy.riskInk(.doNotTouch)
             if bytes == nil {
                 return [Note(symbol: "exclamationmark.triangle.fill", tint: red,
                              text: "Sin Acceso total al disco se la pedirá a Finder, que vacía definitivamente la Papelera de todos los discos, también los externos."),
@@ -322,17 +321,17 @@ struct ConfirmSheet: View {
                     Note(symbol: "externaldrive", tint: .secondary,
                          text: "Si algún archivo no se deja borrar, se le pedirá a Finder, que vacía también la Papelera de los discos externos.")]
         case .trashPaths:
-            return [Note(symbol: "arrow.uturn.backward.circle", tint: Theme.color(for: .safe),
+            return [Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
                          text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes.")]
         case .items(let items):
             var notes: [Note] = []
             let methods = items.map(liveMethod)
             if methods.contains(where: { if case .trash = $0 { true } else { false } }) {
-                notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.color(for: .safe),
+                notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
                                   text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes."))
             }
             if methods.contains(where: { if case .command = $0 { true } else { false } }) {
-                notes.append(Note(symbol: "terminal", tint: Theme.userFilesColor,
+                notes.append(Note(symbol: "terminal", tint: Theme.Airy.accent,
                                   text: "Los comandos oficiales liberan el espacio al momento y no se pueden deshacer."))
             }
             if items.contains(where: CleanupBoard.isPartial) {
@@ -341,7 +340,7 @@ struct ConfirmSheet: View {
             }
             let yourCall = items.filter { $0.risk == .yourCall }
             if !yourCall.isEmpty {
-                notes.append(Note(symbol: Theme.symbol(for: .yourCall), tint: Theme.color(for: .yourCall),
+                notes.append(Note(symbol: Theme.symbol(for: .yourCall), tint: Theme.Airy.riskInk(.yourCall),
                                   text: yourCall.count == 1 && items.count == 1
                                       ? "«Depende de ti»: \(yourCall[0].entry.explanation)"
                                       : CleanupBoard.yourCallNote(count: yourCall.count)))
@@ -414,7 +413,7 @@ private struct ConfirmRowView: View {
                 if let reason = row.blockedReason {
                     Label(reason, systemImage: "nosign")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Theme.color(for: .doNotTouch))
+                        .foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
                         .lineLimit(3)
                 }
                 switch row.method {
