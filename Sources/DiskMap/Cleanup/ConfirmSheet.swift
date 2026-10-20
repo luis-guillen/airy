@@ -103,6 +103,8 @@ struct ConfirmSheet: View {
     private var title: String {
         switch request.kind {
         case .emptyTrash: return "¿Vaciar la Papelera?"
+        case .trashPaths(let paths, let title):
+            return paths.count == 1 ? "¿Mover «\(title)» a la Papelera?" : "¿Mover \(Theme.count(paths.count)) elementos a la Papelera?"
         case .items(let items):
             return items.count == 1 ? "¿Limpiar «\(items[0].title)»?" : "¿Limpiar \(Theme.count(items.count)) elementos?"
         }
@@ -113,6 +115,10 @@ struct ConfirmSheet: View {
         case .emptyTrash(let bytes):
             return bytes.map { "Se borrarán definitivamente \(Format.bytes($0))." }
                 ?? "DiskMap no puede leer la Papelera, así que no sabe cuánto ocupa."
+        case .trashPaths(let paths, _):
+            let total = paths.compactMap { model.node(atPath: $0)?.allocatedSize }.reduce(0, +)
+            return total > 0 ? "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla."
+                             : "Irá a la Papelera. Se libera al vaciarla."
         case .items(let items):
             let total = items.reduce(Int64(0)) { $0 + $1.bytes }
             let trash = items.filter { if case .trash = liveMethod($0) { true } else { false } }
@@ -127,7 +133,14 @@ struct ConfirmSheet: View {
         case .emptyTrash(let bytes):
             return [ConfirmRow(id: "trash", title: "Vaciar Papelera", symbol: "trash.fill", tint: Theme.color(for: .doNotTouch),
                                size: bytes.map(Format.bytes) ?? "Tamaño desconocido",
-                               method: .text(bytes == nil ? "Lo hace Finder, en todos los discos" : "Borrado definitivo"))]
+                               method: .text(bytes == nil ? "Lo hace Finder, en todos los discos" : "Borrado definitivo"),
+                               location: "~/.Trash")]
+        case .trashPaths(let paths, _):
+            return paths.map { path in
+                ConfirmRow(id: path, title: (path as NSString).lastPathComponent, symbol: "doc", tint: Theme.userFilesColor,
+                           size: model.node(atPath: path).map { Format.bytes($0.allocatedSize) } ?? "—",
+                           method: .text("A la Papelera"), location: Format.tildePath(path))
+            }
         case .items(let items):
             return items.map { item in
                 let method = liveMethod(item)
@@ -137,7 +150,9 @@ struct ConfirmSheet: View {
                 return ConfirmRow(id: item.id, title: item.title, symbol: CleanupIcon.symbol(for: item.entry),
                                   tint: Theme.color(for: item.entry.kind), size: size,
                                   method: CleanupBoard.commandLine(method).map(ConfirmRow.Method.command)
-                                      ?? .text(CleanupBoard.methodDescription(method)))
+                                      ?? .text(CleanupBoard.methodDescription(method)),
+                                  // Dónde: imprescindible cuando una ficha abarca muchas carpetas (p. ej. ~/Library/Logs/*).
+                                  location: CleanupBoard.locationSummary(item))
             }
         }
     }
@@ -156,6 +171,9 @@ struct ConfirmSheet: View {
             return [Note(symbol: "arrow.uturn.backward.circle", tint: red, text: "No se puede deshacer."),
                     Note(symbol: "externaldrive", tint: .secondary,
                          text: "Si algún archivo no se deja borrar, se le pedirá a Finder, que vacía también la Papelera de los discos externos.")]
+        case .trashPaths:
+            return [Note(symbol: "arrow.uturn.backward.circle", tint: Theme.color(for: .safe),
+                         text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes.")]
         case .items(let items):
             var notes: [Note] = []
             let methods = items.map(liveMethod)
@@ -172,7 +190,7 @@ struct ConfirmSheet: View {
                 notes.append(Note(symbol: Theme.symbol(for: .yourCall), tint: Theme.color(for: .yourCall),
                                   text: yourCall.count == 1 && items.count == 1
                                       ? "«Depende de ti»: \(yourCall[0].entry.explanation)"
-                                      : "Incluye \(Theme.count(yourCall.count)) marcado(s) «Depende de ti»: perderás algo al borrarlo."))
+                                      : CleanupBoard.yourCallNote(count: yourCall.count)))
             }
             if items.count > 1 {
                 notes.append(Note(symbol: "list.number", tint: .secondary,
@@ -185,6 +203,7 @@ struct ConfirmSheet: View {
     private var confirmTitle: String {
         switch request.kind {
         case .emptyTrash(let bytes): return bytes == nil ? "Vaciar con Finder" : "Vaciar Papelera"
+        case .trashPaths: return "Mover a la Papelera"
         case .items(let items): return items.count == 1 ? "Limpiar" : "Limpiar \(Theme.count(items.count))"
         }
     }
@@ -200,6 +219,8 @@ struct ConfirmRow: Identifiable {
     let tint: Color
     let size: String
     let method: Method
+    /// Dónde está lo que se toca ("~/Library/Logs/A", "Todo lo que hay en ~/Library/Logs (17 elementos)").
+    var location: String?
 }
 
 private struct ConfirmRowView: View {
@@ -244,6 +265,14 @@ private struct ConfirmRowView: View {
                             .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                     }
                 }
+                if let location = row.location {
+                    Label(location, systemImage: "folder")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                }
             }
         }
         .padding(.horizontal, 12)
@@ -283,7 +312,8 @@ struct SnapshotsSheet: View {
             GlassCard(padding: 16, radius: 14, material: .thinMaterial) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Label("\(Theme.count(notice.snapshotCount)) instantáneas locales de Time Machine",
+                        Label(notice.snapshotCount == 1 ? "1 instantánea local de Time Machine"
+                                  : "\(Theme.count(notice.snapshotCount)) instantáneas locales de Time Machine",
                               systemImage: "camera.metering.matrix")
                             .font(.callout.weight(.semibold))
                         Spacer()

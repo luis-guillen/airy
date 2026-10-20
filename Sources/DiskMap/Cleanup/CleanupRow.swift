@@ -154,12 +154,8 @@ struct CleanupRow: View {
         return item.blockedByOpenApps
     }
 
-    /// Dónde está: la ruta (abreviada con "~") y, si hay varias, cuántas más.
-    private var location: String? {
-        guard let first = item.paths.first else { return nil }
-        let rest = item.paths.count - 1
-        return Format.tildePath(first) + (rest > 0 ? " · y \(Theme.count(rest)) más" : "")
-    }
+    /// Dónde está (mismo texto que la confirmación).
+    private var location: String? { CleanupBoard.locationSummary(item) }
 }
 
 // MARK: - Piezas

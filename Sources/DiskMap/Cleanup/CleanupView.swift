@@ -371,8 +371,8 @@ private struct ResultBanner: View {
 /// - `select:<id>`: marca o desmarca una fila.
 /// - `cleansafe` / `clean:<id>`: abren la confirmación (no ejecutan nada).
 /// - `scrollto:<id>`: desplaza la lista hasta esa fila.
-/// - `runonly:<texto>`: ejecuta la confirmación abierta limitando cada elemento a sus rutas que
-///   contienen `<texto>` (para probar con una carpeta falsa sin tocar lo demás).
+/// - `cleantest`: abre la confirmación de `user-logs` reducida a `~/Library/Logs/DiskMapPrueba`.
+/// - `confirm`: pulsa "Limpiar" en la hoja abierta, solo si todo es `.trash` dentro de esa carpeta.
 /// - `emptytrash`: abre la confirmación de vaciar la Papelera (nunca la confirma).
 /// - `snapshots:<n>:<bytes>`: muestra el aviso de instantáneas con datos de ejemplo.
 /// - `celebrate:<bytes>`: muestra la celebración.
@@ -382,6 +382,11 @@ private struct ResultBanner: View {
 @MainActor
 enum CleanupDebugScript {
     private static var started = false
+    private static let testRoot = NSHomeDirectory() + "/Library/Logs/DiskMapPrueba"
+
+    private static func isTestPath(_ path: String) -> Bool {
+        path == testRoot || path.hasPrefix(testRoot + "/")
+    }
 
     static func run(model: AppModel, flow: CleanupFlow, select: @escaping (String) -> Void) {
         guard !started, let script = ProcessInfo.processInfo.environment["DISKMAP_CLEANUP_SCRIPT"] else { return }
@@ -405,19 +410,28 @@ enum CleanupDebugScript {
         case "cleansafe": flow.requestClean(board.readySafeItems)
         case "clean": flow.requestClean(board.items.filter { $0.id == argument })
         case "scrollto": flow.debugScrollTarget = argument
-        case "runonly":
-            guard let argument, case .confirm(let request)? = flow.sheet,
-                  case .items(let items) = request.kind else { return }
-            let narrowed = items.compactMap { item -> CleanupItem? in
+        case "cleantest":
+            // Solo la carpeta de prueba: el elemento `user-logs` reducido a lo que hay en DiskMapPrueba.
+            let narrowed = board.items.compactMap { item -> CleanupItem? in
+                guard item.entry.id == "user-logs" else { return nil }
                 var copy = item
-                copy.paths = item.paths.filter { $0.contains(argument) }
-                guard !copy.paths.isEmpty else { return nil }
+                copy.paths = item.paths.filter(isTestPath)
                 copy.bytes = copy.paths.reduce(0) { $0 + (AllocatedSize.of($1) ?? 0) }
-                return copy
+                return copy.paths.isEmpty ? nil : copy
             }
-            flow.sheet = nil
-            FileHandle.standardError.write(Data("[cleanup-script] runonly → \(narrowed.map(\.paths))\n".utf8))
-            if !narrowed.isEmpty { flow.debugApplyRun(narrowed, model: model) }
+            flow.requestClean(narrowed)
+        case "confirm":
+            // Como un clic en "Limpiar", y solo si todo va a la Papelera y está dentro de la carpeta de prueba.
+            guard case .confirm(let request)? = flow.sheet, case .items(let items) = request.kind,
+                  !items.isEmpty, items.allSatisfy({ item in
+                      let method = model.catalog?.entry(id: item.entry.id)?.cleanup ?? item.entry.cleanup
+                      guard case .trash = method else { return false }
+                      return !item.paths.isEmpty && item.paths.allSatisfy(isTestPath)
+                  }) else {
+                FileHandle.standardError.write(Data("[cleanup-script] confirm rechazado: solo .trash en DiskMapPrueba\n".utf8))
+                return
+            }
+            flow.confirm(request, model: model)
         case "emptytrash": flow.requestEmptyTrash(model)
         case "snapshots":
             let values = (argument ?? "").split(separator: ":").compactMap { Int64($0) }

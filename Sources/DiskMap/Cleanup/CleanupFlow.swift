@@ -11,8 +11,11 @@ final class CleanupFlow {
     struct ConfirmRequest: Identifiable {
         enum Kind {
             case items([CleanupItem])
+            /// Tamaño leído al pedirla, solo para la hoja; al confirmar se vuelve a leer.
             /// `nil` = la Papelera no se puede leer (se vaciará con Finder, en todos los discos).
             case emptyTrash(Int64?)
+            /// Rutas sueltas (mapa o asistente) que irán a la Papelera con `AppModel.trash(paths:title:)`.
+            case trashPaths([String], title: String)
         }
         let id = UUID()
         let kind: Kind
@@ -81,14 +84,29 @@ final class CleanupFlow {
         sheet = .confirm(ConfirmRequest(kind: .emptyTrash(model.trashBytes)))
     }
 
+    func requestTrash(paths: [String], title: String) {
+        guard !paths.isEmpty, !isBusy else { return }
+        sheet = .confirm(ConfirmRequest(kind: .trashPaths(paths, title: title)))
+    }
+
     func cancelSheet() { sheet = nil }
 
-    /// El usuario confirmó en la hoja.
+    /// El usuario confirmó en la hoja. El estado "ocupado" se fija aquí mismo, antes de lanzar la
+    /// tarea, para que un segundo clic no pueda arrancar otra tanda.
     func confirm(_ request: ConfirmRequest, model: AppModel) {
+        guard !isBusy else { return }
         sheet = nil
+        lastResult = nil
         switch request.kind {
-        case .items(let items): Task { await run(items, model: model) }
-        case .emptyTrash(let expected): Task { await emptyTrash(expected: expected, model: model) }
+        case .items(let items):
+            queuedIDs = items.map(\.id)
+            Task { await run(items, model: model) }
+        case .emptyTrash:
+            isEmptyingTrash = true
+            Task { await emptyTrash(model: model) }
+        case .trashPaths(let paths, let title):
+            queuedIDs = [title]
+            Task { await trash(paths: paths, title: title, model: model) }
         }
     }
 
@@ -101,14 +119,17 @@ final class CleanupFlow {
     // MARK: Limpiar
 
     private func run(_ items: [CleanupItem], model: AppModel) async {
-        lastResult = nil
-        queuedIDs = items.map(\.id)
         let summary = await CleanupBatch.run(items, onStart: { [weak self] index in
             guard let self else { return }
             self.currentID = items[index].id
             self.queuedIDs.removeAll { $0 == items[index].id }
         }, perform: { [weak self] item in
-            let outcome = await model.perform(item)
+            // Lo que desapareció desde la detección no bloquea el resto (el ejecutor revalida lo que queda).
+            guard let current = CleanupBoard.withExistingPaths(item, exists: Self.exists) else {
+                withAnimation(Theme.zoomSpring) { _ = self?.hiddenIDs.insert(item.id) }
+                return .blocked(reason: "Ya no existe.")
+            }
+            let outcome = await model.perform(current)
             switch outcome {
             case .freed, .movedToTrash:
                 // La fila se colapsa con el muelle en cuanto termina (la detección llega después).
@@ -123,16 +144,33 @@ final class CleanupFlow {
         if summary.freed > 0 { celebration = Celebration(bytes: summary.freed) }
     }
 
+    private nonisolated static func exists(_ path: String) -> Bool {
+        var info = stat()
+        return lstat(path, &info) == 0
+    }
+
+    private func trash(paths: [String], title: String, model: AppModel) async {
+        currentID = title
+        queuedIDs = []
+        let outcome = await model.trash(paths: paths, title: title)
+        currentID = nil
+        var summary = CleanupRunSummary()
+        summary.record(id: title, title: title, outcome: outcome)
+        withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
+    }
+
     // MARK: Vaciar Papelera
 
-    private func emptyTrash(expected: Int64?, model: AppModel) async {
-        isEmptyingTrash = true
+    private func emptyTrash(model: AppModel) async {
         defer { isEmptyingTrash = false }
         let home = NSHomeDirectory()
+        // Lo que hay ahora (no lo que había al abrir la hoja), leído fuera del hilo principal.
+        let probes = probes
+        let expected = await Task.detached(priority: .userInitiated) { probes.trashSizeIfReadable() }.value
         let freeBefore = await Self.freeSpace(home: home)
         let outcome = await model.emptyTrash()
         switch outcome {
-        case .freed(let bytes):
+        case .freed:
             var freeAfter = await Self.freeSpace(home: home)
             var snapshots: [String] = []
             if let expected, expected > 0, Double(freeAfter - freeBefore) < Double(expected) * TrashFollowUp.expectedRiseFraction {
@@ -150,8 +188,16 @@ final class CleanupFlow {
                     emptied: expected, rose: max(0, freeAfter - freeBefore),
                     retained: TrashFollowUp.retainedBytes(expectedBytes: expected, freeBefore: freeBefore, freeAfter: freeAfter),
                     snapshotCount: snapshots.count))
-            } else if bytes > 0 {
-                celebration = Celebration(bytes: bytes)
+            } else {
+                // Se celebra lo que de verdad subió el espacio libre, no lo que ocupaba la Papelera.
+                let rose = freeAfter - freeBefore
+                if rose > 0 {
+                    celebration = Celebration(bytes: rose)
+                } else {
+                    var summary = CleanupRunSummary()
+                    summary.record(id: "empty-trash", title: "Vaciar Papelera", outcome: .freed(0))
+                    withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
+                }
             }
         case .movedToTrash, .blocked, .failed:
             var summary = CleanupRunSummary()
@@ -166,6 +212,11 @@ final class CleanupFlow {
         guard let catalog = model.catalog,
               let item = TrashFollowUp.snapshotItem(catalog: catalog, retainedBytes: notice.retained) else {
             sheet = nil
+            var summary = CleanupRunSummary()
+            summary.record(id: TrashFollowUp.snapshotEntryID, title: "Instantáneas de Time Machine",
+                           outcome: .failed("No se encontró su ficha en el catálogo de limpiezas; DiskMap no puede reducirlas."))
+            withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
+            model.section = .cleanup
             return
         }
         sheet = .confirm(ConfirmRequest(kind: .items([item])))
@@ -223,6 +274,5 @@ final class CleanupFlow {
     /// Solo para capturas: sustituye bloqueos detectados (p. ej. Spotify abierta sin abrirla).
     var debugBlocked: [String: [String]] = [:]
     var debugScrollTarget: String?
-    func debugApplyRun(_ items: [CleanupItem], model: AppModel) { Task { await run(items, model: model) } }
     #endif
 }

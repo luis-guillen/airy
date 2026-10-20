@@ -52,10 +52,12 @@ enum DebugSnapshot {
         RunLoop.main.add(timer, forMode: .common)
     }
 
-    /// `CGWindowListCreateImage` (no disponible en Swift desde macOS 15, de ahí `dlsym`) sí compone
-    /// materiales y capas de SwiftUI, y una app puede capturar sus propias ventanas sin permiso.
+    /// `CGWindowListCreateImageFromArray` (no disponible en Swift desde macOS 15, de ahí `dlsym`) sí
+    /// compone materiales y capas de SwiftUI, y una app puede capturar sus propias ventanas sin permiso.
+    /// Solo entran ventanas cuyo dueño es este proceso (la principal, sus hojas y sus menús), nunca las
+    /// de otras apps, y la imagen se recorta al marco de la ventana principal.
     /// `cacheDisplay` queda de reserva, aunque no dibuja el contenido de SwiftUI.
-    private typealias CreateImage = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
+    private typealias CreateImageFromArray = @convention(c) (CGRect, CFArray, UInt32) -> Unmanaged<CGImage>?
 
     static func capture(to url: URL) {
         let began = Date()
@@ -65,27 +67,22 @@ enum DebugSnapshot {
         }
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.sheetParent == nil })
         else { return }
-        // Con una hoja abierta: solo la ventana y su hoja (nunca ventanas de otras apps).
-        if let sheet = window.attachedSheet,
+        let pid = Int(getpid())
+        let info = (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]) ?? []
+        // De delante hacia atrás, como las devuelve el sistema; solo las de este proceso.
+        let own = info.filter { ($0[kCGWindowOwnerPID as String] as? Int) == pid }
+        let ids = own.compactMap { $0[kCGWindowNumber as String] as? Int }
+        let bounds = own.first { ($0[kCGWindowNumber as String] as? Int) == window.windowNumber }
+            .flatMap { $0[kCGWindowBounds as String] as! CFDictionary? }
+            .flatMap { CGRect(dictionaryRepresentation: $0) }
+        if ids.contains(window.windowNumber), let bounds,
            let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImageFromArray") {
-            typealias FromArray = @convention(c) (CGRect, CFArray, UInt32) -> Unmanaged<CGImage>?
-            let create = unsafeBitCast(symbol, to: FromArray.self)
-            var ids: [UnsafeRawPointer?] = [sheet, window].map { UnsafeRawPointer(bitPattern: UInt($0.windowNumber)) }
-            if let array = CFArrayCreate(nil, &ids, ids.count, nil),
-               let image = create(.null, array, (1 << 0) | (1 << 3))?.takeRetainedValue() {
+            let create = unsafeBitCast(symbol, to: CreateImageFromArray.self)
+            var pointers: [UnsafeRawPointer?] = ids.map { UnsafeRawPointer(bitPattern: UInt($0)) }
+            // .boundsIgnoreFraming = 1 << 0, .bestResolution = 1 << 3
+            if let array = CFArrayCreate(nil, &pointers, pointers.count, nil),
+               let image = create(bounds, array, (1 << 0) | (1 << 3))?.takeRetainedValue() {
                 try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
-                return
-            }
-        }
-        if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") {
-            let create = unsafeBitCast(symbol, to: CreateImage.self)
-            // .optionIncludingWindow = 1 << 3; .boundsIgnoreFraming = 1 << 0, .bestResolution = 1 << 3
-            // Con DISKMAP_SNAPSHOT_MENUS=1 entran también las ventanas por encima (menús de la app).
-            let listOption: UInt32 = environment["DISKMAP_SNAPSHOT_MENUS"] == "1" ? (1 << 1) | (1 << 3) : 1 << 3
-            if let image = create(.null, listOption, UInt32(window.windowNumber), (1 << 0) | (1 << 3))?
-                .takeRetainedValue() {
-                let rep = NSBitmapImageRep(cgImage: image)
-                try? rep.representation(using: .png, properties: [:])?.write(to: url)
                 return
             }
         }
