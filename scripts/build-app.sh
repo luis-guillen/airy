@@ -32,6 +32,8 @@ echo "▸ Montando $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
+# Servidor MCP por stdio, junto al ejecutable de la app.
+cp "$BIN_DIR/airy-mcp" "$APP/Contents/MacOS/airy-mcp"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/$APP_NAME.icns" "$APP/Contents/Resources/$APP_NAME.icns"
 # El bundle de recursos de SwiftPM va en Contents/Resources (Catalog.bundled() lo busca ahí);
@@ -78,17 +80,23 @@ if ! has_identity; then
     create_identity || echo "⚠︎ No se pudo crear la identidad \"$IDENTITY\"." >&2
 fi
 
-# 4. Firmar. Runtime endurecido + permiso para enviar Apple Events (Finder → vaciar Papelera).
+# 4. Firmar. Primero airy-mcp (con su propio identificador y sin los permisos de la app), luego la app.
+# Sin --deep al firmar la app: volvería a firmar airy-mcp con el identificador y los permisos de la app.
+# Runtime endurecido + permiso para enviar Apple Events (Finder → vaciar Papelera), solo para la app.
 ENTITLEMENTS="$ROOT/Resources/$APP_NAME.entitlements"
-if has_identity && codesign --force --deep --options runtime --timestamp=none \
-        --entitlements "$ENTITLEMENTS" -s "$IDENTITY" "$APP"; then
+MCP="$APP/Contents/MacOS/airy-mcp"
+sign_bundle() {
+    codesign --force --options runtime --timestamp=none -i local.airy.Airy.mcp -s "$1" "$MCP" \
+    && codesign --force --options runtime --timestamp=none --entitlements "$ENTITLEMENTS" -s "$1" "$APP"
+}
+if has_identity && sign_bundle "$IDENTITY"; then
     SIGNED_WITH_IDENTITY=1
 else
-    codesign --force --deep --options runtime --timestamp=none \
-        --entitlements "$ENTITLEMENTS" -s - "$APP"
+    sign_bundle -
     echo "⚠︎ Firma ad-hoc: tendrás que volver a dar Acceso total al disco tras cada compilación." >&2
 fi
 codesign --verify --deep --strict "$APP"
+codesign --verify --strict "$MCP"
 if [ "$SIGNED_WITH_IDENTITY" = 1 ]; then
     echo "✓ Firmada con \"$IDENTITY\""
 fi
