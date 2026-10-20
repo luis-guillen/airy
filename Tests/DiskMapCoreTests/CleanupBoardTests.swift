@@ -4,6 +4,40 @@ import Testing
 @testable import DiskMapCore
 
 @Suite struct CleanupBoardTests {
+    // MARK: Limpiezas parciales
+
+    private func partialItem(_ id: String, bytes: Int64, risk: Risk = .safe) -> CleanupItem {
+        let entry = CatalogEntry(id: id, title: "Título \(id)", explanation: "x", whoCreatesIt: "x", regenerates: true,
+                                 risk: risk, kind: .caches, paths: ["~/Library/pnpm/store"],
+                                 cleanup: .command(executable: "pnpm", arguments: ["store", "prune"], sizeProbe: nil),
+                                 partialCleanup: true)
+        return CleanupItem(id: id, entry: entry, paths: ["/Users/ana/Library/pnpm/store"], bytes: bytes, risk: risk,
+                           blockedByOpenApps: [], usedBy: [])
+    }
+
+    @Test func partialItemsShowUpperBound() {
+        let pnpm = partialItem("pnpm", bytes: 3_620_000_000)
+        let logs = item("logs", bytes: 50_000_000, risk: .safe)
+        #expect(CleanupBoard.isPartial(pnpm))
+        #expect(!CleanupBoard.isPartial(logs))
+        #expect(CleanupBoard.sizeText(pnpm) == "hasta " + Format.bytes(3_620_000_000))
+        #expect(CleanupBoard.sizeText(logs) == Format.bytes(50_000_000))
+        let mixed = CleanupBoard.total([pnpm, logs])
+        #expect(mixed.bytes == 3_670_000_000)
+        #expect(mixed.upperBound)
+        #expect(!CleanupBoard.total([logs]).upperBound)
+        #expect(CleanupBoard.amountText(10, upperBound: false) == Format.bytes(10))
+    }
+
+    @Test func heroIsUpperBoundOnlyWithPartialSafeItems() {
+        #expect(CleanupBoard(items: [item("logs", bytes: 50, risk: .safe)]).safeBytesIsUpperBound == false)
+        #expect(CleanupBoard(items: [item("logs", bytes: 50, risk: .safe), partialItem("pnpm", bytes: 10)])
+                    .safeBytesIsUpperBound)
+        // Parcial pero "Depende de ti": no entra en "Puedes liberar", así que no lo vuelve un máximo.
+        #expect(CleanupBoard(items: [item("logs", bytes: 50, risk: .safe), partialItem("x", bytes: 10, risk: .yourCall)])
+                    .safeBytesIsUpperBound == false)
+    }
+
     // MARK: Fixtures
 
     private func entry(_ id: String, risk: Risk, cleanup: CleanupMethod = .trash,

@@ -120,6 +120,13 @@ public struct AIAssistant: Sendable {
     Responde en español de España, en frases cortas, sin tecnicismos innecesarios.
     """
 
+    /// En el informe, los totales los calcula DiskMap ("Recuperable"): el texto de Claude no da cifras sumadas
+    /// que puedan contradecirlos.
+    static let reportSystemPrompt = systemPrompt + " " + """
+    En el resumen no des totales ni sumas de espacio (ni "en total puedes liberar X"): DiskMap calcula los totales \
+    y los muestra aparte. Puedes citar el tamaño de un elemento concreto tal como aparece en el contexto.
+    """
+
     /// En el chat Claude no puede hacer nada por su cuenta: solo explica.
     static let chatSystemPrompt = systemPrompt + " " + """
     En esta conversación no puedes realizar ninguna acción tú mismo y no debes ofrecerte a hacerla     ("¿quieres que lo borre?"); el usuario actúa desde la sección Limpieza o con los botones del Informe de DiskMap.
@@ -149,7 +156,8 @@ public struct AIAssistant: Sendable {
     // MARK: Informe
 
     public func report(context: String) async throws -> AIReport {
-        let arguments = baseArguments + ["--output-format", "json", "--json-schema", Self.reportSchema]
+        let arguments = self.arguments(systemPrompt: Self.reportSystemPrompt)
+            + ["--output-format", "json", "--json-schema", Self.reportSchema]
         let prompt = """
         Contexto del disco (JSON, solo metadatos):
         \(context)

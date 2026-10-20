@@ -86,19 +86,16 @@ final class CancelFlag: Sendable {
 }
 
 public struct ProcessRunner: CommandRunning {
-    /// Directorios extra por si el PATH de la shell de login no los incluye (`~` se expande).
+    /// Directorios extra que el PATH del sistema no suele incluir (`~` se expande).
     public static let fallbackPatterns = [
         "~/anaconda3/bin", "~/miniconda3/bin", "/opt/homebrew/bin", "/usr/local/bin",
         "~/.local/bin", "~/.cargo/bin", "~/Library/pnpm",
     ]
 
-    /// PATH de la shell de login, calculado una vez por proceso.
-    private static let loginPathCache = Mutex<[String]?>(nil)
-
     private let searchPath: [String]?
     private let home: String
 
-    /// `searchPath` sustituye la búsqueda (PATH de login + respaldo); útil en pruebas.
+    /// `searchPath` sustituye la búsqueda (PATH del sistema + respaldo); útil en pruebas.
     public init(searchPath: [String]? = nil, home: String = NSHomeDirectory()) {
         self.searchPath = searchPath
         self.home = home
@@ -109,15 +106,34 @@ public struct ProcessRunner: CommandRunning {
         return fallbackPatterns.map { $0.hasPrefix("~/") ? base + $0.dropFirst(1) : $0 }
     }
 
+    /// Dónde se buscan las herramientas, sin lanzar ninguna shell (nunca se ejecutan los ficheros de
+    /// arranque del usuario): `/etc/paths`, cada fichero de `/etc/paths.d` (en orden alfabético, como
+    /// `path_helper`), el PATH con el que se abrió la app y los directorios de respaldo. Sin duplicados
+    /// y solo rutas absolutas.
+    public static func systemSearchPath(home: String, environmentPath: String?,
+                                        etcPaths: String = "/etc/paths",
+                                        etcPathsDirectory: String = "/etc/paths.d") -> [String] {
+        var files = [etcPaths]
+        if let names = try? FileManager.default.contentsOfDirectory(atPath: etcPathsDirectory) {
+            files += names.filter { !$0.hasPrefix(".") }.sorted().map { etcPathsDirectory + "/" + $0 }
+        }
+        var dirs: [String] = []
+        for file in files {
+            guard let text = try? String(contentsOfFile: file, encoding: .utf8) else { continue }
+            dirs += text.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+        dirs += (environmentPath ?? "").split(separator: ":").map(String.init)
+        dirs += fallbackDirectories(home: home)
+        var unique: [String] = []
+        for dir in dirs where dir.hasPrefix("/") && !unique.contains(dir) { unique.append(dir) }
+        return unique
+    }
+
     public func resolve(_ executable: String) async -> String? {
         // Solo nombres simples: el catálogo nunca trae rutas.
         guard !executable.isEmpty, !executable.contains("/") else { return nil }
-        let dirs: [String]
-        if let searchPath {
-            dirs = searchPath
-        } else {
-            dirs = await Self.loginPath() + Self.fallbackDirectories(home: home)
-        }
+        let dirs = searchPath ?? Self.systemSearchPath(
+            home: home, environmentPath: ProcessInfo.processInfo.environment["PATH"])
         for dir in dirs where dir.hasPrefix("/") {
             let candidate = (dir as NSString).appendingPathComponent(executable)
             var info = stat()
@@ -126,23 +142,6 @@ public struct ProcessRunner: CommandRunning {
             if access(candidate, X_OK) == 0 { return candidate }
         }
         return nil
-    }
-
-    private static func loginPath() async -> [String] {
-        if let cached = loginPathCache.withLock({ $0 }) { return cached }
-        var dirs: [String] = []
-        if let output = try? await ProcessRunner(searchPath: []).run(
-            "/bin/zsh", ["-lc", "printf %s \"$PATH\""], timeout: 10), output.status == 0 {
-            // Lo que impriman los ficheros de perfil acaba en líneas anteriores: el PATH es la última.
-            let last = output.stdout.split(separator: "\n", omittingEmptySubsequences: false).last ?? ""
-            dirs = last.split(separator: ":").map(String.init).filter { $0.hasPrefix("/") }
-        }
-        if dirs.isEmpty {
-            dirs = (ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")
-                .split(separator: ":").map(String.init)
-        }
-        loginPathCache.withLock { $0 = dirs }
-        return dirs
     }
 
     public func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {

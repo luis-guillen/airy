@@ -86,12 +86,14 @@ enum Theme {
 
     // MARK: - Disco
 
-    /// "Tus archivos" en el anillo de uso del disco.
+    /// "Analizado" en el anillo de uso del disco.
     static let userFiles = LinearGradient(colors: [Color(hex: 0x64D2FF), Color(hex: 0x0A84FF)],
                                           startPoint: .topLeading, endPoint: .bottomTrailing)
     static let userFilesColor = Color(hex: 0x0A84FF)
-    /// "Sistema y purgable".
+    /// "Sistema y otros".
     static let systemColor = Color(hex: 0x8E8E93)
+    /// "Purgable": lo que macOS libera solo cuando hace falta.
+    static let purgeableColor = Color(hex: 0xC7C7CC)
     /// Acento de marca: los botones principales y el progreso del análisis.
     static let brand = LinearGradient(colors: [Color(hex: 0x64D2FF), Color(hex: 0x0A84FF), Color(hex: 0x5E5CE6)],
                                       startPoint: .topLeading, endPoint: .bottomTrailing)

@@ -51,19 +51,23 @@ struct Volume: Identifiable, Hashable, Sendable {
     let name: String
     let isStartup: Bool
     let totalBytes: Int64
+    /// Libre de verdad (`volumeAvailableCapacityKey`, lo que da `df`).
     let availableBytes: Int64
+    /// Libre contando lo purgable (`volumeAvailableCapacityForImportantUsageKey`, lo que da Finder).
+    let importantAvailableBytes: Int64
 
     var id: String { url.path }
     var symbol: String { isStartup ? "internaldrive.fill" : "externaldrive.fill" }
 
     static let startupFallback = Volume(url: URL(fileURLWithPath: "/"), name: "Macintosh HD",
-                                        isStartup: true, totalBytes: 0, availableBytes: 0)
+                                        isStartup: true, totalBytes: 0, availableBytes: 0,
+                                        importantAvailableBytes: 0)
 
     /// Lee los volúmenes montados (`skipHiddenVolumes`) y descarta los de solo lectura y los del sistema.
     static func mounted() -> [Volume] {
         let keys: [URLResourceKey] = [
             .volumeLocalizedNameKey, .volumeIsReadOnlyKey, .volumeIsRootFileSystemKey,
-            .volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey,
+            .volumeTotalCapacityKey, .volumeAvailableCapacityKey, .volumeAvailableCapacityForImportantUsageKey,
         ]
         let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys,
                                                          options: [.skipHiddenVolumes]) ?? []
@@ -79,7 +83,8 @@ struct Volume: Identifiable, Hashable, Sendable {
                 name: values.volumeLocalizedName ?? (isStartup ? "Macintosh HD" : url.lastPathComponent),
                 isStartup: isStartup,
                 totalBytes: Int64(values.volumeTotalCapacity ?? 0),
-                availableBytes: values.volumeAvailableCapacityForImportantUsage ?? 0))
+                availableBytes: Int64(values.volumeAvailableCapacity ?? 0),
+                importantAvailableBytes: values.volumeAvailableCapacityForImportantUsage ?? 0))
         }
         if !volumes.contains(where: \.isStartup) { volumes.insert(startupFallback, at: 0) }
         return volumes.sorted { ($0.isStartup ? 0 : 1, $0.name) < ($1.isStartup ? 0 : 1, $1.name) }
@@ -155,6 +160,9 @@ final class AppModel {
     private var shownStoreKey = "/"
     private let saveSequencer = SaveSequencer()
     private var lastSave: [String: Task<SaveResult, Never>] = [:]
+    /// Rutas que una acción (Papelera o limpieza) quitó o cambió, con su hora. Un análisis que
+    /// empezó antes pudo verlas como eran: al publicarlo se vuelven a medir solo esas.
+    private var touchedPaths: [String: Date] = [:]
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -198,17 +206,15 @@ final class AppModel {
         volumes.first { $0.url == selectedVolume } ?? volumes.first ?? .startupFallback
     }
 
-    /// Bytes que ocupa lo analizado ("Tus archivos"); en el primer análisis, lo que lleva recorrido.
+    /// Bytes que ocupa lo analizado ("Analizado"); en el primer análisis, lo que lleva recorrido.
     var analyzedBytes: Int64 { scan?.root.allocatedSize ?? progress?.bytesScanned ?? 0 }
 
-    /// Reparto del disco: lo analizado, el resto ocupado (sistema y purgable) y lo libre.
-    var diskUsage: (userFiles: Int64, systemAndPurgeable: Int64, free: Int64, total: Int64) {
+    /// Reparto del disco: analizado, sistema y otros, purgable y libre (véase `DiskUsageBreakdown`).
+    var diskUsage: DiskUsageBreakdown {
         let volume = currentVolume
-        let total = max(volume.totalBytes, 0)
-        let free = min(max(volume.availableBytes, 0), total)
-        let used = total - free
-        let user = min(analyzedBytes, used)
-        return (user, max(used - user, 0), free, total)
+        return DiskUsageBreakdown(totalBytes: volume.totalBytes, availableBytes: volume.availableBytes,
+                                  importantAvailableBytes: volume.importantAvailableBytes,
+                                  analyzedBytes: analyzedBytes)
     }
 
     var inaccessibleCount: Int { scan?.inaccessible.count ?? 0 }
@@ -256,6 +262,7 @@ final class AppModel {
             }
 
             // 2. Nuevo análisis en paralelo, cancelable.
+            let scanStarted = Date()
             let scanner = DiskScanner(options: ScanOptions(roots: [volume.url]))
             let job = Task.detached(priority: .userInitiated) {
                 try await scanner.scan(progress: onProgress)
@@ -280,7 +287,19 @@ final class AppModel {
             }
             guard generation == self.scanGeneration else { return }
 
-            // 3. Publicar, guardar y refrescar la limpieza.
+            // 3. Lo que se limpió o se envió a la Papelera mientras se analizaba no vuelve a salir.
+            let touched = self.touchedPaths.filter { $0.value >= scanStarted }.map(\.key)
+            if !touched.isEmpty {
+                let measured = await Task.detached(priority: .userInitiated) {
+                    ScanTreeRefresh.measure(touched)
+                }.value
+                guard generation == self.scanGeneration else { return }
+                // El árbol nuevo aún no se ha publicado: nadie más lo recorre.
+                ScanTreeRefresh.apply(measured, to: result.root)
+            }
+            self.touchedPaths = self.touchedPaths.filter { $0.value >= scanStarted }
+
+            // 4. Publicar, guardar y refrescar la limpieza.
             self.show(result, date: Date(), volume: volume)
             self.isScanning = false
             self.progress = nil
@@ -377,6 +396,10 @@ final class AppModel {
     func perform(_ item: CleanupItem) async -> CleanupOutcome {
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
         let outcome = await executor.execute(item)
+        switch outcome {
+        case .freed, .movedToTrash: await updateTree(afterTouching: item.paths)
+        case .blocked, .failed: break
+        }
         await refreshCounters()
         await refreshVolumes()
         refreshCleanup()
@@ -394,9 +417,12 @@ final class AppModel {
         // cancela la detección de limpiezas en curso y ESPERA a todos los lectores (también a
         // que termine de guardarse el índice); (3) se cambia el árbol; (4) se vuelve a guardar
         // el índice ya sin lo borrado y se detectan de nuevo las limpiezas.
+        let now = Date()
         let gone = paths.compactMap { path -> FileNode? in
             var info = stat()
-            return lstat(path, &info) != 0 ? node(atPath: path) : nil
+            guard lstat(path, &info) != 0 else { return nil }
+            touchedPaths[path] = now
+            return node(atPath: path)
         }
         if !gone.isEmpty, let scan {
             // La detección en curso queda invalidada (no publicará nada) y se repite al final.
@@ -418,6 +444,40 @@ final class AppModel {
         await refreshVolumes()
         refreshCleanup()
         return outcome
+    }
+
+    /// Tras una limpieza, vuelve a medir sus rutas (fuera del hilo principal) y pone al día el árbol
+    /// mostrado: lo que ya no existe sale; lo que sigue (p. ej. una caché limpiada con su comando,
+    /// que deja la carpeta) queda con su tamaño nuevo. Así ni el mapa ni la detección de limpiezas
+    /// (que prefiere el tamaño del árbol) lo enseñan con el tamaño de antes. Luego se vuelve a
+    /// guardar el índice por el turno de guardado.
+    private func updateTree(afterTouching paths: [String]) async {
+        guard !paths.isEmpty else { return }
+        let now = Date()
+        for path in paths { touchedPaths[path] = now }
+        guard let scan else { return }
+        let measured = await Task.detached(priority: .userInitiated) { ScanTreeRefresh.measure(paths) }.value
+        guard self.scan?.root === scan.root else { return }
+        // La detección en curso queda invalidada (no publicará nada); `perform` la repite al final.
+        cleanupTask?.cancel()
+        cleanupGeneration += 1
+        var changed = false
+        await treeGate.mutate { [weak self] in
+            guard let self, self.scan?.root === scan.root else { return }
+            changed = ScanTreeRefresh.apply(measured, to: scan.root)
+            if changed { self.treeRevision += 1 }
+        }
+        if changed, let shownStore, self.scan?.root === scan.root {
+            let key = shownStoreKey
+            Task { [weak self] in await self?.saveIndex(scan, to: shownStore, key: key) }
+        }
+    }
+
+    /// `true` si "Mover a la Papelera…" tiene sentido para esta ruta: la misma regla que aplicará
+    /// `CleanupExecutor.trashPaths` (protegidas, "No tocar", cachés con comando oficial…).
+    func canOfferTrash(path: String) -> Bool {
+        guard let executor else { return false }
+        return !executor.wouldRefuseTrash(path: path)
     }
 
     /// Nodo del análisis mostrado para una ruta absoluta, bajando por nombre desde la raíz.

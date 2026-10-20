@@ -3,3 +3,4 @@
 *.app
 .DS_Store
 build/
+preview-*.png

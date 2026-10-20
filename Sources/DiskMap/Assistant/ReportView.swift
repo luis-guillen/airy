@@ -91,7 +91,7 @@ struct ReportView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     AssistantGlyph(size: 26)
-                    Text("Resumen de Claude")
+                    Text("Opinión de Claude")
                         .font(.headline)
                     if let date = session.reportDate {
                         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -165,7 +165,7 @@ struct ReportView: View {
             let warning = offer.needsSecondConfirmation
                 ? CleanupFlow.ConfirmRequest.Warning(
                     title: "Esto depende de ti",
-                    subtitle: "Claude no lo considera seguro de borrar.",
+                    subtitle: "No es seguro borrarlo sin mirar.",
                     reason: rec.reason,
                     note: "Revisa \(title) antes de seguir. Si lo mueves a la Papelera podrás recuperarlo mientras no la vacíes.")
                 : nil

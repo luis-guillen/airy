@@ -43,6 +43,30 @@ public struct CleanupBoard: Sendable {
 
     public var readySafeBytes: Int64 { readySafeItems.reduce(0) { $0 + $1.bytes } }
 
+    /// `true` si `safeBytes` incluye limpiezas parciales: la cabecera dice "Puedes liberar hasta".
+    public var safeBytesIsUpperBound: Bool {
+        items.contains { $0.risk == .safe && Self.showsCheckbox($0) && $0.usedBy.isEmpty && Self.isPartial($0) }
+    }
+
+    // MARK: Limpiezas parciales
+
+    /// El comando oficial solo quita una parte (`partialCleanup` en el catálogo): su tamaño es un máximo.
+    public static func isPartial(_ item: CleanupItem) -> Bool { item.entry.partialCleanup }
+
+    /// "hasta 3,6 GB" para limpiezas parciales; si no, el tamaño tal cual.
+    public static func sizeText(_ item: CleanupItem) -> String {
+        amountText(item.bytes, upperBound: isPartial(item))
+    }
+
+    public static func amountText(_ bytes: Int64, upperBound: Bool) -> String {
+        upperBound ? "hasta \(Format.bytes(bytes))" : Format.bytes(bytes)
+    }
+
+    /// Suma de los elementos y si es solo un máximo (alguno es parcial).
+    public static func total(_ items: [CleanupItem]) -> (bytes: Int64, upperBound: Bool) {
+        (items.reduce(0) { $0 + $1.bytes }, items.contains(where: isPartial))
+    }
+
     // MARK: Selección
 
     /// Tiene casilla si DiskMap puede actuar sobre él: ni "No tocar" ni solo informativo.

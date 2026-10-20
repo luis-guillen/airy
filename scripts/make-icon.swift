@@ -179,21 +179,6 @@ func renderIcon(px: Int, small: Bool) -> CGImage {
     let gap: CGFloat = small ? max(1.0 / k, 34) : 20
     let radius: CGFloat = small ? 40 : 30
 
-    // Pozo oscuro bajo el mapa: da sensación de que los bloques están encajados.
-    if !small && wantWell {
-        ctx.saveGState()
-        let well = continuousRect(panel.insetBy(dx: -22, dy: -22), radius: radius + 20)
-        ctx.addPath(well)
-        ctx.setFillColor(black.cg(0.28))
-        ctx.fillPath()
-        ctx.addPath(well)
-        ctx.clip()
-        // Borde inferior iluminado del pozo (luz cenital).
-        linear(ctx, [(white, 0, 0), (white, 0, 0.9), (white, 0.06, 1)],
-               from: CGPoint(x: 0, y: panel.minY - 22), to: CGPoint(x: 0, y: panel.maxY + 22))
-        ctx.restoreGState()
-    }
-
     for b in blocks {
         var r = CGRect(x: panel.minX + b.x0 * panel.width, y: panel.minY + b.y0 * panel.height,
                        width: (b.x1 - b.x0) * panel.width, height: (b.y1 - b.y0) * panel.height)
@@ -288,8 +273,6 @@ func run(_ tool: String, _ args: [String]) -> Int32 {
     if p.terminationStatus != 0 { fatalError("\(tool) \(args.joined(separator: " ")) falló (\(p.terminationStatus))") }
     return p.terminationStatus
 }
-
-let wantWell = false
 
 // MARK: Principal
 

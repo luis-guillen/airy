@@ -77,16 +77,20 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
     /// se quita el prefijo `models--` / `datasets--` y `--` pasa a `/` (Hugging Face).
     /// Véase `referenceNeedle(forMatchedFolder:)`.
     public var referenceCheck: String?
+    /// `true` si el comando oficial solo quita una parte (p. ej. `pnpm store prune` deja lo que usan
+    /// los proyectos): la interfaz muestra "hasta X" y no lo suma como seguro en "Puedes liberar".
+    public var partialCleanup: Bool
 
     public init(
         id: String, title: String, explanation: String, whoCreatesIt: String, regenerates: Bool,
         risk: Risk, kind: ContentKind, paths: [String], cleanup: CleanupMethod,
-        mustBeClosed: [String] = [], referenceCheck: String? = nil
+        mustBeClosed: [String] = [], referenceCheck: String? = nil, partialCleanup: Bool = false
     ) {
         self.id = id; self.title = title; self.explanation = explanation
         self.whoCreatesIt = whoCreatesIt; self.regenerates = regenerates; self.risk = risk
         self.kind = kind; self.paths = paths; self.cleanup = cleanup
         self.mustBeClosed = mustBeClosed; self.referenceCheck = referenceCheck
+        self.partialCleanup = partialCleanup
     }
 
     /// Cadena de búsqueda para una carpeta concreta (p. ej. `models--a--b` ⇒ `a/b`).
@@ -103,7 +107,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case id, title, explanation, whoCreatesIt, regenerates, risk, kind, paths, cleanup
-        case mustBeClosed, referenceCheck
+        case mustBeClosed, referenceCheck, partialCleanup
     }
 
     public init(from decoder: Decoder) throws {
@@ -129,6 +133,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         cleanup = try c.decode(CleanupMethod.self, forKey: .cleanup)
         mustBeClosed = try c.decodeIfPresent([String].self, forKey: .mustBeClosed) ?? []
         referenceCheck = try c.decodeIfPresent(String.self, forKey: .referenceCheck)
+        partialCleanup = try c.decodeIfPresent(Bool.self, forKey: .partialCleanup) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -144,6 +149,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         try c.encode(cleanup, forKey: .cleanup)
         try c.encode(mustBeClosed, forKey: .mustBeClosed)
         try c.encodeIfPresent(referenceCheck, forKey: .referenceCheck)
+        if partialCleanup { try c.encode(true, forKey: .partialCleanup) }
     }
 }
 

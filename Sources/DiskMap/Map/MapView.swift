@@ -185,7 +185,8 @@ struct MapView: View {
                 model.pendingAssistantQuestion = "¿Qué es \(tildePath) y puedo borrarlo?"
                 model.section = .assistant
             }
-            if let risk = details.risk, risk != .doNotTouch {
+            // Solo donde el ejecutor la aceptaría (misma regla: `CleanupExecutor.wouldRefuseTrash`).
+            if let risk = details.risk, risk != .doNotTouch, model.canOfferTrash(path: path) {
                 Divider()
                 Button("Mover a la Papelera…", systemImage: "trash", role: .destructive) {
                     requestTrash(TrashCandidate(title: details.title, path: path, tildePath: tildePath,

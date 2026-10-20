@@ -35,7 +35,9 @@
       "regenerates": false,
       "risk": "doNotTouch",
       "kind": "containers",
-      "paths": ["~/Library/Containers/com.docker.docker"],
+      "paths": [
+        "~/Library/Containers/com.docker.docker"
+      ],
       "cleanup": {
         "type": "info"
       },
@@ -58,7 +60,7 @@
     {
       "id": "homebrew",
       "title": "Caché de Homebrew",
-      "explanation": "Instaladores descargados y versiones antiguas de programas que instaló Homebrew. Se limpia con su propio comando y Homebrew los vuelve a descargar si hace falta.",
+      "explanation": "Instaladores descargados y versiones antiguas de programas que instaló Homebrew. Se limpia con su propio comando, que puede dejar parte de la carpeta; Homebrew vuelve a descargar lo que haga falta.",
       "whoCreatesIt": "Homebrew",
       "regenerates": true,
       "risk": "safe",
@@ -75,12 +77,13 @@
           "-s"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "partialCleanup": true
     },
     {
       "id": "pip",
       "title": "Caché de pip",
-      "explanation": "Paquetes de Python descargados por pip para no bajarlos otra vez. Se limpia con su comando y se vuelven a descargar solos cuando hacen falta.",
+      "explanation": "Paquetes de Python descargados por pip para no bajarlos otra vez. Se limpia con su comando, que puede dejar parte de la carpeta; pip vuelve a descargar lo que haga falta.",
       "whoCreatesIt": "pip (Python)",
       "regenerates": true,
       "risk": "safe",
@@ -96,7 +99,8 @@
           "purge"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "partialCleanup": true
     },
     {
       "id": "uv",
@@ -128,8 +132,7 @@
       "risk": "safe",
       "kind": "caches",
       "paths": [
-        "~/Library/pnpm/store",
-        "~/Library/Caches/pnpm"
+        "~/Library/pnpm/store"
       ],
       "cleanup": {
         "type": "command",
@@ -138,6 +141,23 @@
           "store",
           "prune"
         ]
+      },
+      "mustBeClosed": [],
+      "partialCleanup": true
+    },
+    {
+      "id": "pnpm-cache",
+      "title": "Caché de pnpm",
+      "explanation": "Datos que pnpm guarda sobre los paquetes (versiones disponibles y descargas temporales) para ir más rápido. No contiene tus proyectos: pnpm la rellena sola la próxima vez que instales algo.",
+      "whoCreatesIt": "pnpm",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/pnpm"
+      ],
+      "cleanup": {
+        "type": "trash"
       },
       "mustBeClosed": []
     },
@@ -183,7 +203,7 @@
     {
       "id": "conda",
       "title": "Paquetes de conda",
-      "explanation": "Paquetes descargados por conda o Anaconda que ya no se usan. Se limpia con su comando oficial y se vuelven a descargar si hacen falta.",
+      "explanation": "Paquetes descargados por conda o Anaconda que ya no se usan. Se limpia con su comando oficial, que conserva los paquetes que usan tus entornos, así que puede liberar menos de lo que se muestra.",
       "whoCreatesIt": "conda (Anaconda)",
       "regenerates": true,
       "risk": "safe",
@@ -201,7 +221,8 @@
           "-y"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "partialCleanup": true
     },
     {
       "id": "huggingface-model",
@@ -361,12 +382,14 @@
     {
       "id": "xcode-simulators",
       "title": "Simuladores no disponibles de Xcode",
-      "explanation": "Elimina los simuladores de iPhone o iPad que ya no están disponibles con tu versión de Xcode, junto con los datos de apps que contienen. Se hace con el comando oficial de Xcode.",
+      "explanation": "Elimina los simuladores de iPhone o iPad que ya no están disponibles con tu versión de Xcode, junto con los datos de apps que contienen. Se hace con el comando oficial de Xcode; los simuladores que sí usas se quedan, así que puede liberar bastante menos de lo que ocupa la carpeta.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": false,
       "risk": "safe",
       "kind": "containers",
-      "paths": [],
+      "paths": [
+        "~/Library/Developer/CoreSimulator/Devices"
+      ],
       "cleanup": {
         "type": "command",
         "executable": "xcrun",
@@ -376,7 +399,8 @@
           "unavailable"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "partialCleanup": true
     },
     {
       "id": "user-logs",

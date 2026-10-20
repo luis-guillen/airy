@@ -167,12 +167,12 @@ private struct DiskCard: View {
 
     var body: some View {
         let usage = model.diskUsage
-        // En el primer análisis "Tus archivos" cambia cada 100 ms: cifras fijas para que se lean.
+        // En el primer análisis "Analizado" cambia cada 100 ms: cifras fijas para que se lean.
         let live = model.isScanning && model.scan == nil
         GlassCard(padding: 14, radius: 16, material: .thinMaterial) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 14) {
-                    UsageRing(userFiles: usage.userFiles, system: usage.systemAndPurgeable, total: usage.total)
+                    UsageRing(usage: usage)
                         .frame(width: 62, height: 62)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(Format.bytes(usage.free))
@@ -187,9 +187,15 @@ private struct DiskCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
-                    LegendRow(color: Theme.userFilesColor, title: "Tus archivos", bytes: usage.userFiles, rolls: !live)
-                    LegendRow(color: Theme.systemColor, title: "Sistema y purgable", bytes: usage.systemAndPurgeable,
-                              rolls: !live)
+                    LegendRow(color: Theme.userFilesColor, title: "Analizado", bytes: usage.analyzed, rolls: !live)
+                        .help("Lo que suma el análisis de este disco (al analizar el disco de arranque incluye macOS y las apps).")
+                    // Si lo analizado ya cubre lo usado, el resto no se puede saber: "—", nunca "0 kB".
+                    LegendRow(color: Theme.systemColor, title: "Sistema y otros", bytes: usage.other, rolls: !live)
+                        .help(usage.other == nil
+                              ? "El análisis ya cubre todo lo ocupado: no queda un resto que se pueda medir."
+                              : "Lo ocupado que el análisis no ve: partes del sistema, otros usuarios y lo que no se pudo leer.")
+                    LegendRow(color: Theme.purgeableColor, title: "Purgable", bytes: usage.purgeable, rolls: !live)
+                        .help("Espacio que macOS libera solo cuando hace falta (instantáneas locales, cachés purgables).")
                     LegendRow(color: .primary.opacity(0.18), title: "Libre", bytes: usage.free, rolls: !live)
                 }
 
@@ -218,7 +224,7 @@ private struct DiskCard: View {
 
                     // Activo también si no se puede leer: entonces lo vacía Finder.
                     // La confirmación (qué, cuánto y el aviso de Finder) la abre `CleanupFlow`.
-                    PrimaryButton("Vaciar Papelera", systemImage: "trash.slash", style: .secondary,
+                    PrimaryButton("Vaciar Papelera…", systemImage: "trash.slash", style: .secondary,
                                   isBusy: flow?.isEmptyingTrash ?? false) {
                         flow?.requestEmptyTrash(model)
                     }
@@ -246,7 +252,8 @@ private struct DiskCard: View {
 private struct LegendRow: View {
     let color: Color
     let title: String
-    let bytes: Int64
+    /// `nil`: no se puede saber ("—").
+    let bytes: Int64?
     /// `false` mientras el valor cambia cada 100 ms (primer análisis): cifras fijas, sin rodar.
     var rolls = true
 
@@ -257,55 +264,57 @@ private struct LegendRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 4)
-            Text(Format.bytes(bytes))
+            Text(bytes.map(Format.bytes) ?? "—")
                 .monospacedDigit()
-                .contentTransition(rolls ? .numericText(value: Double(bytes)) : .identity)
+                .contentTransition(rolls ? .numericText(value: Double(bytes ?? 0)) : .identity)
         }
         .font(.caption)
         .animation(rolls ? Theme.counterSpring : nil, value: bytes)
     }
 }
 
-/// Anillo de uso: "Tus archivos" y "Sistema y purgable" sobre una pista que representa lo libre.
+/// Anillo de uso: "Analizado", "Sistema y otros" y "Purgable" sobre una pista que representa lo libre.
+/// Las tres partes suman lo usado (véase `DiskUsageBreakdown`).
 struct UsageRing: View {
-    let userFiles: Int64
-    let system: Int64
-    let total: Int64
+    let usage: DiskUsageBreakdown
     var lineWidth: CGFloat = 9
 
     @ViewState private var appeared = false
 
     var body: some View {
-        let total = Double(max(total, 1))
-        let userFraction = appeared ? Double(userFiles) / total : 0
-        let systemFraction = appeared ? Double(system) / total : 0
-        let usedFraction = userFraction + systemFraction
+        let ring = usage.ringFractions
+        let analyzed = appeared ? ring.analyzed : 0
+        let other = appeared ? ring.analyzed + ring.other : 0
+        let used = appeared ? usage.usedFraction : 0
         ZStack {
             Circle()
                 .stroke(.primary.opacity(0.10), lineWidth: lineWidth)
             Circle()
-                .trim(from: userFraction, to: usedFraction)
+                .trim(from: other, to: used)
+                .stroke(Theme.purgeableColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Circle()
+                .trim(from: analyzed, to: other)
                 .stroke(Theme.systemColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Circle()
-                .trim(from: 0, to: userFraction)
+                .trim(from: 0, to: analyzed)
                 .stroke(Theme.userFiles, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             VStack(spacing: 0) {
-                Text("\(Int((usedFraction * 100).rounded())) %")
+                Text("\(Int((used * 100).rounded())) %")
                     .font(.system(.callout, design: .rounded, weight: .bold))
                     .monospacedDigit()
-                    .contentTransition(.numericText(value: usedFraction))
+                    .contentTransition(.numericText(value: used))
                 Text("usado")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
         }
         .padding(lineWidth / 2)
-        .animation(Theme.counterSpring, value: userFiles)
-        .animation(Theme.counterSpring, value: system)
+        .animation(Theme.counterSpring, value: usage)
         .onAppear { withAnimation(Theme.counterSpring.delay(0.15)) { appeared = true } }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Disco: \(Format.bytes(userFiles)) tus archivos, \(Format.bytes(system)) sistema y purgable")
+        .accessibilityLabel("Disco: \(Format.bytes(usage.used)) usados de \(Format.bytes(usage.total)); \(Format.bytes(usage.analyzed)) analizados, \(Format.bytes(usage.purgeable)) purgables")
     }
 }

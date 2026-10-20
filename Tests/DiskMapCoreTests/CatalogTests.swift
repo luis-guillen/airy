@@ -147,6 +147,49 @@ import Foundation
         #expect(try #require(catalog.entry(id: "pip")).referenceNeedle(forMatchedFolder: "x") == nil)
     }
 
+    // Los comandos que solo quitan una parte se marcan: la interfaz muestra "hasta X".
+    @Test func partialCommandsAreFlagged() throws {
+        let catalog = try Catalog.bundled()
+        for id in ["pnpm", "conda", "homebrew", "pip", "xcode-simulators"] {
+            let entry = try #require(catalog.entry(id: id))
+            #expect(entry.partialCleanup, "\(id)")
+            guard case .command = entry.cleanup else { Issue.record("\(id) debe ser command"); continue }
+        }
+        for id in ["uv", "npm", "docker-build-cache", "cargo", "user-logs"] {
+            #expect(catalog.entry(id: id)?.partialCleanup == false, "\(id)")
+        }
+    }
+
+    // `pnpm store prune` nunca toca ~/Library/Caches/pnpm: va en su propia ficha, a la Papelera.
+    @Test func pnpmCacheHasItsOwnTrashEntry() throws {
+        let catalog = try Catalog.bundled()
+        #expect(catalog.entry(id: "pnpm")?.paths == ["~/Library/pnpm/store"])
+        let cache = try #require(catalog.entry(id: "pnpm-cache"))
+        #expect(cache.paths == ["~/Library/Caches/pnpm"])
+        #expect(cache.cleanup == .trash)
+        #expect(cache.risk == .safe)
+        #expect(cache.regenerates)
+        #expect(catalog.match(path: home + "/Library/Caches/pnpm/metadata", home: home)?.id == "pnpm-cache")
+    }
+
+    // Los simuladores tienen carpeta que medir (si no, la ficha no aparecía nunca).
+    @Test func simulatorsHaveSizingPath() throws {
+        let catalog = try Catalog.bundled()
+        let sim = try #require(catalog.entry(id: "xcode-simulators"))
+        #expect(sim.paths == ["~/Library/Developer/CoreSimulator/Devices"])
+        #expect(sim.cleanup == .command(executable: "xcrun", arguments: ["simctl", "delete", "unavailable"], sizeProbe: nil))
+    }
+
+    @Test func partialFlagRoundTrips() throws {
+        let catalog = try Catalog.bundled()
+        let pnpm = try #require(catalog.entry(id: "pnpm"))
+        let back = try JSONDecoder().decode(CatalogEntry.self, from: JSONEncoder().encode(pnpm))
+        #expect(back.partialCleanup)
+        let uv = try #require(catalog.entry(id: "uv"))
+        let obj = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(uv)) as? [String: Any])
+        #expect(obj["partialCleanup"] == nil)
+    }
+
     @Test func correctedCopyAndRisks() throws {
         let catalog = try Catalog.bundled()
         #expect(catalog.entry(id: "playwright")?.regenerates == false)
