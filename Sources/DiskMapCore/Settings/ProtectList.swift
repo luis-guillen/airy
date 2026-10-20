@@ -56,6 +56,12 @@ public struct ProtectList: Sendable, Equatable {
     }
 
     private static func componentMatches(_ pattern: String, _ name: String) -> Bool {
-        fnmatch(pattern, name, FNM_CASEFOLD) == 0
+        // Solo `*` es comodín: `[`, `?` y `\` se tratan como texto literal.
+        var escaped = ""
+        for ch in pattern {
+            if ch == "[" || ch == "?" || ch == "\\" { escaped.append("\\") }
+            escaped.append(ch)
+        }
+        return fnmatch(escaped, name, FNM_CASEFOLD) == 0
     }
 }

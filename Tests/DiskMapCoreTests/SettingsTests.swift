@@ -110,6 +110,15 @@ import Testing
         #expect(list.match(h + "/Library/Caches/FooBar") == nil)
     }
 
+    @Test func onlyStarIsAWildcard() {
+        let list = ProtectList(patterns: ["~/Photos [2024]", "~/a?b", "~/c\\d"], home: h)
+        #expect(list.match(h + "/photos [2024]/x") == "~/Photos [2024]")
+        #expect(list.match(h + "/Photos 2") == nil)
+        #expect(list.match(h + "/a?b") != nil)
+        #expect(list.match(h + "/axb") == nil)
+        #expect(list.match(h + "/c\\d") != nil)
+    }
+
     @Test func protectDeduplicates() {
         var s = AirySettings.defaults
         let first = s.protect("~/Work/", home: h)
