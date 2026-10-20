@@ -17,8 +17,7 @@ struct AssistantView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 190)
-                .disabled(!isReady)
+                .fixedSize()
             }
 
             content
@@ -39,12 +38,13 @@ struct AssistantView: View {
         #endif
     }
 
-    private var isReady: Bool {
-        if case .ready = session.claude { true } else { false }
-    }
-
     @ViewBuilder private var content: some View {
         Group {
+            // «Conectar agente» no depende de Claude Code: otros agentes también pueden usar Airy.
+            if session.mode == .agents {
+                AgentsView()
+                    .transition(.opacity)
+            } else {
             switch session.claude {
             case .unknown, .searching:
                 SearchingClaudeView()
@@ -64,8 +64,10 @@ struct AssistantView: View {
                 }
                 .animation(Theme.sectionSpring, value: session.mode)
             }
+            }
         }
         .animation(Theme.sectionSpring, value: session.claude)
+        .animation(Theme.sectionSpring, value: session.mode == .agents)
     }
 
     /// "Explicar con IA" del mapa: pasa al chat y la envía una sola vez.
@@ -234,7 +236,7 @@ struct MapRouteChip: View {
 #if DEBUG
 /// Solo en Debug: pasos programados del asistente para revisarlo sin ratón.
 /// `AIRY_ASSISTANT_SCRIPT="report@3,chat@20,ask:¿Qué ocupa más?@21,confirm:0@30,missing@40"`.
-/// Acciones: `report` (lanza el informe), `chat`, `informe`, `ask:<pregunta>`, `stop`,
+/// Acciones: `report` (lanza el informe), `chat`, `agents`, `informe`, `ask:<pregunta>`, `stop`,
 /// `confirm:<columna>` (abre la confirmación de la primera recomendación con botón de esa columna),
 /// `second` (pasa a la segunda confirmación), `cancel`, `pending:<pregunta>` (como "Explicar con IA").
 @MainActor
@@ -262,6 +264,7 @@ enum AssistantDebugScript {
         case "report": session.mode = .report; session.runReport(model: model)
         case "chat": session.mode = .chat
         case "informe": session.mode = .report
+        case "agents": session.mode = .agents
         case "ask": session.mode = .chat; session.ask(argument ?? "", model: model)
         case "draft": session.mode = .chat; session.draft = argument ?? ""
         case "stop": session.stop()

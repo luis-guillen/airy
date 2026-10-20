@@ -8,9 +8,15 @@ import DiskMapCore
 @MainActor @Observable
 final class AssistantSession {
     enum Mode: String, CaseIterable, Identifiable {
-        case report, chat
+        case report, chat, agents
         var id: String { rawValue }
-        var title: String { self == .report ? "Informe" : "Chat" }
+        var title: String {
+            switch self {
+            case .report: "Informe"
+            case .chat: "Chat"
+            case .agents: "Conectar agente"
+            }
+        }
     }
 
     enum ClaudeStatus: Equatable {

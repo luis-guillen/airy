@@ -50,7 +50,7 @@ public struct CleanupExecutor: Sendable {
     static let unreadableSettingsReason =
         "Airy no puede leer sus ajustes; no se ejecuta nada hasta que los revises en la app."
     static let agentsOffReason =
-        "Has desactivado en Airy que los agentes ejecuten acciones (Asistente › Conectar agente)."
+        "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes)."
 
     private let runner: any CommandRunning
     private let probes: any SystemProbing
