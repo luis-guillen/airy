@@ -3,7 +3,7 @@ import Foundation
 import Observation
 import DiskMapCore
 
-/// Secciones de la barra lateral. Las de la fase 2 aparecen deshabilitadas con "Próximamente".
+/// Secciones de la barra lateral.
 enum Section: String, CaseIterable, Identifiable, Hashable {
     case map, cleanup, assistant
     case uninstaller, largeOld, duplicates, types
@@ -34,15 +34,9 @@ enum Section: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    var isAvailable: Bool {
-        switch self {
-        case .map, .cleanup, .assistant: true
-        default: false
-        }
-    }
+    var isAvailable: Bool { true }
 
     static let available: [Section] = allCases.filter(\.isAvailable)
-    static let comingSoon: [Section] = allCases.filter { !$0.isAvailable }
 }
 
 /// Volumen analizable: el de arranque y los externos montados con escritura.
@@ -134,6 +128,8 @@ final class AppModel {
     var pendingAssistantQuestion: String?
     /// Informe, chat y Claude localizado: sobreviven a los cambios de sección.
     let assistant = AssistantSession()
+    /// Estado de las secciones de la fase 2 (filtros, resultados y selección): sobrevive a los cambios de sección.
+    let sections = SectionStores()
     /// Orden de un enlace `airy://` pendiente de procesar: `RootView` la consume con su `CleanupFlow`.
     /// Nunca ejecuta nada: como mucho abre la hoja de confirmación.
     var pendingURLCommand: PendingURLCommand?
@@ -277,6 +273,18 @@ final class AppModel {
     }
 
     func classify(path: String) -> Classification { classifier.classify(path: path) }
+
+    /// Portero de rutas con los ajustes cargados (lista «Proteger esto» incluida).
+    func gate() -> PathGate {
+        let home = NSHomeDirectory()
+        return PathGate(home: home, catalog: catalog,
+                        userProtected: ProtectList(patterns: settings.protectedPaths, home: home))
+    }
+
+    /// Buscador de Grandes y viejos con los ajustes cargados.
+    func largeOldFinder() -> LargeOldFinder {
+        LargeOldFinder(classifier: classifier, catalog: catalog, gate: gate(), home: NSHomeDirectory())
+    }
 
     /// Vuelve a leer `settings.json`; si cambió, avisa y vuelve a detectar.
     func reloadSettings() {

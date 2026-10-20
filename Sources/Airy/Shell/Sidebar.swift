@@ -16,27 +16,6 @@ struct Sidebar: View {
                     SidebarRow(section: section, selected: model.section == section) { select(section) }
                 }
 
-                Text("Próximamente")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.top, 18)
-                    .padding(.bottom, 4)
-
-                ForEach(Section.comingSoon) { section in
-                    HStack {
-                        Label(section.title, systemImage: section.symbol)
-                        Spacer(minLength: 0)
-                    }
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .help("Llegará en la fase 2")
-                    .accessibilityElement(children: .combine)
-                    .accessibilityHint("Próximamente")
-                    .accessibilityAddTraits(.isStaticText)
-                    .disabled(true)
-                }
             }
             .padding(.horizontal, 10)
         }
@@ -65,9 +44,8 @@ struct Sidebar: View {
         .toolbar(removing: .sidebarToggle)
     }
 
-    /// Las secciones de la fase 2 no se pueden elegir.
     private func select(_ section: Section) {
-        guard section.isAvailable, section != model.section else { return }
+        guard section != model.section else { return }
         withAnimation(Theme.sectionSpring) { model.section = section }
     }
 
