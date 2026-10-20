@@ -29,6 +29,9 @@ struct RootView: View {
             .environment(cleanupFlow)
         }
         .task { model.startScan() }
+        .task(id: model.pendingURLCommand?.id) {
+            if let pending = model.pendingURLCommand { await model.run(pending, flow: cleanupFlow) }
+        }
     }
 
     private var showsBanner: Bool { !model.hasFullDiskAccess && !bannerDismissed }

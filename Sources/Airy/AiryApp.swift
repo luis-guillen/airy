@@ -11,10 +11,13 @@ struct AiryApp: App {
         WindowGroup("Airy") {
             RootView()
                 .environment(model)
+                .onOpenURL { model.handle(url: $0) }
                 #if DEBUG
                 .onAppear { DebugSnapshot.configure(model) }
                 #endif
         }
+        // Una URL `airy://` reutiliza la ventana abierta en vez de crear otra.
+        .handlesExternalEvents(matching: ["*"])
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1240, height: 800)
