@@ -86,6 +86,14 @@ struct Volume: Identifiable, Hashable, Sendable {
     }
 }
 
+/// Aviso no bloqueante que la interfaz muestra como banner descartable.
+struct Notice: Identifiable, Equatable {
+    enum Kind: String { case scan, save, history, catalog }
+    let kind: Kind
+    let message: String
+    var id: String { kind.rawValue }
+}
+
 /// Estado global de la app. Todo lo pesado (análisis, lectura del índice, sondas, comandos)
 /// corre fuera del hilo principal; aquí solo se publican los resultados.
 @MainActor @Observable
@@ -98,13 +106,19 @@ final class AppModel {
     var isScanning = false
     var cleanupItems: [CleanupItem] = []
     var isRefreshingCleanup = false
-    var trashBytes: Int64 = 0
+    /// `nil` si `~/.Trash` no se puede leer (sin Acceso total al disco): "no se sabe", no "vacía".
+    var trashBytes: Int64? = 0
     var totalFreed: Int64 = 0
+    /// `false` si el historial no se pudo leer: `totalFreed` es el último valor conocido.
+    var totalFreedKnown = true
     var hasFullDiskAccess = true
     var navigation = MapNavigation()
     /// Fecha del análisis mostrado (la del índice guardado hasta que termina el nuevo).
     var lastScanDate: Date?
+    /// Error del último análisis. Sin análisis que mostrar ocupa la pantalla; si no, va en `notices`.
     var scanError: String?
+    /// Problemas que no impiden usar la app pero cambian lo que significan los números.
+    var notices: [Notice] = []
 
     var volumes: [Volume] = [.startupFallback]
     var selectedVolume: URL = URL(fileURLWithPath: "/") {
@@ -117,6 +131,7 @@ final class AppModel {
     // MARK: Dependencias
 
     let catalog: Catalog?
+    let catalogError: String?
     private let runner = ProcessRunner()
     private let probes = SystemProbes()
     private let appDirectory: URL
@@ -125,6 +140,7 @@ final class AppModel {
     private var scanTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
     private var scanGeneration = 0
+    private var cleanupGeneration = 0
     private var observers: [NSObjectProtocol] = []
 
     init() {
@@ -139,10 +155,28 @@ final class AppModel {
         #endif
         appDirectory = directory
         store = IndexStore(directory: appDirectory)
-        catalog = try? Catalog.bundled()
-        volumes = Volume.mounted()
-        hasFullDiskAccess = probes.hasFullDiskAccess()
+        do {
+            catalog = try Catalog.bundled()
+            catalogError = nil
+        } catch {
+            catalog = nil
+            catalogError = "No se pudo cargar el catálogo de limpiezas (\(error)). La sección Limpieza no está disponible."
+        }
+        if let catalogError { notices.append(Notice(kind: .catalog, message: catalogError)) }
         observeSystem()
+        refreshSystemState()
+    }
+
+    // MARK: Avisos
+
+    func report(_ kind: Notice.Kind, _ message: String) {
+        notices.removeAll { $0.kind == kind }
+        notices.append(Notice(kind: kind, message: message))
+    }
+
+    func dismiss(_ kind: Notice.Kind) {
+        notices.removeAll { $0.kind == kind }
+        if kind == .scan { scanError = nil }
     }
 
     // MARK: Derivados
@@ -174,9 +208,7 @@ final class AppModel {
         scanTask?.cancel()
         scanGeneration += 1
         let generation = scanGeneration
-        let volume = currentVolume
-        let store = store(for: volume)
-        scanError = nil
+        dismiss(.scan)
         progress = nil
         isScanning = true
 
@@ -189,12 +221,18 @@ final class AppModel {
         }
 
         scanTask = Task { [weak self] in
+            // 0. Volúmenes al día (capacidades y nombre), leídos fuera del hilo principal.
+            await self?.refreshVolumes()
+            guard let self, generation == self.scanGeneration else { return }
+            let volume = self.currentVolume
+            let store = self.store(for: volume)
+
             // 1. Índice guardado, leído fuera del hilo principal.
             let stored = await Task.detached(priority: .userInitiated) { () -> (ScanResult, Date?)? in
                 guard let result = try? store.loadScan(), result.root.name == volume.url.path else { return nil }
                 return (result, try? store.lastScanDate())
             }.value
-            guard let self, generation == self.scanGeneration else { return }
+            guard generation == self.scanGeneration else { return }
             if let (result, date) = stored {
                 self.show(result, date: date, volume: volume)
                 self.refreshCleanup()
@@ -220,7 +258,9 @@ final class AppModel {
                 if generation == self.scanGeneration {
                     self.isScanning = false
                     if !(error is CancellationError) {
-                        self.scanError = "No se pudo analizar «\(volume.name)»: \(error.localizedDescription)"
+                        let message = "No se pudo analizar «\(volume.name)»: \(error.localizedDescription)"
+                        self.scanError = message
+                        self.report(.scan, message)
                     }
                 }
                 return
@@ -231,9 +271,16 @@ final class AppModel {
             self.show(result, date: Date(), volume: volume)
             self.isScanning = false
             self.progress = nil
-            self.hasFullDiskAccess = self.probes.hasFullDiskAccess()
+            self.refreshSystemState()
             self.refreshCleanup()
-            Task.detached(priority: .utility) { try? store.saveScan(result) }
+            let saveError = await Task.detached(priority: .utility) { () -> String? in
+                do { try store.saveScan(result); return nil } catch { return error.localizedDescription }
+            }.value
+            if let saveError {
+                self.report(.save, "No se pudo guardar el análisis (\(saveError)). Se ve bien ahora, pero al volver a abrir DiskMap habrá que analizar de nuevo.")
+            } else {
+                self.dismiss(.save)
+            }
         }
     }
 
@@ -244,10 +291,14 @@ final class AppModel {
         progress = nil
     }
 
+    /// Publica un árbol. Si es del mismo volumen que el que se ve, se conserva el nivel del mapa
+    /// (tan hondo como siga existiendo) en vez de volver a la raíz.
     private func show(_ result: ScanResult, date: Date?, volume: Volume) {
+        let sameRoot = navigation.root?.name == result.root.name && navigation.rootTitle == volume.name
         scan = result
         lastScanDate = date
-        navigation = MapNavigation(root: result.root, rootTitle: volume.name)
+        navigation = sameRoot ? navigation.restoring(in: result.root)
+                              : MapNavigation(root: result.root, rootTitle: volume.name)
     }
 
     /// El disco de arranque usa el almacén principal; cada externo, su propia carpeta.
@@ -262,6 +313,8 @@ final class AppModel {
     /// Vuelve a detectar las limpiezas sobre el último análisis y actualiza Papelera y total liberado.
     func refreshCleanup() {
         cleanupTask?.cancel()
+        cleanupGeneration += 1
+        let generation = cleanupGeneration
         isRefreshingCleanup = true
         let root = scan?.root
         let scanner = catalog.map {
@@ -269,10 +322,13 @@ final class AppModel {
         }
         cleanupTask = Task { [weak self] in
             await self?.refreshCounters()
-            let items = await Task.detached(priority: .utility) {
+            let job = Task.detached(priority: .utility) {
                 await scanner?.findItems(scan: root) ?? []
-            }.value
-            guard let self, !Task.isCancelled else { return }
+            }
+            // La tarea suelta no hereda la cancelación: se le pasa a mano.
+            let items = await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
+            // Solo publica la última detección; las anteriores se descartan.
+            guard let self, generation == self.cleanupGeneration else { return }
             self.cleanupItems = items
             self.isRefreshingCleanup = false
         }
@@ -284,6 +340,7 @@ final class AppModel {
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
         let outcome = await executor.execute(item)
         await refreshCounters()
+        await refreshVolumes()
         refreshCleanup()
         return outcome
     }
@@ -299,7 +356,7 @@ final class AppModel {
         } else {
             outcome = .failed("No se pudo cargar el catálogo de limpiezas.")
         }
-        volumes = Volume.mounted()
+        await refreshVolumes()
         await refreshCounters()
         refreshCleanup()
         return outcome
@@ -313,11 +370,20 @@ final class AppModel {
     private func refreshCounters() async {
         let probes = probes
         let store = store
-        let (trash, freed) = await Task.detached(priority: .utility) {
-            (probes.trashSize(), (try? store.totalFreed()) ?? 0)
+        let (trash, freed) = await Task.detached(priority: .utility) { () -> (Int64?, Result<Int64, Error>) in
+            (probes.trashSizeIfReadable(), Result { try store.totalFreed() })
         }.value
         trashBytes = trash
-        totalFreed = freed
+        switch freed {
+        case .success(let bytes):
+            totalFreed = bytes
+            totalFreedKnown = true
+            dismiss(.history)
+        case .failure(let error):
+            // Se conserva el último valor conocido y se avisa: nunca un 0 que parezca real.
+            totalFreedKnown = false
+            report(.history, "No se pudo leer el historial de limpiezas (\(error.localizedDescription)). El total liberado puede no estar al día.")
+        }
     }
 
     // MARK: Sistema
@@ -327,26 +393,39 @@ final class AppModel {
         NSWorkspace.shared.open(url)
     }
 
+    /// Lee los volúmenes montados (E/S de disco) fuera del hilo principal y publica el resultado.
+    /// Si el volumen elegido ya no está montado, vuelve al de arranque.
+    func refreshVolumes() async {
+        let mounted = await Task.detached(priority: .userInitiated) { Volume.mounted() }.value
+        volumes = mounted
+        if !mounted.contains(where: { $0.url == selectedVolume }) {
+            selectedVolume = URL(fileURLWithPath: "/")
+        }
+    }
+
+    /// Permiso de Acceso total al disco y volúmenes, ambos leídos fuera del hilo principal.
+    func refreshSystemState() {
+        let probes = probes
+        Task { [weak self] in
+            let access = await Task.detached(priority: .utility) { probes.hasFullDiskAccess() }.value
+            self?.hasFullDiskAccess = access
+            await self?.refreshVolumes()
+        }
+    }
+
     /// Al volver a la app se comprueba de nuevo el permiso; al montar o expulsar discos, la lista.
     private func observeSystem() {
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification,
                                             object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.hasFullDiskAccess = self.probes.hasFullDiskAccess()
-                self.volumes = Volume.mounted()
-            }
+            MainActor.assumeIsolated { self?.refreshSystemState() }
         })
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
             observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    self.volumes = Volume.mounted()
-                    if !self.volumes.contains(where: { $0.url == self.selectedVolume }) {
-                        self.selectedVolume = URL(fileURLWithPath: "/")
-                    }
+                    Task { await self.refreshVolumes() }
                 }
             })
         }

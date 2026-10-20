@@ -40,11 +40,13 @@ final class FakeRunner: CommandRunning, Sendable {
 final class FakeProbes: SystemProbing, Sendable {
     let running: Set<String>
     let trash: Int64
+    let trashReadable: Bool
     private let emptied = Mutex(0)
 
-    init(running: Set<String> = [], trash: Int64 = 0) {
+    init(running: Set<String> = [], trash: Int64 = 0, trashReadable: Bool = true) {
         self.running = running
         self.trash = trash
+        self.trashReadable = trashReadable
     }
 
     var emptyCount: Int { emptied.withLock { $0 } }
@@ -52,6 +54,7 @@ final class FakeProbes: SystemProbing, Sendable {
     func runningBundleIDs() -> Set<String> { running }
     func hasFullDiskAccess() -> Bool { true }
     func trashSize() -> Int64 { trash }
+    func trashSizeIfReadable() -> Int64? { trashReadable ? trash : nil }
     func emptyTrash() async throws -> Int64 {
         emptied.withLock { $0 += 1 }
         return trash
@@ -875,6 +878,25 @@ private func executor(
         #expect(freed == size)
         #expect(try FileManager.default.contentsOfDirectory(atPath: home + "/.Trash").isEmpty)
         #expect(SystemProbes(home: makeTempDir(), runner: FakeRunner(), allowFinderFallback: false).trashSize() == 0)
+    }
+
+    @Test func trashSizeIfReadableDistinguishesUnreadable() throws {
+        let home = makeTempDir()
+        let probes = SystemProbes(home: home, runner: FakeRunner(), allowFinderFallback: false)
+        // Sin ~/.Trash: se puede saber, y es 0.
+        #expect(probes.trashSizeIfReadable() == 0)
+        writeFile(home + "/.Trash/viejo.bin", bytes: 30_000)
+        #expect((probes.trashSizeIfReadable() ?? 0) >= 30_000)
+        // Sin permiso para listarla (como sin Acceso total al disco): nil, no 0.
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: home + "/.Trash")
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: home + "/.Trash") }
+        #expect(probes.trashSizeIfReadable() == nil)
+        #expect(probes.trashSize() == 0)
+    }
+
+    @Test func fakeProbesReportUnreadableTrash() {
+        #expect(FakeProbes(trash: 5).trashSizeIfReadable() == 5)
+        #expect(FakeProbes(trash: 5, trashReadable: false).trashSizeIfReadable() == nil)
     }
 
     @Test func emptyTrashRefusesSymlinkedTrash() async throws {

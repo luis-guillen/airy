@@ -167,6 +167,8 @@ private struct DiskCard: View {
 
     var body: some View {
         let usage = model.diskUsage
+        // En el primer análisis "Tus archivos" cambia cada 100 ms: cifras fijas para que se lean.
+        let live = model.isScanning && model.scan == nil
         GlassCard(padding: 14, radius: 16, material: .thinMaterial) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 14) {
@@ -185,23 +187,36 @@ private struct DiskCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
-                    LegendRow(color: Theme.userFilesColor, title: "Tus archivos", bytes: usage.userFiles)
-                    LegendRow(color: Theme.systemColor, title: "Sistema y purgable", bytes: usage.systemAndPurgeable)
-                    LegendRow(color: .primary.opacity(0.18), title: "Libre", bytes: usage.free)
+                    LegendRow(color: Theme.userFilesColor, title: "Tus archivos", bytes: usage.userFiles, rolls: !live)
+                    LegendRow(color: Theme.systemColor, title: "Sistema y purgable", bytes: usage.systemAndPurgeable,
+                              rolls: !live)
+                    LegendRow(color: .primary.opacity(0.18), title: "Libre", bytes: usage.free, rolls: !live)
                 }
 
                 Divider().opacity(0.5)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "trash")
-                            .foregroundStyle(.secondary)
-                        Text("En la Papelera:")
-                            .foregroundStyle(.secondary)
-                        BytesCounter(bytes: model.trashBytes, font: .callout.weight(.semibold))
+                    if let trash = model.trashBytes {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                                .foregroundStyle(.secondary)
+                            Text("En la Papelera:")
+                                .foregroundStyle(.secondary)
+                            BytesCounter(bytes: trash, font: .callout.weight(.semibold))
+                        }
+                        .font(.callout)
+                    } else {
+                        // Sin permiso para leer ~/.Trash no se sabe cuánto hay: nunca "0 kB".
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: "trash")
+                                .foregroundStyle(.secondary)
+                            Text("En la Papelera: no se puede leer sin Acceso total al disco")
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
                     }
-                    .font(.callout)
 
+                    // Activo también si no se puede leer: entonces lo vacía Finder.
                     PrimaryButton("Vaciar Papelera", systemImage: "trash.slash", style: .secondary,
                                   isBusy: emptying) {
                         confirmingEmpty = true
@@ -213,14 +228,20 @@ private struct DiskCard: View {
                             .foregroundStyle(Theme.color(for: .caches))
                         Text("Liberado en total:")
                             .foregroundStyle(.secondary)
-                        BytesCounter(bytes: model.totalFreed, font: .callout.weight(.semibold))
+                        if model.totalFreedKnown {
+                            BytesCounter(bytes: model.totalFreed, font: .callout.weight(.semibold))
+                        } else {
+                            Text("—").font(.callout.weight(.semibold))
+                                .help("No se pudo leer el historial de limpiezas")
+                        }
                     }
                     .font(.callout)
                 }
             }
         }
         .confirmationDialog("¿Vaciar la Papelera?", isPresented: $confirmingEmpty) {
-            Button("Vaciar Papelera (\(Format.bytes(model.trashBytes)))", role: .destructive) {
+            Button(model.trashBytes.map { "Vaciar Papelera (\(Format.bytes($0)))" } ?? "Vaciar con Finder",
+                   role: .destructive) {
                 emptying = true
                 Task {
                     await model.emptyTrash()
@@ -229,7 +250,11 @@ private struct DiskCard: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("Se borrarán definitivamente \(Format.bytes(model.trashBytes)). No se puede deshacer. Si DiskMap no puede leer la Papelera, se la pedirá a Finder, que vacía también la de los discos externos.")
+            if let trash = model.trashBytes {
+                Text("Se borrarán definitivamente \(Format.bytes(trash)). No se puede deshacer. Si DiskMap no puede leer la Papelera, se la pedirá a Finder, que vacía también la de los discos externos.")
+            } else {
+                Text("DiskMap no puede leer la Papelera, así que no sabe cuánto ocupa. Se la pedirá a Finder, que la vacía definitivamente en todos los discos, también los externos. No se puede deshacer.")
+            }
         }
     }
 }
@@ -238,6 +263,8 @@ private struct LegendRow: View {
     let color: Color
     let title: String
     let bytes: Int64
+    /// `false` mientras el valor cambia cada 100 ms (primer análisis): cifras fijas, sin rodar.
+    var rolls = true
 
     var body: some View {
         HStack(spacing: 6) {
@@ -248,10 +275,10 @@ private struct LegendRow: View {
             Spacer(minLength: 4)
             Text(Format.bytes(bytes))
                 .monospacedDigit()
-                .contentTransition(.numericText(value: Double(bytes)))
+                .contentTransition(rolls ? .numericText(value: Double(bytes)) : .identity)
         }
         .font(.caption)
-        .animation(Theme.counterSpring, value: bytes)
+        .animation(rolls ? Theme.counterSpring : nil, value: bytes)
     }
 }
 

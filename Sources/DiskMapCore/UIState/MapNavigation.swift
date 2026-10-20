@@ -13,7 +13,7 @@ public struct MapNavigation: Sendable {
         self.rootTitle = rootTitle
     }
 
-    public init(root: FileNode, rootTitle: String) {
+    public init(root: FileNode, rootTitle: String = "Macintosh HD") {
         self.stack = [root]
         self.rootTitle = rootTitle
     }
@@ -39,6 +39,21 @@ public struct MapNavigation: Sendable {
         }
         guard cursor === current else { return }
         stack.append(contentsOf: chain.reversed())
+    }
+
+    /// La misma ruta sobre un árbol nuevo (p. ej. al terminar un reanálisis): baja por nombre desde
+    /// `newRoot` hasta el nivel más hondo que siga existiendo como carpeta. Conserva `rootTitle`.
+    public func restoring(in newRoot: FileNode) -> MapNavigation {
+        var restored = MapNavigation(root: newRoot, rootTitle: rootTitle)
+        var cursor = newRoot
+        for name in stack.dropFirst().map(\.name) {
+            guard let next = cursor.children.first(where: {
+                $0.name == name && $0.isDirectory && $0.aggregatedCount == 0
+            }) else { break }
+            restored.stack.append(next)
+            cursor = next
+        }
+        return restored
     }
 
     /// Sube un nivel; en la raíz no hace nada.

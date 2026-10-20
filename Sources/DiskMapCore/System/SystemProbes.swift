@@ -6,6 +6,9 @@ public protocol SystemProbing: Sendable {
     func runningBundleIDs() -> Set<String>
     func hasFullDiskAccess() -> Bool
     func trashSize() -> Int64
+    /// Como `trashSize`, pero `nil` si `~/.Trash` existe y no se puede leer (p. ej. sin Acceso total
+    /// al disco), para no confundir "no se sabe" con "vacía".
+    func trashSizeIfReadable() -> Int64?
     /// Borra definitivamente el contenido de `~/.Trash`. Devuelve los bytes liberados.
     /// Si no hay permiso para leerla, recurre a Finder ("empty trash"), que vacía las papeleras
     /// de **todos** los volúmenes: la interfaz debe avisarlo antes de confirmar.
@@ -89,6 +92,17 @@ public struct SystemProbes: SystemProbing {
             if errno == EPERM || errno == EACCES { return false }
         }
         return true
+    }
+
+    public func trashSizeIfReadable() -> Int64? {
+        do {
+            let names = try FileManager.default.contentsOfDirectory(atPath: trashPath)
+            return names.reduce(0) { $0 + (AllocatedSize.of(trashPath + "/" + $1) ?? 0) }
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return 0
+        } catch {
+            return nil
+        }
     }
 
     public func trashSize() -> Int64 {

@@ -83,6 +83,42 @@ import Foundation
         #expect(navigation.current === t.ana)
     }
 
+    @Test func rootTitleDefaultsToMacintoshHD() {
+        let t = tree()
+        #expect(MapNavigation(root: t.root).breadcrumb == ["Macintosh HD"])
+    }
+
+    @Test func restoringReResolvesPathInNewTree() {
+        let t = tree()
+        var navigation = MapNavigation(root: t.root, rootTitle: "Macintosh HD")
+        navigation.zoom(into: t.projects)
+
+        let fresh = tree()
+        let restored = navigation.restoring(in: fresh.root)
+        #expect(restored.current === fresh.projects)
+        #expect(restored.stack.first === fresh.root)
+        #expect(restored.breadcrumb == ["Macintosh HD", "Users", "ana", "Proyectos"])
+    }
+
+    @Test func restoringStopsAtDeepestLevelThatStillExists() {
+        let t = tree()
+        var navigation = MapNavigation(root: t.root, rootTitle: "Externo")
+        navigation.zoom(into: t.projects)
+
+        // En el árbol nuevo "ana" ya no tiene "Proyectos".
+        let ana = FileNode(name: "ana", isDirectory: true, allocatedSize: 10)
+        let users = FileNode(name: "Users", isDirectory: true, allocatedSize: 10, children: [ana])
+        let root = FileNode(name: "/", isDirectory: true, allocatedSize: 10, children: [users])
+        let restored = navigation.restoring(in: root)
+        #expect(restored.current === ana)
+        #expect(restored.breadcrumb == ["Externo", "Users", "ana"])
+
+        // Si la raíz nueva no tiene nada de la ruta, se queda en la raíz nueva.
+        let other = FileNode(name: "/", isDirectory: true)
+        #expect(navigation.restoring(in: other).stack.count == 1)
+        #expect(MapNavigation().restoring(in: other).current === other)
+    }
+
     @Test func emptyNavigationHasNoCurrent() {
         var navigation = MapNavigation(rootTitle: "Macintosh HD")
         #expect(navigation.current == nil)
