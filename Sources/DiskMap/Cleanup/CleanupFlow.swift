@@ -17,8 +17,22 @@ final class CleanupFlow {
             /// Rutas sueltas (mapa o asistente) que irán a la Papelera con `AppModel.trash(paths:title:)`.
             case trashPaths([String], title: String)
         }
+        /// Primer paso opcional ("Esto depende de ti" del asistente): la confirmación real llega
+        /// solo tras "Sí, quiero moverlo…".
+        struct Warning {
+            let title: String
+            let subtitle: String
+            let reason: String
+            let note: String
+        }
+
         let id = UUID()
         let kind: Kind
+        var warning: Warning? = nil
+        /// Al confirmar (antes de ejecutar) y con el resultado de cada elemento, para quien pidió la
+        /// confirmación (p. ej. la tarjeta del asistente o el aviso del mapa).
+        var onConfirm: (@MainActor () -> Void)? = nil
+        var onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil
     }
 
     struct SnapshotNotice: Identifiable {
@@ -74,9 +88,10 @@ final class CleanupFlow {
 
     // MARK: Peticiones (abren la confirmación)
 
-    func requestClean(_ items: [CleanupItem]) {
+    func requestClean(_ items: [CleanupItem], onConfirm: (@MainActor () -> Void)? = nil,
+                      onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
         guard !items.isEmpty, !isBusy else { return }
-        sheet = .confirm(ConfirmRequest(kind: .items(items)))
+        sheet = .confirm(ConfirmRequest(kind: .items(items), onConfirm: onConfirm, onOutcome: onOutcome))
     }
 
     func requestEmptyTrash(_ model: AppModel) {
@@ -84,9 +99,12 @@ final class CleanupFlow {
         sheet = .confirm(ConfirmRequest(kind: .emptyTrash(model.trashBytes)))
     }
 
-    func requestTrash(paths: [String], title: String) {
+    func requestTrash(paths: [String], title: String, warning: ConfirmRequest.Warning? = nil,
+                      onConfirm: (@MainActor () -> Void)? = nil,
+                      onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
         guard !paths.isEmpty, !isBusy else { return }
-        sheet = .confirm(ConfirmRequest(kind: .trashPaths(paths, title: title)))
+        sheet = .confirm(ConfirmRequest(kind: .trashPaths(paths, title: title), warning: warning,
+                                        onConfirm: onConfirm, onOutcome: onOutcome))
     }
 
     func cancelSheet() { sheet = nil }
@@ -97,16 +115,17 @@ final class CleanupFlow {
         guard !isBusy else { return }
         sheet = nil
         lastResult = nil
+        request.onConfirm?()
         switch request.kind {
         case .items(let items):
             queuedIDs = items.map(\.id)
-            Task { await run(items, model: model) }
+            Task { await run(items, model: model, onOutcome: request.onOutcome) }
         case .emptyTrash:
             isEmptyingTrash = true
             Task { await emptyTrash(model: model) }
         case .trashPaths(let paths, let title):
             queuedIDs = [title]
-            Task { await trash(paths: paths, title: title, model: model) }
+            Task { await trash(paths: paths, title: title, model: model, onOutcome: request.onOutcome) }
         }
     }
 
@@ -118,7 +137,8 @@ final class CleanupFlow {
 
     // MARK: Limpiar
 
-    private func run(_ items: [CleanupItem], model: AppModel) async {
+    private func run(_ items: [CleanupItem], model: AppModel,
+                     onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
         let summary = await CleanupBatch.run(items, onStart: { [weak self] index in
             guard let self else { return }
             self.currentID = items[index].id
@@ -127,7 +147,9 @@ final class CleanupFlow {
             // Lo que desapareció desde la detección no bloquea el resto (el ejecutor revalida lo que queda).
             guard let current = CleanupBoard.withExistingPaths(item, exists: Self.exists) else {
                 withAnimation(Theme.zoomSpring) { _ = self?.hiddenIDs.insert(item.id) }
-                return .blocked(reason: "Ya no existe.")
+                let gone = CleanupOutcome.blocked(reason: "Ya no existe.")
+                onOutcome?(gone)
+                return gone
             }
             let outcome = await model.perform(current)
             switch outcome {
@@ -136,6 +158,7 @@ final class CleanupFlow {
                 withAnimation(Theme.zoomSpring) { _ = self?.hiddenIDs.insert(item.id) }
             case .blocked, .failed: break
             }
+            onOutcome?(outcome)
             return outcome
         })
         currentID = nil
@@ -149,11 +172,13 @@ final class CleanupFlow {
         return lstat(path, &info) == 0
     }
 
-    private func trash(paths: [String], title: String, model: AppModel) async {
+    private func trash(paths: [String], title: String, model: AppModel,
+                       onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
         currentID = title
         queuedIDs = []
         let outcome = await model.trash(paths: paths, title: title)
         currentID = nil
+        onOutcome?(outcome)
         var summary = CleanupRunSummary()
         summary.record(id: title, title: title, outcome: outcome)
         withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }

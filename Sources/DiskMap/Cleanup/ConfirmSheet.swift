@@ -2,12 +2,83 @@ import SwiftUI
 import DiskMapCore
 
 /// Hoja de confirmación antes de cualquier borrado: qué se hace, cuánto ocupa y con qué método.
+/// Es la única de la app (Limpieza, barra lateral, mapa y asistente). Si la petición trae un aviso
+/// ("Esto depende de ti"), lo enseña primero y la confirmación real llega tras "Sí, quiero moverlo…".
 struct ConfirmSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
     let request: CleanupFlow.ConfirmRequest
+    @ViewState private var warningAccepted = false
 
     var body: some View {
+        Group {
+            if let warning = request.warning, !warningAccepted {
+                warningStep(warning)
+                    .transition(.opacity.combined(with: .offset(x: -12)))
+            } else {
+                confirmation
+                    .transition(.opacity.combined(with: .offset(x: 12)))
+            }
+        }
+        .padding(24)
+        .frame(width: 540)
+        .animation(Theme.sectionSpring, value: warningAccepted)
+        #if DEBUG
+        .onReceive(NotificationCenter.default.publisher(for: .diskMapAssistantDebug)) { note in
+            switch note.userInfo?["action"] as? String {
+            case "second": warningAccepted = true
+            case "cancel": flow.cancelSheet()
+            default: break
+            }
+        }
+        #endif
+    }
+
+    // MARK: Primer paso ("Depende de ti")
+
+    private func warningStep(_ warning: CleanupFlow.ConfirmRequest.Warning) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    Circle().fill(Theme.color(for: .yourCall).opacity(0.16))
+                    Image(systemName: Theme.symbol(for: .yourCall))
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Theme.color(for: .yourCall))
+                }
+                .frame(width: 44, height: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(warning.title)
+                        .font(.system(.title2, design: .rounded, weight: .bold))
+                    Text(warning.subtitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text("«\(warning.reason)»")
+                .font(.callout)
+                .foregroundStyle(.primary.opacity(0.85))
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.color(for: .yourCall).opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Text(warning.note)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Cancelar") { flow.cancelSheet() }
+                    .keyboardShortcut(.cancelAction)
+                    .controlSize(.large)
+                PrimaryButton("Sí, quiero moverlo…", systemImage: "arrow.right", style: .secondary) {
+                    warningAccepted = true
+                }
+                .fixedSize()
+            }
+        }
+    }
+
+    // MARK: Confirmación
+
+    private var confirmation: some View {
         VStack(alignment: .leading, spacing: 18) {
             header
 
@@ -51,8 +122,6 @@ struct ConfirmSheet: View {
                 .fixedSize()
             }
         }
-        .padding(24)
-        .frame(width: 540)
     }
 
     // MARK: Contenido

@@ -119,8 +119,10 @@ final class AppModel {
     var scanError: String?
     /// Problemas que no impiden usar la app pero cambian lo que significan los números.
     var notices: [Notice] = []
-    /// Pregunta que el mapa ("Explicar con IA") deja para el asistente; la consume la Tarea 11.
+    /// Pregunta que el mapa ("Explicar con IA") deja para el asistente; la consume `AssistantView`.
     var pendingAssistantQuestion: String?
+    /// Informe, chat y Claude localizado: sobreviven a los cambios de sección.
+    let assistant = AssistantSession()
     /// Sube cada vez que el árbol mostrado cambia en sitio (p. ej. algo enviado a la Papelera).
     private(set) var treeRevision = 0
 
