@@ -224,6 +224,8 @@ private let streamFixture = [
         #expect(args[schema + 1].contains("doNotTouch"))
         let system = try #require(args.firstIndex(of: "--system-prompt"))
         #expect(args[system + 1].contains("Responde en español de España"))
+        // Los totales los calcula DiskMap: el resumen de Claude no los da.
+        #expect(args[system + 1].contains("no des totales"))
         // El prompt va por stdin, no como argumento; nunca dentro de un directorio del usuario.
         #expect(call.stdin?.contains("~/.cache/uv") == true)
         #expect(!args.contains { $0.contains("~/.cache/uv") })

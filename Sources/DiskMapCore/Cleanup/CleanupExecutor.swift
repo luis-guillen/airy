@@ -25,6 +25,8 @@ public struct CleanupExecutor: Sendable {
     private let home: String
     private let commandTimeout: TimeInterval
     private let freeSpace: @Sendable () -> Int64
+    private let trashSettleAttempts: Int
+    private let trashSettleDelay: Duration
 
     /// `catalog` es obligatorio: toda acción se decide con la ficha viva del catálogo, nunca con la
     /// copia que trae el elemento. `references` (por defecto, las carpetas de proyectos de `home`)
@@ -34,7 +36,8 @@ public struct CleanupExecutor: Sendable {
         runner: any CommandRunning, probes: any SystemProbing, store: IndexStore, catalog: Catalog,
         references: ReferenceChecker? = nil, home: String = NSHomeDirectory(),
         commandTimeout: TimeInterval = CleanupExecutor.defaultCommandTimeout,
-        freeSpace: (@Sendable () -> Int64)? = nil
+        freeSpace: (@Sendable () -> Int64)? = nil,
+        trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1)
     ) {
         let home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
         self.runner = runner
@@ -45,6 +48,8 @@ public struct CleanupExecutor: Sendable {
         self.home = home
         self.commandTimeout = commandTimeout
         self.freeSpace = freeSpace ?? { SystemProbes.availableCapacity(home: home) }
+        self.trashSettleAttempts = max(0, trashSettleAttempts)
+        self.trashSettleDelay = trashSettleDelay
     }
 
     // MARK: - API
@@ -80,11 +85,24 @@ public struct CleanupExecutor: Sendable {
     /// Vacía la Papelera (solo tras pulsar el usuario "Vaciar Papelera").
     /// Ojo: si `~/.Trash` no se puede leer, `SystemProbing.emptyTrash` recurre a Finder, que vacía
     /// las papeleras de todos los volúmenes; la interfaz lo advierte antes de confirmar.
+    /// Se anota (y se devuelve) lo que de verdad subió el espacio libre del volumen, igual que la
+    /// celebración: no lo que ocupaba la Papelera (las instantáneas locales pueden retenerlo).
+    /// APFS puede tardar un momento en devolver el espacio: si sube menos de lo esperado, se vuelve
+    /// a medir hasta `trashSettleAttempts` veces, con `trashSettleDelay` entre medidas.
     public func emptyTrash() async -> CleanupOutcome {
         do {
-            let bytes = try await probes.emptyTrash()
-            record(title: "Vaciar Papelera", bytes: bytes, wentToTrash: false)
-            return .freed(bytes)
+            let before = freeSpace()
+            let emptied = try await probes.emptyTrash()
+            var rose = max(0, freeSpace() - before)
+            var attempts = 0
+            while emptied > 0, Double(rose) < Double(emptied) * TrashFollowUp.expectedRiseFraction,
+                  attempts < trashSettleAttempts {
+                attempts += 1
+                try? await Task.sleep(for: trashSettleDelay)
+                rose = max(rose, freeSpace() - before)
+            }
+            record(title: "Vaciar Papelera", bytes: rose, wentToTrash: false)
+            return .freed(rose)
         } catch {
             return .failed("No se pudo vaciar la Papelera: \(error.localizedDescription)")
         }
@@ -158,8 +176,13 @@ public struct CleanupExecutor: Sendable {
         return .movedToTrash(moved)
     }
 
+    /// `true` si `trashPaths` rechazaría esta ruta (ubicación protegida o sellada, "No tocar", caché
+    /// que solo se limpia con su comando oficial…). La interfaz lo usa para no ofrecer "Mover a la
+    /// Papelera…" donde el ejecutor se negará: misma regla en los dos sitios.
+    public func wouldRefuseTrash(path: String) -> Bool { unsafeTrashReason(path) != nil }
+
     /// `nil` si la ruta se puede enviar a la Papelera; si no, el motivo.
-    func unsafeTrashReason(_ path: String) -> String? {
+    public func unsafeTrashReason(_ path: String) -> String? {
         guard path.hasPrefix("/") else { return "Ruta no absoluta: \(path)." }
         guard path != "/" else { return "No se puede tocar la raíz del disco." }
         let parts = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst()

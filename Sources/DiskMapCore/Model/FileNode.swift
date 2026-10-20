@@ -121,4 +121,34 @@ public final class FileNode: @unchecked Sendable, Identifiable {
             cursor = node.parent
         }
     }
+
+    /// Sustituye lo que se sabía del nodo por un tamaño medido de nuevo (p. ej. tras limpiar una
+    /// caché con su comando oficial, que deja la carpeta con menos dentro). Como no se sabe qué hijos
+    /// quedan, se quitan (el próximo análisis los vuelve a mostrar) y todo el tamaño pasa al tipo
+    /// dominante. Corrige tamaño, desglose y descendientes de todos los antepasados.
+    /// Solo desde el hilo dueño del árbol (el principal, a través de `TreeGate.mutate`).
+    public func replaceContents(measuredSize: Int64) {
+        let newSize = max(measuredSize, 0)
+        guard newSize != allocatedSize else { return }
+        let oldKindBytes = kindBytes
+        let oldSize = allocatedSize
+        let oldDescendants = descendantCount
+        var newKindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
+        if let index = ContentKind.allCases.firstIndex(of: dominantKind) { newKindBytes[index] = newSize }
+        for child in children { child.parent = nil }
+        children = []
+        descendantCount = 0
+        allocatedSize = newSize
+        kindBytes = newKindBytes
+        var cursor = parent
+        while let node = cursor {
+            node.allocatedSize = max(node.allocatedSize - oldSize + newSize, 0)
+            for index in node.kindBytes.indices {
+                let before = index < oldKindBytes.count ? oldKindBytes[index] : 0
+                node.kindBytes[index] = max(node.kindBytes[index] - before + newKindBytes[index], 0)
+            }
+            node.descendantCount = max(node.descendantCount - oldDescendants, 0)
+            cursor = node.parent
+        }
+    }
 }

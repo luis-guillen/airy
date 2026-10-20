@@ -117,12 +117,31 @@ struct ConfirmSheet: View {
                 Button("Cancelar") { flow.cancelSheet() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
-                PrimaryButton(confirmTitle, systemImage: confirmSymbol, style: isEmptyTrash ? .destructive : .primary) {
-                    flow.confirm(request, model: model)
+                // Intro solo confirma lo que se puede deshacer (todo a la Papelera). Vaciar la Papelera o
+                // ejecutar un comando oficial es irreversible: hay que pulsar el botón.
+                if returnConfirms {
+                    confirmButton.keyboardShortcut(.defaultAction)
+                } else {
+                    confirmButton
                 }
-                .keyboardShortcut(.defaultAction)
-                .fixedSize()
             }
+        }
+    }
+
+    private var confirmButton: some View {
+        PrimaryButton(confirmTitle, systemImage: confirmSymbol, style: isEmptyTrash ? .destructive : .primary) {
+            flow.confirm(request, model: model)
+        }
+        .fixedSize()
+    }
+
+    /// `true` solo si todo va a la Papelera (recuperable): ni vaciarla ni comandos oficiales.
+    private var returnConfirms: Bool {
+        switch request.kind {
+        case .emptyTrash: return false
+        case .trashPaths: return true
+        case .items(let items):
+            return items.allSatisfy { if case .trash = liveMethod($0) { true } else { false } }
         }
     }
 
@@ -191,11 +210,17 @@ struct ConfirmSheet: View {
             return total > 0 ? "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla."
                              : "Irá a la Papelera. Se libera al vaciarla."
         case .items(let items):
-            let total = items.reduce(Int64(0)) { $0 + $1.bytes }
+            // Con limpiezas parciales (p. ej. `pnpm store prune`) la cifra es solo un máximo: "hasta X".
+            let (total, upperBound) = CleanupBoard.total(items)
             let trash = items.filter { if case .trash = liveMethod($0) { true } else { false } }
             if trash.count == items.count { return "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla." }
-            if trash.isEmpty { return total > 0 ? "Se liberarán unos \(Format.bytes(total))." : "Esto es lo que se va a hacer:" }
-            return "Unos \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
+            if trash.isEmpty {
+                guard total > 0 else { return "Esto es lo que se va a hacer:" }
+                return upperBound ? "Se liberarán hasta \(Format.bytes(total))." : "Se liberarán unos \(Format.bytes(total))."
+            }
+            return upperBound
+                ? "Hasta \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
+                : "Unos \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
         }
     }
 
@@ -217,7 +242,7 @@ struct ConfirmSheet: View {
                 let method = liveMethod(item)
                 let size = item.id == TrashFollowUp.snapshotEntryID
                     ? (item.bytes > 0 ? "≈ \(Format.bytes(item.bytes))" : "Tamaño desconocido")
-                    : Format.bytes(item.bytes)
+                    : CleanupBoard.sizeText(item)
                 return ConfirmRow(id: item.id, title: item.title, symbol: CleanupIcon.symbol(for: item.entry),
                                   tint: Theme.color(for: item.entry.kind), size: size,
                                   method: CleanupBoard.commandLine(method).map(ConfirmRow.Method.command)
@@ -255,6 +280,10 @@ struct ConfirmSheet: View {
             if methods.contains(where: { if case .command = $0 { true } else { false } }) {
                 notes.append(Note(symbol: "terminal", tint: Theme.userFilesColor,
                                   text: "Los comandos oficiales liberan el espacio al momento y no se pueden deshacer."))
+            }
+            if items.contains(where: CleanupBoard.isPartial) {
+                notes.append(Note(symbol: "chart.bar.xaxis", tint: .secondary,
+                                  text: "«Hasta»: ese comando solo quita lo que ya no se usa, así que puede liberar menos."))
             }
             let yourCall = items.filter { $0.risk == .yourCall }
             if !yourCall.isEmpty {

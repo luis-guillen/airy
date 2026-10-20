@@ -153,7 +153,7 @@ private func executor(
         runner: runner, probes: probes, store: store,
         catalog: Catalog(entries: entries + [uvEntry, dockerEntry]),
         references: ReferenceChecker(roots: roots), home: home,
-        freeSpace: { freeSpace.next() })
+        freeSpace: { freeSpace.next() }, trashSettleDelay: .zero)
 }
 
 // MARK: - Tests del brief
@@ -671,6 +671,33 @@ private func executor(
         #expect(await runner.resolve("inexistente-diskmap") == nil)
     }
 
+    // Sin shell de login: el PATH sale de /etc/paths, /etc/paths.d, el entorno de la app y el respaldo.
+    @Test func systemSearchPathReadsEtcPathsWithoutShell() throws {
+        let dir = makeTempDir()
+        writeFile(dir + "/paths", text: "/usr/local/bin\n/usr/bin\n\n  /bin  \nrelativa/bin\n")
+        writeFile(dir + "/paths.d/20-b", text: "/opt/b/bin\n")
+        writeFile(dir + "/paths.d/10-a", text: "/opt/a/bin\n/usr/bin\n")
+        writeFile(dir + "/paths.d/.oculto", text: "/opt/oculto\n")
+        let dirs = ProcessRunner.systemSearchPath(
+            home: "/Users/prueba", environmentPath: "/env/bin:/usr/bin:",
+            etcPaths: dir + "/paths", etcPathsDirectory: dir + "/paths.d")
+        #expect(Array(dirs.prefix(6)) == ["/usr/local/bin", "/usr/bin", "/bin", "/opt/a/bin", "/opt/b/bin", "/env/bin"])
+        #expect(!dirs.contains("/opt/oculto"))
+        #expect(!dirs.contains("relativa/bin"))
+        #expect(dirs.contains("/Users/prueba/anaconda3/bin"))
+        #expect(dirs.contains("/Users/prueba/Library/pnpm"))
+        #expect(Set(dirs).count == dirs.count)
+        // Sin ficheros ni entorno, al menos el respaldo.
+        let bare = ProcessRunner.systemSearchPath(home: "/Users/prueba", environmentPath: nil,
+                                                  etcPaths: dir + "/no", etcPathsDirectory: dir + "/no.d")
+        #expect(bare == ProcessRunner.fallbackDirectories(home: "/Users/prueba"))
+    }
+
+    @Test func processRunnerResolvesSystemToolsByDefault() async throws {
+        // /etc/paths siempre trae /bin en macOS.
+        #expect(await ProcessRunner().resolve("ls") == "/bin/ls")
+    }
+
     @Test func processRunnerFallbackDirsExpandHome() {
         let dirs = ProcessRunner.fallbackDirectories(home: "/Users/prueba")
         #expect(dirs.contains("/Users/prueba/anaconda3/bin"))
@@ -722,7 +749,8 @@ private func executor(
     @Test func emptyTrashRecordsAsFreed() async throws {
         let store = makeStore()
         let probes = FakeProbes(trash: 4_096)
-        let outcome = await executor(probes: probes, store: store, home: makeTempDir()).emptyTrash()
+        let outcome = await executor(probes: probes, store: store, home: makeTempDir(),
+                                     freeSpace: FakeFreeSpace([10_000, 14_096])).emptyTrash()
         guard case .freed(let bytes) = outcome else { Issue.record("esperaba .freed, hubo \(outcome)"); return }
         #expect(bytes == 4_096)
         #expect(probes.emptyCount == 1)
@@ -730,6 +758,39 @@ private func executor(
         #expect(history.count == 1)
         #expect(history.first?.wentToTrash == false)
         #expect(try store.totalFreed() == 4_096)
+    }
+
+    // Lo anotado al vaciar es la subida medida del espacio libre (como la celebración), no lo que
+    // ocupaba la Papelera: con instantáneas locales, macOS retiene parte.
+    @Test func emptyTrashRecordsMeasuredFreeSpaceRise() async throws {
+        let store = makeStore()
+        let probes = FakeProbes(trash: 10_000)
+        // Antes 1 000; después 2 000 y, tras esperar, 3 000 (se queda ahí).
+        let outcome = await executor(probes: probes, store: store, home: makeTempDir(),
+                                     freeSpace: FakeFreeSpace([1_000, 2_000, 3_000])).emptyTrash()
+        guard case .freed(let bytes) = outcome else { Issue.record("esperaba .freed, hubo \(outcome)"); return }
+        #expect(bytes == 2_000)
+        #expect(try store.totalFreed() == 2_000)
+        #expect(try store.history().first?.title == "Vaciar Papelera")
+    }
+
+    @Test func wouldRefuseTrashMatchesExecutorRules() async throws {
+        let home = makeTempDir()
+        writeFile(home + "/.cache/uv/blob")
+        writeFile(home + "/Library/Caches/otra/x")
+        writeFile(home + "/Documents/informe.txt")
+        let exec = executor(store: makeStore(), home: home)
+        // Caché con comando oficial: solo con su comando.
+        #expect(exec.wouldRefuseTrash(path: home + "/.cache/uv"))
+        #expect(exec.wouldRefuseTrash(path: home + "/.cache/uv/blob"))
+        // Carpetas protegidas hacia arriba y rutas que no existen.
+        #expect(exec.wouldRefuseTrash(path: home + "/Library"))
+        #expect(exec.wouldRefuseTrash(path: home + "/Documents"))
+        #expect(exec.wouldRefuseTrash(path: home + "/no-existe"))
+        #expect(exec.wouldRefuseTrash(path: "/System/Library"))
+        // Lo demás sí puede ir a la Papelera (con confirmación).
+        #expect(!exec.wouldRefuseTrash(path: home + "/Library/Caches/otra"))
+        #expect(!exec.wouldRefuseTrash(path: home + "/Documents/informe.txt"))
     }
 }
 
@@ -838,6 +899,23 @@ private func executor(
                 CommandOutput(status: 0, stdout: "Snapshots for disk /:\ncom.apple.TimeMachine.2026-10-20-101010.local\n", stderr: "")])
         let items = await scanner([tm, sim], home: makeTempDir(), runner: runner).findItems(scan: nil)
         #expect(items.isEmpty)
+    }
+
+    // Antes no tenía carpeta que medir y no aparecía nunca.
+    @Test func simulatorsAppearWhenDevicesFolderExists() async throws {
+        let catalog = try Catalog.bundled()
+        let sim = try #require(catalog.entry(id: "xcode-simulators"))
+        let home = makeTempDir()
+        writeFile(home + "/Library/Developer/CoreSimulator/Devices/ABCD/data.img", bytes: 40_000)
+        let runner = FakeRunner(resolved: ["xcrun": "/usr/bin/xcrun"])
+        let items = await scanner([sim], home: home, runner: runner).findItems(scan: nil)
+        let found = try #require(items.first)
+        #expect(found.paths == [home + "/Library/Developer/CoreSimulator/Devices"])
+        #expect(found.bytes >= 40_000)
+        #expect(CleanupBoard.isPartial(found))
+        #expect(CleanupBoard.sizeText(found).hasPrefix("hasta "))
+        // Solo se mide: nunca se ejecuta el comando al detectar.
+        #expect(runner.calls.isEmpty)
     }
 
     @Test func openAppsAreReportedAndRiskUsesPolicy() async throws {
@@ -989,5 +1067,77 @@ private func executor(
         #expect(size >= 100_000)
         #expect(size < 1_000_000)
         #expect(AllocatedSize.of(dir + "/no-existe") == nil)
+    }
+}
+
+// MARK: - Árbol al día tras una limpieza
+
+@Suite struct ScanTreeRefreshTests {
+    /// Árbol `home → .cache → uv (con dos hijos)` con tamaños de antes de limpiar.
+    private func staleTree(home: String, uvBytes: Int64) -> (root: FileNode, uv: FileNode) {
+        let cachesIndex = ContentKind.allCases.firstIndex(of: .caches)!
+        func kb(_ bytes: Int64) -> [Int64] {
+            var v = Array(repeating: Int64(0), count: ContentKind.allCases.count); v[cachesIndex] = bytes; return v
+        }
+        let a = FileNode(name: "a", isDirectory: false, allocatedSize: uvBytes / 2, kind: .caches, kindBytes: kb(uvBytes / 2))
+        let b = FileNode(name: "b", isDirectory: false, allocatedSize: uvBytes / 2, kind: .caches, kindBytes: kb(uvBytes / 2))
+        let uv = FileNode(name: "uv", isDirectory: true, allocatedSize: uvBytes, kind: .caches, kindBytes: kb(uvBytes),
+                          children: [a, b], descendantCount: 2)
+        let other = FileNode(name: "otro.txt", isDirectory: false, allocatedSize: 1_000, kind: .documents,
+                             kindBytes: { var v = kb(0); v[ContentKind.allCases.firstIndex(of: .documents)!] = 1_000; return v }())
+        let cache = FileNode(name: ".cache", isDirectory: true, allocatedSize: uvBytes, kind: .caches, kindBytes: kb(uvBytes),
+                             children: [uv], descendantCount: 3)
+        var rootKinds = kb(uvBytes); rootKinds[ContentKind.allCases.firstIndex(of: .documents)!] = 1_000
+        let root = FileNode(name: home, isDirectory: true, allocatedSize: uvBytes + 1_000, kindBytes: rootKinds,
+                            children: [cache, other], descendantCount: 5)
+        return (root, uv)
+    }
+
+    // Hallazgo: tras `uv cache clean` la carpeta sigue existiendo y la detección cogía el tamaño
+    // del árbol (el de antes): volvía a salir con su tamaño viejo.
+    @Test func commandItemWhoseFolderStillExistsDoesNotComeBackAtOldSize() async throws {
+        let home = makeTempDir()
+        writeFile(home + "/.cache/uv/queda.bin", bytes: 8_192)
+        let stale: Int64 = 5_000_000_000
+        let (root, uv) = staleTree(home: home, uvBytes: stale)
+        let runner = FakeRunner(resolved: ["uv": "/opt/homebrew/bin/uv"])
+        let before = await scanner([uvEntry], home: home, runner: runner).findItems(scan: root)
+        #expect(before.first?.bytes == stale)
+
+        let measured = ScanTreeRefresh.measure([home + "/.cache/uv"])
+        let now = try #require(measured.first?.bytes)
+        #expect(now > 0 && now < 1_000_000)
+        #expect(ScanTreeRefresh.apply(measured, to: root))
+
+        #expect(uv.allocatedSize == now)
+        #expect(uv.children.isEmpty)
+        #expect(root.allocatedSize == now + 1_000)
+        #expect(root.descendantCount == 3)
+        #expect(root.kindBytes[ContentKind.allCases.firstIndex(of: .caches)!] == now)
+        let after = await scanner([uvEntry], home: home, runner: runner).findItems(scan: root)
+        #expect(after.first?.bytes == now)
+    }
+
+    @Test func goneFolderIsRemovedFromTree() async throws {
+        let home = makeTempDir()
+        let (root, _) = staleTree(home: home, uvBytes: 4_000)
+        let measured = ScanTreeRefresh.measure([home + "/.cache/uv"])
+        #expect(measured == [ScanTreeRefresh.Measurement(path: home + "/.cache/uv", bytes: nil)])
+        #expect(ScanTreeRefresh.apply(measured, to: root))
+        #expect(CleanupScanner.node(at: home + "/.cache/uv", in: root) == nil)
+        #expect(root.allocatedSize == 1_000)
+        #expect(root.descendantCount == 2)
+        let items = await scanner([uvEntry], home: home, runner: FakeRunner(resolved: ["uv": "/x/uv"])).findItems(scan: root)
+        #expect(items.isEmpty)
+    }
+
+    @Test func unchangedOrUnknownPathsLeaveTreeAlone() {
+        let home = "/Users/nadie"
+        let (root, uv) = staleTree(home: home, uvBytes: 4_000)
+        #expect(!ScanTreeRefresh.apply([.init(path: home + "/.cache/uv", bytes: 4_000)], to: root))
+        #expect(uv.children.count == 2)
+        #expect(!ScanTreeRefresh.apply([.init(path: "/fuera/del/arbol", bytes: nil)], to: root))
+        #expect(!ScanTreeRefresh.apply([.init(path: home, bytes: nil)], to: root))
+        #expect(root.allocatedSize == 5_000)
     }
 }

@@ -174,7 +174,8 @@ private struct HeroCard: View {
                 .shadow(color: Color(hex: 0x30D158).opacity(0.35), radius: 12, y: 5)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Puedes liberar")
+                    // Con limpiezas parciales en la suma (p. ej. `pnpm store prune`) es solo un máximo.
+                    Text(board.safeBytesIsUpperBound && !isDetecting ? "Puedes liberar hasta" : "Puedes liberar")
                         .font(.callout.weight(.medium))
                         .foregroundStyle(.secondary)
                     if isDetecting {
@@ -276,12 +277,12 @@ private struct SelectionBar: View {
     var onClear: () -> Void
 
     var body: some View {
-        let bytes = items.reduce(Int64(0)) { $0 + $1.bytes }
+        let (bytes, upperBound) = CleanupBoard.total(items)
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(items.count == 1 ? "1 seleccionado" : "\(Theme.count(items.count)) seleccionados")
                     .font(.callout.weight(.semibold))
-                Text(Format.bytes(bytes))
+                Text(CleanupBoard.amountText(bytes, upperBound: upperBound))
                     .font(.caption)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -372,7 +373,7 @@ private struct ResultBanner: View {
 /// - `cleansafe` / `clean:<id>`: abren la confirmación (no ejecutan nada).
 /// - `scrollto:<id>`: desplaza la lista hasta esa fila.
 /// - `cleantest`: abre la confirmación de `user-logs` reducida a `~/Library/Logs/DiskMapPrueba`.
-/// - `confirm`: pulsa "Limpiar" en la hoja abierta, solo si todo es `.trash` dentro de esa carpeta.
+/// Ningún paso confirma nada: las hojas se abren para verlas y se cierran con `cancel`.
 /// - `emptytrash`: abre la confirmación de vaciar la Papelera (nunca la confirma).
 /// - `snapshots:<n>:<bytes>`: muestra el aviso de instantáneas con datos de ejemplo.
 /// - `celebrate:<bytes>`: muestra la celebración.
@@ -420,18 +421,6 @@ enum CleanupDebugScript {
                 return copy.paths.isEmpty ? nil : copy
             }
             flow.requestClean(narrowed)
-        case "confirm":
-            // Como un clic en "Limpiar", y solo si todo va a la Papelera y está dentro de la carpeta de prueba.
-            guard case .confirm(let request)? = flow.sheet, case .items(let items) = request.kind,
-                  !items.isEmpty, items.allSatisfy({ item in
-                      let method = model.catalog?.entry(id: item.entry.id)?.cleanup ?? item.entry.cleanup
-                      guard case .trash = method else { return false }
-                      return !item.paths.isEmpty && item.paths.allSatisfy(isTestPath)
-                  }) else {
-                FileHandle.standardError.write(Data("[cleanup-script] confirm rechazado: solo .trash en DiskMapPrueba\n".utf8))
-                return
-            }
-            flow.confirm(request, model: model)
         case "emptytrash": flow.requestEmptyTrash(model)
         case "snapshots":
             let values = (argument ?? "").split(separator: ":").compactMap { Int64($0) }

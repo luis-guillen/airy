@@ -46,8 +46,11 @@ has_identity() {
 
 create_identity() {
     echo "▸ Creando la identidad de firma \"$IDENTITY\" en el llavero de inicio de sesión…"
-    local tmp pass status=0
-    tmp="$(mktemp -d)"
+    local pass status=0
+    # Global (no `local`) para que el `trap` lo vea; se borra pase lo que pase (también con Ctrl-C).
+    KEY_TMP="$(mktemp -d)"
+    trap 'rm -rf "$KEY_TMP"' EXIT INT TERM
+    local tmp="$KEY_TMP"
     pass="$(/usr/bin/openssl rand -hex 16)"
     # LibreSSL del sistema: su PKCS#12 lo entiende `security import` (el de OpenSSL 3+ no, sin -legacy).
     /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
@@ -66,6 +69,7 @@ create_identity() {
     # codesign firma con una identidad no fiable y TCC se basa en el requisito designado
     # (hash del certificado hoja), no en la cadena de confianza.
     rm -rf "$tmp"
+    trap - EXIT INT TERM
     return $status
 }
 
@@ -99,7 +103,14 @@ if [ "$INSTALL" = 1 ]; then
             [sS]|[sS][iíIÍ]) ;;
             *) echo "Instalación cancelada."; exit 0 ;;
         esac
-        pkill -f "$DEST/Contents/MacOS/$APP_NAME" 2>/dev/null || true
+        # Nunca se cierra la app sin preguntar: podría estar limpiando algo.
+        if pgrep -f "$DEST/Contents/MacOS/$APP_NAME" >/dev/null 2>&1; then
+            read -r -p "$APP_NAME está abierta. ¿Cerrarla para instalar la nueva? [s/N] " quit_answer
+            case "$quit_answer" in
+                [sS]|[sS][iíIÍ]) pkill -f "$DEST/Contents/MacOS/$APP_NAME" 2>/dev/null || true; sleep 1 ;;
+                *) echo "Instalación cancelada: cierra $APP_NAME y vuelve a ejecutar el script." >&2; exit 1 ;;
+            esac
+        fi
         rm -rf "$DEST"
     fi
     cp -R "$APP" "$DEST"

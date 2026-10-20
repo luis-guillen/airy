@@ -35,7 +35,7 @@ struct CleanupRow: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 8)
-                    Text(Format.bytes(item.bytes))
+                    Text(CleanupBoard.sizeText(item))
                         .font(.system(.title3, design: .rounded, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(item.risk == .doNotTouch ? .secondary : .primary)
