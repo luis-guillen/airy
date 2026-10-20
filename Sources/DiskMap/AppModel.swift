@@ -148,8 +148,11 @@ final class AppModel {
     private var observers: [NSObjectProtocol] = []
     /// Turno de acceso al árbol vivo: lectores en segundo plano frente a cambios (Papelera).
     let treeGate = TreeGate()
-    /// Almacén del índice que se está mostrando (para volver a guardarlo tras un cambio).
+    /// Almacén del índice que se está mostrando (para volver a guardarlo tras un cambio) y su clave.
     private var shownStore: IndexStore?
+    private var shownStoreKey = "/"
+    private let saveSequencer = SaveSequencer()
+    private var lastSave: [String: Task<SaveResult, Never>] = [:]
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -281,22 +284,36 @@ final class AppModel {
             self.progress = nil
             self.refreshSystemState()
             self.refreshCleanup()
-            await self.saveIndex(result, to: store)
+            await self.saveIndex(result, to: store, key: volume.url.path)
         }
     }
 
     /// Guarda el índice fuera del hilo principal. Recorre el árbol vivo, así que entra como
     /// lector de `treeGate` (no cancelable: un cambio espera a que termine de escribir).
-    private func saveIndex(_ result: ScanResult, to store: IndexStore) async {
-        let saveError = await treeGate.read(cancellable: false) { () -> String? in
-            do { try store.saveScan(result); return nil } catch { return error.localizedDescription }
-        }.value
-        if let saveError {
+    /// Los guardados de un mismo índice van de uno en uno (cada uno espera al anterior) y, justo
+    /// antes de escribir, uno que ya no es el último pedido se salta: nunca queda en disco el
+    /// árbol más antiguo.
+    private func saveIndex(_ result: ScanResult, to store: IndexStore, key: String) async {
+        let sequencer = saveSequencer
+        let ticket = sequencer.begin(key)
+        let previous = lastSave[key]
+        let job = treeGate.read(cancellable: false) { () -> SaveResult in
+            _ = await previous?.value
+            guard sequencer.isLatest(ticket, for: key) else { return .skipped }
+            do { try store.saveScan(result); return .saved } catch { return .failed(error.localizedDescription) }
+        }
+        lastSave[key] = job
+        let outcome = await job.value
+        if lastSave[key] == job { lastSave[key] = nil }
+        switch outcome {
+        case .skipped: return
+        case .saved: dismiss(.save)
+        case .failed(let saveError):
             report(.save, "No se pudo guardar el análisis (\(saveError)). Se ve bien ahora, pero al volver a abrir DiskMap habrá que analizar de nuevo.")
-        } else {
-            dismiss(.save)
         }
     }
+
+    private enum SaveResult: Sendable { case saved, skipped, failed(String) }
 
     func cancelScan() {
         scanTask?.cancel()
@@ -311,6 +328,7 @@ final class AppModel {
         let sameRoot = navigation.root?.name == result.root.name && navigation.rootTitle == volume.name
         scan = result
         shownStore = store(for: volume)
+        shownStoreKey = volume.url.path
         lastScanDate = date
         navigation = sameRoot ? navigation.restoring(in: result.root)
                               : MapNavigation(root: result.root, rootTitle: volume.name)
@@ -344,8 +362,9 @@ final class AppModel {
             }
             // La tarea suelta no hereda la cancelación: se le pasa a mano.
             let items = await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
-            // Solo publica la última detección; las anteriores se descartan.
-            guard let self, generation == self.cleanupGeneration else { return }
+            // Solo publica la última detección completa: una cancelada (resultado parcial: p. ej.
+            // sin comprobar referencias) o ya sustituida no se publica nunca.
+            guard let self, !Task.isCancelled, !job.isCancelled, generation == self.cleanupGeneration else { return }
             self.cleanupItems = items
             self.isRefreshingCleanup = false
         }
@@ -378,13 +397,19 @@ final class AppModel {
             return lstat(path, &info) != 0 ? node(atPath: path) : nil
         }
         if !gone.isEmpty, let scan {
+            // La detección en curso queda invalidada (no publicará nada) y se repite al final.
             cleanupTask?.cancel()
+            cleanupGeneration += 1
+            isRefreshingCleanup = true
             await treeGate.mutate { [weak self] in
                 for node in gone { node.removeFromParent() }
                 self?.treeRevision += 1
             }
+            // El índice se vuelve a guardar sin esperar (por el turno del árbol): el resultado
+            // de la Papelera vuelve enseguida aunque guardar todo el árbol tarde unos segundos.
             if let shownStore, self.scan?.root === scan.root {
-                await saveIndex(scan, to: shownStore)
+                let key = shownStoreKey
+                Task { [weak self] in await self?.saveIndex(scan, to: shownStore, key: key) }
             }
         }
         await refreshCounters()

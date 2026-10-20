@@ -76,3 +76,40 @@ struct TreeGateTests {
         #expect(value == 42)
     }
 }
+
+struct SaveSequencerTests {
+    @Test func onlyTheLatestTicketPerKeyWrites() {
+        let sequencer = SaveSequencer()
+        let first = sequencer.begin("/")
+        let second = sequencer.begin("/")
+        let other = sequencer.begin("/Volumes/X")
+        #expect(!sequencer.isLatest(first, for: "/"))
+        #expect(sequencer.isLatest(second, for: "/"))
+        #expect(sequencer.isLatest(other, for: "/Volumes/X"))
+    }
+
+    /// Dos guardados encadenados: el antiguo, al llegarle el turno, se salta y gana el nuevo.
+    @Test func chainedSavesKeepTheNewestTreeOnDisk() async {
+        let sequencer = SaveSequencer()
+        let log = Log2()
+        let old = sequencer.begin("k")
+        let a = Task.detached {
+            try? await Task.sleep(for: .milliseconds(60))
+            if sequencer.isLatest(old, for: "k") { log.add("viejo") }
+        }
+        let new = sequencer.begin("k")
+        let b = Task.detached {
+            await a.value
+            if sequencer.isLatest(new, for: "k") { log.add("nuevo") }
+        }
+        await b.value
+        #expect(log.all == ["nuevo"])
+    }
+}
+
+private final class Log2: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [String] = []
+    func add(_ s: String) { lock.lock(); items.append(s); lock.unlock() }
+    var all: [String] { lock.lock(); defer { lock.unlock() }; return items }
+}

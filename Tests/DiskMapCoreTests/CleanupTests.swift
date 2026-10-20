@@ -576,6 +576,29 @@ private func executor(
         #expect(exists(folder + "/w"))
     }
 
+    // Defensa en profundidad: también las fichas con comando oficial y `referenceCheck` vuelven a
+    // comprobar referencias al ejecutar (un `usedBy` vacío puede venir de una detección cancelada).
+    @Test func referencesAreRecheckedBeforeRunningACommand() async throws {
+        let home = makeTempDir()
+        let folder = home + "/.cache/toolcache"
+        writeFile(folder + "/w")
+        writeFile(home + "/Projects/app/config.toml", text: "cache = \"toolcache\"")
+        let tool = entry("toolcache", risk: .yourCall, paths: ["~/.cache/toolcache"],
+                         cleanup: .command(executable: "tool", arguments: ["cache", "clean"], sizeProbe: nil),
+                         referenceCheck: "{name}")
+        let runner = FakeRunner(resolved: ["tool": "/opt/homebrew/bin/tool"])
+        let used = executor(runner: runner, store: makeStore(), home: home, entries: [tool], roots: [home + "/Projects"])
+        let outcome = await used.execute(item(tool, paths: [folder], usedBy: []))
+        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        #expect(reason.contains("Lo usa"))
+        #expect(runner.calls.isEmpty)
+
+        // Sin referencias, el comando sí se ejecuta.
+        let free = executor(runner: runner, store: makeStore(), home: home, entries: [tool], roots: [home + "/Vacío"])
+        _ = await free.execute(item(tool, paths: [folder], usedBy: []))
+        #expect(runner.calls.count == 1)
+    }
+
     // I5: revalidación de cada ruta justo antes de moverla.
     @Test func eachPathIsRevalidatedRightBeforeMoving() async throws {
         let home = makeTempDir()

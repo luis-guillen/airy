@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Turno de acceso al árbol analizado (`FileNode` es `@unchecked Sendable`: el compilador no ve
 /// las carreras). Todo lector que recorra el árbol en segundo plano (guardar el índice, detectar
@@ -45,6 +46,8 @@ public final class TreeGate {
     }
 
     /// Cambia el árbol cuando ningún lector lo está recorriendo. `body` corre en el hilo principal.
+    /// Ojo: `body` va en una tarea no estructurada; cancelar a quien llama no lo detiene (una vez
+    /// pedido el cambio, se hace en cuanto terminen los lectores).
     public func mutate(_ body: @escaping @MainActor () -> Void) async {
         let previous = mutation
         let current = readers
@@ -58,5 +61,27 @@ public final class TreeGate {
         await task.value
         for id in current.keys { readers[id] = nil }
         if mutation == task { mutation = nil }
+    }
+}
+
+/// Turnos de guardado por clave (p. ej. un volumen): cada guardado pide un turno y, justo antes
+/// de escribir, comprueba que sigue siendo el último pedido para esa clave. Así, si dos guardados
+/// del mismo índice se encadenan, nunca queda en disco el árbol más antiguo.
+public final class SaveSequencer: Sendable {
+    private let tickets = Mutex<[String: Int]>([:])
+
+    public init() {}
+
+    /// Pide turno para `key`; invalida los anteriores de esa misma clave.
+    public func begin(_ key: String) -> Int {
+        tickets.withLock { state in
+            let next = (state[key] ?? 0) + 1
+            state[key] = next
+            return next
+        }
+    }
+
+    public func isLatest(_ ticket: Int, for key: String) -> Bool {
+        tickets.withLock { $0[key] == ticket }
     }
 }

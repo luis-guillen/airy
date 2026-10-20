@@ -375,6 +375,19 @@ final class MapScene {
         let gen = generation
         requestLayout(for: node, generation: gen) { [weak self] layout in
             guard let self else { return }
+            // Este layout es del nivel mostrado: ya no se espera nada (el cambio de nivel que
+            // lo pedía pudo quedar anulado al subir `generation`).
+            if layout.nodeID == self.displayed?.id { self.awaitingLayout = false }
+            // Un zoom hacia dentro que aún esperaba a sus hijos los recibe aquí y sigue.
+            if var running = self.transition, running.kind == .zoomIn, running.to == nil,
+               layout.nodeID == self.displayed?.id {
+                running.to = layout
+                running.toStart = max(CACurrentMediaTime(), running.start + 0.12)
+                self.transition = running
+                self.layout = layout
+                self.keepAnimating(transitionEnd: running.end)
+                return
+            }
             // Una animación en curso sigue, ya con el layout del tamaño nuevo.
             if var running = self.transition, CACurrentMediaTime() < running.end,
                running.to?.nodeID == layout.nodeID {
