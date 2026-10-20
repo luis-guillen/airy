@@ -102,9 +102,9 @@ import Testing
     @Test func groupsByRiskInFixedOrderSortedBySize() {
         let board = CleanupBoard(items: sample)
         #expect(board.groups.map(\.risk) == [.safe, .yourCall, .doNotTouch])
-        #expect(board.groups.map(\.title) == ["Borrar sin riesgo", "Depende de ti", "No tocar"])
+        #expect(board.groups.map(\.title) == ["Sin problema", "Tú decides", "No borrar"])
         #expect(board.groups[0].items.map(\.id) == ["brave", "brew", "logs"])
-        #expect(board.groups[1].items.map(\.id) == ["ollama", "spotify"])
+        #expect(board.groups[1].items.map(\.id) == ["spotify"]) // ollama es de «Solo revisar"
         #expect(board.groups[2].items.map(\.id) == ["docker-volumes", "hf:model"])
         #expect(board.groups[0].bytes == 1250)
     }
@@ -235,6 +235,144 @@ import Testing
         #expect(CleanupBoard.commandLine(snapshot.entry.cleanup) == "tmutil thinlocalsnapshots / 999999999999 4")
         #expect(TrashFollowUp.snapshotItem(catalog: Catalog(entries: []), retainedBytes: 1) == nil)
     }
+    // MARK: Plan 3, tarea 7
+
+    private func review(_ id: String, bytes: Int64, risk: Risk = .yourCall, hint: String? = nil) -> CleanupItem {
+        var e = entry(id, risk: risk, cleanup: .info)
+        e.reviewHint = hint
+        return CleanupItem(id: id, entry: e, paths: ["/Library/Caches/\(id)"], bytes: bytes, risk: risk,
+                           blockedByOpenApps: [], usedBy: [])
+    }
+
+    private func ready(_ id: String, bytes: Int64, risk: Risk, preselected: Bool = false) -> CleanupItem {
+        var i = item(id, bytes: bytes, risk: risk)
+        i.preselected = preselected
+        return i
+    }
+
+    @Test func groupsUseTheThreeLabelsGreenFirst() {
+        #expect(CleanupBoard(items: sample).groups.map(\.title) == ["Sin problema", "Tú decides", "No borrar"])
+    }
+
+    @Test func reviewOnlyItemsLiveInTheirOwnList() {
+        let board = CleanupBoard(items: sample + [review("sys", bytes: 9000, risk: .doNotTouch, hint: "Hazlo tú.")])
+        #expect(board.reviewItems.map(\.id) == ["sys", "ollama"]) // por tamaño
+        #expect(!board.items.contains { $0.id == "ollama" || $0.id == "sys" })
+        // Docker volumes (informativo en rojo, sin consejo) sigue en «No borrar».
+        #expect(board.groups.last?.items.map(\.id).contains("docker-volumes") == true)
+        #expect(board.displayItems.map(\.id).suffix(2) == ["sys", "ollama"])
+        #expect(board.displayItems.count == sample.count + 1)
+        #expect(CleanupBoard.isReviewOnly(review("x", bytes: 1, risk: .doNotTouch, hint: "h")))
+        #expect(!CleanupBoard.isReviewOnly(review("x", bytes: 1, risk: .doNotTouch)))
+    }
+
+    @Test func selectAllNeverIncludesRedOrBlocked() {
+        var protected = item("prot", bytes: 10, risk: .safe)
+        protected.protection = ProtectionMatch(source: .airy, pattern: "x", reason: "y")
+        let board = CleanupBoard(items: sample + [protected, item("amber", bytes: 5, risk: .yourCall)])
+        // brave y spotify esperan a que cierres una app; ollama es de revisión; los rojos y el protegido no.
+        #expect(board.fullSelection == ["logs", "brew", "amber"])
+        #expect(board.greenSelection == ["logs", "brew"])
+    }
+
+    @Test func greenSelectionIsReadySafe() {
+        let board = CleanupBoard(items: sample)
+        #expect(board.greenSelection == Set(board.readySafeItems.map(\.id)))
+    }
+
+    @Test func preselectionAppliesOnlyToNewItems() {
+        let a = ready("a", bytes: 3, risk: .safe, preselected: true)
+        let b = ready("b", bytes: 2, risk: .safe, preselected: true)
+        let first = CleanupBoard(items: [a, b]).nextSelection(current: [], seen: [])
+        #expect(first.selection == ["a", "b"])
+        // El usuario quita «b»; la misma detección no lo vuelve a marcar.
+        let second = CleanupBoard(items: [a, b]).nextSelection(current: ["a"], seen: first.seen)
+        #expect(second.selection == ["a"])
+        // Aparece «c» preseleccionado y «a» desaparece.
+        let c = ready("c", bytes: 1, risk: .safe, preselected: true)
+        let third = CleanupBoard(items: [b, c]).nextSelection(current: second.selection, seen: second.seen)
+        #expect(third.selection == ["c"])
+        #expect(third.seen == ["a", "b", "c"])
+        // Uno bloqueado no cuenta como visto: al desbloquearse se marca.
+        let blocked = item("d", bytes: 1, risk: .safe, blocked: ["com.x"])
+        let step = CleanupBoard(items: [blocked]).nextSelection(current: [], seen: [])
+        #expect(step.selection.isEmpty && !step.seen.contains("d"))
+    }
+
+    @Test func deleteAllTitleSaysUpToWhenPartial() {
+        let plain = item("logs", bytes: 3_000_000_000, risk: .safe)
+        #expect(CleanupBoard.deleteAllTitle([plain]) == "Borrar todo · " + Format.bytes(3_000_000_000))
+        #expect(CleanupBoard.deleteAllTitle([plain, partialItem("p", bytes: 10)])
+            == "Borrar todo · hasta " + Format.bytes(3_000_000_010))
+    }
+
+    @Test func confirmSectionsSplitAmberAndHonourRemoval() {
+        let a = item("A", bytes: 1, risk: .safe), b = item("B", bytes: 1, risk: .yourCall)
+        let c = item("C", bytes: 1, risk: .yourCall), red = item("R", bytes: 1, risk: .doNotTouch)
+        let all = [a, b, c, red]
+        var sections = CleanupBoard.confirmSections(all, excluding: ["C"])
+        #expect(sections.regular.map(\.id) == ["A"] && sections.review.map(\.id) == ["B"])
+        sections = CleanupBoard.confirmSections(all, excluding: ["A", "B", "C"])
+        #expect(sections.regular.isEmpty && sections.review.isEmpty)
+        #expect(CleanupBoard.reviewBlockTitle == "Revisa: esto no se regenera solo o puede tener estado")
+    }
+
+    @Test func whyTextsFollowPriority() {
+        var e = entry("x", risk: .yourCall)
+        e.shortReason = "Motivo de la ficha."
+        let protection = ProtectionMatch(source: .airy, pattern: "p", reason: "Protegida.")
+        #expect(RiskExplanation.why(risk: .doNotTouch, entry: e, protection: protection, reason: "Guardia.", bytes: 1, personal: true) == "Guardia.")
+        #expect(RiskExplanation.why(risk: .doNotTouch, entry: e, protection: protection, reason: nil, bytes: 1, personal: false) == "Protegida.")
+        #expect(RiskExplanation.why(risk: .doNotTouch, entry: e, protection: nil, reason: nil, bytes: 1, personal: false) == "Motivo de la ficha.")
+        #expect(RiskExplanation.why(risk: .doNotTouch, entry: nil, protection: nil, reason: nil, bytes: 1, personal: false)
+            == "Es del sistema o guarda datos que no se recuperan.")
+        #expect(RiskExplanation.why(risk: .yourCall, entry: e, protection: nil, reason: "Guardia.", bytes: 1, personal: true) == "Guardia.")
+        #expect(RiskExplanation.why(risk: .yourCall, entry: e, protection: nil, reason: nil, bytes: 1, personal: true) == "Motivo de la ficha.")
+        e.shortReason = nil
+        #expect(RiskExplanation.why(risk: .yourCall, entry: e, protection: nil, reason: nil, bytes: 1, personal: true)
+            == "Está en tus carpetas personales: solo tú sabes si lo necesitas.")
+        #expect(RiskExplanation.why(risk: .yourCall, entry: e, protection: nil, reason: nil, bytes: 2_000_000_000, personal: false)
+            == "Pierdes lo que hay dentro (\(Format.bytes(2_000_000_000))); no vuelve solo.")
+        #expect(RiskExplanation.why(risk: .yourCall, entry: e, protection: nil, reason: nil, bytes: 0, personal: false)
+            == "Pierdes lo que hay dentro; no vuelve solo.")
+        #expect(RiskExplanation.why(risk: .safe, entry: e, protection: nil, reason: nil, bytes: 0, personal: false)
+            == "Se vuelve a crear sola.")
+        // Personal por ruta: Descargas es una carpeta personal.
+        var downloads = item("d", bytes: 5, risk: .yourCall)
+        downloads.paths = ["/Users/ana/Downloads/x.dmg"]
+        #expect(RiskExplanation.why(downloads, home: "/Users/ana")
+            == "Está en tus carpetas personales: solo tú sabes si lo necesitas.")
+        // Las filas de revisión empiezan por su consejo.
+        #expect(RiskExplanation.why(review("r", bytes: 1, hint: "Bórralo tú.")) == "Bórralo tú.")
+    }
+
+    @Test func lmStudioReasonCarriesTheSize() throws {
+        let lm = try #require(try Catalog.bundled().entry(id: "lmstudio-models"))
+        let i = CleanupItem(id: "lmstudio-models:x", entry: lm, paths: ["/Users/ana/.lmstudio/models/a/b"],
+                            bytes: 4_200_000_000, risk: .yourCall, blockedByOpenApps: [], usedBy: [])
+        #expect(RiskExplanation.why(i, home: "/Users/ana") == "Tendrías que volver a descargar \(Format.bytes(4_200_000_000)).")
+    }
+
+    @Test func summaryListsSuccessesAndProblems() {
+        var summary = CleanupRunSummary()
+        summary.record(id: "a", title: "A", outcome: .freed(2_000_000_000))
+        summary.record(id: "b", title: "B", outcome: .movedToTrash(1_200_000_000))
+        summary.record(id: "c", title: "C", outcome: .blocked(reason: "Cierra X"))
+        summary.record(id: "d", title: "D", outcome: .failed("Fallo"))
+        #expect(summary.successes.map(\.title) == ["A", "B"])
+        #expect(summary.successes.map(\.text) == ["Liberados \(Format.bytes(2_000_000_000))", "\(Format.bytes(1_200_000_000)) a la Papelera"])
+        #expect(summary.problems.map(\.title) == ["C", "D"])
+    }
+
+    @Test func sizeNoteOverridesSize() {
+        var i = item("x", bytes: 5, risk: .safe)
+        i.sizeNote = "No ocupa espacio en disco"
+        #expect(CleanupBoard.sizeText(i) == "No ocupa espacio en disco")
+        var partial = item("y", bytes: 1_000_000_000, risk: .safe)
+        partial.sizeIsPartial = true
+        #expect(CleanupBoard.sizeText(partial) == Format.bytes(1_000_000_000) + "+")
+        #expect(Format.bytes(1_000_000_000, partial: true).hasSuffix("+"))
+    }
 }
 
 @Suite struct CleanupBatchTests {
@@ -329,7 +467,7 @@ import Testing
     }
 
     @Test func yourCallNoteUsesProperPlural() {
-        #expect(CleanupBoard.yourCallNote(count: 1) == "Incluye 1 elemento marcado «Depende de ti»: perderás algo al borrarlo.")
-        #expect(CleanupBoard.yourCallNote(count: 3) == "Incluye 3 elementos marcados «Depende de ti»: perderás algo al borrarlo.")
+        #expect(CleanupBoard.yourCallNote(count: 1) == "Incluye 1 elemento marcado «Tú decides»: perderás algo al borrarlo.")
+        #expect(CleanupBoard.yourCallNote(count: 3) == "Incluye 3 elementos marcados «Tú decides»: perderás algo al borrarlo.")
     }
 }
