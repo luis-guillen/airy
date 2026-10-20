@@ -589,13 +589,20 @@ private let streamFixture = [
     }
 
     @Test func defaultRunnerRejectsStdinAndDirectory() async throws {
-        await #expect(throws: CommandError.self) {
-            _ = try await FakeRunner().run("/bin/cat", [], stdin: "x", workingDirectory: nil, timeout: 1)
+        // Un ejecutor que solo implementa `run` básico (el `FakeRunner` de limpieza ya admite directorio).
+        struct BasicRunner: CommandRunning {
+            func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
+                CommandOutput(status: 0, stdout: "", stderr: "")
+            }
+            func resolve(_ executable: String) async -> String? { nil }
         }
         await #expect(throws: CommandError.self) {
-            _ = try await FakeRunner().run("/bin/cat", [], stdin: nil, workingDirectory: "/tmp", timeout: 1)
+            _ = try await BasicRunner().run("/bin/cat", [], stdin: "x", workingDirectory: nil, timeout: 1)
         }
-        _ = try await FakeRunner().run("/bin/cat", [], stdin: nil, workingDirectory: nil, timeout: 1)
+        await #expect(throws: CommandError.self) {
+            _ = try await BasicRunner().run("/bin/cat", [], stdin: nil, workingDirectory: "/tmp", timeout: 1)
+        }
+        _ = try await BasicRunner().run("/bin/cat", [], stdin: nil, workingDirectory: nil, timeout: 1)
     }
 
     // MARK: Pruebas reales (AIRY_REAL=1)

@@ -10,6 +10,7 @@ final class FakeRunner: CommandRunning, Sendable {
         var executable: String
         var arguments: [String]
         var timeout: TimeInterval
+        var workingDirectory: String? = nil
     }
 
     private let state = Mutex<(calls: [Call], resolveCalls: [String])>(([], []))
@@ -31,6 +32,19 @@ final class FakeRunner: CommandRunning, Sendable {
 
     func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
         let call = Call(executable: executable, arguments: arguments, timeout: timeout)
+        state.withLock { $0.calls.append(call) }
+        onRun?(call)
+        let key = ([executable] + arguments).joined(separator: " ")
+        return outputs[key] ?? CommandOutput(status: 0, stdout: "", stderr: "")
+    }
+
+    func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
+             timeout: TimeInterval) async throws -> CommandOutput {
+        guard stdin == nil else {
+            throw CommandError.launchFailed(executable: executable, message: "FakeRunner no admite stdin")
+        }
+        let call = Call(executable: executable, arguments: arguments, timeout: timeout,
+                        workingDirectory: workingDirectory)
         state.withLock { $0.calls.append(call) }
         onRun?(call)
         let key = ([executable] + arguments).joined(separator: " ")
@@ -139,11 +153,24 @@ private let dockerJSON = """
 {"Active":"0","Reclaimable":"29.89GB","Size":"29.89GB","TotalCount":"120","Type":"Build Cache"}
 """
 
-private let dockerEntry = entry(
-    "docker-build-cache",
-    cleanup: .command(
-        executable: "docker", arguments: ["builder", "prune", "-a", "-f"],
-        sizeProbe: ["system", "df", "--format", "{{json .}}"]))
+private let dockerEntry: CatalogEntry = {
+    var e = entry(
+        "docker-build-cache",
+        cleanup: .command(
+            executable: "docker", arguments: ["builder", "prune", "-a", "-f"],
+            sizeProbe: ["system", "df", "--format", "{{json .}}"]))
+    e.discovery = .docker
+    return e
+}()
+
+/// Docker en marcha (`DockerProbe`): versión, `df` y listados vacíos de contenedores y redes.
+private func dockerRunning(df: CommandOutput = CommandOutput(status: 0, stdout: dockerJSON, stderr: "")) -> FakeRunner {
+    let d = "/usr/local/bin/docker"
+    return FakeRunner(resolved: ["docker": d], outputs: [
+        "\(d) version --format {{.Server.Version}}": CommandOutput(status: 0, stdout: "27.3.1\n", stderr: ""),
+        "\(d) system df --format {{json .}}": df,
+    ])
+}
 
 private func scanner(
     _ entries: [CatalogEntry], home: String, runner: FakeRunner = FakeRunner(),
@@ -249,16 +276,15 @@ private func executor(
         #expect(exists(folder))
     }
 
+    // Tarea 2 del plan 3: la sonda es de `DockerProbe` (versión primero, luego `df`) y la ficha es discovery docker.
     @Test func dockerProbeParsesReclaimable() async throws {
-        let runner = FakeRunner(
-            resolved: ["docker": "/usr/local/bin/docker"],
-            outputs: ["/usr/local/bin/docker system df --format {{json .}}":
-                CommandOutput(status: 0, stdout: dockerJSON, stderr: "")])
+        let runner = dockerRunning()
         let items = await scanner([dockerEntry], home: makeTempDir(), runner: runner).findItems(scan: nil)
         #expect(items.count == 1)
         #expect(items.first?.bytes == 29_890_000_000)
         #expect(items.first?.paths == [])
-        #expect(runner.calls.first?.arguments == ["system", "df", "--format", "{{json .}}"])
+        #expect(runner.calls.prefix(2).map(\.arguments)
+            == [["version", "--format", "{{.Server.Version}}"], ["system", "df", "--format", "{{json .}}"]])
     }
 
     @Test func dockerSizeParser() {
@@ -862,40 +888,37 @@ private func executor(
         #expect(runner.calls.isEmpty) // detectar nunca ejecuta la limpieza
     }
 
+    // Tarea 2 del plan 3: las imágenes pasan a ser un comando (`image prune -a -f`) medido por `Reclaimable`;
+    // los volúmenes siguen siendo solo informativos y nunca se ejecutan.
     @Test func dockerImagesAndVolumesAppearAsInfo() async throws {
         let catalog = try Catalog.bundled()
         let ids = ["docker-build-cache", "docker-images", "docker-volumes"]
         let entries = try ids.map { try #require(catalog.entry(id: $0)) }
-        let runner = FakeRunner(
-            resolved: ["docker": "/usr/local/bin/docker"],
-            outputs: ["/usr/local/bin/docker system df --format {{json .}}":
-                CommandOutput(status: 0, stdout: dockerJSON, stderr: "")])
+        let runner = dockerRunning()
         let items = await scanner(entries, home: makeTempDir(), runner: runner).findItems(scan: nil)
         let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         #expect(byID["docker-build-cache"]?.bytes == 29_890_000_000)
-        #expect(byID["docker-images"]?.bytes == 3_000_000_000)
-        #expect(byID["docker-images"]?.risk == .yourCall)
+        #expect(byID["docker-images"]?.bytes == 1_200_000_000)
+        #expect(byID["docker-images"]?.entry.cleanup
+            == .command(executable: "docker", arguments: ["image", "prune", "-a", "-f"], sizeProbe: nil))
         #expect(byID["docker-volumes"]?.bytes == 1_000_000_000)
         #expect(byID["docker-volumes"]?.risk == .doNotTouch)
-        #expect(runner.calls.count == 1)
+        let probes = runner.calls.count
 
         let volumes = try #require(byID["docker-volumes"])
         let exec = CleanupExecutor(
             runner: runner, probes: FakeProbes(), store: makeStore(), catalog: catalog,
             references: ReferenceChecker(roots: []), home: makeTempDir(), settings: { .missing })
         guard case .blocked = await exec.execute(volumes) else { Issue.record("volúmenes no bloqueados"); return }
-        guard case .blocked = await exec.execute(try #require(byID["docker-images"])) else {
-            Issue.record("imágenes no bloqueadas"); return
-        }
-        #expect(runner.calls.count == 1)
+        #expect(runner.calls.count == probes)
     }
 
+    // Tarea 2 del plan 3: con el demonio caído la ficha de comando sale bloqueada (sin tamaño), no se omite.
     @Test func dockerOmittedWhenDaemonDown() async throws {
-        let runner = FakeRunner(
-            resolved: ["docker": "/usr/local/bin/docker"],
-            outputs: ["/usr/local/bin/docker system df --format {{json .}}":
-                CommandOutput(status: 1, stdout: "", stderr: "Cannot connect to the Docker daemon")])
-        #expect(await scanner([dockerEntry], home: makeTempDir(), runner: runner).findItems(scan: nil).isEmpty)
+        let runner = dockerRunning(df: CommandOutput(status: 1, stdout: "", stderr: "Cannot connect to the Docker daemon"))
+        let down = await scanner([dockerEntry], home: makeTempDir(), runner: runner).findItems(scan: nil)
+        #expect(down.map(\.blockedReason) == [DockerProbe.unavailableMessage])
+        #expect(down.first?.bytes == 0)
         let noDocker = FakeRunner(resolved: [:])
         #expect(await scanner([dockerEntry], home: makeTempDir(), runner: noDocker).findItems(scan: nil).isEmpty)
         #expect(noDocker.calls.isEmpty)
@@ -943,8 +966,10 @@ private func executor(
 
     @Test func bundledCatalogOnEmptyHomeFindsNothingAndRunsNoCleanup() async throws {
         let runner = FakeRunner(resolved: [:])
+        // Las fichas «Solo revisar» con rutas absolutas (`/Library`…) miran el Mac real, no la carpeta personal.
+        let homeOnly = Catalog(entries: try Catalog.bundled().entries.filter { $0.paths.allSatisfy { !$0.hasPrefix("/") } })
         let items = await CleanupScanner(
-            catalog: try Catalog.bundled(), runner: runner, probes: FakeProbes(),
+            catalog: homeOnly, runner: runner, probes: FakeProbes(),
             references: ReferenceChecker(roots: []), home: makeTempDir()
         ).findItems(scan: nil)
         #expect(items.isEmpty)

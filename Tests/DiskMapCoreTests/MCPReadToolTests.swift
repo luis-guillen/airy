@@ -100,6 +100,24 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         #expect(GetDiskSummaryTool().description.contains("proceso del agente"))
     }
 
+    @Test func listLargestAndSummaryReportPartial() async throws {
+        let f = try fixture()
+        let root = dir("/Users/x", 300, children: [
+            dir("Library", 200, children: [dir("Mail", 100)]), dir("Documents", 100),
+        ])
+        try f.saveScan(root, inaccessible: ["/Users/x/Library/Mail/Sub"])
+        let summary = await f.call(GetDiskSummaryTool())
+        #expect(summary.structured?["scan_status"]?.stringValue == "partial")
+        let largest = await f.call(ListLargestTool(), ["path": .string("/Users/x")])
+        guard case .array(let rows)? = largest.structured?["children"] else { Issue.record("children"); return }
+        let byName = Dictionary(uniqueKeysWithValues: rows.map { ($0["name"]!.stringValue!, $0) })
+        #expect(byName["Library"]?["size_partial"]?.boolValue == true)
+        #expect(byName["Documents"]?["size_partial"]?.boolValue == false)
+        let clean = try fixture()
+        try clean.saveScan(dir("/Users/x", 10, children: [file("a", 10)]))
+        #expect(await clean.call(GetDiskSummaryTool()).structured?["scan_status"]?.stringValue == "complete")
+    }
+
     @Test func summaryScanCompleteWhenNothingInaccessible() async throws {
         let f = try fixture()
         try f.saveScan(dir("/Users/x", 10, children: [file("a", 10)]))
@@ -237,7 +255,7 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
 
     @Test func listCleanupItemsOrderedLikeBoard() async throws {
         let f = try cleanupFixture()
-        let expected = CleanupBoard(items: await f.env.makeScanner()!.findItems(scan: nil)).items.map(\.id)
+        let expected = CleanupBoard(items: await f.env.makeScanner()!.findItems(scan: nil)).displayItems.map(\.id)
         let result = await f.call(ListCleanupItemsTool())
         guard case .array(let items)? = result.structured?["items"] else { Issue.record("items"); return }
         #expect(items.compactMap { $0["id"]?.stringValue } == expected)
@@ -249,6 +267,44 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         #expect(first["risk"]?.stringValue == "safe")
         #expect(first["title"]?.stringValue != nil)
         #expect(first["size_text"]?.stringValue != nil)
+    }
+
+    @Test func listCleanupItemsExplainsEachItem() async throws {
+        let f = try cleanupFixture()
+        let result = await f.call(ListCleanupItemsTool())
+        guard case .array(let items)? = result.structured?["items"] else { Issue.record("items"); return }
+        let byId = Dictionary(uniqueKeysWithValues: items.map { ($0["id"]!.stringValue!, $0) })
+        let beta = try #require(byId["beta"])
+        #expect(beta["verdict"]?.stringValue == "Tú decides")
+        #expect(beta["review_only"]?.boolValue == false)
+        #expect(beta["why"]?.stringValue?.hasPrefix("Pierdes lo que hay dentro") == true)
+        #expect(byId["alpha"]?["verdict"]?.stringValue == "Sin problema")
+        #expect(byId["alpha"]?["why"]?.stringValue == "Se vuelve a crear sola.")
+        #expect(beta["details"] == .array([]) && beta["size_note"] == .null && beta["short_reason"] == .null)
+    }
+
+    @Test func listCleanupItemsMarksReviewOnlyAndExplainsRealEntries() async throws {
+        var info = entry("revisar", risk: .yourCall, paths: ["~/Library/Caches/revisar"])
+        info.cleanup = .info
+        info.reviewHint = "Bórralo tú desde la app."
+        var images = entry("imagenes", risk: .yourCall, paths: ["~/Library/Caches/imagenes"])
+        images.shortReason = "Borra todas las imágenes sin usar; hay que volver a descargarlas."
+        let f = try fixture(entries: [info, images, entry("alpha", risk: .safe, paths: ["~/Library/Caches/alpha"])])
+        for name in ["revisar", "imagenes", "alpha"] {
+            let folder = f.home + "/Library/Caches/" + name
+            try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+            try Data(repeating: 65, count: 5000).write(to: URL(fileURLWithPath: folder + "/d"))
+        }
+        let result = await f.call(ListCleanupItemsTool())
+        guard case .array(let items)? = result.structured?["items"] else { Issue.record("items"); return }
+        let ids = items.compactMap { $0["id"]?.stringValue }
+        #expect(ids.last == "revisar") // «Solo revisar» al final
+        let byId = Dictionary(uniqueKeysWithValues: items.map { ($0["id"]!.stringValue!, $0) })
+        #expect(byId["revisar"]?["review_only"]?.boolValue == true)
+        #expect(byId["revisar"]?["actionable_by_agent"]?.boolValue == false)
+        #expect(byId["revisar"]?["why"]?.stringValue == "Bórralo tú desde la app.")
+        #expect(byId["imagenes"]?["short_reason"]?.stringValue == images.shortReason)
+        #expect(byId["imagenes"]?["why"]?.stringValue == images.shortReason)
     }
 
     @Test func yourCallIsNotActionableByAgent() async throws {

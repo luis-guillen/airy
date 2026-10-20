@@ -70,7 +70,11 @@ public struct CleanupExecutor: Sendable {
     private let log: OperationLog?
     private let processGuard: ProcessGuard
     private let protections: HardProtections
-    /// Solo para pruebas: se llama con cada ruta entre el plan y su movimiento.
+    /// Para que las fuentes de objetivos revaliden (versiones en uso) y su reloj.
+    private let processListing: any ProcessListing
+    private let now: @Sendable () -> Date
+    /// Solo para pruebas: se llama con cada ruta entre el plan y su movimiento (y con cada objetivo de
+    /// `{target}` antes de su ejecución).
     private let beforeMove: (@Sendable (String) -> Void)?
 
     /// `catalog` es obligatorio: toda acción se decide con la ficha viva del catálogo, nunca con la
@@ -87,13 +91,14 @@ public struct CleanupExecutor: Sendable {
         trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1),
         settings: @escaping @Sendable () -> SettingsLoad,
         log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
-        protections: HardProtections = .standard
+        protections: HardProtections = .standard,
+        processListing: any ProcessListing = LibprocListing(), now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.init(runner: runner, probes: probes, store: store, catalog: catalog, references: references,
                   home: home, commandTimeout: commandTimeout, freeSpace: freeSpace,
                   trashSettleAttempts: trashSettleAttempts, trashSettleDelay: trashSettleDelay,
                   settings: settings, log: log, processGuard: processGuard, protections: protections,
-                  beforeMove: nil)
+                  processListing: processListing, now: now, beforeMove: nil)
     }
 
     init(
@@ -105,6 +110,7 @@ public struct CleanupExecutor: Sendable {
         settings: @escaping @Sendable () -> SettingsLoad,
         log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
         protections: HardProtections = .standard,
+        processListing: any ProcessListing = LibprocListing(), now: @escaping @Sendable () -> Date = { Date() },
         beforeMove: (@Sendable (String) -> Void)?
     ) {
         let home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
@@ -122,6 +128,8 @@ public struct CleanupExecutor: Sendable {
         self.log = log
         self.processGuard = processGuard
         self.protections = protections
+        self.processListing = processListing
+        self.now = now
         self.beforeMove = beforeMove
     }
 
@@ -141,8 +149,9 @@ public struct CleanupExecutor: Sendable {
             title = planned.title
             switch planned.kind {
             case .trash(let paths): preview = .wouldTrash(paths: paths.map(\.validated.path), bytes: planned.bytes)
-            case .command(let executable, let arguments, _, _):
-                preview = .wouldRun(command: [executable] + arguments, bytes: planned.bytes,
+            case .command(let executable, let arguments, _, _, let targets):
+                let first = targets.first.map { Self.substitute($0.value, in: arguments) } ?? arguments
+                preview = .wouldRun(command: [executable] + first, bytes: planned.bytes,
                                     upperBound: planned.upperBound)
             }
         }
@@ -171,7 +180,11 @@ public struct CleanupExecutor: Sendable {
         case .success(let planned):
             title = planned.title
             if case .trash(let planned) = planned.kind { paths = planned.map(\.validated.path) }
-            if case .command(let e, let a, _, let p) = planned.kind { command = [e] + a; paths = p }
+            if case .command(let e, let a, _, let p, let targets) = planned.kind {
+                // Lo que de verdad se ejecuta: con el primer objetivo sustituido.
+                command = [e] + (targets.first.map { Self.substitute($0.value, in: a) } ?? a)
+                paths = targets.isEmpty ? p : targets.map(\.value)
+            }
             (outcome, moved, movedBytes) = await act(planned, context: context)
         }
         appendLog(context, action: "clean", itemID: item.id, title: title, paths: paths, command: command, outcome,
@@ -229,6 +242,12 @@ public struct CleanupExecutor: Sendable {
 
     // MARK: - Plan
 
+    /// Un valor de `{target}` y, si es una ruta, su validación (`PathGate`, identidad) del plan.
+    struct PlannedTarget: Sendable {
+        let value: String
+        let validated: ValidatedPath?
+    }
+
     struct PlannedPath: Sendable {
         let validated: ValidatedPath
         let bytes: Int64
@@ -238,7 +257,9 @@ public struct CleanupExecutor: Sendable {
         enum Kind: Sendable {
             case trash([PlannedPath])
             /// `entry` y `paths` (las de la ficha viva): para volver a mirar «Proteger esto» antes de ejecutar.
-            case command(executable: String, arguments: [String], entry: CatalogEntry, paths: [String])
+            /// `targets`: valores de `{target}` ya validados; vacío ⇒ una sola ejecución sin sustituir.
+            case command(executable: String, arguments: [String], entry: CatalogEntry, paths: [String],
+                         targets: [PlannedTarget])
         }
         let kind: Kind
         let title: String
@@ -285,10 +306,21 @@ public struct CleanupExecutor: Sendable {
             return .failure(PathRefusal(reason: "No está en el catálogo: no se ejecuta nada."))
         }
         let title = parts.count > 1 ? "\(live.title): \(parts[1])" : live.title
+        // Lo que la detección dejó bloqueado (sin medir a tiempo, demonio caído…) no se ejecuta: hay que volver
+        // a detectarlo.
+        if let reason = item.blockedReason {
+            return .failure(PathRefusal(reason: "«\(title)» no se puede limpiar ahora: \(reason)"))
+        }
         // Comandos: las protecciones y referencias se comprueban sobre las rutas de la ficha viva que
         // existen ahora, nunca sobre las que trae el elemento (que solo pueden ser un subconjunto).
         var checkPaths = item.paths
-        if case .command = live.cleanup {
+        if case .command(let executable, let arguments, _) = live.cleanup {
+            // Veto antes de cualquier sonda: una orden prohibida (volúmenes de Docker…) no llega a nada más.
+            for args in item.targets.isEmpty ? [arguments] : item.targets.map({ Self.substitute($0, in: arguments) }) {
+                if let reason = CommandPolicy.refusal(executable: executable, arguments: args) {
+                    return .failure(PathRefusal(reason: reason))
+                }
+            }
             let livePaths = Self.existingPaths(of: live, home: home)
             if !live.paths.isEmpty, livePaths.isEmpty {
                 return .failure(PathRefusal(reason: "No se encuentra «\(live.title)» en este Mac; no se ejecuta nada."))
@@ -298,6 +330,7 @@ public struct CleanupExecutor: Sendable {
                 return .failure(PathRefusal(reason: "La ruta no corresponde a «\(live.title)»: \(path)."))
             }
             checkPaths = livePaths
+            if let reason = await revalidate(live, item: item) { return .failure(PathRefusal(reason: reason)) }
         }
         let riskInputs = RiskInputs(entry: live, paths: checkPaths, ai: item.risk,
                                     itemDoNotTouch: item.entry.risk == .doNotTouch)
@@ -333,15 +366,26 @@ public struct CleanupExecutor: Sendable {
         case .info:
             return .failure(PathRefusal(reason: "Este elemento es solo informativo."))
         case .command(let executable, let arguments, _):
+            var targets: [PlannedTarget] = []
+            if live.cleanup.usesTargets {
+                guard !item.targets.isEmpty else {
+                    return .failure(PathRefusal(reason: "No hay nada sobre lo que ejecutar «\(live.title)»."))
+                }
+                for target in item.targets {
+                    switch validateTarget(target, entry: live, load: load) {
+                    case .failure(let refusal): return .failure(refusal)
+                    case .success(let validated): targets.append(PlannedTarget(value: target, validated: validated))
+                    }
+                }
+            }
             planned = .success(PlannedAction(
-                kind: .command(executable: executable, arguments: arguments, entry: live, paths: checkPaths),
+                kind: .command(executable: executable, arguments: arguments, entry: live, paths: checkPaths,
+                               targets: targets),
                 title: title, bytes: item.bytes, upperBound: live.partialCleanup, processNames: live.processNames,
                 guardPaths: [], checkOpenFiles: false))
         case .trash:
-            let allowed = Set(Self.existingPaths(of: live, home: home).map(RiskPolicy.canonical))
-            for path in item.paths where !allowed.contains(RiskPolicy.canonical(path)) {
-                return .failure(PathRefusal(reason: "La ruta no corresponde a «\(live.title)»: \(path)."))
-            }
+            // La fuente de la ficha decide si las rutas siguen siendo suyas (patrones, versiones antiguas…).
+            if let reason = await revalidate(live, item: item) { return .failure(PathRefusal(reason: reason)) }
             planned = await planTrash(item.paths, gate: gate(load), title: title, processNames: live.processNames,
                                       checkOpenFiles: true)
         }
@@ -394,10 +438,36 @@ public struct CleanupExecutor: Sendable {
     private func act(_ plan: PlannedAction, context: OperationContext) async
         -> (outcome: CleanupOutcome, moved: [String], movedBytes: Int64) {
         switch plan.kind {
-        case .command(let executable, let arguments, _, _):
+        case .command(let executable, let arguments, let entry, _, let targets):
             if let reason = await recheck(plan, context: context).reason { return (.blocked(reason: reason), [], 0) }
-            return (await runCommand(executable: executable, arguments: arguments, title: plan.title,
-                                     context: context), [], 0)
+            guard !targets.isEmpty else {
+                return (await runCommand(executable: executable, arguments: arguments, title: plan.title,
+                                         context: context), [], 0)
+            }
+            // Una ejecución por objetivo; el primer fallo detiene la tanda. Lo liberado se suma y, si se para a
+            // medias, se devuelve lo que de verdad se ejecutó (el registro lo anota como `partial`).
+            var freed: Int64 = 0
+            var executed: [String] = []
+            func stop(_ outcome: CleanupOutcome) -> (outcome: CleanupOutcome, moved: [String], movedBytes: Int64) {
+                guard !executed.isEmpty else { return (outcome, [], 0) }
+                record(title: plan.title, bytes: freed, wentToTrash: false, context: context)
+                return (outcome, executed, freed)
+            }
+            for (index, target) in targets.enumerated() {
+                beforeMove?(target.value)
+                // Justo antes de cada ejecución (también la primera): ajustes, riesgo y protecciones vivos, la
+                // misma regla de `PathGate` y la misma identidad que en el plan.
+                if index > 0, let reason = await recheck(plan, context: context, processes: false).reason {
+                    return stop(.blocked(reason: reason))
+                }
+                if let reason = confirmTarget(target, entry: entry) { return stop(.blocked(reason: reason)) }
+                switch await runOnce(executable: executable, arguments: Self.substitute(target.value, in: arguments)) {
+                case .failure(let message): return stop(.failed(message.text))
+                case .success(let bytes): freed += bytes; executed.append(target.value)
+                }
+            }
+            record(title: plan.title, bytes: freed, wentToTrash: false, context: context)
+            return (.freed(freed), executed, freed)
         case .trash(let paths):
             var moved: Int64 = 0
             var movedPaths: [String] = []
@@ -446,7 +516,7 @@ public struct CleanupExecutor: Sendable {
             let risk = classify(inputs, settings: load.effective).risk
             if risk != .safe { return (gate, Self.agentRiskRefusal(risk, title: plan.title).reason) }
         }
-        if case .command(_, _, let entry, let paths) = plan.kind,
+        if case .command(_, _, let entry, let paths, _) = plan.kind,
            let protection = RiskClassifier(catalog: catalog, settings: load.effective, home: home,
                                            protections: protections).classify(entry: entry, paths: paths).protection {
             return (gate, "Marcado como «No tocar»: \(protection.reason)")
@@ -468,6 +538,54 @@ public struct CleanupExecutor: Sendable {
 
     private func gate(_ load: SettingsLoad) -> PathGate {
         PathGate(home: home, catalog: catalog,
+                 userProtected: ProtectList(patterns: load.effective.protectedPaths, home: home),
+                 protections: protections)
+    }
+
+    /// La fuente de la ficha viva vuelve a comprobar el elemento (misma regla que al detectarlo).
+    private func revalidate(_ live: CatalogEntry, item: CleanupItem) async -> String? {
+        let context = DiscoveryContext(catalog: catalog, home: home, runner: runner, processListing: processListing,
+                                       now: now(), scan: nil)
+        return await CleanupTargets.source(for: live).revalidate(live, item: item, context: context)
+    }
+
+    /// Un objetivo de `{target}` que es una ruta pasa por `PathGate` con el catálogo **sin** su propia ficha
+    /// (que, por ser de comando, rechazaría sus rutas «se limpia solo con su comando oficial»); las demás
+    /// reglas (lista dura, «Proteger esto», inodos, el resto de fichas) siguen igual.
+    /// Un objetivo vacío, que empiece por `-` (una opción colada en los argumentos) o por `~` se rechaza siempre.
+    private func validateTarget(_ target: String, entry: CatalogEntry, load: SettingsLoad)
+        -> Result<ValidatedPath?, PathRefusal> {
+        if target.isEmpty || target.hasPrefix("-") || target.hasPrefix("~")
+            || target.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) {
+            return .failure(PathRefusal(reason: "Objetivo no válido para «\(entry.title)»: \(target)."))
+        }
+        guard target.hasPrefix("/") else { return .success(nil) }
+        switch targetGate(entry: entry, load: load).validate(target) {
+        case .failure(let refusal):
+            return .failure(PathRefusal(reason: "\(refusal.reason) No se ejecuta «\(entry.title)» sobre \(target)."))
+        case .success(let validated):
+            return .success(validated)
+        }
+    }
+
+    /// Antes de ejecutar sobre un objetivo: la regla de `PathGate` con los ajustes de ahora y la misma
+    /// identidad (`confirmUnchanged`) que se comprobó en el plan.
+    private func confirmTarget(_ target: PlannedTarget, entry: CatalogEntry) -> String? {
+        let load = settings()
+        switch validateTarget(target.value, entry: entry, load: load) {
+        case .failure(let refusal): return refusal.reason
+        case .success:
+            // Sin validación en el plan ⇒ no es una ruta (la misma regla lo vuelve a decidir arriba).
+            guard let planned = target.validated else { return nil }
+            if let refusal = targetGate(entry: entry, load: load).confirmUnchanged(planned) {
+                return "\(refusal.reason) No se ejecuta «\(entry.title)» sobre \(target.value)."
+            }
+            return nil
+        }
+    }
+
+    private func targetGate(entry: CatalogEntry, load: SettingsLoad) -> PathGate {
+        PathGate(home: home, catalog: Catalog(entries: catalog.entries.filter { $0.id != entry.id }),
                  userProtected: ProtectList(patterns: load.effective.protectedPaths, home: home),
                  protections: protections)
     }
@@ -560,23 +678,47 @@ public struct CleanupExecutor: Sendable {
 
     private func runCommand(executable: String, arguments: [String], title: String,
                             context: OperationContext) async -> CleanupOutcome {
+        switch await runOnce(executable: executable, arguments: arguments) {
+        case .failure(let message): return .failed(message.text)
+        case .success(let freed):
+            record(title: title, bytes: freed, wentToTrash: false, context: context)
+            return .freed(freed)
+        }
+    }
+
+    /// Ejecuta el comando una vez; lo liberado (subida del espacio libre) o el mensaje del fallo.
+    private func runOnce(executable: String, arguments: [String]) async -> Result<Int64, CommandFailureMessage> {
         guard let resolved = await runner.resolve(executable) else {
-            return .failed("No se encontró \(executable) en este Mac.")
+            return .failure(CommandFailureMessage("No se encontró \(executable) en este Mac."))
+        }
+        // Última barrera, con la ruta resuelta y los argumentos finales, justo antes de ejecutar.
+        if let reason = CommandPolicy.refusal(executable: resolved, arguments: arguments) {
+            return .failure(CommandFailureMessage(reason))
         }
         let before = freeSpace()
         let output: CommandOutput
         do {
-            output = try await runner.run(resolved, arguments, timeout: commandTimeout)
+            // Directorio neutro: nunca el heredado (un `yarn cache clean` dentro de un proyecto Berry vaciaría la
+            // caché del proyecto; `go` podría bajar otra toolchain por un go.mod).
+            output = try await runner.run(resolved, arguments, stdin: nil,
+                                          workingDirectory: Self.commandWorkingDirectory, timeout: commandTimeout)
         } catch {
-            return .failed(String(describing: error))
+            return .failure(CommandFailureMessage(String(describing: error)))
         }
         guard output.status == 0 else {
             let detail = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            return .failed("\(executable) terminó con código \(output.status)\(detail.isEmpty ? "" : ": \(detail)")")
+            return .failure(CommandFailureMessage(
+                "\(executable) terminó con código \(output.status)\(detail.isEmpty ? "" : ": \(detail)")"))
         }
-        let freed = max(0, freeSpace() - before)
-        record(title: title, bytes: freed, wentToTrash: false, context: context)
-        return .freed(freed)
+        return .success(max(0, freeSpace() - before))
+    }
+
+    /// Directorio de trabajo de todo comando de limpieza.
+    public static let commandWorkingDirectory = "/"
+
+    /// `{target}` sustituido (argumento exacto) por `target`.
+    static func substitute(_ target: String, in arguments: [String]) -> [String] {
+        arguments.map { $0 == CleanupMethod.targetPlaceholder ? target : $0 }
     }
 
     private func emptyTrashNow(context: OperationContext) async -> CleanupOutcome {
@@ -639,4 +781,10 @@ public struct CleanupExecutor: Sendable {
             paths: paths, command: command, dryRun: dryRun, outcome: outcome, bytes: bytes, message: message,
             proposedBy: context.proposedBy, proposedVia: context.proposedVia))
     }
+}
+
+/// Mensaje de un comando que falló (para `Result`).
+struct CommandFailureMessage: Error, Sendable {
+    let text: String
+    init(_ text: String) { self.text = text }
 }

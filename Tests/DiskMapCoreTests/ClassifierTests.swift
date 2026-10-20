@@ -232,18 +232,15 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
     @Test func bundledCatalogDecodesWithDefaults() throws {
         let catalog = try Catalog.bundled()
         #expect(!catalog.entries.isEmpty)
-        for e in catalog.entries {
-            #expect(e.aggressiveRisk == nil)
-            #expect(e.preselectInAggressive == false)
-            #expect(e.profiles.isEmpty)
-        }
         // Los nombres de proceso de la tarea 6 se rellenan solo en las fichas con herramienta propia.
         #expect(catalog.entries.first { $0.id == "pip" }?.processNames == ["pip", "pip3"])
         #expect(catalog.entries.first { $0.id == "docker-volumes" }?.processNames == [])
         let json = """
         {"entries":[{"id":"x","title":"X","explanation":"","whoCreatesIt":"","regenerates":true,"risk":"yourCall",
         "kind":"caches","paths":["~/x"],"cleanup":{"type":"trash"},"aggressiveRisk":"safe",
-        "preselectInAggressive":true,"profiles":["developer","futureProfile"],"processNames":["x-agent"]}]}
+        "preselectInAggressive":true,"profiles":["developer","futureProfile"],"processNames":["x-agent"],
+        "shortReason":"Se regenera.","perMatch":true,"except":[".DS_Store"],"staleAfterDays":90,"minimumBytes":1000,
+        "retention":{"keepNewest":1},"reviewHint":"Míralo tú."}]}
         """
         let decoded = try #require(try Catalog.decode(Data(json.utf8)).entries.first)
         #expect(decoded.aggressiveRisk == .safe)
@@ -253,6 +250,10 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         let again = try JSONDecoder().decode(CatalogEntry.self, from: JSONEncoder().encode(decoded))
         #expect(again.aggressiveRisk == .safe && again.preselectInAggressive && again.profiles == [.developer]
                 && again.processNames == ["x-agent"])
+        #expect(again.shortReason == "Se regenera." && again.perMatch && again.except == [".DS_Store"]
+                && again.staleAfterDays == 90 && again.minimumBytes == 1000
+                && again.retention == RetentionRule(keepNewest: 1) && again.discovery == nil
+                && again.reviewHint == "Míralo tú.")
         let bad = json.replacingOccurrences(of: "\"aggressiveRisk\":\"safe\"", with: "\"aggressiveRisk\":\"meh\"")
         #expect(throws: DecodingError.self) { try Catalog.decode(Data(bad.utf8)) }
     }
@@ -262,7 +263,9 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
     /// «No tocar» o pierden rutas son las esperadas (lista fija: si cambia, hay que revisarla).
     @Test func bundledCatalogIsNeverLessStrictThanPhaseOne() throws {
         let catalog = try Catalog.bundled()
-        var becameRed: Set<String> = [], dropped: Set<String> = []
+        var becameRed: Set<String> = [], dropped: Set<String> = [], lowered: Set<String> = []
+        // Plan 3: el modo Agresivo baja a propósito lo que se regenera (`aggressiveRisk`); lista fija.
+        let expectedAggressiveLowerings: Set<String> = ["docker-images", "go-mod-cache", "app-support-caches"]
         for mode in CleanupMode.allCases {
             let c = RiskClassifier(catalog: catalog, settings: settings(mode), home: home)
             for e in catalog.entries {
@@ -273,11 +276,16 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
                     .strictest($0, RiskPolicy.effectiveRisk(path: $1, home: home, catalog: e.risk, ai: nil))
                 }
                 let now = c.classify(entry: e, paths: paths)
-                #expect(now.risk >= phaseOne, "\(e.id) en modo \(mode): \(now.risk) < \(phaseOne)")
+                if mode == .aggressive, now.risk < phaseOne, e.regenerates, e.aggressiveRisk == now.risk {
+                    lowered.insert(e.id)
+                } else {
+                    #expect(now.risk >= phaseOne, "\(e.id) en modo \(mode): \(now.risk) < \(phaseOne)")
+                }
                 if now.risk == .doNotTouch && phaseOne != .doNotTouch { becameRed.insert(e.id) }
                 if now.keptPaths.count < paths.count, case .trash = e.cleanup { dropped.insert(e.id) }
             }
         }
+        #expect(lowered == expectedAggressiveLowerings, "Bajadas en Agresivo: \(lowered.sorted())")
         #expect(becameRed == expectedRedAfterHardProtections, "Nuevas en rojo: \(becameRed.sorted())")
         #expect(dropped == expectedDroppedAfterHardProtections, "Con rutas quitadas: \(dropped.sorted())")
     }
@@ -330,6 +338,10 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
 }
 
 /// Fichas del catálogo incluido que las protecciones duras dejan en «No tocar» (antes no lo estaban).
-private let expectedRedAfterHardProtections: Set<String> = []
+/// Las «Solo revisar» bajo `/Library`, `/private` y `/Applications` (plan 3, tarea 5): informativas, sin acción.
+private let expectedRedAfterHardProtections: Set<String> = [
+    "system-diagnostic-reports", "system-logs", "system-caches", "macos-installers", "chrome-old-frameworks",
+    "brave-old-frameworks", "edge-old-frameworks", "music-sound-libraries",
+]
 /// Fichas de Papelera a las que las protecciones duras quitan alguna ruta.
 private let expectedDroppedAfterHardProtections: Set<String> = []

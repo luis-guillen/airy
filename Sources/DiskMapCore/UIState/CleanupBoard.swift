@@ -8,18 +8,25 @@ public struct CleanupBoard: Sendable {
         /// Primero los destacados por perfil; luego de mayor a menor tamaño (empates por id, para un orden estable).
         public let items: [CleanupItem]
         public var id: Risk { risk }
-        public var title: String { risk.title }
+        /// «Sin problema», «Tú decides» o «No borrar».
+        public var title: String { risk.label }
         public var bytes: Int64 { items.reduce(0) { $0 + $1.bytes } }
     }
 
-    /// "Borrar sin riesgo", "Depende de ti" y "No tocar", en ese orden y sin grupos vacíos.
+    /// «Sin problema», «Tú decides» y «No borrar», en ese orden y sin grupos vacíos. Lo de «Solo revisar» va
+    /// aparte (`reviewItems`).
     public let groups: [Group]
+
+    /// «Solo revisar»: informativos sin acción, de mayor a menor tamaño (empates por id).
+    public let reviewItems: [CleanupItem]
 
     /// `hidden`: elementos ya limpiados que se ocultan al momento, antes de que llegue la nueva detección.
     public init(items: [CleanupItem], hidden: Set<String> = []) {
         let visible = items.filter { !hidden.contains($0.id) }
+        reviewItems = visible.filter(Self.isReviewOnly).sorted { (a, b) in (a.bytes, b.id) > (b.bytes, a.id) }
+        let actionable = visible.filter { !Self.isReviewOnly($0) }
         groups = [Risk.safe, .yourCall, .doNotTouch].compactMap { risk in
-            let members = visible.filter { $0.risk == risk }
+            let members = actionable.filter { $0.risk == risk }
                 .sorted { a, b in
                     if a.highlighted != b.highlighted { return a.highlighted }
                     return (a.bytes, b.id) > (b.bytes, a.id)
@@ -28,8 +35,19 @@ public struct CleanupBoard: Sendable {
         }
     }
 
-    /// Todos los elementos visibles en el orden de la pantalla.
+    /// Los elementos con grupo (sin «Solo revisar») en el orden de la pantalla.
     public var items: [CleanupItem] { groups.flatMap(\.items) }
+
+    /// Todo lo que se enseña: los grupos (verde, ámbar, rojo) y después «Solo revisar».
+    public var displayItems: [CleanupItem] { items + reviewItems }
+
+    /// Informativo que se enseña con su consejo y sin casilla: `.info` con `reviewHint`, o que no es «No tocar»
+    /// (Docker volumes y similares siguen en «No borrar»). Aunque las protecciones lo dejen en rojo, si tiene
+    /// consejo es de revisión.
+    public static func isReviewOnly(_ item: CleanupItem) -> Bool {
+        guard case .info = item.entry.cleanup else { return false }
+        return item.entry.reviewHint != nil || item.risk != .doNotTouch
+    }
 
     // MARK: Cabecera
 
@@ -56,9 +74,11 @@ public struct CleanupBoard: Sendable {
     /// El comando oficial solo quita una parte (`partialCleanup` en el catálogo): su tamaño es un máximo.
     public static func isPartial(_ item: CleanupItem) -> Bool { item.entry.partialCleanup }
 
-    /// "hasta 3,6 GB" para limpiezas parciales; si no, el tamaño tal cual.
+    /// `sizeNote` si existe («Tamaño desconocido»); si no, «hasta 3,6 GB» para limpiezas parciales, y «+» si el
+    /// análisis no pudo leerlo todo.
     public static func sizeText(_ item: CleanupItem) -> String {
-        amountText(item.bytes, upperBound: isPartial(item))
+        if let note = item.sizeNote { return note }
+        return amountText(item.bytes, upperBound: isPartial(item)) + (item.sizeIsPartial ? "+" : "")
     }
 
     public static func amountText(_ bytes: Int64, upperBound: Bool) -> String {
@@ -84,6 +104,42 @@ public struct CleanupBoard: Sendable {
     public static func canSelect(_ item: CleanupItem) -> Bool {
         showsCheckbox(item) && item.blockedByOpenApps.isEmpty && item.usedBy.isEmpty
             && item.protection == nil && item.blockedReason == nil
+    }
+
+    /// Lo verde que se puede limpiar ya.
+    public var greenSelection: Set<String> { Set(readySafeItems.map(\.id)) }
+
+    /// «Seleccionar todo»: verde y ámbar que se pueden marcar. Nunca rojo, protegido, bloqueado ni informativo.
+    public var fullSelection: Set<String> {
+        Set(items.filter { $0.risk != .doNotTouch && Self.canSelect($0) }.map(\.id))
+    }
+
+    /// Tras una nueva detección: quita lo que ya no vale y marca los preseleccionados que el usuario aún no había
+    /// visto (`seen`), para no volver a marcar lo que desmarcó. Devuelve también el `seen` actualizado.
+    public func nextSelection(current: Set<String>, seen: Set<String>) -> (selection: Set<String>, seen: Set<String>) {
+        var selection = pruned(current)
+        var seenNow = seen
+        for item in items where Self.canSelect(item) {
+            if item.preselected, !seen.contains(item.id) { selection.insert(item.id) }
+            seenNow.insert(item.id)
+        }
+        return (selection, seenNow)
+    }
+
+    /// «Borrar todo · 3,2 GB» o «Borrar todo · hasta 3,2 GB» si alguna limpieza es parcial.
+    public static func deleteAllTitle(_ items: [CleanupItem]) -> String {
+        let sum = total(items)
+        return "Borrar todo · " + amountText(sum.bytes, upperBound: sum.upperBound)
+    }
+
+    public static let reviewBlockTitle = "Revisa: esto no se regenera solo o puede tener estado"
+
+    /// Confirmación única: `regular` = verde; `review` = ámbar, en el orden recibido. Lo quitado (`removed`) y lo
+    /// que no se puede marcar (rojo, protegido, bloqueado) no entran.
+    public static func confirmSections(_ items: [CleanupItem], excluding removed: Set<String>)
+        -> (regular: [CleanupItem], review: [CleanupItem]) {
+        let kept = items.filter { !removed.contains($0.id) && canSelect($0) }
+        return (kept.filter { $0.risk == .safe }, kept.filter { $0.risk == .yourCall })
     }
 
     /// Los marcados que siguen siendo válidos, en el orden de la pantalla.
@@ -208,8 +264,8 @@ public struct CleanupBoard: Sendable {
 
     public static func yourCallNote(count: Int) -> String {
         count == 1
-            ? "Incluye 1 elemento marcado «Depende de ti»: perderás algo al borrarlo."
-            : "Incluye \(count) elementos marcados «Depende de ti»: perderás algo al borrarlo."
+            ? "Incluye 1 elemento marcado «Tú decides»: perderás algo al borrarlo."
+            : "Incluye \(count) elementos marcados «Tú decides»: perderás algo al borrarlo."
     }
 
     static func spanishList(_ names: [String]) -> String {
@@ -232,7 +288,16 @@ public struct CleanupRunSummary: Sendable, Equatable {
     public var freed: Int64 = 0
     public var movedToTrash: Int64 = 0
     public var succeededIDs: [String] = []
+    public var successes: [Success] = []
     public var problems: [Problem] = []
+
+    /// Una limpieza que salió bien: título y qué pasó («Liberados 2 GB» / «1,2 GB a la Papelera»).
+    public struct Success: Sendable, Equatable, Identifiable {
+        public let title: String
+        public let text: String
+        public var id: String { title + "\u{1F}" + text }
+        public init(title: String, text: String) { self.title = title; self.text = text }
+    }
 
     public init() {}
 
@@ -241,9 +306,11 @@ public struct CleanupRunSummary: Sendable, Equatable {
         case .freed(let bytes):
             freed += bytes
             succeededIDs.append(id)
+            successes.append(Success(title: title, text: "Liberados \(Format.bytes(bytes))"))
         case .movedToTrash(let bytes):
             movedToTrash += bytes
             succeededIDs.append(id)
+            successes.append(Success(title: title, text: "\(Format.bytes(bytes)) a la Papelera"))
         case .blocked(let reason):
             problems.append(Problem(title: title, message: reason))
         case .failed(let message):

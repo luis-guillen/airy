@@ -21,14 +21,29 @@ public struct CleanupItem: Sendable, Identifiable {
     public var protection: ProtectionMatch?
     /// Por qué no se puede limpiar ahora (procesos abiertos, comprobación incompleta…), o `nil`.
     public var blockedReason: String?
+    /// Líneas para la interfaz: nombres de contenedores, «Se conservan: …», «Proyecto sin tocar desde …».
+    public var details: [String]
+    /// Valores de `{target}` (véase `CleanupMethod.targetPlaceholder`).
+    public var targets: [String]
+    /// Texto en lugar del tamaño («Tamaño desconocido», «No ocupa espacio en disco»).
+    public var sizeNote: String?
+    public var lastModified: Date?
+    /// Motivo de una guardia de la fuente (floor) o de una protección.
+    public var riskReason: String?
+    /// El tamaño no incluye todo (partes sin leer).
+    public var sizeIsPartial: Bool
 
     public init(id: String, entry: CatalogEntry, paths: [String], bytes: Int64, risk: Risk,
                 blockedByOpenApps: [String], usedBy: [String], preselected: Bool = false, highlighted: Bool = false,
-                protection: ProtectionMatch? = nil, blockedReason: String? = nil) {
+                protection: ProtectionMatch? = nil, blockedReason: String? = nil, details: [String] = [],
+                targets: [String] = [], sizeNote: String? = nil, lastModified: Date? = nil,
+                riskReason: String? = nil, sizeIsPartial: Bool = false) {
         self.id = id; self.entry = entry; self.paths = paths; self.bytes = bytes
         self.risk = risk; self.blockedByOpenApps = blockedByOpenApps; self.usedBy = usedBy
         self.preselected = preselected; self.highlighted = highlighted
         self.protection = protection; self.blockedReason = blockedReason
+        self.details = details; self.targets = targets; self.sizeNote = sizeNote
+        self.lastModified = lastModified; self.riskReason = riskReason; self.sizeIsPartial = sizeIsPartial
     }
 
     /// Título para la interfaz y el historial (incluye la carpeta en elementos por carpeta).
@@ -42,7 +57,6 @@ public struct CleanupItem: Sendable, Identifiable {
 /// solo `resolve` y las sondas de tamaño (`sizeProbe`).
 public struct CleanupScanner: Sendable {
     public static let referenceTimeout: TimeInterval = 10
-    public static let probeTimeout: TimeInterval = 60
 
     private let catalog: Catalog
     private let runner: any CommandRunning
@@ -52,13 +66,17 @@ public struct CleanupScanner: Sendable {
     private let classifier: RiskClassifier
     private let processListing: any ProcessListing
     private let referenceTimeout: TimeInterval
+    private let measureBudget: Duration
 
-    /// `classifier`: `nil` ⇒ ajustes por defecto con este catálogo y este home.
+    /// `classifier`: `nil` ⇒ ajustes por defecto con este catálogo y este home. `measureBudget`: plazo para
+    /// medir cada ruta que no está en el índice.
     public init(catalog: Catalog, runner: any CommandRunning, probes: any SystemProbing,
                 references: ReferenceChecker, home: String = NSHomeDirectory(), classifier: RiskClassifier? = nil,
                 processListing: any ProcessListing = LibprocListing(),
-                referenceTimeout: TimeInterval = CleanupScanner.referenceTimeout) {
+                referenceTimeout: TimeInterval = CleanupScanner.referenceTimeout,
+                measureBudget: Duration = TimeBudget.sizeMeasure) {
         self.processListing = processListing
+        self.measureBudget = measureBudget
         self.referenceTimeout = referenceTimeout
         self.catalog = catalog
         self.runner = runner
@@ -71,23 +89,66 @@ public struct CleanupScanner: Sendable {
     private struct Candidate {
         var id: String
         var entry: CatalogEntry
-        var paths: [String]
+        var target: DiscoveredTarget
         var bytes: Int64
-        var needle: String?
     }
 
-    public func findItems(scan: FileNode?) async -> [CleanupItem] {
+    /// `inaccessible`: carpetas que el análisis no pudo leer; un tamaño tomado del índice para una ruta con algo
+    /// ilegible dentro es un mínimo (`sizeIsPartial`).
+    public func findItems(scan: FileNode?, inaccessible: [String] = []) async -> [CleanupItem] {
+        let partialIndex = PartialScanIndex(inaccessible: inaccessible)
         let running = probes.runningBundleIDs()
-        // Una sola llamada a `docker system df` para todas las fichas de Docker.
-        let dockerOutput = catalog.entries.contains { Self.dockerMeasure[$0.id] != nil }
-            ? await dockerSystemDF() : nil
-        var found: [Candidate] = []
+        // Una sola sonda de Docker por pasada para todas sus fichas.
+        let docker = catalog.entries.contains { $0.discovery == .docker }
+            ? await DockerProbe.state(runner: runner) : nil
+        let context = DiscoveryContext(catalog: catalog, home: home, runner: runner,
+                                       processListing: processListing, now: Date(), scan: scan, docker: docker)
+        var candidates: [Candidate] = []
+        // Una ruta, un elemento: la primera ficha del catálogo que la reclama se la queda.
+        var claimed = Set<String>()
+        // Todas las fichas informativas comparten un solo plazo de medida (`measureBudget`): lo que no cabe se
+        // queda en «Tamaño desconocido».
+        let clock = ContinuousClock()
+        var reviewDeadline: ContinuousClock.Instant?
         for entry in catalog.entries {
-            found.append(contentsOf: await candidates(for: entry, scan: scan, dockerOutput: dockerOutput))
+            for var target in await CleanupTargets.source(for: entry).discover(entry, context: context) {
+                let original = target.paths
+                if !original.isEmpty {
+                    let dropped = Set(original.filter { claimed.contains(RiskPolicy.canonical($0)) })
+                    if !dropped.isEmpty {
+                        target.paths = original.filter { !dropped.contains($0) }
+                        target.targets = target.targets.filter { !dropped.contains($0) }
+                        target.bytes = nil // se vuelve a medir sin las rutas de otro elemento
+                    }
+                    guard !target.paths.isEmpty else { continue }
+                }
+                var bytes = target.bytes
+                if bytes == nil {
+                    var budget = measureBudget
+                    var isReview = false
+                    if case .info = entry.cleanup {
+                        isReview = true
+                        let deadline = reviewDeadline ?? clock.now.advanced(by: measureBudget)
+                        reviewDeadline = deadline
+                        budget = max(.zero, clock.now.duration(to: deadline))
+                    }
+                    bytes = measure(target.paths, scan: scan, budget: budget)
+                    if bytes == nil {
+                        target.sizeNote = target.sizeNote ?? "Tamaño desconocido"
+                        // Sin acción no hay nada que bloquear: la ficha solo informa.
+                        if !isReview { target.blockedReason = target.blockedReason ?? "No se pudo medir a tiempo." }
+                    }
+                }
+                let size = bytes ?? 0
+                guard size > 0 || target.sizeNote != nil || target.blockedReason != nil else { continue }
+                // Solo reclama sus rutas el elemento que sobrevive (no uno de 0 bytes que se descarta).
+                claimed.formUnion(target.paths.map(RiskPolicy.canonical))
+                let id = target.idSuffix.map { "\(entry.id):\($0)" } ?? entry.id
+                candidates.append(Candidate(id: id, entry: entry, target: target, bytes: size))
+            }
         }
-        let candidates = found.filter { $0.bytes > 0 }
 
-        let needles = candidates.compactMap(\.needle)
+        let needles = candidates.compactMap(\.target.needle)
         let checked = needles.isEmpty
             ? (found: [String: [String]](), complete: true)
             : await self.references.referencesChecked(toAny: needles, timeout: referenceTimeout)
@@ -104,71 +165,75 @@ public struct CleanupScanner: Sendable {
         }
 
         return candidates.compactMap { candidate in
-            let usedBy = candidate.needle.flatMap { references[$0] } ?? []
-            let verdict = classifier.classify(entry: candidate.entry, paths: candidate.paths)
+            let target = candidate.target
+            let usedBy = target.needle.flatMap { references[$0] } ?? []
+            let verdict = classifier.classify(entry: candidate.entry, paths: target.paths, floor: target.floor)
             var risk = verdict.risk
             if !usedBy.isEmpty { risk = .doNotTouch }
             // Sin las rutas protegidas, el tamaño es solo el de las que quedan. Si no queda ninguna,
             // el elemento se muestra en rojo con su tamaño original.
-            var paths = candidate.paths
+            var paths = target.paths
+            var targets = target.targets
             var bytes = candidate.bytes
-            if !verdict.keptPaths.isEmpty, verdict.keptPaths != candidate.paths {
+            if !verdict.keptPaths.isEmpty, verdict.keptPaths != target.paths {
                 paths = verdict.keptPaths
-                bytes = paths.reduce(Int64(0)) { $0 + size(of: $1, scan: scan) }
+                targets = targets.filter { paths.contains($0) || !$0.hasPrefix("/") }
+                bytes = measure(paths, scan: scan) ?? 0
                 guard bytes > 0 else { return nil }
             }
             // Fallar cerrado: proceso en marcha, listado desconocido o referencias sin terminar bloquean.
-            var blockedReason = ProcessGuard.state(processNames: candidate.entry.processNames, among: processes)
-                .blockedReason
-            if blockedReason == nil, candidate.needle != nil, !checked.complete {
+            var blockedReason = target.blockedReason
+            if blockedReason == nil {
+                blockedReason = ProcessGuard.state(processNames: candidate.entry.processNames, among: processes)
+                    .blockedReason
+            }
+            if blockedReason == nil, target.needle != nil, !checked.complete {
                 blockedReason = "No se pudo comprobar a tiempo si lo usa algún proyecto."
             }
             return CleanupItem(
                 id: candidate.id, entry: candidate.entry, paths: paths, bytes: bytes,
                 risk: risk, blockedByOpenApps: candidate.entry.mustBeClosed.filter { running.contains($0) },
-                usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch,
-                highlighted: verdict.highlighted, protection: verdict.protection, blockedReason: blockedReason)
+                usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch && target.preselectable,
+                highlighted: verdict.highlighted, protection: verdict.protection, blockedReason: blockedReason,
+                details: target.details, targets: targets, sizeNote: target.sizeNote,
+                lastModified: target.lastModified, riskReason: target.floorReason ?? verdict.protection?.reason,
+                sizeIsPartial: Self.isPartialSize(paths, scan: scan, index: partialIndex))
         }
-    }
-
-    private func candidates(for entry: CatalogEntry, scan: FileNode?, dockerOutput: String?) async -> [Candidate] {
-        let matched = entry.paths.flatMap { Self.expand($0, home: home) }
-        var unique: [String] = []
-        for path in matched where !unique.contains(path) { unique.append(path) }
-
-        if let measure = Self.dockerMeasure[entry.id] {
-            // Sin Docker o sin demonio (`df` falla) no hay elemento.
-            guard let dockerOutput,
-                  let bytes = Self.parseDockerDF(dockerOutput, type: measure.type, field: measure.field)
-            else { return [] }
-            return [Candidate(id: entry.id, entry: entry, paths: unique, bytes: bytes, needle: nil)]
-        }
-
-        if case .command(let executable, _, let sizeProbe) = entry.cleanup {
-            // Sin la herramienta instalada no se puede limpiar con su comando oficial.
-            guard await runner.resolve(executable) != nil else { return [] }
-            // Solo se sabe interpretar la sonda de Docker: el resto (tmutil…) no se mide.
-            if sizeProbe != nil { return [] }
-        }
-
-        if entry.referenceCheck != nil {
-            return unique.map { path in
-                let folder = (path as NSString).lastPathComponent
-                return Candidate(
-                    id: "\(entry.id):\(folder)", entry: entry, paths: [path], bytes: size(of: path, scan: scan),
-                    needle: entry.referenceNeedle(forMatchedFolder: folder))
-            }
-        }
-        guard !unique.isEmpty else { return [] }
-        let bytes = unique.reduce(Int64(0)) { $0 + size(of: $1, scan: scan) }
-        return [Candidate(id: entry.id, entry: entry, paths: unique, bytes: bytes, needle: nil)]
     }
 
     // MARK: - Tamaños
 
-    private func size(of path: String, scan: FileNode?) -> Int64 {
-        if let scan, let node = Self.node(at: path, in: scan) { return node.allocatedSize }
-        return AllocatedSize.of(path) ?? 0
+    /// Suma del índice o, si una ruta no está en él, de `TreeWalk` con `measureBudget`. Una ruta que ya no
+    /// existe cuenta 0; `nil` si alguna no se pudo medir a tiempo.
+    private func measure(_ paths: [String], scan: FileNode?, budget: Duration? = nil) -> Int64? {
+        let budget = budget ?? measureBudget
+        var total: Int64 = 0
+        for path in paths {
+            if let scan, let node = Self.node(at: path, in: scan) { total += node.allocatedSize; continue }
+            var info = stat()
+            guard lstat(path, &info) == 0 else { continue }
+            if let summary = TreeWalk.summarize(path, budget: budget) {
+                total += summary.bytes
+            } else if (info.st_mode & S_IFMT) == S_IFDIR, !Self.canOpen(path) {
+                // Carpeta que no se puede leer (TCC, permisos): como en la fase 1, solo su propia entrada.
+                total += AllocatedSize.of(path) ?? 0
+            } else {
+                return nil
+            }
+        }
+        return total
+    }
+
+    /// El tamaño sale del índice y alguna de las rutas tiene algo ilegible dentro.
+    private static func isPartialSize(_ paths: [String], scan: FileNode?, index: PartialScanIndex) -> Bool {
+        guard let scan, !index.isEmpty else { return false }
+        return paths.contains { index.isPartial($0) && node(at: $0, in: scan) != nil }
+    }
+
+    private static func canOpen(_ path: String) -> Bool {
+        guard let dir = opendir(path) else { return false }
+        closedir(dir)
+        return true
     }
 
     /// Nodo del índice para `path`, o `nil` si no está (p. ej. agrupado en "Otros").
@@ -191,37 +256,6 @@ public struct CleanupScanner: Sendable {
             current = next
         }
         return current
-    }
-
-    /// Qué fila y qué campo de `docker system df` mide cada ficha de Docker.
-    static let dockerMeasure: [String: (type: String, field: String)] = [
-        "docker-build-cache": ("Build Cache", "Reclaimable"),
-        "docker-images": ("Images", "Size"),
-        "docker-volumes": ("Local Volumes", "Size"),
-    ]
-    static let dockerDFArguments = ["system", "df", "--format", "{{json .}}"]
-
-    /// Salida de `docker system df`, o `nil` si Docker no está instalado o el demonio no responde.
-    private func dockerSystemDF() async -> String? {
-        let probe = catalog.entry(id: "docker-build-cache").flatMap { entry -> [String]? in
-            if case .command(_, _, let sizeProbe) = entry.cleanup { return sizeProbe }
-            return nil
-        } ?? Self.dockerDFArguments
-        guard let docker = await runner.resolve("docker"),
-              let output = try? await runner.run(docker, probe, timeout: Self.probeTimeout),
-              output.status == 0 else { return nil }
-        return output.stdout
-    }
-
-    /// `docker system df --format {{json .}}`: un objeto JSON por línea con "Type", "Size" y "Reclaimable".
-    static func parseDockerDF(_ output: String, type: String, field: String) -> Int64? {
-        for line in output.split(whereSeparator: \.isNewline) {
-            guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
-                  object["Type"] as? String == type,
-                  let value = object[field] as? String else { continue }
-            return parseDockerSize(value)
-        }
-        return nil
     }
 
     /// "29.89GB (86%)" ⇒ 29 890 000 000 (unidades decimales; se ignora el paréntesis).
