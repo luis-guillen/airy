@@ -125,6 +125,43 @@ public struct CleanupBoard: Sendable {
         return "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
+    /// Dónde está lo que se va a tocar: la ruta, "primera · y N más", o "Todo lo que hay en
+    /// ~/Library/Logs (N elementos)" cuando son todos los hijos de un patrón `carpeta/*` del catálogo.
+    public static func locationSummary(_ item: CleanupItem, home: String = NSHomeDirectory()) -> String? {
+        let paths = item.paths
+        guard let first = paths.first else { return nil }
+        if paths.count == 1 { return Format.tildePath(first, home: home) }
+        let parent = (first as NSString).deletingLastPathComponent
+        let base = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
+        let wildcardParents = item.entry.paths.compactMap { pattern -> String? in
+            guard pattern.hasSuffix("/*") else { return nil }
+            let folder = String(pattern.dropLast(2))
+            if folder == "~" { return base }
+            return folder.hasPrefix("~/") ? base + folder.dropFirst(1) : folder
+        }
+        if wildcardParents.contains(parent),
+           paths.allSatisfy({ ($0 as NSString).deletingLastPathComponent == parent }) {
+            return "Todo lo que hay en \(Format.tildePath(parent, home: home)) (\(paths.count) elementos)"
+        }
+        return "\(Format.tildePath(first, home: home)) · y \(paths.count - 1) más"
+    }
+
+    /// El elemento solo con las rutas que siguen existiendo (las que desaparecieron desde la
+    /// detección no bloquean el resto); `nil` si no queda ninguna. Sin rutas (comandos), tal cual.
+    /// El ejecutor vuelve a validar cada ruta que queda.
+    public static func withExistingPaths(_ item: CleanupItem, exists: (String) -> Bool) -> CleanupItem? {
+        guard !item.paths.isEmpty else { return item }
+        var copy = item
+        copy.paths = item.paths.filter(exists)
+        return copy.paths.isEmpty ? nil : copy
+    }
+
+    public static func yourCallNote(count: Int) -> String {
+        count == 1
+            ? "Incluye 1 elemento marcado «Depende de ti»: perderás algo al borrarlo."
+            : "Incluye \(count) elementos marcados «Depende de ti»: perderás algo al borrarlo."
+    }
+
     static func spanishList(_ names: [String]) -> String {
         guard names.count > 1 else { return names.first ?? "" }
         return names.dropLast().joined(separator: ", ") + " y " + names.last!

@@ -225,3 +225,46 @@ import Testing
         #expect(!failed.problems.isEmpty)
     }
 }
+
+@Suite struct CleanupLocationTests {
+    private func entry(_ patterns: [String]) -> CatalogEntry {
+        CatalogEntry(id: "user-logs", title: "Registros de apps", explanation: "", whoCreatesIt: "", regenerates: true,
+                     risk: .safe, kind: .caches, paths: patterns, cleanup: .trash)
+    }
+
+    private func item(_ paths: [String], patterns: [String] = ["~/Library/Logs/*"]) -> CleanupItem {
+        CleanupItem(id: "user-logs", entry: entry(patterns), paths: paths, bytes: 10, risk: .safe,
+                    blockedByOpenApps: [], usedBy: [])
+    }
+
+    @Test func wildcardFolderSaysEverythingInside() {
+        let summary = CleanupBoard.locationSummary(item(["/Users/ana/Library/Logs/A", "/Users/ana/Library/Logs/B",
+                                                         "/Users/ana/Library/Logs/C"]), home: "/Users/ana")
+        #expect(summary == "Todo lo que hay en ~/Library/Logs (3 elementos)")
+    }
+
+    @Test func singleAndSeveralPaths() {
+        #expect(CleanupBoard.locationSummary(item(["/Users/ana/Library/Logs/A"]), home: "/Users/ana")
+            == "~/Library/Logs/A")
+        let mixed = item(["/Users/ana/Library/pnpm/store", "/Users/ana/.pnpm-store"],
+                         patterns: ["~/Library/pnpm/store", "~/.pnpm-store"])
+        #expect(CleanupBoard.locationSummary(mixed, home: "/Users/ana") == "~/Library/pnpm/store · y 1 más")
+        #expect(CleanupBoard.locationSummary(item([]), home: "/Users/ana") == nil)
+    }
+
+    @Test func vanishedPathsAreDroppedBeforeRunning() {
+        let original = item(["/a", "/b", "/c"])
+        let kept = CleanupBoard.withExistingPaths(original) { $0 != "/b" }
+        #expect(kept?.paths == ["/a", "/c"])
+        #expect(CleanupBoard.withExistingPaths(original) { _ in false } == nil)
+        // Sin rutas (comandos): se deja tal cual.
+        let command = CleanupItem(id: "brew", entry: entry([]), paths: [], bytes: 1, risk: .safe,
+                                  blockedByOpenApps: [], usedBy: [])
+        #expect(CleanupBoard.withExistingPaths(command) { _ in false }?.id == "brew")
+    }
+
+    @Test func yourCallNoteUsesProperPlural() {
+        #expect(CleanupBoard.yourCallNote(count: 1) == "Incluye 1 elemento marcado «Depende de ti»: perderás algo al borrarlo.")
+        #expect(CleanupBoard.yourCallNote(count: 3) == "Incluye 3 elementos marcados «Depende de ti»: perderás algo al borrarlo.")
+    }
+}

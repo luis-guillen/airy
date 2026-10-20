@@ -162,7 +162,8 @@ private struct VolumePicker: View {
 
 private struct DiskCard: View {
     @Environment(AppModel.self) private var model
-    @Environment(CleanupFlow.self) private var flow
+    /// Opcional: sin `CleanupFlow` en el entorno (vistas sueltas, vistas previas) no se cae; el botón queda inactivo.
+    @Environment(CleanupFlow.self) private var flow: CleanupFlow?
 
     var body: some View {
         let usage = model.diskUsage
@@ -218,10 +219,10 @@ private struct DiskCard: View {
                     // Activo también si no se puede leer: entonces lo vacía Finder.
                     // La confirmación (qué, cuánto y el aviso de Finder) la abre `CleanupFlow`.
                     PrimaryButton("Vaciar Papelera", systemImage: "trash.slash", style: .secondary,
-                                  isBusy: flow.isEmptyingTrash) {
-                        flow.requestEmptyTrash(model)
+                                  isBusy: flow?.isEmptyingTrash ?? false) {
+                        flow?.requestEmptyTrash(model)
                     }
-                    .disabled(model.trashBytes == 0 || flow.isRunning)
+                    .disabled(flow == nil || model.trashBytes == 0 || flow?.isRunning == true)
 
                     HStack(spacing: 6) {
                         Image(systemName: "leaf.fill")
