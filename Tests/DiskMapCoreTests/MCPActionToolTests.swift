@@ -96,7 +96,8 @@ private func makeCache(_ f: ActionFixture, _ id: String) -> String {
     return folder
 }
 
-private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_cleanup", "show_in_app", "rescan"]
+private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_cleanup", "show_in_app", "rescan",
+                           "propose_quit_app"]
 
 // MARK: - Pruebas
 
@@ -383,11 +384,11 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         #expect(f.opener.urls.count == 2)
     }
 
-    @Test func registryHasExactlyNineToolsAndNoArbitraryInput() {
+    /// F11: el conjunto exacto, sin contar; cada plan añade sus nombres.
+    @Test func registryHasExactToolSetAndNoArbitraryInput() {
         let tools = MCPToolRegistry.standard().tools
-        #expect(Set(tools.map(\.name)) == ["get_disk_summary", "list_largest", "explain_path",
-            "list_cleanup_items", "run_safe_cleanup", "run_safe_cleanup_all", "propose_cleanup", "show_in_app", "rescan"])
-        #expect(tools.count == 9)
+        #expect(tools.map(\.name).sorted() == ["explain_path", "get_disk_summary", "list_cleanup_items", "list_largest",
+            "propose_cleanup", "propose_quit_app", "rescan", "run_safe_cleanup", "run_safe_cleanup_all", "show_in_app"])
         for tool in tools {
             guard case .object(let properties)? = tool.inputSchema["properties"] else {
                 Issue.record("\(tool.name) sin properties"); continue
@@ -396,6 +397,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
             if properties["path"] != nil {
                 #expect(["list_largest", "explain_path", "propose_cleanup", "show_in_app"].contains(tool.name))
             }
+            if properties["app"] != nil { #expect(tool.name == "propose_quit_app") }
             #expect(tool.inputSchema["additionalProperties"] == .bool(false))
             if actionNames.contains(tool.name) {
                 #expect(!tool.annotations.readOnly)

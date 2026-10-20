@@ -16,6 +16,25 @@ import Foundation
         }
     }
 
+    @Test func quitURLRoundTripsAndRejectsHostile() {
+        let commands: [AiryURLCommand] = [
+            .proposeQuit(app: "com.spotify.client", reason: "pesa & «mucho»", agent: "claude-code"),
+            .proposeQuit(app: "Google Chrome", reason: "", agent: nil),
+        ]
+        for command in commands { #expect(AiryURLCommand(url: command.url) == command, "\(command.url)") }
+        #expect(AiryURLCommand.proposeQuit(app: "com.spotify.client", reason: "pesa", agent: "test-client").url
+                == URL(string: "airy://quit?app=com.spotify.client&reason=pesa&agent=test-client")!)
+        let long = String(repeating: "a", count: 201)
+        for hostile in ["airy://quit", "airy://quit?app=", "airy://quit?app=a%0Ab", "airy://quit?app=\(long)",
+                        "airy://quit?app=a&app=b", "airy://quit/x?app=a"] {
+            #expect(AiryURLCommand(url: URL(string: hostile)!) == nil, "\(hostile)")
+        }
+        #expect(AiryURLCommand(url: URL(string: "airy://quit?app=\(String(repeating: "a", count: 200))")!) != nil)
+        // Motivo y agente se sanean como en propose.
+        #expect(AiryURLCommand(url: URL(string: "airy://quit?app=x&reason=a%0Ab&agent=")!)
+                == .proposeQuit(app: "x", reason: "a b", agent: nil))
+    }
+
     @Test func parsesDocumentedForms() {
         #expect(AiryURLCommand(url: URL(string: "airy://rescan")!) == .rescan)
         #expect(AiryURLCommand(url: URL(string: "airy://show?path=/Users")!) == .show(path: "/Users"))
