@@ -62,8 +62,27 @@ import Testing
         #expect(result.items.map(\.name) == ["f5.mov", "f4.mov"])
         #expect(result.hiddenBytes == 10 + 20 + 30 + 7)
     }
-}
 
-private extension ContentKind {
-    var index: Int { ContentKind.allCases.firstIndex(of: self)! }
+    @Test func folderAttributedBytesAreListedAsTheFolder() {
+        // Lo no reconocido de Caches pasó a .caches: el nodo hijo es .other, pero la carpeta tiene los bytes.
+        let blob = Self.file("blob", .other, 400)
+        let known = Self.file("x.cache", .caches, 100)
+        var kb = Self.bytes([(.caches, 500)])
+        kb[ContentKind.caches.index] = 500
+        let caches = FileNode(name: "Caches", isDirectory: true, allocatedSize: 500, kind: .caches,
+                              kindBytes: kb, children: [blob, known])
+        let root = Self.folder("/", [caches])
+        let result = FileTypeBreakdown.items(of: .caches, in: root)
+        #expect(result.items.map(\.name) == ["Caches"])
+        #expect(result.hiddenBytes == 0)
+    }
+
+    @Test func emptyRootAndZeroLimit() {
+        let empty = Self.folder("/", [])
+        #expect(FileTypeBreakdown.items(of: .video, in: empty).items.isEmpty)
+        #expect(FileTypeBreakdown.items(of: .video, in: empty).hiddenBytes == 0)
+        let root = Self.folder("/", [Self.file("a.mov", .video, 9)])
+        let none = FileTypeBreakdown.items(of: .video, in: root, limit: 0)
+        #expect(none.items.isEmpty && none.hiddenBytes == 9)
+    }
 }
