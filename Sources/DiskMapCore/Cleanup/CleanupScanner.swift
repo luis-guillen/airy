@@ -93,7 +93,10 @@ public struct CleanupScanner: Sendable {
         var bytes: Int64
     }
 
-    public func findItems(scan: FileNode?) async -> [CleanupItem] {
+    /// `inaccessible`: carpetas que el análisis no pudo leer; un tamaño tomado del índice para una ruta con algo
+    /// ilegible dentro es un mínimo (`sizeIsPartial`).
+    public func findItems(scan: FileNode?, inaccessible: [String] = []) async -> [CleanupItem] {
+        let partialIndex = PartialScanIndex(inaccessible: inaccessible)
         let running = probes.runningBundleIDs()
         // Una sola sonda de Docker por pasada para todas sus fichas.
         let docker = catalog.entries.contains { $0.discovery == .docker }
@@ -193,7 +196,8 @@ public struct CleanupScanner: Sendable {
                 usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch && target.preselectable,
                 highlighted: verdict.highlighted, protection: verdict.protection, blockedReason: blockedReason,
                 details: target.details, targets: targets, sizeNote: target.sizeNote,
-                lastModified: target.lastModified, riskReason: target.floorReason ?? verdict.protection?.reason)
+                lastModified: target.lastModified, riskReason: target.floorReason ?? verdict.protection?.reason,
+                sizeIsPartial: Self.isPartialSize(paths, scan: scan, index: partialIndex))
         }
     }
 
@@ -218,6 +222,12 @@ public struct CleanupScanner: Sendable {
             }
         }
         return total
+    }
+
+    /// El tamaño sale del índice y alguna de las rutas tiene algo ilegible dentro.
+    private static func isPartialSize(_ paths: [String], scan: FileNode?, index: PartialScanIndex) -> Bool {
+        guard let scan, !index.isEmpty else { return false }
+        return paths.contains { index.isPartial($0) && node(at: $0, in: scan) != nil }
     }
 
     private static func canOpen(_ path: String) -> Bool {

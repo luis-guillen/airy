@@ -108,6 +108,7 @@ public struct GetDiskSummaryTool: MCPTool {
         let value: JSONValue = .object([
             "scan_available": .bool(true),
             "scan_complete": .bool(scan.inaccessible.isEmpty),
+            "scan_status": .string(ScanCompleteness.of(scan).jsonName),
             "inaccessible_count": .number(Double(scan.inaccessible.count)),
             "last_scan": MCPFormat.iso(lastScan),
             "total_bytes": capacity.map { MCPFormat.number($0.total) } ?? .null,
@@ -167,12 +168,14 @@ public struct ListLargestTool: MCPTool {
             path = scan.root.name.isEmpty ? "/" : scan.root.name; node = scan.root
         }
 
+        let partial = PartialScanIndex(inaccessible: scan.inaccessible)
         let children = node.children.sorted { ($0.allocatedSize, $1.name) > ($1.allocatedSize, $0.name) }.prefix(limit)
         let rows: [JSONValue] = children.map { child in
             if child.aggregatedCount > 0 {
                 return .object([
                     "name": .string("Otros"), "aggregated_count": .number(Double(child.aggregatedCount)),
                     "bytes": MCPFormat.number(child.allocatedSize), "path": .null,
+                    "size_partial": .bool(partial.isPartial(path)),
                 ])
             }
             let childPath = MCPFormat.join(path, child.name)
@@ -180,6 +183,7 @@ public struct ListLargestTool: MCPTool {
                 "name": .string(child.name), "path": .string(childPath),
                 "bytes": MCPFormat.number(child.allocatedSize), "kind": .string(child.dominantKind.rawValue),
                 "last_modified": MCPFormat.iso(child.lastModified), "is_directory": .bool(child.isDirectory),
+                "size_partial": .bool(partial.isPartial(childPath)),
             ]
             row.merge(MCPFormat.risk(classifier.classify(path: childPath))) { $1 }
             return .object(row)
@@ -258,8 +262,8 @@ public struct ListCleanupItemsTool: MCPTool {
         guard let scanner = env.makeScanner(), let classifier = env.classifier() else {
             return .error(env.catalogError ?? "El catálogo no está disponible.")
         }
-        let tree = MCPFormat.loadIndex(env).scan?.root
-        let board = CleanupBoard(items: await scanner.findItems(scan: tree))
+        let loaded = MCPFormat.loadIndex(env).scan
+        let board = CleanupBoard(items: await scanner.findItems(scan: loaded?.root, inaccessible: loaded?.inaccessible ?? []))
         let rows: [JSONValue] = board.displayItems.map { item in
             var verdict = classifier.classify(entry: item.entry, paths: item.paths)
             verdict.risk = .strictest(verdict.risk, item.risk)
