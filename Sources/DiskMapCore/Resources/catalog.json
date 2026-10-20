@@ -1,1 +1,473 @@
-{"entries": []}
+{
+  "entries": [
+    {
+      "id": "docker-build-cache",
+      "title": "Caché de compilación de Docker",
+      "explanation": "Son capas intermedias que Docker guarda para construir imágenes más rápido. Se pueden borrar sin perder nada: Docker las vuelve a crear cuando las necesita.",
+      "whoCreatesIt": "Docker",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "containers",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "docker",
+        "arguments": [
+          "builder",
+          "prune",
+          "-a",
+          "-f"
+        ],
+        "sizeProbe": [
+          "system",
+          "df",
+          "--format",
+          "{{json .}}"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "docker-volumes",
+      "title": "Volúmenes de Docker",
+      "explanation": "Aquí Docker guarda los datos de tus contenedores, como bases de datos. Si se borran, esa información se pierde para siempre, así que la app solo te la muestra.",
+      "whoCreatesIt": "Docker",
+      "regenerates": false,
+      "risk": "doNotTouch",
+      "kind": "containers",
+      "paths": [],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "docker-images",
+      "title": "Imágenes de Docker",
+      "explanation": "Son las plantillas con las que Docker crea contenedores. Puedes borrar las que no uses, pero tendrás que descargarlas de nuevo si las necesitas; decide tú cuáles.",
+      "whoCreatesIt": "Docker",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "containers",
+      "paths": [],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "homebrew",
+      "title": "Caché de Homebrew",
+      "explanation": "Instaladores descargados y versiones antiguas de programas que instaló Homebrew. Se limpia con su propio comando y Homebrew los vuelve a descargar si hace falta.",
+      "whoCreatesIt": "Homebrew",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/Homebrew"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "brew",
+        "arguments": [
+          "cleanup",
+          "--prune=all",
+          "-s"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "pip",
+      "title": "Caché de pip",
+      "explanation": "Paquetes de Python descargados por pip para no bajarlos otra vez. Se limpia con su comando y se vuelven a descargar solos cuando hacen falta.",
+      "whoCreatesIt": "pip (Python)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/pip"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "pip3",
+        "arguments": [
+          "cache",
+          "purge"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "uv",
+      "title": "Caché de uv",
+      "explanation": "Paquetes de Python que guarda uv para instalar más rápido. Se limpia con su comando oficial y se rellena sola al usar uv de nuevo.",
+      "whoCreatesIt": "uv (Astral)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.cache/uv"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "uv",
+        "arguments": [
+          "cache",
+          "clean"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "pnpm",
+      "title": "Almacén de pnpm",
+      "explanation": "Copia de los paquetes de JavaScript que descargó pnpm. Se limpia con su comando y se vuelve a llenar al instalar dependencias.",
+      "whoCreatesIt": "pnpm",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/pnpm/store",
+        "~/Library/Caches/pnpm"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "pnpm",
+        "arguments": [
+          "store",
+          "prune"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "npm",
+      "title": "Caché de npm",
+      "explanation": "Paquetes de JavaScript que npm descargó antes. Se puede vaciar con su comando; npm los descarga de nuevo cuando los necesita.",
+      "whoCreatesIt": "npm (Node.js)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.npm/_cacache"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "npm",
+        "arguments": [
+          "cache",
+          "clean",
+          "--force"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "cargo",
+      "title": "Caché de Cargo",
+      "explanation": "Código de librerías de Rust que Cargo descargó. Si lo mandas a la Papelera, Cargo lo vuelve a bajar la próxima vez que compiles un proyecto.",
+      "whoCreatesIt": "Cargo (Rust)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.cargo/registry",
+        "~/.cargo/git"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "conda",
+      "title": "Paquetes de conda",
+      "explanation": "Paquetes descargados por conda o Anaconda que ya no se usan. Se limpia con su comando oficial y se vuelven a descargar si hacen falta.",
+      "whoCreatesIt": "conda (Anaconda)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/anaconda3/pkgs",
+        "~/miniconda3/pkgs"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "conda",
+        "arguments": [
+          "clean",
+          "--all",
+          "-y"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "huggingface-model",
+      "title": "Modelos de Hugging Face",
+      "explanation": "Modelos o conjuntos de datos de IA descargados desde Hugging Face. Se pueden volver a bajar, pero pueden ocupar muchos GB y tardar; decide según si aún los usas.",
+      "whoCreatesIt": "Hugging Face",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "aiModels",
+      "paths": [
+        "~/.cache/huggingface/hub/models--*",
+        "~/.cache/huggingface/hub/datasets--*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "referenceCheck": "{name}"
+    },
+    {
+      "id": "ollama-models",
+      "title": "Modelos de Ollama",
+      "explanation": "Modelos de IA que has descargado con Ollama para usarlos en tu Mac. Para quitar uno, usa el comando ollama rm con el nombre del modelo; la app solo te lo explica.",
+      "whoCreatesIt": "Ollama",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "aiModels",
+      "paths": [
+        "~/.ollama/models"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "whisper-cache",
+      "title": "Modelos de Whisper",
+      "explanation": "Modelos de reconocimiento de voz que descargó Whisper. Se pueden volver a descargar, pero tardan; decide si los sigues usando.",
+      "whoCreatesIt": "Whisper (OpenAI)",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "aiModels",
+      "paths": [
+        "~/.cache/whisper"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "playwright",
+      "title": "Navegadores de Playwright",
+      "explanation": "Copias de navegadores que usa Playwright para pruebas automáticas. Se vuelven a descargar solas cuando ejecutas pruebas de nuevo.",
+      "whoCreatesIt": "Playwright",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/ms-playwright"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "brave-cache",
+      "title": "Caché de Brave",
+      "explanation": "Imágenes y archivos de páginas web que Brave guarda para cargar más rápido. Se recrean solos al navegar; cierra Brave antes de limpiar.",
+      "whoCreatesIt": "Brave",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/BraveSoftware",
+        "~/Library/Caches/com.brave.Browser"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "com.brave.Browser"
+      ]
+    },
+    {
+      "id": "chrome-cache",
+      "title": "Caché de Chrome",
+      "explanation": "Archivos de páginas web que Chrome guarda para ir más rápido. Se recrean solos al navegar; cierra Chrome antes de limpiar.",
+      "whoCreatesIt": "Google Chrome",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/Google/Chrome"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "com.google.Chrome"
+      ]
+    },
+    {
+      "id": "safari-cache",
+      "title": "Caché de Safari",
+      "explanation": "Archivos de páginas web que Safari guarda para cargar más rápido. Se recrean solos al navegar; cierra Safari antes de limpiar.",
+      "whoCreatesIt": "Safari (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/com.apple.Safari"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "com.apple.Safari"
+      ]
+    },
+    {
+      "id": "spotify-cache",
+      "title": "Caché de Spotify",
+      "explanation": "Canciones y portadas que Spotify guarda para no descargarlas otra vez. Vuelve a llenarse sola al escuchar música; cierra Spotify antes de limpiar.",
+      "whoCreatesIt": "Spotify",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Caches/com.spotify.client"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "com.spotify.client"
+      ]
+    },
+    {
+      "id": "xcode-deriveddata",
+      "title": "Datos derivados de Xcode",
+      "explanation": "Resultados de compilar tus proyectos en Xcode. Xcode los recrea al compilar de nuevo, aunque la primera vez tardará más.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Developer/Xcode/DerivedData"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "xcode-simulators",
+      "title": "Simuladores no disponibles de Xcode",
+      "explanation": "Simuladores de iPhone o iPad antiguos que ya no funcionan con tu versión de Xcode. Se eliminan con el comando oficial de Xcode y no se pierde nada útil.",
+      "whoCreatesIt": "Xcode (Apple)",
+      "regenerates": false,
+      "risk": "safe",
+      "kind": "containers",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "xcrun",
+        "arguments": [
+          "simctl",
+          "delete",
+          "unavailable"
+        ]
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "user-logs",
+      "title": "Registros de apps",
+      "explanation": "Archivos de registro donde las apps anotan lo que hacen, útiles solo para diagnosticar fallos. Las apps los crean de nuevo cuando los necesitan.",
+      "whoCreatesIt": "Tus apps y macOS",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/Library/Logs/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "codex-stale-installs",
+      "title": "Instalaciones antiguas de Codex",
+      "explanation": "Restos de instalaciones anteriores del entorno de Codex que ya no se usan. Se pueden borrar; Codex crea una nueva si hace falta.",
+      "whoCreatesIt": "Codex",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "caches",
+      "paths": [
+        "~/.cache/codex-runtimes/codex-runtime-install-*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "codex-runtime",
+      "title": "Entorno activo de Codex",
+      "explanation": "Es el entorno que Codex usa ahora mismo para funcionar. Si lo borras, Codex puede dejar de funcionar, así que la app solo te lo muestra.",
+      "whoCreatesIt": "Codex",
+      "regenerates": false,
+      "risk": "doNotTouch",
+      "kind": "caches",
+      "paths": [
+        "~/.cache/codex-runtimes/codex-primary-runtime"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": []
+    },
+    {
+      "id": "claude-vm",
+      "title": "Máquina virtual de Claude",
+      "explanation": "Archivos de la máquina virtual que la app de Claude para escritorio usa para ejecutar tareas. Se pueden borrar y la app los vuelve a crear, pero tardará en el próximo uso; cierra Claude antes.",
+      "whoCreatesIt": "Claude (Anthropic)",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "containers",
+      "paths": [
+        "~/Library/Application Support/Claude/vm_bundles"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "com.anthropic.claudefordesktop"
+      ]
+    },
+    {
+      "id": "time-machine-snapshots",
+      "title": "Instantáneas locales de Time Machine",
+      "explanation": "Copias temporales que Time Machine guarda en tu Mac cuando no está conectado el disco de copias. macOS las borra solo si falta espacio; puedes reducirlas ahora, pero perderás esos puntos de restauración.",
+      "whoCreatesIt": "Time Machine (Apple)",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "tmutil",
+        "arguments": [
+          "thinlocalsnapshots",
+          "/",
+          "999999999999",
+          "4"
+        ],
+        "sizeProbe": [
+          "listlocalsnapshots",
+          "/"
+        ]
+      },
+      "mustBeClosed": []
+    }
+  ]
+}
