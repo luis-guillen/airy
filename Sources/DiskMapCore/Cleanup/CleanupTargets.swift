@@ -68,6 +68,7 @@ public enum CleanupTargets {
         if entry.discovery == .simulatorRuntimes { return SimulatorRuntimeSource() }
         if case .projectArtifacts = entry.discovery { return ProjectArtifactSource() }
         if entry.discovery == .installers { return InstallerSource() }
+        if case .toolchains = entry.discovery { return PendingDiscoverySource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()
