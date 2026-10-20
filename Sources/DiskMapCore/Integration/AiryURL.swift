@@ -7,12 +7,14 @@ import Foundation
 /// - `airy://propose?item=<id>&reason=<r>&agent=<a>` / `airy://propose?path=<p>&reason=<r>&agent=<a>`
 /// - `airy://show?path=<p>`
 /// - `airy://rescan`
+/// - `airy://quit?app=<bundle id o nombre>&reason=<r>&agent=<a>` (solo prepara la confirmación de cierre)
 public enum AiryURLCommand: Sendable, Equatable {
     public enum ProposeTarget: Sendable, Equatable { case item(String), path(String) }
 
     case propose(target: ProposeTarget, reason: String, agent: String?)
     case show(path: String)
     case rescan
+    case proposeQuit(app: String, reason: String, agent: String?)
 
     public static let scheme = "airy"
     public static let maxReason = 500, maxAgent = 64, maxPath = 1024, maxItemID = 200
@@ -54,6 +56,11 @@ public enum AiryURLCommand: Sendable, Equatable {
             self = .propose(target: target,
                             reason: Self.sanitised(query["reason"] ?? "", limit: Self.maxReason),
                             agent: (agent?.isEmpty ?? true) ? nil : agent)
+        case "quit":
+            guard let app = query["app"], Self.isSafeItemID(app) else { return nil }
+            let agent = query["agent"].map { Self.sanitised($0, limit: Self.maxAgent) }
+            self = .proposeQuit(app: app, reason: Self.sanitised(query["reason"] ?? "", limit: Self.maxReason),
+                                agent: (agent?.isEmpty ?? true) ? nil : agent)
         default:
             return nil
         }
@@ -74,6 +81,11 @@ public enum AiryURLCommand: Sendable, Equatable {
             case .item(let id): items.append(("item", id))
             case .path(let path): items.append(("path", path))
             }
+            if !reason.isEmpty { items.append(("reason", reason)) }
+            if let agent { items.append(("agent", agent)) }
+        case .proposeQuit(let app, let reason, let agent):
+            host = "quit"
+            items = [("app", app)]
             if !reason.isEmpty { items.append(("reason", reason)) }
             if let agent { items.append(("agent", agent)) }
         }
