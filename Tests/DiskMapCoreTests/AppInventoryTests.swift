@@ -85,6 +85,10 @@ private func makeApp(_ path: String, id: String? = "com.example.foo", name: Stri
 }
 
 @Test func unreadableRootMakesSnapshotIncomplete() async throws {
+    guard geteuid() != 0 else {
+        Issue.record("Prueba omitida: chmod 000 no bloquea al usuario root.")
+        return
+    }
     let root = try makeTempDir()
     try makeApp(root + "/Foo.app")
     chmod(root, 0o000)
@@ -163,4 +167,96 @@ private func makeApp(_ path: String, id: String? = "com.example.foo", name: Stri
     let runner = FakeRunner()
     #expect(await HomebrewCasks.installed(runner: runner) == nil)
     #expect(runner.calls.isEmpty)
+}
+
+@Test func corruptHelperPlistMakesSnapshotIncomplete() async throws {
+    let root = try makeTempDir()
+    defer { try? FileManager.default.removeItem(atPath: root) }
+    let app = try makeApp(root + "/Foo.app", id: "com.example.foo")
+    try FileManager.default.createDirectory(
+        atPath: app + "/Contents/Library/LoginItems/Bad.app/Contents", withIntermediateDirectories: true)
+    try Data("roto".utf8).write(
+        to: URL(fileURLWithPath: app + "/Contents/Library/LoginItems/Bad.app/Contents/Info.plist"))
+    let snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
+    #expect(!snapshot.complete)
+    #expect(!snapshot.problems.isEmpty)
+}
+
+@Test func unlistableHelperFolderMakesSnapshotIncomplete() async throws {
+    guard geteuid() != 0 else {
+        Issue.record("Prueba omitida: chmod 000 no bloquea al usuario root.")
+        return
+    }
+    let root = try makeTempDir()
+    let app = try makeApp(root + "/Foo.app", id: "com.example.foo")
+    let helpers = app + "/Contents/Helpers"
+    try FileManager.default.createDirectory(atPath: helpers, withIntermediateDirectories: true)
+    chmod(helpers, 0o000)
+    defer {
+        chmod(helpers, 0o755)
+        try? FileManager.default.removeItem(atPath: root)
+    }
+    let snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
+    #expect(!snapshot.complete)
+}
+
+@Test func symlinkedAppIsIncludedAndBrokenOneIsIncomplete() async throws {
+    let root = try makeTempDir()
+    let outside = try makeTempDir()
+    defer {
+        try? FileManager.default.removeItem(atPath: root)
+        try? FileManager.default.removeItem(atPath: outside)
+    }
+    try makeApp(outside + "/Real.app", id: "com.example.real")
+    try FileManager.default.createSymbolicLink(atPath: root + "/Link.app", withDestinationPath: outside + "/Real.app")
+    var snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
+    #expect(snapshot.complete)
+    #expect(snapshot.apps.map(\.bundleID) == ["com.example.real"])
+    try FileManager.default.createSymbolicLink(atPath: root + "/Broken.app", withDestinationPath: outside + "/Nada.app")
+    snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
+    #expect(!snapshot.complete)
+    #expect(!snapshot.problems.isEmpty)
+}
+
+@Test func symlinkedFolderIsNotFollowedAndStaysComplete() async throws {
+    let root = try makeTempDir()
+    let outside = try makeTempDir()
+    defer {
+        try? FileManager.default.removeItem(atPath: root)
+        try? FileManager.default.removeItem(atPath: outside)
+    }
+    try makeApp(outside + "/Real.app", id: "com.example.real")
+    try FileManager.default.createSymbolicLink(atPath: root + "/Folder", withDestinationPath: outside)
+    let snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
+    #expect(snapshot.complete)
+    #expect(snapshot.apps.isEmpty)
+}
+
+@Test func unreadableNestedFolderMakesSnapshotIncomplete() async throws {
+    guard geteuid() != 0 else {
+        Issue.record("Prueba omitida: chmod 000 no bloquea al usuario root.")
+        return
+    }
+    let root = try makeTempDir()
+    let vendor = root + "/Vendor"
+    try FileManager.default.createDirectory(atPath: vendor, withIntermediateDirectories: true)
+    chmod(vendor, 0o000)
+    defer {
+        chmod(vendor, 0o755)
+        try? FileManager.default.removeItem(atPath: root)
+    }
+    let snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
+    #expect(!snapshot.complete)
+}
+
+@Test func brewFailureGivesNil() async {
+    let failing = FakeRunner(resolved: ["brew": "/fake/brew"], outputs: [
+        "/fake/brew info --cask --installed --json=v2": CommandOutput(status: 1, stdout: "{}", stderr: "boom"),
+    ])
+    #expect(await HomebrewCasks.installed(runner: failing) == nil)
+    let json = #"{"casks":[{"token":"x","artifacts":[{"app":["X.app"]}]}]}"#
+    let ok = FakeRunner(resolved: ["brew": "/fake/brew"], outputs: [
+        "/fake/brew info --cask --installed --json=v2": CommandOutput(status: 0, stdout: json, stderr: ""),
+    ])
+    #expect(await HomebrewCasks.installed(runner: ok) == ["X.app": "x"])
 }
