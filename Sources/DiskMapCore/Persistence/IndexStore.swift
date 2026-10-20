@@ -39,16 +39,21 @@ public struct CleanupRecord: Codable, Sendable {
 }
 
 /// Persiste el último índice (`scan.plist`, plist binario, arrays paralelos) y el
-/// historial de limpiezas (`history.json`). La fecha del último análisis es la fecha de
-/// modificación de `scan.plist` (`lastScanDate()`).
+/// historial de limpiezas (`history.json`). La fecha del último análisis va dentro del índice
+/// (`ScanResult.scannedAt`, cabecera v3): la fecha de modificación del archivo no sirve, porque
+/// cada limpieza o envío a la Papelera vuelve a guardar el árbol. Un índice v2 se lee con fecha
+/// desconocida (`nil`).
 public final class IndexStore: Sendable {
-    private static let currentVersion: UInt32 = 2
+    private static let currentVersion: UInt32 = 3
+    /// v2: igual que v3 sin `scannedAt` (cabecera de 32 bytes en vez de 40).
+    private static let legacyVersion: UInt32 = 2
     private static let noDate = -1.0e18
     private static let magic: [UInt8] = Array("DMIX".utf8)
 
     /// Columnas paralelas del árbol aplanado (BFS: los padres preceden a los hijos).
     struct FlatScan {
         var duration: Double = 0
+        var scannedAt: Date?
         var inaccessible: [String] = []
         var parentIndex: [Int32] = []
         var name: [String] = []
@@ -99,11 +104,22 @@ public final class IndexStore: Sendable {
         }
     }
 
+    /// Fecha del análisis guardado (solo lee la cabecera). `nil` si no hay índice o no se sabe.
     public func lastScanDate() throws -> Date? {
         try lock.withLock { _ in
-            guard FileManager.default.fileExists(atPath: scanURL.path) else { return nil }
-            let attributes = try FileManager.default.attributesOfItem(atPath: scanURL.path)
-            return attributes[.modificationDate] as? Date
+            guard let handle = FileHandle(forReadingAtPath: scanURL.path) else { return nil }
+            defer { try? handle.close() }
+            let header = try handle.read(upToCount: 40) ?? Data()
+            return Self.scannedAt(header: header)
+        }
+    }
+
+    static func scannedAt(header data: Data) -> Date? {
+        data.withUnsafeBytes { raw in
+            guard raw.count >= 40, Array(raw[0..<4]) == magic,
+                  raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self) == currentVersion else { return nil }
+            let value = raw.loadUnaligned(fromByteOffset: 32, as: Double.self)
+            return value == noDate ? nil : Date(timeIntervalSinceReferenceDate: value)
         }
     }
 
@@ -147,6 +163,7 @@ public final class IndexStore: Sendable {
     static func flatten(_ result: ScanResult) -> FlatScan {
         var flat = FlatScan()
         flat.duration = result.duration
+        flat.scannedAt = result.scannedAt
         flat.inaccessible = result.inaccessible
         let kinds = ContentKind.allCases
         let kindCount = kinds.count
@@ -208,6 +225,7 @@ public final class IndexStore: Sendable {
         putValue(UInt64(count))
         putValue(flat.duration)
         putValue(UInt64(flat.inaccessible.count))
+        putValue(flat.scannedAt?.timeIntervalSinceReferenceDate ?? noDate)
         put(flat.parentIndex); put(flat.isDirectory); put(flat.kind)
         // Alinear a 8 bytes para las columnas anchas.
         while out.count % 8 != 0 { out.append(0) }
@@ -254,7 +272,10 @@ public final class IndexStore: Sendable {
                 return result
             }
             guard raw.count >= 32, Array(raw[0..<4]) == magic else { return nil }
-            guard raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self) == currentVersion else { return nil }
+            let version = raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self)
+            guard version == currentVersion || version == legacyVersion else { return nil }
+            let headerSize = version == currentVersion ? 40 : 32
+            guard raw.count >= headerSize else { return nil }
             let countU = raw.loadUnaligned(fromByteOffset: 8, as: UInt64.self)
             let inaccU = raw.loadUnaligned(fromByteOffset: 24, as: UInt64.self)
             guard countU > 0, countU < 1 << 31, inaccU < 1 << 31 else { return nil }
@@ -262,7 +283,11 @@ public final class IndexStore: Sendable {
             let inaccessibleCount = Int(inaccU)
             var flat = FlatScan()
             flat.duration = raw.loadUnaligned(fromByteOffset: 16, as: Double.self)
-            pos = 32
+            if version == currentVersion {
+                let value = raw.loadUnaligned(fromByteOffset: 32, as: Double.self)
+                flat.scannedAt = value == noDate ? nil : Date(timeIntervalSinceReferenceDate: value)
+            }
+            pos = headerSize
             guard let parents = take(Int32.self, count),
                   let dirs = take(UInt8.self, count),
                   let kinds = take(UInt8.self, count) else { return nil }
@@ -317,6 +342,7 @@ public final class IndexStore: Sendable {
             nodes[i].parent = parent
             parent.children.append(nodes[i])
         }
-        return ScanResult(root: nodes[0], inaccessible: flat.inaccessible, duration: flat.duration)
+        return ScanResult(root: nodes[0], inaccessible: flat.inaccessible, duration: flat.duration,
+                          scannedAt: flat.scannedAt)
     }
 }

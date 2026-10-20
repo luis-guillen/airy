@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import Synchronization
 @testable import DiskMapCore
 
 @Suite struct ScannerTests {
@@ -169,6 +170,75 @@ import Foundation
         let paths = Set(result.root.children.flatMap(\.children).map(\.path))
         #expect(paths == [first.path + "/a.bin", second.path + "/b.bin"])
         #expect(result.root.allocatedSize >= 4 * Self.mb)
+    }
+
+    @Test func workIsDoneOnBudgetThreadsWithItsQoS() async throws {
+        let tree = try TempTree()
+        for index in 0..<12 { try tree.makeDirectory("d\(index)/sub"); try tree.makeFile("d\(index)/sub/f.bin", bytes: 4096) }
+        try tree.makeFile("top.bin", bytes: 4096)
+        let seen = Mutex<[(String, QualityOfService)]>([])
+        let options = ScanOptions(roots: [tree.url], excludedPrefixes: [])
+        let scanner = DiskScanner(options: options, budget: ScanBudget(workers: 2, qos: .background))
+        let result = try await scanner.scan { _ in
+            seen.withLock { $0.append((Thread.current.name ?? "", Thread.current.qualityOfService)) }
+        }
+        let reports = seen.withLock { $0 }
+        #expect(!reports.isEmpty)
+        #expect(reports.allSatisfy { $0.0.hasPrefix("Airy scan ") && $0.1 == .background })
+        #expect(result.root.descendantCount == 12 * 3 + 1)
+    }
+
+    @Test func resultDoesNotDependOnWorkerCount() async throws {
+        let tree = try TempTree()
+        for index in 0..<8 { try tree.makeDirectory("a\(index)/b/c"); try tree.makeFile("a\(index)/b/c/big.bin", bytes: 2 * Int(Self.mb)) }
+        try tree.makeFile("a0/small.txt", bytes: 10)
+        try tree.makeFile("a0/small2.txt", bytes: 10)
+        let options = ScanOptions(roots: [tree.url], excludedPrefixes: [])
+        let one = try await DiskScanner(options: options, budget: ScanBudget(workers: 1, qos: .utility)).scan { _ in }
+        let four = try await DiskScanner(options: options, budget: ScanBudget(workers: 4, qos: .utility)).scan { _ in }
+        #expect(one.root.allocatedSize == four.root.allocatedSize)
+        #expect(one.root.descendantCount == four.root.descendantCount)
+        #expect(one.root.children.map(\.allocatedSize) == four.root.children.map(\.allocatedSize))
+    }
+
+    /// Cancela con los hilos en marcha y carpetas a medio cerrar: termina y lanza `CancellationError`.
+    @Test func cancellingMidScanStopsTheWalk() async throws {
+        let tree = try TempTree()
+        for index in 0..<300 { try tree.makeDirectory("d\(index)/e/f") }
+        let options = ScanOptions(roots: [tree.url], excludedPrefixes: [])
+        let scanner = DiskScanner(options: options, budget: ScanBudget(workers: 2, qos: .utility))
+        let box = Mutex<Task<ScanResult, Error>?>(nil)
+        let ready = DispatchSemaphore(value: 0)
+        let reports = Mutex(0)
+        let task = Task {
+            try await scanner.scan { _ in
+                // El primer aviso llega tras leer la raíz: sus 300 subcarpetas siguen pendientes.
+                guard reports.withLock({ $0 += 1; return $0 }) == 1 else { return }
+                ready.wait()
+                box.withLock { $0?.cancel() }
+            }
+        }
+        box.withLock { $0 = task }
+        ready.signal()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(reports.withLock { $0 } >= 1)
+    }
+
+    @Test func resultCarriesTheScanDate() async throws {
+        let tree = try TempTree()
+        let before = Date()
+        let result = try await scan(tree)
+        let scannedAt = try #require(result.scannedAt)
+        #expect(scannedAt >= before && scannedAt <= Date())
+    }
+
+    @Test func cancellingStopsTheScan() async throws {
+        let tree = try TempTree()
+        for index in 0..<20 { try tree.makeDirectory("d\(index)/e"); try tree.makeFile("d\(index)/e/f.bin", bytes: 100) }
+        let options = ScanOptions(roots: [tree.url], excludedPrefixes: [])
+        let task = Task { try await DiskScanner(options: options, intensity: .background).scan { _ in } }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
     }
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["AIRY_REAL"] != nil))

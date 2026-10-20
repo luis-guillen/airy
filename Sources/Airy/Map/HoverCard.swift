@@ -15,12 +15,16 @@ struct TileDetails: Equatable {
     let kind: ContentKind?
     let isFolder: Bool
     let risk: Risk?
+    /// Protección (de Airy o del usuario) que la deja en «No tocar».
+    let protection: ProtectionMatch?
     let explanation: String
     let asksAssistant: Bool
     let isOthers: Bool
 
     @MainActor
-    init(tile: MapTile, parent: FileNode?, catalog: Catalog?, home: String = NSHomeDirectory()) {
+    /// `classify`: el clasificador de la app (`AppModel.classify(path:)`), el mismo que usa Limpieza.
+    init(tile: MapTile, parent: FileNode?, catalog: Catalog?, classify: (String) -> Classification,
+         home: String = NSHomeDirectory()) {
         id = tile.id
         title = tile.name
         bytes = tile.bytes
@@ -39,7 +43,9 @@ struct TileDetails: Equatable {
             kind = node.isDirectory ? node.dominantKind : node.kind
             isFolder = node.isDirectory
             let entry = catalog?.match(path: fullPath, home: home)
-            risk = RiskPolicy.effectiveRisk(path: fullPath, home: home, catalog: entry?.risk, ai: nil)
+            let verdict = classify(fullPath)
+            risk = verdict.risk
+            protection = verdict.protection
             if let entry {
                 explanation = entry.explanation
                 asksAssistant = false
@@ -57,6 +63,7 @@ struct TileDetails: Equatable {
             kind = nil
             isFolder = false
             risk = nil
+            protection = nil
             explanation = "Archivos y carpetas pequeños agrupados"
             asksAssistant = false
         }
@@ -128,6 +135,12 @@ struct HoverCard: View {
 
             if let risk = details.risk {
                 RiskBadge(risk: risk)
+            }
+            if let protection = details.protection {
+                Label(CleanupBoard.protectionText(protection), systemImage: "lock.fill")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
 
             Divider().opacity(0.6)

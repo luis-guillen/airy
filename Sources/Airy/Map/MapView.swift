@@ -143,7 +143,8 @@ struct MapView: View {
         let tile = scene.tile(at: point)
         guard tile?.id != tracker.details?.id else { return }
         if let tile {
-            tracker.details = TileDetails(tile: tile, parent: model.navigation.current, catalog: model.catalog)
+            tracker.details = TileDetails(tile: tile, parent: model.navigation.current, catalog: model.catalog,
+                                          classify: model.classify(path:))
             if tile.isZoomable, let node = tile.node { scene.prefetch(node) }
         } else {
             tracker.details = nil
@@ -184,6 +185,10 @@ struct MapView: View {
             Button("Explicar con IA", systemImage: "sparkles") {
                 model.pendingAssistantQuestion = "¿Qué es \(tildePath) y puedo borrarlo?"
                 model.section = .assistant
+            }
+            // No destructivo: sin confirmación. Lo ya protegido no lo ofrece.
+            if details.protection == nil {
+                Button("Proteger esto", systemImage: "lock") { model.protect(path: path) }
             }
             // Solo donde el ejecutor la aceptaría (misma regla: `CleanupExecutor.wouldRefuseTrash`).
             if let risk = details.risk, risk != .doNotTouch, model.canOfferTrash(path: path) {
@@ -407,7 +412,8 @@ enum MapDebugScript {
             case "hover":
                 if let tile = pick(false) {
                     tracker.location = CGPoint(x: tile.rect.midX - 20, y: tile.rect.midY - 30)
-                    tracker.details = TileDetails(tile: tile, parent: model.navigation.current, catalog: model.catalog)
+                    tracker.details = TileDetails(tile: tile, parent: model.navigation.current, catalog: model.catalog,
+                                          classify: model.classify(path:))
                     scene.setHover(tile.id)
                 }
             case "unhover":

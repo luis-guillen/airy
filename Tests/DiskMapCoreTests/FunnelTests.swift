@@ -209,6 +209,80 @@ private struct Fixture {
         #expect(try f.store.history().last?.byAgent == false)
     }
 
+    @Test func agentIsRefusedIfTheItemStopsBeingGreenBetweenPlanAndAct() async throws {
+        let f = Fixture()
+        // «Tú decides» que el modo agresivo baja a «Sin problema».
+        let entry = CatalogEntry(id: "prueba", title: "Prueba", explanation: "", whoCreatesIt: "", regenerates: true,
+                                 risk: .yourCall, kind: .caches, paths: ["~/Library/Caches/prueba"], cleanup: .trash,
+                                 aggressiveRisk: .safe)
+        let item = CleanupItem(id: entry.id, entry: entry, paths: [f.folder], bytes: 10_000, risk: .safe,
+                               blockedByOpenApps: [], usedBy: [])
+        let aggressive = { var s = AirySettings(); s.mode = .aggressive; return s }()
+        let prudent = { var s = AirySettings(); s.mode = .prudent; return s }()
+        let live = LiveSettings(.loaded(aggressive))
+        // El usuario pasa a «Prudente» justo después del plan.
+        let exec = f.executor([entry], settings: { live.read() }, beforeMove: { _ in live.set(.loaded(prudent)) })
+        let outcome = await exec.execute(item, context: .agent("test"))
+        guard case .blocked(let reason) = outcome else { Issue.record("expected blocked, got \(outcome)"); return }
+        #expect(reason.contains("solo se ejecuta lo marcado"))
+        #expect(exists(f.folder))
+        // El usuario sí puede (la hoja le enseña el riesgo nuevo y decide él).
+        live.set(.loaded(aggressive))
+        let user = await f.executor([entry], settings: { live.read() },
+                                    beforeMove: { _ in live.set(.loaded(prudent)) }).execute(item, context: .user())
+        guard case .movedToTrash = user else { Issue.record("expected moved, got \(user)"); return }
+    }
+
+    @Test func sheetPreviewIsNotLoggedButAgentDryRunIs() async throws {
+        let f = Fixture()
+        let green = f.entry()
+        let exec = f.executor([green])
+        _ = await exec.preview(f.item(green), context: .user(proposedBy: "x", proposedVia: OperationContext.viaUnverifiedURL),
+                               logged: false)
+        #expect(try f.log.records().isEmpty)
+        _ = await exec.preview(f.item(green), context: .agent("test"))
+        #expect(try f.log.records().map(\.outcome) == ["would_trash"])
+    }
+
+    @Test func urlProposalIsLoggedAsAnUnverifiedClaim() async throws {
+        let f = Fixture()
+        let green = f.entry()
+        let context = URLProposalPolicy.context(runID: UUID(), agent: "Claude Code")
+        _ = await f.executor([green]).execute(f.item(green), context: context)
+        let record = try #require(try f.log.records().last)
+        #expect(record.actor == .user)
+        #expect(record.proposedBy == "Claude Code" && record.proposedVia == "url-unverified")
+        #expect(URLProposalPolicy.activityAuthor(record) == "Por enlace (dice ser «Claude Code») · confirmado por ti")
+    }
+
+    @Test func openAppCheckFailsClosedWhenItCannotBeRead() async throws {
+        let f = Fixture()
+        let safari = f.entry(mustBeClosed: ["com.apple.Safari"])
+        let outcome = await f.executor([safari], probes: FakeProbes(currentUnknown: true))
+            .execute(f.item(safari), context: .agent("test"))
+        guard case .blocked(let reason) = outcome else { Issue.record("expected blocked, got \(outcome)"); return }
+        #expect(reason.contains("No se pudo comprobar si com.apple.Safari está abierta"), "\(reason)")
+        #expect(exists(f.folder))
+    }
+
+    @Test func historyFailureIsReportedNotSwallowed() async throws {
+        let f = Fixture()
+        let green = f.entry()
+        // El historial no se puede escribir: `history.json` es una carpeta.
+        let badDir = URL(fileURLWithPath: tempDir("airy-funnel-bad"))
+        let blocked = IndexStore(directory: badDir)
+        try FileManager.default.createDirectory(atPath: badDir.appendingPathComponent("history.json").path,
+                                                withIntermediateDirectories: true)
+        let exec = CleanupExecutor(
+            runner: f.runner, probes: FakeProbes(), store: blocked, catalog: Catalog(entries: [green]),
+            references: ReferenceChecker(roots: []), home: f.home, freeSpace: { 0 }, trashSettleDelay: .zero,
+            settings: { .missing }, log: f.log, processGuard: ProcessGuard(listing: FakeListing()))
+        let outcome = await exec.execute(f.item(green), context: .user())
+        guard case .movedToTrash = outcome else { Issue.record("expected moved, got \(outcome)"); return }
+        let failure = try #require(f.log.takeWriteFailure())
+        #expect(failure.contains("historial"))
+    }
+
     @Test func previewMovesNothingAndMatchesExecute() async throws {
         let f = Fixture()
         let green = f.entry()

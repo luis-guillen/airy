@@ -15,18 +15,24 @@ final class FakeRunner: CommandRunning, Sendable {
     private let state = Mutex<(calls: [Call], resolveCalls: [String])>(([], []))
     let resolved: [String: String]
     let outputs: [String: CommandOutput]
+    /// Solo para pruebas: se llama tras anotar cada ejecución (p. ej. para cambiar los ajustes a mitad de tanda).
+    let onRun: (@Sendable (Call) -> Void)?
 
     /// `outputs` se indexa por "ejecutable argumentos…" (ruta resuelta y argumentos unidos por espacios).
-    init(resolved: [String: String] = [:], outputs: [String: CommandOutput] = [:]) {
+    init(resolved: [String: String] = [:], outputs: [String: CommandOutput] = [:],
+         onRun: (@Sendable (Call) -> Void)? = nil) {
         self.resolved = resolved
         self.outputs = outputs
+        self.onRun = onRun
     }
 
     var calls: [Call] { state.withLock { $0.calls } }
     var resolveCalls: [String] { state.withLock { $0.resolveCalls } }
 
     func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
-        state.withLock { $0.calls.append(Call(executable: executable, arguments: arguments, timeout: timeout)) }
+        let call = Call(executable: executable, arguments: arguments, timeout: timeout)
+        state.withLock { $0.calls.append(call) }
+        onRun?(call)
         let key = ([executable] + arguments).joined(separator: " ")
         return outputs[key] ?? CommandOutput(status: 0, stdout: "", stderr: "")
     }
@@ -41,17 +47,21 @@ final class FakeProbes: SystemProbing, Sendable {
     let running: Set<String>
     let trash: Int64
     let trashReadable: Bool
+    /// `true`: la lectura al momento de las apps abiertas falla (`currentRunningBundleIDs` = `nil`).
+    let currentUnknown: Bool
     private let emptied = Mutex(0)
 
-    init(running: Set<String> = [], trash: Int64 = 0, trashReadable: Bool = true) {
+    init(running: Set<String> = [], trash: Int64 = 0, trashReadable: Bool = true, currentUnknown: Bool = false) {
         self.running = running
         self.trash = trash
         self.trashReadable = trashReadable
+        self.currentUnknown = currentUnknown
     }
 
     var emptyCount: Int { emptied.withLock { $0 } }
 
     func runningBundleIDs() -> Set<String> { running }
+    func currentRunningBundleIDs() -> Set<String>? { currentUnknown ? nil : running }
     func hasFullDiskAccess() -> Bool { true }
     func trashSize() -> Int64 { trash }
     func trashSizeIfReadable() -> Int64? { trashReadable ? trash : nil }

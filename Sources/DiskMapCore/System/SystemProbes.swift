@@ -4,6 +4,9 @@ import Foundation
 /// Estado del sistema que necesitan la detección y la ejecución de limpiezas (falsificable en pruebas).
 public protocol SystemProbing: Sendable {
     func runningBundleIDs() -> Set<String>
+    /// Apps abiertas leídas ahora mismo (no una lista que se actualiza con el bucle de eventos), para la
+    /// comprobación justo antes de limpiar. `nil` = no se puede saber (quien llama falla cerrado).
+    func currentRunningBundleIDs() -> Set<String>?
     func hasFullDiskAccess() -> Bool
     func trashSize() -> Int64
     /// Como `trashSize`, pero `nil` si `~/.Trash` existe y no se puede leer (p. ej. sin Acceso total
@@ -14,6 +17,38 @@ public protocol SystemProbing: Sendable {
     /// de **todos** los volúmenes: la interfaz debe avisarlo antes de confirmar.
     func emptyTrash() async throws -> Int64
     func localSnapshots() async -> [String]
+}
+
+public extension SystemProbing {
+    func currentRunningBundleIDs() -> Set<String>? { runningBundleIDs() }
+}
+
+/// Bundle IDs de las apps en marcha a partir del listado de procesos (libproc): cada ejecutable dentro de
+/// `<X>.app/Contents/MacOS/` cuenta como la app `<X>.app` (su `CFBundleIdentifier`).
+public enum RunningApps {
+    /// `bundleIdentifier`: lee el identificador de un `.app` (por defecto, su `Contents/Info.plist`).
+    public static func bundleIDs(listing: any ProcessListing,
+                                 bundleIdentifier: (String) -> String? = RunningApps.infoPlistIdentifier)
+        -> Set<String>? {
+        guard let processes = listing.processes() else { return nil }
+        var bundles = Set<String>()
+        for process in processes {
+            if let path = process.executablePath, let bundle = appBundle(ofExecutable: path) { bundles.insert(bundle) }
+        }
+        return Set(bundles.compactMap(bundleIdentifier))
+    }
+
+    /// `/A/Safari.app/Contents/MacOS/Safari` ⇒ `/A/Safari.app`; si no, `nil`.
+    public static func appBundle(ofExecutable path: String) -> String? {
+        guard let range = path.range(of: ".app/Contents/MacOS/", options: .backwards) else { return nil }
+        return String(path[..<range.lowerBound]) + ".app"
+    }
+
+    public static func infoPlistIdentifier(_ bundlePath: String) -> String? {
+        let info = NSDictionary(contentsOfFile: bundlePath + "/Contents/Info.plist")
+        guard let id = info?["CFBundleIdentifier"] as? String, !id.isEmpty else { return nil }
+        return id
+    }
 }
 
 /// Capacidad del volumen (bytes): total, disponible y disponible para uso importante (la que muestra Finder).
@@ -68,18 +103,34 @@ public struct SystemProbes: SystemProbing {
     private let home: String
     private let runner: any CommandRunning
     private let allowFinderFallback: Bool
+    private let processListing: any ProcessListing
 
     /// `allowFinderFallback`: si no hay permiso para `~/.Trash`, vaciar con Finder (afecta a la Papelera real).
+    /// `processListing`: de dónde se leen al momento las apps abiertas (libproc; falsificable en pruebas).
     public init(home: String = NSHomeDirectory(), runner: any CommandRunning = ProcessRunner(),
-                allowFinderFallback: Bool = true) {
+                allowFinderFallback: Bool = true, processListing: any ProcessListing = LibprocListing()) {
         self.home = home
         self.runner = runner
         self.allowFinderFallback = allowFinderFallback
+        self.processListing = processListing
     }
 
     private var trashPath: String { (home as NSString).appendingPathComponent(".Trash") }
 
+    /// Para enseñar en la interfaz: la lectura al momento o, si falla, la de `NSWorkspace`.
     public func runningBundleIDs() -> Set<String> {
+        currentRunningBundleIDs() ?? Self.workspaceBundleIDs()
+    }
+
+    /// Listado de procesos leído ahora (libproc), unido a lo que sepa `NSWorkspace` (en un proceso sin bucle de
+    /// AppKit, como `airy-mcp`, esa lista puede no enterarse de las apps abiertas después de arrancar).
+    /// `nil` si el listado de procesos no se puede leer.
+    public func currentRunningBundleIDs() -> Set<String>? {
+        guard let fresh = RunningApps.bundleIDs(listing: processListing) else { return nil }
+        return fresh.union(Self.workspaceBundleIDs())
+    }
+
+    private static func workspaceBundleIDs() -> Set<String> {
         Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
     }
 

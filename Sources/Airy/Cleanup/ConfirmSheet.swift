@@ -9,6 +9,10 @@ struct ConfirmSheet: View {
     @Environment(CleanupFlow.self) private var flow
     let request: CleanupFlow.ConfirmRequest
     @ViewState private var warningAccepted = false
+    /// Vista previa del ejecutor (mismo plan que al confirmar), por fila. `nil` mientras se calcula.
+    @ViewState private var previews: [String: CleanupPreview]?
+    /// Filas que no se harán (id de elemento, ruta suelta o "trash") con su motivo.
+    @ViewState private var blockReasons: [String: String]?
 
     var body: some View {
         Group {
@@ -23,6 +27,12 @@ struct ConfirmSheet: View {
         .padding(24)
         .frame(width: 540)
         .animation(Theme.sectionSpring, value: warningAccepted)
+        // Con aviso previo («Esto depende de ti», propuesta por enlace), la vista previa espera a que el
+        // usuario lo acepte: abrir la hoja no consulta nada al ejecutor.
+        .task(id: warningAccepted) {
+            guard request.warning == nil || warningAccepted, blockReasons == nil else { return }
+            await loadPreview()
+        }
         #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .airyAssistantDebug)) { note in
             switch note.userInfo?["action"] as? String {
@@ -130,9 +140,33 @@ struct ConfirmSheet: View {
 
     private var confirmButton: some View {
         PrimaryButton(confirmTitle, systemImage: confirmSymbol, style: isEmptyTrash ? .destructive : .primary) {
-            flow.confirm(request, model: model)
+            flow.confirm(request, model: model, blocked: Set((blockReasons ?? [:]).keys))
         }
         .fixedSize()
+        // Hasta tener la vista previa no se confirma; si todo está bloqueado, no hay nada que hacer.
+        .disabled(blockReasons == nil || rows.allSatisfy { blockReasons?[$0.id] != nil })
+    }
+
+    // MARK: Vista previa
+
+    /// Pregunta al ejecutor qué haría cada fila ahora, con el `runID` de la tanda. Lo bloqueado sale
+    /// tachado con su motivo y no se ejecuta.
+    private func loadPreview() async {
+        var reasons: [String: String] = [:]
+        switch request.kind {
+        case .items(let items):
+            let previews = await model.preview(items, context: request.context)
+            guard !Task.isCancelled else { return }
+            for (id, preview) in previews { if case .blocked(let reason) = preview { reasons[id] = reason } }
+            self.previews = previews
+        case .trashPaths(let paths, _):
+            for path in paths {
+                if let refusal = model.destructiveRefusal ?? model.trashRefusal(path: path) { reasons[path] = refusal }
+            }
+        case .emptyTrash:
+            if let refusal = model.destructiveRefusal { reasons["trash"] = refusal }
+        }
+        blockReasons = reasons
     }
 
     /// `true` solo si todo va a la Papelera (recuperable): ni vaciarla ni comandos oficiales.
@@ -230,12 +264,13 @@ struct ConfirmSheet: View {
             return [ConfirmRow(id: "trash", title: "Vaciar Papelera", symbol: "trash.fill", tint: Theme.color(for: .doNotTouch),
                                size: bytes.map(Format.bytes) ?? "Tamaño desconocido",
                                method: .text(bytes == nil ? "Lo hace Finder, en todos los discos" : "Borrado definitivo"),
-                               location: "~/.Trash")]
+                               location: "~/.Trash", blockedReason: blockReasons?["trash"])]
         case .trashPaths(let paths, _):
             return paths.map { path in
                 ConfirmRow(id: path, title: (path as NSString).lastPathComponent, symbol: "doc", tint: Theme.userFilesColor,
                            size: model.node(atPath: path).map { Format.bytes($0.allocatedSize) } ?? "—",
-                           method: .text("A la Papelera"), location: Format.tildePath(path))
+                           method: .text(blockReasons == nil ? "A la Papelera" : "Irá a la Papelera"),
+                           location: Format.tildePath(path), blockedReason: blockReasons?[path])
             }
         case .items(let items):
             return items.map { item in
@@ -243,12 +278,18 @@ struct ConfirmSheet: View {
                 let size = item.id == TrashFollowUp.snapshotEntryID
                     ? (item.bytes > 0 ? "≈ \(Format.bytes(item.bytes))" : "Tamaño desconocido")
                     : CleanupBoard.sizeText(item)
+                let planned: ConfirmRow.Method? = switch previews?[item.id] {
+                case .wouldTrash: .text("Irá a la Papelera")
+                case .wouldRun(let command, _, _): .willRun(CleanupBoard.commandLine(command))
+                case .blocked, nil: nil
+                }
                 return ConfirmRow(id: item.id, title: item.title, symbol: CleanupIcon.symbol(for: item.entry),
                                   tint: Theme.color(for: item.entry.kind), size: size,
-                                  method: CleanupBoard.commandLine(method).map(ConfirmRow.Method.command)
+                                  method: planned ?? CleanupBoard.commandLine(method).map(ConfirmRow.Method.command)
                                       ?? .text(CleanupBoard.methodDescription(method)),
                                   // Dónde: imprescindible cuando una ficha abarca muchas carpetas (p. ej. ~/Library/Logs/*).
-                                  location: CleanupBoard.locationSummary(item))
+                                  location: CleanupBoard.locationSummary(item),
+                                  blockedReason: blockReasons?[item.id])
             }
         }
     }
@@ -256,6 +297,19 @@ struct ConfirmSheet: View {
     private struct Note { let symbol: String; let tint: Color; let text: String }
 
     private var notes: [Note] {
+        previewNotes + kindNotes
+    }
+
+    private var previewNotes: [Note] {
+        guard let blockReasons else {
+            return [Note(symbol: "hourglass", tint: .secondary, text: "Comprobando qué se hará con cada elemento…")]
+        }
+        guard !blockReasons.isEmpty else { return [] }
+        return [Note(symbol: "nosign", tint: Theme.color(for: .doNotTouch),
+                     text: "Lo tachado no se hará: Airy no puede hacerlo ahora.")]
+    }
+
+    private var kindNotes: [Note] {
         switch request.kind {
         case .emptyTrash(let bytes):
             let red = Theme.color(for: .doNotTouch)
@@ -312,7 +366,8 @@ struct ConfirmSheet: View {
 }
 
 struct ConfirmRow: Identifiable {
-    enum Method { case text(String), command(String) }
+    /// `command`: la orden del catálogo; `willRun`: la que el ejecutor confirmó en la vista previa.
+    enum Method { case text(String), command(String), willRun(String) }
     let id: String
     let title: String
     let symbol: String
@@ -321,10 +376,16 @@ struct ConfirmRow: Identifiable {
     let method: Method
     /// Dónde está lo que se toca ("~/Library/Logs/A", "Todo lo que hay en ~/Library/Logs (17 elementos)").
     var location: String?
+    /// La vista previa dice que no se hará (y por qué): la fila sale tachada.
+    var blockedReason: String?
 }
 
 private struct ConfirmRowView: View {
     let row: ConfirmRow
+
+    private func isWillRun(_ method: ConfirmRow.Method) -> Bool {
+        if case .willRun = method { true } else { false }
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -340,21 +401,31 @@ private struct ConfirmRowView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(row.title)
                         .font(.callout.weight(.semibold))
+                        .strikethrough(row.blockedReason != nil)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 8)
                     Text(row.size)
                         .font(.callout.weight(.semibold))
+                        .strikethrough(row.blockedReason != nil)
                         .monospacedDigit()
+                }
+                .foregroundStyle(row.blockedReason == nil ? .primary : .secondary)
+                if let reason = row.blockedReason {
+                    Label(reason, systemImage: "nosign")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Theme.color(for: .doNotTouch))
+                        .lineLimit(3)
                 }
                 switch row.method {
                 case .text(let text):
-                    Label(text, systemImage: text == "A la Papelera" ? "trash" : "info.circle")
+                    Label(text, systemImage: text.lowercased().hasSuffix("a la papelera") ? "trash" : "info.circle")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                case .command(let line):
+                        .strikethrough(row.blockedReason != nil)
+                case .command(let line), .willRun(let line):
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("Comando oficial:")
+                        Text(isWillRun(row.method) ? "Se ejecutará" : "Comando oficial:")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(line)

@@ -35,13 +35,51 @@ import Testing
     @Test func roundTripsTree() throws {
         let store = IndexStore(directory: tempDir())
         let root = sampleTree()
-        try store.saveScan(ScanResult(root: root, inaccessible: ["/x/y"], duration: 3.5))
+        let scannedAt = Date(timeIntervalSinceReferenceDate: 800_000_000.25)
+        try store.saveScan(ScanResult(root: root, inaccessible: ["/x/y"], duration: 3.5, scannedAt: scannedAt))
         let loaded = try #require(try store.loadScan())
+        #expect(loaded.scannedAt == scannedAt)
         #expect(collect(loaded.root) == collect(root))
         #expect(loaded.inaccessible == ["/x/y"])
         #expect(loaded.duration == 3.5)
         #expect(loaded.root.children[0].parent === loaded.root)
-        #expect(try store.lastScanDate() != nil)
+        #expect(try store.lastScanDate() == scannedAt)
+    }
+
+    /// Una limpieza o la Papelera vuelven a guardar el árbol mostrado: la fecha del análisis no cambia
+    /// aunque cambie la del archivo.
+    @Test func resavingTheShownTreeKeepsTheScanDate() throws {
+        let dir = tempDir()
+        let store = IndexStore(directory: dir)
+        let scannedAt = Date().addingTimeInterval(-3 * 86_400)
+        try store.saveScan(ScanResult(root: sampleTree(), inaccessible: [], duration: 1, scannedAt: scannedAt))
+        let shown = try #require(try store.loadScan())
+        shown.root.children[0].children[0].removeFromParent()
+        try store.saveScan(shown)
+        let attributes = try FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent("scan.plist").path)
+        let mtime = try #require(attributes[.modificationDate] as? Date)
+        #expect(Date().timeIntervalSince(mtime) < 60)
+        #expect(try store.lastScanDate() == scannedAt)
+        #expect(try store.loadScan()?.scannedAt == scannedAt)
+        #expect(ScanSchedule.plan(.automatic, hasIndex: true, indexDate: try store.lastScanDate(), now: Date())
+                == .scan(.background))
+    }
+
+    /// Un índice v2 (sin fecha dentro) se sigue leyendo, con fecha desconocida: se reanaliza.
+    @Test func legacyIndexLoadsWithUnknownDate() throws {
+        let dir = tempDir()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var data = IndexStore.serialize(IndexStore.flatten(
+            ScanResult(root: sampleTree(), inaccessible: ["/z"], duration: 2, scannedAt: Date())))
+        data.replaceSubrange(4..<8, with: withUnsafeBytes(of: UInt32(2)) { Data($0) })
+        data.removeSubrange(32..<40)
+        try data.write(to: dir.appendingPathComponent("scan.plist"))
+        let store = IndexStore(directory: dir)
+        let loaded = try #require(try store.loadScan())
+        #expect(collect(loaded.root) == collect(sampleTree()))
+        #expect(loaded.inaccessible == ["/z"])
+        #expect(loaded.scannedAt == nil)
+        #expect(try store.lastScanDate() == nil)
     }
 
     @Test func syntheticRootPathRoundTrips() throws {
