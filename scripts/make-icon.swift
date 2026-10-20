@@ -7,9 +7,10 @@
 //   Airy-1024.png   maestro de 1024×1024
 //   Airy.icns       todos los tamaños (16…1024, @1x/@2x)
 //
-// Los tamaños de 64 px en adelante salen del maestro con `sips`. Los de 16 y 32 px se dibujan
-// directamente a su tamaño con una versión simplificada (menos bloques, separaciones de 1 px
-// alineadas a píxel), porque el treemap de 6 bloques reducido se convierte en una mancha.
+// Logo: remolino de viento (arcos concéntricos blancos translúcidos) con hojas sobre un squircle
+// turquesa → índigo. Los tamaños de hasta 64 px (16, 16@2x, 32, 32@2x) se dibujan directamente a
+// su tamaño con una variante simplificada (un arco grueso y una hoja, alineados a píxel); de 128 px
+// en adelante salen del maestro de 1024 con `sips`.
 
 import CoreGraphics
 import Foundation
@@ -35,16 +36,9 @@ struct RGB {
 let white = RGB(0xFFFFFF)
 let black = RGB(0x000000)
 
-// Paleta del proyecto (global-constraints).
-let video = RGB(0xFF375F)
-let code = RGB(0x0A84FF)
-let apps = RGB(0xBF5AF2)
-let aiModels = RGB(0x64D2FF)
-let caches = RGB(0x30D158)
-let documents = RGB(0xFFD60A)
-
-let bgTop = RGB(0x1C1C2E)
-let bgBottom = RGB(0x0B0B12)
+// Paleta Airy (AiryPalette.logoTop / logoBottom).
+let logoTop = RGB(0x2fd0ff)
+let logoBottom = RGB(0x2a3bd9)
 
 // MARK: Formas
 
@@ -94,36 +88,37 @@ func radial(_ ctx: CGContext, _ stops: [(RGB, CGFloat, CGFloat)], center: CGPoin
 
 // MARK: Dibujo
 
-struct Block {
-    var color: RGB
-    var x0, y0, x1, y1: CGFloat  // fracciones del panel (origen arriba-izquierda)
+// logo-geometry: airy-logo-v1|full-arc:300,34,-20,250,0.9|full-arc:220,30,70,250,0.7|full-arc:140,26,160,250,0.5|full-leaf:300,230,132,62,ffffff|full-leaf:220,320,112,52,bfe9ff|full-leaf:140,50,92,44,ffffff|small-arc:230,86,-30,270,0.95|small-leaf:230,240,230,110,ffffff
+struct ArcSpec { var radius, lineWidth, start, sweep, opacity: CGFloat }
+struct LeafSpec { var radius, angle, length, width: CGFloat; var tint: UInt32 }
+
+let fullArcs = [ArcSpec(radius: 300, lineWidth: 34, start: -20, sweep: 250, opacity: 0.90),
+                ArcSpec(radius: 220, lineWidth: 30, start: 70, sweep: 250, opacity: 0.70),
+                ArcSpec(radius: 140, lineWidth: 26, start: 160, sweep: 250, opacity: 0.50)]
+let fullLeaves = [LeafSpec(radius: 300, angle: 230, length: 132, width: 62, tint: 0xFFFFFF),
+                  LeafSpec(radius: 220, angle: 320, length: 112, width: 52, tint: 0xBFE9FF),
+                  LeafSpec(radius: 140, angle: 50, length: 92, width: 44, tint: 0xFFFFFF)]
+let smallArcs = [ArcSpec(radius: 230, lineWidth: 86, start: -30, sweep: 270, opacity: 0.95)]
+let smallLeaves = [LeafSpec(radius: 230, angle: 240, length: 230, width: 110, tint: 0xFFFFFF)]
+
+/// Hoja centrada en el origen a lo largo de +x (misma curva que AiryLogoGeometry.leafPath).
+func leafPath(length l: CGFloat, width w: CGFloat) -> CGPath {
+    let p = CGMutablePath()
+    p.move(to: CGPoint(x: -l / 2, y: 0))
+    p.addQuadCurve(to: CGPoint(x: l / 2, y: 0), control: CGPoint(x: 0, y: -w))
+    p.addQuadCurve(to: CGPoint(x: -l / 2, y: 0), control: CGPoint(x: 0, y: 0.6 * w))
+    p.closeSubpath()
+    return p
 }
 
-/// Treemap completo: 6 tipos, como un mapa real (vídeo domina).
-let fullLayout: [Block] = [
-    Block(color: video, x0: 0, y0: 0, x1: 0.58, y1: 0.60),
-    Block(color: code, x0: 0.58, y0: 0, x1: 1, y1: 0.36),
-    Block(color: apps, x0: 0.58, y0: 0.36, x1: 1, y1: 0.60),
-    Block(color: aiModels, x0: 0, y0: 0.60, x1: 0.36, y1: 1),
-    Block(color: caches, x0: 0.36, y0: 0.60, x1: 0.72, y1: 1),
-    Block(color: documents, x0: 0.72, y0: 0.60, x1: 1, y1: 1),
-]
-
-/// Versión para 16/32 px: 4 bloques grandes y legibles.
-let smallLayout: [Block] = [
-    Block(color: video, x0: 0, y0: 0, x1: 0.58, y1: 0.58),
-    Block(color: code, x0: 0.58, y0: 0, x1: 1, y1: 0.58),
-    Block(color: caches, x0: 0, y0: 0.58, x1: 0.42, y1: 1),
-    Block(color: documents, x0: 0.42, y0: 0.58, x1: 1, y1: 1),
-]
-
 /// Dibuja el icono en un lienzo de `px`×`px` píxeles. Todo se expresa en la rejilla de 1024
-/// de Apple y se escala; `small` activa la variante simplificada con separaciones a píxel.
+/// de Apple y se escala; `small` activa la variante simplificada alineada a píxel.
 func renderIcon(px: Int, small: Bool) -> CGImage {
     let cs = CGColorSpace(name: CGColorSpace.sRGB)!
     let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0, space: cs,
                         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     let k = CGFloat(px) / 1024  // píxeles por unidad de la rejilla
+    let u = 1 / k               // unidades de la rejilla por píxel
     ctx.interpolationQuality = .high
     ctx.setShouldAntialias(true)
     // Origen arriba-izquierda, en unidades de 1024.
@@ -143,18 +138,16 @@ func renderIcon(px: Int, small: Bool) -> CGImage {
     ctx.saveGState()
     shadow(dy: small ? 6 : 12, blur: small ? 14 : 28, alpha: 0.42)
     ctx.addPath(squircle)
-    ctx.setFillColor(bgBottom.cg())
+    ctx.setFillColor(logoBottom.mixed(with: black, 0.5).cg())
     ctx.fillPath()
     ctx.restoreGState()
 
-    // 2. Fondo: degradado profundo.
+    // 2. Fondo: degradado turquesa (arriba-izquierda) → índigo (abajo-derecha).
     ctx.saveGState()
     ctx.addPath(squircle)
     ctx.clip()
-    linear(ctx, [(bgTop, 1, 0), (bgTop.mixed(with: bgBottom, 0.55), 1, 0.55), (bgBottom, 1, 1)],
-           from: CGPoint(x: 512, y: 100), to: CGPoint(x: 512, y: 924))
-    // Resplandor de color muy tenue tras el mapa (une los bloques con el fondo).
-    radial(ctx, [(RGB(0x3A3A7A), 0.30, 0), (RGB(0x3A3A7A), 0, 1)], center: CGPoint(x: 512, y: 470), radius: 470)
+    linear(ctx, [(logoTop, 1, 0), (logoBottom, 1, 1)],
+           from: CGPoint(x: 100, y: 100), to: CGPoint(x: 924, y: 924))
     // Brillo especular arriba.
     radial(ctx, [(white, 0.16, 0), (white, 0.05, 0.55), (white, 0, 1)],
            center: CGPoint(x: 512, y: 70), radius: 520)
@@ -164,82 +157,51 @@ func renderIcon(px: Int, small: Bool) -> CGImage {
     let frame = CGMutablePath()
     frame.addRect(squircleRect.insetBy(dx: -200, dy: -200))
     frame.addPath(squircle)
-    ctx.setShadow(offset: CGSize(width: 0, height: -10 * k), blur: 40 * k, color: black.cg(0.55))
+    ctx.setShadow(offset: CGSize(width: 0, height: -10 * k), blur: 40 * k, color: black.cg(0.40))
     ctx.addPath(frame)
     ctx.setFillColor(black.cg())
     ctx.fillPath(using: .evenOdd)
     ctx.restoreGState()
     ctx.restoreGState()
 
-    // 3. Treemap.
-    let blocks = small ? smallLayout : fullLayout
-    let panelInset: CGFloat = small ? 206 : 214
-    let panel = CGRect(x: panelInset, y: panelInset - 6, width: 1024 - 2 * panelInset, height: 1024 - 2 * panelInset)
-    // Separación: fina a 1024; a tamaños pequeños, exactamente 1 píxel (o más) para que no se fundan.
-    let gap: CGFloat = small ? max(1.0 / k, 34) : 20
-    let radius: CGFloat = small ? 40 : 30
-
-    for b in blocks {
-        var r = CGRect(x: panel.minX + b.x0 * panel.width, y: panel.minY + b.y0 * panel.height,
-                       width: (b.x1 - b.x0) * panel.width, height: (b.y1 - b.y0) * panel.height)
-        r = r.insetBy(dx: gap / 2, dy: gap / 2)
-        if small {
-            // Alinear a la rejilla de píxeles del tamaño final.
-            let u = 1 / k
-            r = CGRect(x: (r.minX / u).rounded() * u, y: (r.minY / u).rounded() * u,
-                       width: (r.width / u).rounded() * u, height: (r.height / u).rounded() * u)
-        }
-        let path = continuousRect(r, radius: radius)
-
-        // Halo del propio color (luz que el bloque derrama sobre el fondo) y sombra propia (profundidad).
-        if !small {
-            ctx.saveGState()
-            ctx.setShadow(offset: CGSize(width: 0, height: -14 * k), blur: 60 * k, color: b.color.cg(0.38))
-            ctx.addPath(path)
-            ctx.setFillColor(b.color.cg())
-            ctx.fillPath()
-            ctx.restoreGState()
+    // 3. Remolino: arcos blancos translúcidos con extremos redondeados.
+    func snap(_ v: CGFloat) -> CGFloat { small ? max(1, (v / u).rounded()) * u : v }
+    func polar(_ radius: CGFloat, _ degrees: CGFloat) -> CGPoint {
+        let a = degrees * .pi / 180
+        return CGPoint(x: 512 + radius * cos(a), y: 512 + radius * sin(a))
+    }
+    for arc in small ? smallArcs : fullArcs {
+        let r = snap(arc.radius)
+        let path = CGMutablePath()
+        let steps = 180
+        for i in 0...steps {
+            let p = polar(r, arc.start + arc.sweep * CGFloat(i) / CGFloat(steps))
+            if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
         }
         ctx.saveGState()
-        shadow(dy: small ? 4 : 10, blur: small ? 8 : 22, alpha: 0.5)
         ctx.addPath(path)
-        ctx.setFillColor(b.color.cg())
-        ctx.fillPath()
-        ctx.restoreGState()
-
-        ctx.saveGState()
-        ctx.addPath(path)
-        ctx.clip()
-        // Degradado propio: más claro arriba, más saturado y algo oscuro abajo.
-        linear(ctx, [(b.color.mixed(with: white, 0.28), 1, 0), (b.color, 1, 0.5),
-                     (b.color.mixed(with: black, 0.22), 1, 1)],
-               from: CGPoint(x: r.minX, y: r.minY), to: CGPoint(x: r.minX + r.width * 0.25, y: r.maxY))
-        if !small {
-            // Reflejo satinado en la mitad superior.
-            linear(ctx, [(white, 0.22, 0), (white, 0.04, 0.5), (white, 0, 1)],
-                   from: CGPoint(x: 0, y: r.minY), to: CGPoint(x: 0, y: r.minY + r.height * 0.55))
-            // Sombra interior en el borde inferior y luz en el superior: relieve.
-            ctx.saveGState()
-            let rim = CGMutablePath()
-            rim.addRect(r.insetBy(dx: -60, dy: -60))
-            rim.addPath(path)
-            ctx.setShadow(offset: CGSize(width: 0, height: 6 * k), blur: 14 * k, color: black.cg(0.35))
-            ctx.addPath(rim)
-            ctx.setFillColor(black.cg())
-            ctx.fillPath(using: .evenOdd)
-            ctx.restoreGState()
-            ctx.addPath(path)
-            ctx.setStrokeColor(white.cg(0.30))
-            ctx.setLineWidth(3)
-            ctx.replacePathWithStrokedPath()
-            ctx.clip()
-            linear(ctx, [(white, 0.55, 0), (white, 0, 0.35)],
-                   from: CGPoint(x: 0, y: r.minY), to: CGPoint(x: 0, y: r.maxY))
-        }
+        ctx.setLineCap(.round)
+        ctx.setLineJoin(.round)
+        ctx.setLineWidth(snap(arc.lineWidth))
+        ctx.setStrokeColor(white.cg(arc.opacity))
+        ctx.strokePath()
         ctx.restoreGState()
     }
 
-    // 4. Filo de luz en el borde del squircle (como el cristal de los iconos de macOS).
+    // 4. Hojas en el extremo de cada arco, con sombra suave.
+    for leaf in small ? smallLeaves : fullLeaves {
+        ctx.saveGState()
+        shadow(dy: small ? 3 : 8, blur: small ? 6 : 18, alpha: 0.25)
+        let c = polar(snap(leaf.radius), leaf.angle)
+        ctx.translateBy(x: c.x, y: c.y)
+        ctx.rotate(by: (leaf.angle + 90) * .pi / 180)
+        ctx.addPath(leafPath(length: leaf.length, width: leaf.width))
+        ctx.setFillColor(RGB(leaf.tint).cg())
+        ctx.fillPath()
+        ctx.restoreGState()
+    }
+
+    // 5. Filo de luz en el borde del squircle (como el cristal de los iconos de macOS).
     ctx.saveGState()
     ctx.addPath(squircle)
     ctx.clip()
@@ -298,7 +260,7 @@ let entries: [(String, Int)] = [
 ]
 for (name, px) in entries {
     let url = iconset.appendingPathComponent("\(name).png")
-    if px <= 32 {
+    if px <= 64 {
         writePNG(renderIcon(px: px, small: true), to: url)
     } else if px == 1024 {
         try FileManager.default.copyItem(at: master, to: url)
