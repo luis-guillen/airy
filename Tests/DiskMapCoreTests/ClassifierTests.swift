@@ -338,6 +338,10 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
 }
 
 /// Fichas del catálogo incluido que las protecciones duras dejan en «No tocar» (antes no lo estaban).
-private let expectedRedAfterHardProtections: Set<String> = []
+/// Las «Solo revisar» bajo `/Library`, `/private` y `/Applications` (plan 3, tarea 5): informativas, sin acción.
+private let expectedRedAfterHardProtections: Set<String> = [
+    "system-diagnostic-reports", "system-logs", "system-caches", "macos-installers", "chrome-old-frameworks",
+    "brave-old-frameworks", "edge-old-frameworks", "music-sound-libraries",
+]
 /// Fichas de Papelera a las que las protecciones duras quitan alguna ruta.
 private let expectedDroppedAfterHardProtections: Set<String> = []

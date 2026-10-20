@@ -198,7 +198,9 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
                 #expect(arguments.filter { $0.contains(CleanupMethod.targetPlaceholder) }.count <= 1, "\(e.id)")
                 #expect(arguments.allSatisfy { !$0.contains("{target}") || $0 == CleanupMethod.targetPlaceholder },
                         "\(e.id)")
-                #expect(!(probe ?? []).contains { $0.contains(CleanupMethod.targetPlaceholder) }, "\(e.id)")
+                // Solo la sonda de sqlite3 (espacio libre de la base) lleva `{target}`.
+                #expect(executable == "sqlite3" || !(probe ?? []).contains { $0.contains(CleanupMethod.targetPlaceholder) },
+                        "\(e.id)")
                 if e.cleanup.usesTargets {
                     #expect(e.discovery != nil || !e.paths.isEmpty, "\(e.id): {target} sin objetivos")
                 }
