@@ -6,6 +6,8 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @ViewState private var bannerDismissed = false
     @ViewState private var columnVisibility = NavigationSplitViewVisibility.all
+    /// Confirmaciones, tandas de limpieza, Papelera y celebración (compartido con la barra lateral).
+    @ViewState private var cleanupFlow = CleanupFlow()
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -15,6 +17,17 @@ struct RootView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 1100, minHeight: 720)
+        .environment(cleanupFlow)
+        .sheet(item: $cleanupFlow.sheet) { sheet in
+            Group {
+                switch sheet {
+                case .confirm(let request): ConfirmSheet(request: request)
+                case .snapshots(let notice): SnapshotsSheet(notice: notice)
+                }
+            }
+            .environment(model)
+            .environment(cleanupFlow)
+        }
         .task { model.startScan() }
     }
 
@@ -75,8 +88,24 @@ struct RootView: View {
             }
         }
         .animation(Theme.sectionSpring, value: model.isScanning)
+        .overlay { celebrationLayer }
         .ignoresSafeArea(edges: .top)
         .toolbar(removing: .sidebarToggle)
+    }
+}
+
+extension RootView {
+    /// Celebración al liberar espacio, encima del contenido (venga de Limpieza o de la barra lateral).
+    @ViewBuilder fileprivate var celebrationLayer: some View {
+        if let celebration = cleanupFlow.celebration {
+            FreedCelebration(bytes: celebration.bytes) {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    if cleanupFlow.celebration == celebration { cleanupFlow.celebration = nil }
+                }
+            }
+            .id(celebration.id)
+            .transition(.opacity)
+        }
     }
 }
 
@@ -112,10 +141,7 @@ private struct SectionContent: View {
         case .map:
             MapView(subtitle: mapSubtitle(now: now))
         case .cleanup:
-            SectionPlaceholder(
-                section: section,
-                subtitle: cleanupSubtitle,
-                line: "Cachés, registros y restos que se pueden borrar, cada uno con qué es, cuánto ocupa y su riesgo.")
+            CleanupView()
         case .assistant:
             SectionPlaceholder(
                 section: section,
@@ -124,12 +150,6 @@ private struct SectionContent: View {
         default:
             SectionPlaceholder(section: section, subtitle: "Próximamente", line: "Llegará en la fase 2.")
         }
-    }
-
-    private var cleanupSubtitle: String {
-        if model.catalogError != nil { return "No disponible: no se pudo cargar el catálogo" }
-        if model.isRefreshingCleanup { return "Buscando cachés y restos…" }
-        return "\(Theme.count(model.cleanupItems.count)) elementos detectados"
     }
 
     private func mapSubtitle(now: Date) -> String {
