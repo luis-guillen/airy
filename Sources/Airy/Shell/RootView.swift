@@ -8,6 +8,25 @@ struct RootView: View {
     @ViewState private var columnVisibility = NavigationSplitViewVisibility.all
     /// Confirmaciones, tandas de limpieza, Papelera y celebración (compartido con la barra lateral).
     @ViewState private var cleanupFlow = CleanupFlow()
+    /// Portero de movimiento: hasta que la ventana informa, todo quieto.
+    @ViewState private var windowVisible = false
+    @ViewState private var appActive = false
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    private var reduceMotion: Bool {
+        #if DEBUG
+        if DebugSnapshot.forcesReduceMotion { return true }
+        #endif
+        return systemReduceMotion
+    }
+
+    private var ambientMotion: MotionMode {
+        AnimationGate.ambient(windowVisible: windowVisible, appActive: appActive, reduceMotion: reduceMotion)
+    }
+
+    private var transientMotion: MotionMode {
+        AnimationGate.transient(windowVisible: windowVisible, reduceMotion: reduceMotion)
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -20,6 +39,15 @@ struct RootView: View {
         .tint(Theme.Airy.accent)
         .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
         .environment(cleanupFlow)
+        .environment(\.airyAmbientMotion, ambientMotion)
+        .environment(\.airyTransientMotion, transientMotion)
+        .background {
+            WindowActivityReader { visible, active in
+                windowVisible = visible
+                appActive = active
+            }
+        }
+        .logAmbientMotion(ambientMotion)
         .sheet(item: $cleanupFlow.sheet) { sheet in
             Group {
                 switch sheet {
@@ -31,6 +59,8 @@ struct RootView: View {
             .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
             .environment(model)
             .environment(cleanupFlow)
+            .environment(\.airyAmbientMotion, ambientMotion)
+            .environment(\.airyTransientMotion, transientMotion)
         }
         .task { model.startScan() }
         .task(id: model.pendingURLCommand?.id) {
@@ -47,7 +77,7 @@ struct RootView: View {
 
     private var detail: some View {
         ZStack(alignment: .top) {
-            DetailBackground()
+            BreezeBackground(intensity: .ambient)
 
             VStack(spacing: 0) {
                 if showsBanner {
@@ -113,23 +143,6 @@ extension RootView {
             .id(celebration.id)
             .transition(.opacity)
         }
-    }
-}
-
-/// Fondo del contenido: noche (o cielo claro) de la marca con dos halos suaves.
-private struct DetailBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        let dark = colorScheme == .dark
-        ZStack {
-            Theme.Airy.background
-            RadialGradient(colors: [Theme.Airy.accent.opacity(dark ? 0.10 : 0.06), .clear],
-                           center: .topTrailing, startRadius: 0, endRadius: 700)
-            RadialGradient(colors: [Theme.Airy.logoBottom.opacity(dark ? 0.08 : 0.04), .clear],
-                           center: .bottomLeading, startRadius: 0, endRadius: 600)
-        }
-        .ignoresSafeArea()
     }
 }
 

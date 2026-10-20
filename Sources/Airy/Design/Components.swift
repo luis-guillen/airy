@@ -169,6 +169,7 @@ private struct PrimaryButtonBody: View {
                     radius: hovering ? 10 : 6, y: 3)
             .brightness(hovering && isEnabled ? 0.05 : 0)
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .hoverSway(hovering && isEnabled)
             .opacity(isEnabled ? 1 : 0.45)
             .animation(Theme.pressSpring, value: configuration.isPressed)
             .animation(Theme.pressSpring, value: hovering)
