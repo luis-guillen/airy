@@ -16,6 +16,15 @@ public protocol SystemProbing: Sendable {
     func localSnapshots() async -> [String]
 }
 
+/// Capacidad del volumen (bytes): total, disponible y disponible para uso importante (la que muestra Finder).
+public struct VolumeCapacity: Sendable, Equatable {
+    public let total: Int64, available: Int64, importantAvailable: Int64
+
+    public init(total: Int64, available: Int64, importantAvailable: Int64) {
+        self.total = total; self.available = available; self.importantAvailable = importantAvailable
+    }
+}
+
 /// Tamaño asignado (`st_blocks * 512`) con `lstat`, sin seguir enlaces simbólicos
 /// y contando una sola vez los hard links.
 public enum AllocatedSize {
@@ -180,6 +189,16 @@ public struct SystemProbes: SystemProbing {
         output.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && !$0.hasPrefix("Snapshots for") }
+    }
+
+    /// Capacidad del volumen que contiene `home`, o `nil` si no se puede leer.
+    public static func volumeCapacity(home: String) -> VolumeCapacity? {
+        guard let values = try? URL(fileURLWithPath: home).resourceValues(forKeys: [
+            .volumeTotalCapacityKey, .volumeAvailableCapacityKey, .volumeAvailableCapacityForImportantUsageKey,
+        ]), let total = values.volumeTotalCapacity else { return nil }
+        let available = Int64(values.volumeAvailableCapacity ?? 0)
+        return VolumeCapacity(total: Int64(total), available: available,
+                              importantAvailable: values.volumeAvailableCapacityForImportantUsage ?? available)
     }
 
     /// Espacio disponible (`volumeAvailableCapacityForImportantUsage`) del volumen que contiene `home`.
