@@ -121,7 +121,7 @@ struct CleanupView: View {
         GlassCard {
             Label(model.catalogError ?? "No se pudo cargar el catálogo de limpiezas.",
                   systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(Theme.color(for: .yourCall))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
         }
     }
 
@@ -139,7 +139,7 @@ struct CleanupView: View {
                 HStack(spacing: 16) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 30))
-                        .foregroundStyle(Theme.color(for: .safe))
+                        .foregroundStyle(Theme.Airy.riskInk(.safe))
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Nada que limpiar").font(.title3.weight(.semibold))
                         Text("No se ha encontrado ninguna caché ni resto conocido que ocupe espacio.")
@@ -164,14 +164,14 @@ private struct HeroCard: View {
         GlassCard(padding: 22) {
             HStack(alignment: .center, spacing: 20) {
                 ZStack {
-                    Circle().fill(LinearGradient(colors: [Color(hex: 0x30D158), Color(hex: 0x64D2FF)],
+                    Circle().fill(LinearGradient(colors: [Theme.Airy.riskFill(.safe), Theme.Airy.sky],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
                     Image(systemName: "sparkles")
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.Airy.night)
                 }
                 .frame(width: 56, height: 56)
-                .shadow(color: Color(hex: 0x30D158).opacity(0.35), radius: 12, y: 5)
+                .shadow(color: Theme.Airy.riskFill(.safe).opacity(0.35), radius: 12, y: 5)
 
                 VStack(alignment: .leading, spacing: 2) {
                     // Con limpiezas parciales en la suma (p. ej. `pnpm store prune`) es solo un máximo.
@@ -224,7 +224,7 @@ private struct GroupSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: Theme.symbol(for: group.risk))
-                    .foregroundStyle(Theme.color(for: group.risk))
+                    .foregroundStyle(Theme.Airy.riskInk(group.risk))
                 Text(group.title)
                     .font(.system(.title3, design: .rounded, weight: .bold))
                 Text(Self.blurb(group.risk))
@@ -345,7 +345,7 @@ private struct ResultBanner: View {
                 ForEach(summary.problems) { problem in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Theme.color(for: .yourCall))
+                            .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                         Text("\(problem.title): \(problem.message)")
                             .foregroundStyle(.secondary)
                     }
@@ -361,7 +361,7 @@ private struct ResultBanner: View {
     }
 
     private func tint(_ summary: CleanupRunSummary) -> Color {
-        summary.succeededIDs.isEmpty ? Theme.color(for: .yourCall) : Theme.color(for: .safe)
+        summary.succeededIDs.isEmpty ? Theme.Airy.riskInk(.yourCall) : Theme.Airy.riskInk(.safe)
     }
 }
 

@@ -134,7 +134,7 @@ struct ScanRing<Center: View>: View {
                 .stroke(.primary.opacity(0.08), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: max(fraction, 0.02))
-                .stroke(Theme.brand, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(Theme.Airy.logoGradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(Theme.counterSpring, value: fraction)
             // Destello giratorio: indica actividad aunque la estimación avance despacio.

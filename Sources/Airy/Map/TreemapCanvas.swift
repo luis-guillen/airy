@@ -43,19 +43,17 @@ private struct TilePalette {
     let text: Color
     let secondaryText: Color
 
-    init(base: Color, darkText: Bool) {
-        gradient = Gradient(colors: [base.mix(with: .white, by: 0.24), base, base.mix(with: .black, by: 0.10)])
-        text = darkText ? Color.black.opacity(0.82) : .white
-        secondaryText = darkText ? Color.black.opacity(0.58) : Color.white.opacity(0.78)
+    /// Degradado de la tesela y tinta de mayor contraste; el tamaño se distingue por el peso de la
+    /// fuente, no por transparencia.
+    init(base: UInt32) {
+        gradient = Gradient(colors: AiryPalette.tileStops(base).map { Color(hex: $0) })
+        text = Color(hex: AiryPalette.tileInk(base))
+        secondaryText = text
     }
 
-    static let kinds: [TilePalette] = ContentKind.allCases.map { kind in
-        // Amarillo, celeste y verde son claros: texto oscuro para que se lea.
-        let darkText = kind == .documents || kind == .aiModels || kind == .caches
-        return TilePalette(base: Theme.color(for: kind), darkText: darkText)
-    }
+    static let kinds: [TilePalette] = ContentKind.allCases.map { TilePalette(base: AiryPalette.kind($0)) }
 
-    static let others = TilePalette(base: Color(hex: 0x86868B), darkText: false)
+    static let others = TilePalette(base: AiryPalette.others)
 
     static func of(_ style: TileStyle) -> TilePalette {
         switch style {

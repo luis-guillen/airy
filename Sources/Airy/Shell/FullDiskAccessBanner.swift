@@ -11,11 +11,10 @@ struct FullDiskAccessBanner: View {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(LinearGradient(colors: [Color(hex: 0xFFB340), Color(hex: 0xFF9F0A)],
-                                             startPoint: .top, endPoint: .bottom))
+                        .fill(Theme.Airy.riskFill(.yourCall))
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.Airy.night)
                 }
                 .frame(width: 38, height: 38)
 

@@ -33,6 +33,8 @@ struct Sidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(Theme.Airy.backgroundRaised)
         .safeAreaInset(edge: .top, spacing: 0) { brand }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
@@ -58,7 +60,7 @@ struct Sidebar: View {
 
     private var brand: some View {
         HStack(spacing: 10) {
-            AppGlyph(size: 26)
+            AiryLogo(size: 26)
             Text("Airy")
                 .font(.system(.title3, design: .rounded, weight: .bold))
             Spacer()
@@ -66,35 +68,6 @@ struct Sidebar: View {
         .padding(.horizontal, 18)
         .padding(.top, 6)
         .padding(.bottom, 4)
-    }
-}
-
-/// Pequeño logotipo de bloques del treemap con los colores de la paleta.
-struct AppGlyph: View {
-    var size: CGFloat = 26
-
-    var body: some View {
-        let gap = size * 0.07
-        let radius = size * 0.12
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex: 0x1C1C2E), Color(hex: 0x2C2C44)],
-                                     startPoint: .top, endPoint: .bottom))
-            HStack(spacing: gap) {
-                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .code))
-                    .frame(width: size * 0.38)
-                VStack(spacing: gap) {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .video))
-                    HStack(spacing: gap) {
-                        RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .caches))
-                        RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.gradient(for: .images))
-                    }
-                }
-            }
-            .padding(size * 0.16)
-        }
-        .frame(width: size, height: size)
-        .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
     }
 }
 

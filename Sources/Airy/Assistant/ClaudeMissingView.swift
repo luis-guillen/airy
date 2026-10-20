@@ -22,7 +22,7 @@ struct ClaudeMissingView: View {
                             .fill(Theme.color(for: .yourCall).opacity(0.14))
                         Image(systemName: "terminal")
                             .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(Theme.color(for: .yourCall))
+                            .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                             .symbolEffect(.bounce, value: appeared)
                     }
                     .frame(width: 64, height: 64)

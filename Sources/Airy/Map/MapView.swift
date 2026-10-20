@@ -245,19 +245,19 @@ struct MapToast: Equatable {
         switch outcome {
         case .movedToTrash(let bytes):
             symbol = "trash.fill"
-            tint = Theme.color(for: .safe)
+            tint = Theme.Airy.riskInk(.safe)
             message = "«\(title)» está en la Papelera (\(Format.bytes(bytes))). Se libera al vaciarla."
         case .freed(let bytes):
             symbol = "checkmark.circle.fill"
-            tint = Theme.color(for: .safe)
+            tint = Theme.Airy.riskInk(.safe)
             message = "Liberados \(Format.bytes(bytes))."
         case .blocked(let reason):
             symbol = "hand.raised.fill"
-            tint = Theme.color(for: .yourCall)
+            tint = Theme.Airy.riskInk(.yourCall)
             message = "No se ha movido: \(reason)"
         case .failed(let reason):
             symbol = "exclamationmark.triangle.fill"
-            tint = Theme.color(for: .doNotTouch)
+            tint = Theme.Airy.riskInk(.doNotTouch)
             message = reason
         }
     }
