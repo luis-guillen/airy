@@ -110,6 +110,13 @@ public enum AiryPalette {
         return ColorMath.contrastRatio(0xffffff, base) >= ColorMath.contrastRatio(night, base) ? 0xffffff : night
     }
 
+    /// Tinta (blanco o noche) con mejor contraste mínimo sobre todos los colores de un relleno.
+    public static func inkForFill(_ colors: [UInt32]) -> UInt32 {
+        let night: UInt32 = 0x07112a
+        func worst(_ ink: UInt32) -> Double { colors.map { ColorMath.contrastRatio(ink, $0) }.min() ?? 0 }
+        return worst(0xffffff) >= worst(night) ? 0xffffff : night
+    }
+
     /// Azul que se calienta hacia `heat` con la intensidad (acotada a 0…1; NaN ⇒ 0).
     public static func swirlTint(heat h: Double) -> UInt32 {
         ColorMath.mix(0x2f8bff, heat, h.isNaN ? 0 : min(max(h, 0), 1))

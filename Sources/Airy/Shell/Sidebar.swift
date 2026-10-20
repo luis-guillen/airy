@@ -32,11 +32,26 @@ struct Sidebar: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .help("Llegará en la fase 2")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityHint("Próximamente")
+                    .accessibilityAddTraits(.isStaticText)
+                    .disabled(true)
                 }
             }
             .padding(.horizontal, 10)
         }
         .ignoresSafeArea(.container, edges: .top)
+        .focusable()
+        .focusEffectDisabled()
+        .onMoveCommand { direction in
+            let sections = Section.available
+            guard let index = sections.firstIndex(of: model.section) else { return }
+            switch direction {
+            case .up where index > 0: select(sections[index - 1])
+            case .down where index < sections.count - 1: select(sections[index + 1])
+            default: break
+            }
+        }
         .background(Theme.Airy.backgroundRaised)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {

@@ -69,6 +69,12 @@ struct TileDetails: Equatable {
 struct HoverCard: View {
     let details: TileDetails
 
+    /// Glifo con contraste AA sobre los dos extremos del degradado del tipo.
+    private var glyphInk: Color {
+        let base = AiryPalette.kind(details.kind ?? .system)
+        return Color(hex: AiryPalette.inkForFill([ColorMath.mix(base, 0xffffff, 0.18), base]))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 9) {
@@ -77,7 +83,7 @@ struct HoverCard: View {
                         .fill(details.kind.map(Theme.gradient(for:)) ?? Theme.gradient(for: .system))
                     Image(systemName: symbol)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(hex: AiryPalette.tileInk(details.kind.map(AiryPalette.kind) ?? AiryPalette.kind(.system))))
+                        .foregroundStyle(glyphInk)
                 }
                 .frame(width: 26, height: 26)
                 Text(details.title)

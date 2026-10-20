@@ -43,6 +43,15 @@ struct AiryPaletteTests {
         }
     }
 
+    @Test func fillInkMeetsAAOnLightestKindStop() {
+        for kind in ContentKind.allCases {
+            let base = AiryPalette.kind(kind)
+            let stops = [ColorMath.mix(base, 0xffffff, 0.18), base]
+            let ink = AiryPalette.inkForFill(stops)
+            for stop in stops { #expect(ColorMath.contrastRatio(ink, stop) >= 3, "\(kind)") }
+        }
+    }
+
     @Test func tileLabelsMeetAAOnEveryGradientStop() {
         for base in ContentKind.allCases.map(AiryPalette.kind) + [AiryPalette.others] {
             let ink = AiryPalette.tileInk(base)
