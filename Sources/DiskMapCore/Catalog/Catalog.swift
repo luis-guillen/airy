@@ -73,7 +73,9 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
     public var cleanup: CleanupMethod
     /// Bundle IDs de apps que deben estar cerradas antes de limpiar.
     public var mustBeClosed: [String]
-    /// Cadena a buscar en proyectos; `{name}` = nombre de la carpeta encontrada.
+    /// Cadena a buscar en proyectos; `{name}` = nombre de la carpeta encontrada, transformado:
+    /// se quita el prefijo `models--` / `datasets--` y `--` pasa a `/` (Hugging Face).
+    /// Véase `referenceNeedle(forMatchedFolder:)`.
     public var referenceCheck: String?
 
     public init(
@@ -85,6 +87,18 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         self.whoCreatesIt = whoCreatesIt; self.regenerates = regenerates; self.risk = risk
         self.kind = kind; self.paths = paths; self.cleanup = cleanup
         self.mustBeClosed = mustBeClosed; self.referenceCheck = referenceCheck
+    }
+
+    /// Cadena de búsqueda para una carpeta concreta (p. ej. `models--a--b` ⇒ `a/b`).
+    public func referenceNeedle(forMatchedFolder folder: String) -> String? {
+        guard let referenceCheck else { return nil }
+        var name = (folder as NSString).lastPathComponent
+        for prefix in ["models--", "datasets--"] where name.hasPrefix(prefix) {
+            name = String(name.dropFirst(prefix.count))
+            break
+        }
+        name = name.replacingOccurrences(of: "--", with: "/")
+        return referenceCheck.replacingOccurrences(of: "{name}", with: name)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -150,31 +164,39 @@ public struct Catalog: Sendable {
 
     static let bundleName = "DiskMap_DiskMapCore.bundle"
 
-    /// Busca primero en `Bundle.main.resourceURL` (Contents/Resources del .app) y luego en `Bundle.module`.
+    private final class BundleToken {}
+
+    /// Busca el bundle de recursos por ruta (sin `Bundle.module`, que aborta si falta):
+    /// Contents/Resources del .app, raíz del bundle principal y carpeta del binario en ejecución.
     public static func bundled() throws -> Catalog {
+        var dirs: [URL] = []
+        if let r = Bundle.main.resourceURL { dirs.append(r) }
+        dirs.append(Bundle.main.bundleURL)
+        if let e = Bundle.main.executableURL { dirs.append(e.deletingLastPathComponent()) }
+        dirs.append(Bundle(for: BundleToken.self).bundleURL.deletingLastPathComponent())
+        for b in Bundle.allBundles + Bundle.allFrameworks { dirs.append(b.bundleURL.deletingLastPathComponent()) }
         var tried: [String] = []
-        if let resources = Bundle.main.resourceURL {
-            let url = resources.appendingPathComponent(bundleName)
+        for dir in dirs {
+            let url = dir.appendingPathComponent(bundleName)
+            if tried.contains(url.path) { continue }
             tried.append(url.path)
             if let bundle = Bundle(url: url), let json = bundle.url(forResource: "catalog", withExtension: "json") {
                 return try decode(try Data(contentsOf: json))
             }
         }
-        if let json = Bundle.module.url(forResource: "catalog", withExtension: "json") {
-            return try decode(try Data(contentsOf: json))
-        }
-        throw CatalogError(description: "No se encontró catalog.json. Buscado en: \(tried.joined(separator: ", ")) y en Bundle.module")
+        throw CatalogError(description: "No se encontró catalog.json en \(bundleName). Buscado en: \(tried.joined(separator: ", "))")
     }
 
     public func entry(id: String) -> CatalogEntry? { entries.first { $0.id == id } }
 
     /// Entrada más específica (patrón literal más largo) que contiene o iguala a `path`.
+    /// Compara sin distinguir mayúsculas y tras colapsar `.`, `..` y `//`.
     public func match(path: String, home: String) -> CatalogEntry? {
-        let pathParts = Self.components(path)
+        let pathParts = Self.components(RiskPolicy.canonical(path))
         var best: (entry: CatalogEntry, score: Int)?
         for entry in entries {
             for pattern in entry.paths {
-                let expanded = Self.expand(pattern, home: home)
+                let expanded = RiskPolicy.canonical(Self.expand(pattern, home: home))
                 let patParts = Self.components(expanded)
                 guard patParts.count <= pathParts.count else { continue }
                 let ok = zip(patParts, pathParts).allSatisfy { Self.componentMatches($0, $1) }
