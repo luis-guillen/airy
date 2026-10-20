@@ -70,4 +70,47 @@ import Testing
         _ = LoginItemsAudit.broken(in: [dir])
         #expect(try snapshot() == before)
     }
+
+    @Test func oversizedPlistSkipped() throws {
+        let dir = try makeDir([:])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let pad = String(repeating: "a", count: 1_100_000)
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: ["Program": "/nope/big", "Pad": pad], format: .xml, options: 0)
+        try data.write(to: URL(fileURLWithPath: dir + "/big.plist"))
+        #expect(LoginItemsAudit.broken(in: [dir]).isEmpty)
+    }
+
+    @Test func fifoNamedPlistSkippedWithoutHanging() throws {
+        let dir = try makeDir([:])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        #expect(mkfifo(dir + "/pipe.plist", 0o600) == 0)
+        #expect(LoginItemsAudit.broken(in: [dir]).isEmpty)
+    }
+
+    @Test func symlinkToDeviceSkippedAndSymlinkToFileFollowed() throws {
+        let dir = try makeDir([:])
+        let target = try makeDir(["real.plist": ["Label": "lnk", "Program": "/nope/l"]])
+        defer {
+            try? FileManager.default.removeItem(atPath: dir)
+            try? FileManager.default.removeItem(atPath: target)
+        }
+        try FileManager.default.createSymbolicLink(atPath: dir + "/zero.plist", withDestinationPath: "/dev/zero")
+        #expect(LoginItemsAudit.broken(in: [dir]).isEmpty)
+        try FileManager.default.createSymbolicLink(atPath: dir + "/ok.plist", withDestinationPath: target + "/real.plist")
+        #expect(LoginItemsAudit.broken(in: [dir]).map(\.label) == ["lnk"])
+    }
+
+    @Test func mountedVolumeMissingProgramIsReported() throws {
+        let dir = try makeDir(["v.plist": ["Program": "/Volumes/Disco/app"]])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let items = LoginItemsAudit.broken(in: [dir], fileExists: { $0 == "/Volumes/Disco" })
+        #expect(items.map(\.missingProgram) == ["/Volumes/Disco/app"])
+    }
+
+    @Test func emptyProgramFallsBackToArguments() throws {
+        let dir = try makeDir(["p.plist": ["Program": "", "ProgramArguments": ["/nope/fb"]]])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        #expect(LoginItemsAudit.broken(in: [dir]).map(\.missingProgram) == ["/nope/fb"])
+    }
 }

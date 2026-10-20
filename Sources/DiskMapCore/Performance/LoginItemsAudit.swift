@@ -36,9 +36,7 @@ public enum LoginItemsAudit {
             guard let names = try? fm.contentsOfDirectory(atPath: dir) else { continue }
             for name in names.sorted() where name.hasSuffix(".plist") {
                 let path = (dir as NSString).appendingPathComponent(name)
-                guard let attrs = try? fm.attributesOfItem(atPath: path),
-                      let size = attrs[.size] as? NSNumber, size.intValue <= maxPlistBytes,
-                      let data = fm.contents(atPath: path),
+                guard let data = readBoundedRegularFile(path),
                       let obj = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
                       let dict = obj as? [String: Any] else { continue }
                 let program: String?
@@ -58,6 +56,19 @@ public enum LoginItemsAudit {
             }
         }
         return result
+    }
+
+    /// Solo ficheros regulares (se siguen enlaces simbólicos con stat, pero se rechazan FIFO y
+    /// dispositivos); lectura acotada a maxPlistBytes. Nil si no es válido o supera el límite.
+    private static func readBoundedRegularFile(_ path: String) -> Data? {
+        var st = stat()
+        guard stat(path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG,
+              st.st_size <= maxPlistBytes,
+              let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: maxPlistBytes + 1),
+              data.count <= maxPlistBytes else { return nil }
+        return data
     }
 
     private static func isOnUnmountedVolume(_ program: String, fileExists: (String) -> Bool) -> Bool {
