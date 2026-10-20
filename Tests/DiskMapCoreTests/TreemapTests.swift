@@ -57,11 +57,10 @@ struct TreemapTests {
     @Test func othersCountAddsAggregatedChildren() {
         let big = FileNode(name: "big", isDirectory: false, allocatedSize: 1_000_000_000)
         let agg = FileNode(name: "Otros", isDirectory: false, allocatedSize: 50_000, aggregatedCount: 100)
-        let tiny = FileNode(name: "t", isDirectory: false, allocatedSize: 20_000)
-        let tiny2 = FileNode(name: "t2", isDirectory: false, allocatedSize: 20_000)
-        let root = FileNode(name: "r", isDirectory: true, allocatedSize: 1_000_000_020, children: [big, agg, tiny, tiny2])
+        let tinies = (0..<99).map { FileNode(name: "t\($0)", isDirectory: false, allocatedSize: 60_000) }
+        let root = FileNode(name: "r", isDirectory: true, allocatedSize: 1_006_000_000, children: [big, agg] + tinies)
         let tiles = Treemap.tiles(for: root, in: CGRect(x: 0, y: 0, width: 800, height: 600))
-        #expect(tiles.first { $0.node == nil }?.othersCount == 102)
+        #expect(tiles.first { $0.node == nil }?.othersCount == 199)
     }
 
     @Test func gapKeepsTilesApart() {
