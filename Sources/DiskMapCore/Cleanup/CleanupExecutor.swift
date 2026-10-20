@@ -165,11 +165,10 @@ public struct CleanupExecutor: Sendable {
         guard lstat(path, &info) == 0 else { return "No existe: \(path)." }
 
         let forms = Self.forms(of: path)
-        let protected = protectedLocations()
+        let homes = homeForms()
         for form in forms {
-            if RiskPolicy.isInside(form, root: "/system") { return "Ruta del sistema: \(path)." }
-            for location in protected where form == location || RiskPolicy.isInside(location, root: form) {
-                return "Carpeta protegida: \(path)."
+            if let reason = RiskPolicy.trashRefusal(forCanonicalPath: form, homes: homes) {
+                return "\(reason) No se envía a la Papelera: \(path)."
             }
             if RiskPolicy.minimumRisk(forPath: form, home: home) == .doNotTouch {
                 return "Marcado como «No tocar»: \(path)."
@@ -177,6 +176,13 @@ public struct CleanupExecutor: Sendable {
         }
         if let entry = catalog.match(path: path, home: home), entry.risk == .doNotTouch {
             return "Marcado como «No tocar»: \(path)."
+        }
+        // Las cachés con comando oficial se limpian solo con ese comando, nunca a mano.
+        for entry in catalog.entries {
+            guard case .command = entry.cleanup else { continue }
+            for pattern in entry.paths where forms.contains(where: { related($0, pattern) }) {
+                return "«\(entry.title)» se limpia solo con su comando oficial: \(path)."
+            }
         }
         // Ni dentro de un patrón "No tocar" ni una carpeta que lo contenga (exista o no ahora).
         for entry in catalog.entries where entry.risk == .doNotTouch {
@@ -235,24 +241,14 @@ public struct CleanupExecutor: Sendable {
         return users.isEmpty ? nil : "Lo usa: \(users.joined(separator: ", "))."
     }
 
-    /// Ubicaciones que nunca se envían a la Papelera, ni ellas ni sus carpetas superiores.
-    private func protectedLocations() -> [String] {
+    /// `home` tal cual y resuelto (por si pasa por un enlace).
+    private func homeForms() -> [String] {
         var homes = [home]
         if let real = realpath(home, nil) {
             homes.append(String(cString: real))
             free(real)
         }
-        var locations = [
-            "/", "/system", "/users", "/applications", "/library", "/usr", "/bin", "/sbin", "/etc",
-            "/var", "/private", "/private/var", "/private/etc", "/opt", "/volumes", "/cores",
-        ]
-        for base in homes.map(RiskPolicy.canonical) {
-            locations.append(base)
-            for name in RiskPolicy.personalRoots + ["Library", "Applications", ".Trash"] {
-                locations.append(RiskPolicy.canonical(base + "/" + name))
-            }
-        }
-        return locations
+        return homes
     }
 
     // MARK: - Comandos

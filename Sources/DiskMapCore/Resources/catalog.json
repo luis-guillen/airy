@@ -35,7 +35,7 @@
       "regenerates": false,
       "risk": "doNotTouch",
       "kind": "containers",
-      "paths": [],
+      "paths": ["~/Library/Containers/com.docker.docker"],
       "cleanup": {
         "type": "info"
       },

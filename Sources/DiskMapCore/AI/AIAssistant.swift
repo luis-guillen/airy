@@ -148,7 +148,8 @@ public struct AIAssistant: Sendable {
         \(context)
 
         Tarea: escribe un resumen breve del estado del disco y recomienda qué se puede liberar. \
-        Usa en "path" rutas exactamente como aparecen en el contexto. \
+        Usa en "path" rutas exactamente como aparecen en el contexto; para un elemento de limpieza sin rutas, \
+        pon en "path" su "id". "runCatalogCommand" solo con el catalogId de esa misma ruta o elemento. \
         En "bytes" pon el tamaño que indica el contexto.
         """
         let output: CommandOutput
@@ -177,49 +178,83 @@ public struct AIAssistant: Sendable {
         return validate(raw, context: context)
     }
 
-    /// Reglas aplicadas siempre en código, desconfiando de la IA.
+    /// Lo que se sabe de una ruta del contexto (o del id de un elemento de limpieza sin rutas).
+    struct Known {
+        var path: String
+        var bytes: Int64
+        /// Riesgo del elemento de limpieza que la contiene (ya subido por `usedBy`, etc.).
+        var itemRisk: Risk?
+        /// Fichas de los elementos de limpieza que la contienen.
+        var itemCatalogIds: Set<String> = []
+        /// `true` si es el id de un elemento sin rutas (p. ej. `docker-build-cache`), no una ruta.
+        var isItemID = false
+    }
+
+    /// Reglas aplicadas siempre en código, desconfiando de la IA:
+    /// - solo rutas del contexto; el riesgo nunca baja del suelo, del catálogo ni del elemento de limpieza;
+    /// - `trash` solo de la propia ruta, si su ficha del catálogo se limpia con Papelera y queda "sin riesgo",
+    ///   y nunca de ubicaciones protegidas;
+    /// - `runCatalogCommand` solo con la ficha de esa misma ruta (o de su elemento de limpieza) y nunca `.info`.
     func validate(_ raw: AIReport, context: String) -> AIReport {
         let payload = try? JSONDecoder().decode(AIContextPayload.self, from: Data(context.utf8))
-        // Ruta canónica → (ruta absoluta del contexto, bytes conocidos, riesgo del elemento de limpieza).
-        var known: [String: (path: String, bytes: Int64, itemRisk: Risk?)] = [:]
+        var known: [String: Known] = [:]
         for node in payload?.nodes ?? [] {
             let absolute = AIPaths.expand(node.path, home: home)
-            known[RiskPolicy.canonical(absolute)] = (absolute, node.bytes, nil)
+            known[RiskPolicy.canonical(absolute)] = Known(path: absolute, bytes: node.bytes)
         }
+        var itemIDs: [String: Known] = [:]
         for item in payload?.cleanupItems ?? [] {
             let itemRisk = Risk(jsonName: item.risk) ?? .yourCall
+            if item.paths.isEmpty {
+                itemIDs[item.id] = Known(path: item.id, bytes: item.bytes, itemRisk: itemRisk,
+                                         itemCatalogIds: [item.catalogId], isItemID: true)
+            }
             for path in item.paths {
                 let absolute = AIPaths.expand(path, home: home)
                 let key = RiskPolicy.canonical(absolute)
-                let previous = known[key]
-                let bytes = previous?.bytes ?? (item.paths.count == 1 ? item.bytes : 0)
-                let risk = previous?.itemRisk.map { Risk.strictest($0, itemRisk) } ?? itemRisk
-                known[key] = (absolute, bytes, risk)
+                var entry = known[key] ?? Known(path: absolute, bytes: item.paths.count == 1 ? item.bytes : 0)
+                entry.itemRisk = entry.itemRisk.map { Risk.strictest($0, itemRisk) } ?? itemRisk
+                entry.itemCatalogIds.insert(item.catalogId)
+                known[key] = entry
             }
         }
-        func lookup(_ path: String) -> (path: String, bytes: Int64, itemRisk: Risk?)? {
-            known[RiskPolicy.canonical(AIPaths.expand(path, home: home))]
+        func lookup(_ path: String) -> Known? {
+            if let item = itemIDs[path] { return item }
+            return known[RiskPolicy.canonical(AIPaths.expand(path, home: home))]
         }
+        let homes = [home] + (realpath(home, nil).map { real in
+            defer { free(real) }
+            return [String(decoding: Data(bytes: real, count: strlen(real)), as: UTF8.self)]
+        } ?? [])
 
         var seen = Set<String>()
         var recommendations: [AIRecommendation] = []
         for rec in raw.recommendations {
             guard let match = lookup(rec.path), seen.insert(match.path).inserted else { continue }
-            var action = rec.action
-            var commandRisk: Risk?
-            switch action {
+            let pathEntry = match.isItemID
+                ? match.itemCatalogIds.first.flatMap { catalog.entry(id: $0) }
+                : catalog.match(path: match.path, home: home)
+            var verdict = RiskPolicy.effectiveRisk(path: match.path, home: home, catalog: pathEntry?.risk, ai: rec.verdict)
+            if let itemRisk = match.itemRisk { verdict = .strictest(verdict, itemRisk) }
+
+            var action: AIAction?
+            switch rec.action {
             case .trash(let path):
-                // Ruta del contexto y además la de la propia recomendación (no "~/Library" para "~/Library/x").
-                if let target = lookup(path), target.path == match.path { action = .trash(path: target.path) } else { action = nil }
+                // Solo la propia ruta (no "~/Library" para "~/Library/x"), con ficha de Papelera y fuera de lo protegido.
+                if !match.isItemID, let target = lookup(path), target.path == match.path,
+                   let pathEntry, case .trash = pathEntry.cleanup,
+                   RiskPolicy.trashRefusal(forCanonicalPath: RiskPolicy.canonical(match.path), homes: homes) == nil {
+                    action = .trash(path: match.path)
+                }
             case .runCatalogCommand(let id):
-                if let entry = catalog.entry(id: id), entry.cleanup != .info { commandRisk = entry.risk } else { action = nil }
+                let related = id == pathEntry?.id || match.itemCatalogIds.contains(id)
+                if related, let entry = catalog.entry(id: id), entry.cleanup != .info {
+                    verdict = .strictest(verdict, entry.risk)
+                    action = .runCatalogCommand(id: id)
+                }
             case nil:
                 break
             }
-            var verdict = RiskPolicy.effectiveRisk(
-                path: match.path, home: home, catalog: catalog.match(path: match.path, home: home)?.risk, ai: rec.verdict)
-            if let itemRisk = match.itemRisk { verdict = .strictest(verdict, itemRisk) }
-            if let commandRisk { verdict = .strictest(verdict, commandRisk) }
             if case .trash = action, verdict != .safe { action = nil }
             if verdict == .doNotTouch { action = nil }
             recommendations.append(AIRecommendation(
@@ -319,6 +354,7 @@ public struct AIAssistant: Sendable {
         switch error {
         case let error as AIError: return error
         case CommandError.timedOut: return AIError.timedOut
+        case CommandError.lineTooLong: return AIError.invalidResponse("respuesta demasiado larga")
         case CommandError.launchFailed(_, let message):
             return ClaudeLocator.isExecutableFile(claudePath) ? AIError.failed(message) : AIError.notInstalled
         case is CancellationError: return error
