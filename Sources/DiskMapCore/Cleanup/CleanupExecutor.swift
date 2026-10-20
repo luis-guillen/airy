@@ -195,7 +195,7 @@ public struct CleanupExecutor: Sendable {
         let forms = Self.forms(of: path)
         let homes = homeForms()
         for form in forms {
-            if let reason = RiskPolicy.trashRefusal(forCanonicalPath: form, homes: homes) {
+            if let reason = RiskPolicy.trashRefusal(forCanonicalPath: form, homes: homes, catalog: catalog) {
                 return "\(reason) No se envía a la Papelera: \(path)."
             }
             if RiskPolicy.minimumRisk(forPath: form, home: home) == .doNotTouch {

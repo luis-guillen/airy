@@ -28,48 +28,17 @@ public enum RiskPolicy {
 
     // MARK: - Ubicaciones protegidas (Papelera)
 
-    /// Selladas: no van a la Papelera ni ellas, ni nada de dentro, ni sus carpetas superiores.
-    static let sealedHomeLocations = [
-        "Library/Containers/com.docker.docker", "Library/Group Containers/group.com.docker",
-        "Library/Mobile Documents", "Library/Mail", "Library/Messages", "Library/Keychains",
-        "Library/Application Support/AddressBook", "Library/Calendars", "Library/Photos",
-    ]
-    static let sealedSystemLocations = ["/Applications", "/Library", "/usr", "/bin", "/sbin", "/private", "/opt/homebrew"]
-
-    /// Protegidas hacia arriba: no van a la Papelera ni ellas ni sus carpetas superiores (su contenido sí puede).
-    static let protectedSystemRoots = [
-        "/", "/System", "/Users", "/Applications", "/Library", "/usr", "/bin", "/sbin", "/etc",
-        "/var", "/private", "/private/var", "/private/etc", "/opt", "/Volumes", "/cores",
-    ]
-
     /// Carpeta temporal del usuario (resuelta): única excepción dentro de `/private`.
-    static let userTemporaryDirectory: String = {
-        guard let real = realpath(NSTemporaryDirectory(), nil) else { return canonical(NSTemporaryDirectory()) }
-        defer { free(real) }
-        return canonical(String(decoding: Data(bytes: real, count: strlen(real)), as: UTF8.self))
-    }()
+    static var userTemporaryDirectory: String { HardProtections.userTemporaryDirectory }
 
     /// Motivo por el que una ruta canónica no puede ir a la Papelera, o `nil`.
-    /// `homes`: la carpeta personal (y su forma resuelta, si difiere).
-    public static func trashRefusal(forCanonicalPath path: String, homes: [String]) -> String? {
-        let bases = homes.map(canonical)
-        var sealed = sealedSystemLocations.map(canonical)
-        var upward = protectedSystemRoots.map(canonical)
-        for base in bases {
-            let prefix = base == "/" ? "" : base
-            sealed += sealedHomeLocations.map { canonical(prefix + "/" + $0) }
-            upward.append(base)
-            upward += (personalRoots + ["Library", "Applications", ".Trash"]).map { canonical(prefix + "/" + $0) }
-        }
-        if isInside(path, root: "/system") { return "Ruta del sistema." }
-        for location in upward where isInside(location, root: path) {
-            return "Carpeta protegida."
-        }
-        for location in sealed where isInside(location, root: path) || isInside(path, root: location) {
-            if location == "/private" && isInside(path, root: userTemporaryDirectory) && path != userTemporaryDirectory {
-                continue
+    /// `homes`: la carpeta personal (y su forma resuelta, si difiere). Delega en `HardProtections`
+    /// (una sola lista de reglas); `catalog` permite las excepciones que el catálogo declara.
+    public static func trashRefusal(forCanonicalPath path: String, homes: [String], catalog: Catalog? = nil) -> String? {
+        for home in homes {
+            if let match = HardProtections.standard.match(canonicalPath: path, home: home, catalog: catalog) {
+                return match.reason
             }
-            return "Ubicación protegida: \(location)."
         }
         return nil
     }
