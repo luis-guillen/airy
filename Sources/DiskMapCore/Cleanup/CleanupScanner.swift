@@ -58,9 +58,12 @@ public struct CleanupScanner: Sendable {
 
     public func findItems(scan: FileNode?) async -> [CleanupItem] {
         let running = probes.runningBundleIDs()
+        // Una sola llamada a `docker system df` para todas las fichas de Docker.
+        let dockerOutput = catalog.entries.contains { Self.dockerMeasure[$0.id] != nil }
+            ? await dockerSystemDF() : nil
         var found: [Candidate] = []
         for entry in catalog.entries {
-            found.append(contentsOf: await candidates(for: entry, scan: scan))
+            found.append(contentsOf: await candidates(for: entry, scan: scan, dockerOutput: dockerOutput))
         }
         let candidates = found.filter { $0.bytes > 0 }
 
@@ -81,19 +84,24 @@ public struct CleanupScanner: Sendable {
         }
     }
 
-    private func candidates(for entry: CatalogEntry, scan: FileNode?) async -> [Candidate] {
+    private func candidates(for entry: CatalogEntry, scan: FileNode?, dockerOutput: String?) async -> [Candidate] {
         let matched = entry.paths.flatMap { Self.expand($0, home: home) }
         var unique: [String] = []
         for path in matched where !unique.contains(path) { unique.append(path) }
 
-        if case .command(let executable, let arguments, let sizeProbe) = entry.cleanup {
+        if let measure = Self.dockerMeasure[entry.id] {
+            // Sin Docker o sin demonio (`df` falla) no hay elemento.
+            guard let dockerOutput,
+                  let bytes = Self.parseDockerDF(dockerOutput, type: measure.type, field: measure.field)
+            else { return [] }
+            return [Candidate(id: entry.id, entry: entry, paths: unique, bytes: bytes, needle: nil)]
+        }
+
+        if case .command(let executable, _, let sizeProbe) = entry.cleanup {
             // Sin la herramienta instalada no se puede limpiar con su comando oficial.
-            guard let resolved = await runner.resolve(executable) else { return [] }
-            if let sizeProbe {
-                guard let bytes = await probeSize(resolved, executable: executable, cleanupArguments: arguments,
-                                                  probe: sizeProbe) else { return [] }
-                return [Candidate(id: entry.id, entry: entry, paths: unique, bytes: bytes, needle: nil)]
-            }
+            guard await runner.resolve(executable) != nil else { return [] }
+            // Solo se sabe interpretar la sonda de Docker: el resto (tmutil…) no se mide.
+            if sizeProbe != nil { return [] }
         }
 
         if entry.referenceCheck != nil {
@@ -138,35 +146,33 @@ public struct CleanupScanner: Sendable {
         return current
     }
 
-    /// Ejecuta la sonda de tamaño. `nil` si falla (Docker sin demonio) o la salida no se entiende.
-    private func probeSize(_ resolved: String, executable: String, cleanupArguments: [String],
-                           probe: [String]) async -> Int64? {
-        // Solo se sabe interpretar la salida de Docker; las demás sondas no se ejecutan.
-        guard executable == "docker", let type = Self.dockerType(forCleanupArguments: cleanupArguments) else {
+    /// Qué fila y qué campo de `docker system df` mide cada ficha de Docker.
+    static let dockerMeasure: [String: (type: String, field: String)] = [
+        "docker-build-cache": ("Build Cache", "Reclaimable"),
+        "docker-images": ("Images", "Size"),
+        "docker-volumes": ("Local Volumes", "Size"),
+    ]
+    static let dockerDFArguments = ["system", "df", "--format", "{{json .}}"]
+
+    /// Salida de `docker system df`, o `nil` si Docker no está instalado o el demonio no responde.
+    private func dockerSystemDF() async -> String? {
+        let probe = catalog.entry(id: "docker-build-cache").flatMap { entry -> [String]? in
+            if case .command(_, _, let sizeProbe) = entry.cleanup { return sizeProbe }
             return nil
-        }
-        guard let output = try? await runner.run(resolved, probe, timeout: Self.probeTimeout),
+        } ?? Self.dockerDFArguments
+        guard let docker = await runner.resolve("docker"),
+              let output = try? await runner.run(docker, probe, timeout: Self.probeTimeout),
               output.status == 0 else { return nil }
-        return Self.parseDockerReclaimable(output.stdout, type: type)
+        return output.stdout
     }
 
-    static func dockerType(forCleanupArguments arguments: [String]) -> String? {
-        switch arguments.first {
-        case "builder": "Build Cache"
-        case "image": "Images"
-        case "container": "Containers"
-        case "volume": "Local Volumes"
-        default: nil
-        }
-    }
-
-    /// `docker system df --format {{json .}}`: un objeto JSON por línea con "Type" y "Reclaimable".
-    static func parseDockerReclaimable(_ output: String, type: String) -> Int64? {
+    /// `docker system df --format {{json .}}`: un objeto JSON por línea con "Type", "Size" y "Reclaimable".
+    static func parseDockerDF(_ output: String, type: String, field: String) -> Int64? {
         for line in output.split(whereSeparator: \.isNewline) {
             guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
                   object["Type"] as? String == type,
-                  let reclaimable = object["Reclaimable"] as? String else { continue }
-            return parseDockerSize(reclaimable)
+                  let value = object[field] as? String else { continue }
+            return parseDockerSize(value)
         }
         return nil
     }
