@@ -57,12 +57,14 @@ struct ConfirmSheet: View {
             Text("«\(warning.reason)»")
                 .font(.callout)
                 .foregroundStyle(.primary.opacity(0.85))
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.color(for: .yourCall).opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             Text(warning.note)
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 10) {
                 Spacer()
                 Button("Cancelar") { flow.cancelSheet() }
