@@ -9,13 +9,48 @@ public enum CleanupOutcome: Sendable, Equatable {
     case failed(String)
 }
 
-/// Ejecuta limpiezas con revalidación completa justo antes de actuar.
-/// - Archivos: solo a la Papelera (`FileManager.trashItem`), nunca borrado definitivo.
+/// Quién pide la operación y en qué tanda (`runID`). `proposedBy`: el agente que la propuso, si la
+/// confirmó el usuario.
+public struct OperationContext: Sendable, Equatable {
+    public let runID: UUID, actor: OperationActor, proposedBy: String?
+
+    public static func user(runID: UUID = UUID(), proposedBy: String? = nil) -> OperationContext {
+        OperationContext(runID: runID, actor: .user, proposedBy: proposedBy)
+    }
+
+    public static func agent(_ client: String, runID: UUID = UUID()) -> OperationContext {
+        OperationContext(runID: runID, actor: .agent(client: client), proposedBy: nil)
+    }
+
+    var isAgent: Bool {
+        if case .agent = actor { return true }
+        return false
+    }
+}
+
+/// Lo que haría `execute` ahora mismo, sin hacerlo.
+public enum CleanupPreview: Sendable, Equatable {
+    case wouldTrash(paths: [String], bytes: Int64)
+    /// `upperBound`: el comando solo quita una parte; `bytes` es un máximo.
+    case wouldRun(command: [String], bytes: Int64, upperBound: Bool)
+    case blocked(reason: String)
+}
+
+/// Embudo único de borrado: toda acción destructiva pasa por aquí.
+/// - Un solo plan (`plan`) para la vista previa y la ejecución, con los ajustes leídos en cada llamada.
+/// - Archivos: solo a la Papelera (`FileManager.trashItem`), con la identidad de cada ruta confirmada
+///   justo antes de moverla; nunca borrado definitivo.
 /// - Cachés de herramientas: su comando oficial con `Process` y array de argumentos.
-/// - Nada de privilegios de administrador en la fase 1.
+/// - Agentes: solo lo «Sin problema» y no bloqueado; nunca rutas sueltas ni vaciar la Papelera.
+/// - Cada operación deja un `OperationRecord` (el ejecutor es el dueño de esos registros).
 public struct CleanupExecutor: Sendable {
     public static let defaultCommandTimeout: TimeInterval = 600
-    public static let referenceTimeout: TimeInterval = 10
+    public static let referenceTimeout: TimeInterval = TimeBudget.references
+
+    static let unreadableSettingsReason =
+        "Airy no puede leer sus ajustes; no se ejecuta nada hasta que los revises en la app."
+    static let agentsOffReason =
+        "Has desactivado en Airy que los agentes ejecuten acciones (Asistente › Conectar agente)."
 
     private let runner: any CommandRunning
     private let probes: any SystemProbing
@@ -27,17 +62,45 @@ public struct CleanupExecutor: Sendable {
     private let freeSpace: @Sendable () -> Int64
     private let trashSettleAttempts: Int
     private let trashSettleDelay: Duration
+    private let settings: @Sendable () -> SettingsLoad
+    private let log: OperationLog?
+    private let processGuard: ProcessGuard
+    private let protections: HardProtections
+    /// Solo para pruebas: se llama con cada ruta entre el plan y su movimiento.
+    private let beforeMove: (@Sendable (String) -> Void)?
 
     /// `catalog` es obligatorio: toda acción se decide con la ficha viva del catálogo, nunca con la
     /// copia que trae el elemento. `references` (por defecto, las carpetas de proyectos de `home`)
     /// vuelve a comprobar si un modelo está en uso. `freeSpace` mide el espacio disponible del
-    /// volumen de `home` (inyectable en pruebas).
+    /// volumen de `home` (inyectable en pruebas). `settings` se lee en cada operación (y otra vez
+    /// antes de actuar): apagar el interruptor de agentes o proteger una ruta surte efecto al momento.
     public init(
         runner: any CommandRunning, probes: any SystemProbing, store: IndexStore, catalog: Catalog,
         references: ReferenceChecker? = nil, home: String = NSHomeDirectory(),
         commandTimeout: TimeInterval = CleanupExecutor.defaultCommandTimeout,
         freeSpace: (@Sendable () -> Int64)? = nil,
-        trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1)
+        trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1),
+        settings: @escaping @Sendable () -> SettingsLoad = { .missing },
+        log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
+        protections: HardProtections = .standard
+    ) {
+        self.init(runner: runner, probes: probes, store: store, catalog: catalog, references: references,
+                  home: home, commandTimeout: commandTimeout, freeSpace: freeSpace,
+                  trashSettleAttempts: trashSettleAttempts, trashSettleDelay: trashSettleDelay,
+                  settings: settings, log: log, processGuard: processGuard, protections: protections,
+                  beforeMove: nil)
+    }
+
+    init(
+        runner: any CommandRunning, probes: any SystemProbing, store: IndexStore, catalog: Catalog,
+        references: ReferenceChecker? = nil, home: String = NSHomeDirectory(),
+        commandTimeout: TimeInterval = CleanupExecutor.defaultCommandTimeout,
+        freeSpace: (@Sendable () -> Int64)? = nil,
+        trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1),
+        settings: @escaping @Sendable () -> SettingsLoad = { .missing },
+        log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
+        protections: HardProtections = .standard,
+        beforeMove: (@Sendable (String) -> Void)?
     ) {
         let home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
         self.runner = runner
@@ -50,84 +113,301 @@ public struct CleanupExecutor: Sendable {
         self.freeSpace = freeSpace ?? { SystemProbes.availableCapacity(home: home) }
         self.trashSettleAttempts = max(0, trashSettleAttempts)
         self.trashSettleDelay = trashSettleDelay
+        self.settings = settings
+        self.log = log
+        self.processGuard = processGuard
+        self.protections = protections
+        self.beforeMove = beforeMove
     }
 
     // MARK: - API
 
-    public func execute(_ item: CleanupItem) async -> CleanupOutcome {
-        // La ficha viva manda: método, apps que cerrar y riesgo salen del catálogo, no del elemento.
-        let parts = item.id.split(separator: ":", maxSplits: 1).map(String.init)
-        guard let catalogID = parts.first, let live = catalog.entry(id: catalogID) else {
-            return .blocked(reason: "No está en el catálogo: no se ejecuta nada.")
-        }
-        let title = parts.count > 1 ? "\(live.title): \(parts[1])" : live.title
-        if let reason = blockReason(for: item, live: live) { return .blocked(reason: reason) }
-        switch live.cleanup {
-        case .info:
-            return .blocked(reason: "Este elemento es solo informativo.")
-        case .trash:
-            guard !item.paths.isEmpty else { return .failed("No hay nada que enviar a la Papelera.") }
-            let allowed = Set(live.paths.flatMap { CleanupScanner.expand($0, home: home) }.map(RiskPolicy.canonical))
-            for path in item.paths where !allowed.contains(RiskPolicy.canonical(path)) {
-                return .blocked(reason: "La ruta no corresponde a «\(live.title)»: \(path).")
+    /// Lo que haría `execute(item, context:)` ahora: mismo plan, sin mover ni ejecutar nada.
+    public func preview(_ item: CleanupItem, context: OperationContext = .user()) async -> CleanupPreview {
+        let preview: CleanupPreview
+        var title = item.title
+        switch await plan(item, context: context) {
+        case .failure(let refusal):
+            preview = .blocked(reason: refusal.reason)
+        case .success(let planned):
+            title = planned.title
+            switch planned.kind {
+            case .trash(let paths): preview = .wouldTrash(paths: paths.map(\.validated.path), bytes: planned.bytes)
+            case .command(let executable, let arguments):
+                preview = .wouldRun(command: [executable] + arguments, bytes: planned.bytes,
+                                    upperBound: planned.upperBound)
             }
-            return await trash(item.paths, title: title, mustBeClosed: live.mustBeClosed + item.entry.mustBeClosed)
-        case .command(let executable, let arguments, _):
-            // Las referencias se comprueban de nuevo también aquí: no se fía de `item.usedBy`
-            // (puede venir vacío de una detección cancelada o anterior a la referencia).
-            if live.referenceCheck != nil, let reason = await referenceReason(item.paths) {
-                return .blocked(reason: reason)
-            }
-            return await runCommand(executable: executable, arguments: arguments, title: title)
         }
+        let command: [String]? = if case .wouldRun(let c, _, _) = preview { c } else { nil }
+        let (outcome, bytes, message): (String, Int64, String?) = switch preview {
+        case .wouldTrash(_, let b): ("would_trash", b, nil)
+        case .wouldRun(_, let b, _): ("would_run", b, nil)
+        case .blocked(let reason): ("blocked", 0, reason)
+        }
+        let paths: [String] = if case .wouldTrash(let p, _) = preview { p } else { item.paths }
+        appendLog(context, action: "clean", itemID: item.id, title: title, paths: paths, command: command,
+                  dryRun: true, outcome: outcome, bytes: bytes, message: message)
+        return preview
     }
 
-    /// Vacía la Papelera (solo tras pulsar el usuario "Vaciar Papelera").
+    public func execute(_ item: CleanupItem, context: OperationContext = .user()) async -> CleanupOutcome {
+        let outcome: CleanupOutcome
+        var title = item.title
+        var paths = item.paths
+        var command: [String]?
+        switch await plan(item, context: context) {
+        case .failure(let refusal):
+            outcome = .blocked(reason: refusal.reason)
+        case .success(let planned):
+            title = planned.title
+            if case .trash(let planned) = planned.kind { paths = planned.map(\.validated.path) }
+            if case .command(let e, let a) = planned.kind { command = [e] + a }
+            outcome = await act(planned, context: context)
+        }
+        appendLog(context, action: "clean", itemID: item.id, title: title, paths: paths, command: command, outcome)
+        return outcome
+    }
+
+    /// Envía rutas sueltas (elegidas en el mapa o propuestas por la IA y confirmadas por el usuario) a
+    /// la Papelera. Si una sola ruta no es segura, no se mueve ninguna. Nunca para agentes.
+    public func trashPaths(_ paths: [String], title: String, context: OperationContext = .user()) async -> CleanupOutcome {
+        let outcome: CleanupOutcome
+        if context.isAgent {
+            outcome = .blocked(reason: "Los agentes no pueden enviar rutas sueltas a la Papelera; solo el usuario, desde Airy.")
+        } else if paths.isEmpty {
+            outcome = .failed("No hay nada que enviar a la Papelera.")
+        } else {
+            switch await planLoose(paths, title: title, context: context) {
+            case .failure(let refusal): outcome = .blocked(reason: refusal.reason)
+            case .success(let planned): outcome = await act(planned, context: context)
+            }
+        }
+        appendLog(context, action: "trash_paths", itemID: nil, title: title, paths: paths, command: nil, outcome)
+        return outcome
+    }
+
+    /// Vacía la Papelera (solo tras pulsar el usuario "Vaciar Papelera"; nunca para agentes).
     /// Ojo: si `~/.Trash` no se puede leer, `SystemProbing.emptyTrash` recurre a Finder, que vacía
     /// las papeleras de todos los volúmenes; la interfaz lo advierte antes de confirmar.
     /// Se anota (y se devuelve) lo que de verdad subió el espacio libre del volumen, igual que la
     /// celebración: no lo que ocupaba la Papelera (las instantáneas locales pueden retenerlo).
     /// APFS puede tardar un momento en devolver el espacio: si sube menos de lo esperado, se vuelve
     /// a medir hasta `trashSettleAttempts` veces, con `trashSettleDelay` entre medidas.
-    public func emptyTrash() async -> CleanupOutcome {
-        do {
-            let before = freeSpace()
-            let emptied = try await probes.emptyTrash()
-            var rose = max(0, freeSpace() - before)
-            var attempts = 0
-            while emptied > 0, Double(rose) < Double(emptied) * TrashFollowUp.expectedRiseFraction,
-                  attempts < trashSettleAttempts {
-                attempts += 1
-                try? await Task.sleep(for: trashSettleDelay)
-                rose = max(rose, freeSpace() - before)
+    public func emptyTrash(context: OperationContext = .user()) async -> CleanupOutcome {
+        let outcome: CleanupOutcome
+        if context.isAgent {
+            outcome = .blocked(reason: "Los agentes no pueden vaciar la Papelera; solo el usuario, desde Airy.")
+        } else if let refusal = policyRefusal(settings(), context: context) {
+            outcome = .blocked(reason: refusal.reason)
+        } else {
+            outcome = await emptyTrashNow(context: context)
+        }
+        appendLog(context, action: "empty_trash", itemID: nil, title: "Vaciar Papelera", paths: [], command: nil, outcome)
+        return outcome
+    }
+
+    /// `true` si el ejecutor rechazaría enviar esta ruta a la Papelera: la regla de `PathGate.validate`
+    /// con los ajustes actuales. La interfaz lo usa para no ofrecer "Mover a la Papelera…" donde el
+    /// ejecutor se negará: misma regla en los dos sitios.
+    public func wouldRefuseTrash(path: String) -> Bool { unsafeTrashReason(path) != nil }
+
+    /// `nil` si `PathGate` acepta la ruta; si no, su motivo.
+    public func unsafeTrashReason(_ path: String) -> String? { gate(settings()).validate(path).failure?.reason }
+
+    // MARK: - Plan
+
+    struct PlannedPath: Sendable {
+        let validated: ValidatedPath
+        let bytes: Int64
+    }
+
+    struct PlannedAction: Sendable {
+        enum Kind: Sendable {
+            case trash([PlannedPath])
+            case command(executable: String, arguments: [String])
+        }
+        let kind: Kind
+        let title: String
+        let bytes: Int64
+        let upperBound: Bool
+        /// Para volver a comprobarlos justo antes de actuar.
+        let processNames: [String]
+        let guardPaths: [String]
+        let checkOpenFiles: Bool
+    }
+
+    /// Único camino de decisión para `preview` y `execute`. Orden: ajustes vivos → clasificador vivo →
+    /// política de agente → bloqueos actuales → procesos → referencias → rutas (`PathGate`) → tamaños.
+    private func plan(_ item: CleanupItem, context: OperationContext) async -> Result<PlannedAction, PathRefusal> {
+        let load = settings()
+        if let refusal = policyRefusal(load, context: context) { return .failure(refusal) }
+
+        // La ficha viva manda: método, apps que cerrar y riesgo salen del catálogo, no del elemento.
+        let parts = item.id.split(separator: ":", maxSplits: 1).map(String.init)
+        guard let catalogID = parts.first, let live = catalog.entry(id: catalogID) else {
+            return .failure(PathRefusal(reason: "No está en el catálogo: no se ejecuta nada."))
+        }
+        let title = parts.count > 1 ? "\(live.title): \(parts[1])" : live.title
+        let verdict = RiskClassifier(catalog: catalog, settings: load.effective, home: home, protections: protections)
+            .classify(entry: live, paths: item.paths, ai: item.risk)
+        var risk = verdict.risk
+        if item.entry.risk == .doNotTouch { risk = .doNotTouch }
+
+        if context.isAgent, risk != .safe {
+            return .failure(PathRefusal(reason: risk == .doNotTouch
+                ? "«\(title)» es «\(Risk.doNotTouch.label)»: Airy no lo toca."
+                : "«\(title)» es «\(risk.label)»: solo se ejecuta lo marcado «\(Risk.safe.label)»."))
+        }
+
+        if case .info = live.cleanup { return .failure(PathRefusal(reason: "Este elemento es solo informativo.")) }
+        if !item.usedBy.isEmpty {
+            return .failure(PathRefusal(reason: "Lo usa: \(item.usedBy.joined(separator: ", "))."))
+        }
+        if risk == .doNotTouch {
+            return .failure(PathRefusal(reason: verdict.protection.map { "Marcado como «No tocar»: \($0.reason)" }
+                ?? "Marcado como «No tocar»."))
+        }
+        let isTrash = live.cleanup == .trash
+        if isTrash, item.paths.isEmpty { return .failure(PathRefusal(reason: "No hay nada que enviar a la Papelera.")) }
+        var apps = live.mustBeClosed + item.entry.mustBeClosed
+        if isTrash { apps += relatedEntries(of: item.paths).flatMap(\.mustBeClosed) }
+        if let reason = openAppsReason(apps) { return .failure(PathRefusal(reason: reason)) }
+
+        let guardPaths = isTrash ? item.paths : []
+        if let reason = await processReason(live.processNames, paths: guardPaths, checkOpenFiles: isTrash) {
+            return .failure(PathRefusal(reason: reason))
+        }
+        // Las referencias se comprueban de nuevo: no se fía de `item.usedBy` (puede venir vacío de una
+        // detección cancelada o anterior a la referencia).
+        if let reason = await referenceReason(item.paths) { return .failure(PathRefusal(reason: reason)) }
+
+        switch live.cleanup {
+        case .info:
+            return .failure(PathRefusal(reason: "Este elemento es solo informativo."))
+        case .command(let executable, let arguments, _):
+            return .success(PlannedAction(
+                kind: .command(executable: executable, arguments: arguments), title: title, bytes: item.bytes,
+                upperBound: live.partialCleanup, processNames: live.processNames, guardPaths: [], checkOpenFiles: false))
+        case .trash:
+            let allowed = Set(live.paths.flatMap { CleanupScanner.expand($0, home: home) }.map(RiskPolicy.canonical))
+            for path in item.paths where !allowed.contains(RiskPolicy.canonical(path)) {
+                return .failure(PathRefusal(reason: "La ruta no corresponde a «\(live.title)»: \(path)."))
             }
-            record(title: "Vaciar Papelera", bytes: rose, wentToTrash: false)
-            return .freed(rose)
-        } catch {
-            return .failed("No se pudo vaciar la Papelera: \(error.localizedDescription)")
+            return await planTrash(item.paths, gate: gate(load), title: title, processNames: live.processNames,
+                                   checkOpenFiles: true)
         }
     }
 
-    /// Envía rutas sueltas (elegidas en el mapa o propuestas por la IA) a la Papelera.
-    /// Si una sola ruta no es segura, no se mueve ninguna.
-    public func trashPaths(_ paths: [String], title: String) async -> CleanupOutcome {
-        guard !paths.isEmpty else { return .failed("No hay nada que enviar a la Papelera.") }
-        return await trash(paths, title: title, mustBeClosed: [])
+    /// Plan de rutas sueltas: primero `PathGate` (lo inválido se rechaza sin más), luego apps, procesos,
+    /// referencias y tamaños.
+    private func planLoose(_ paths: [String], title: String, context: OperationContext) async
+        -> Result<PlannedAction, PathRefusal> {
+        let load = settings()
+        if let refusal = policyRefusal(load, context: context) { return .failure(refusal) }
+        let gate = gate(load)
+        for path in paths {
+            if case .failure(let refusal) = gate.validate(path) { return .failure(Self.pathRefusal(refusal, path)) }
+        }
+        let related = relatedEntries(of: paths)
+        if let reason = openAppsReason(related.flatMap(\.mustBeClosed)) { return .failure(PathRefusal(reason: reason)) }
+        let names = related.flatMap(\.processNames)
+        if let reason = await processReason(names, paths: [], checkOpenFiles: false) {
+            return .failure(PathRefusal(reason: reason))
+        }
+        if let reason = await referenceReason(paths) { return .failure(PathRefusal(reason: reason)) }
+        return await planTrash(paths, gate: gate, title: title, processNames: names, checkOpenFiles: false)
     }
 
-    // MARK: - Revalidación
+    /// Valida cada ruta con `PathGate` (guardando su identidad) y mide su tamaño dentro del presupuesto.
+    private func planTrash(_ paths: [String], gate: PathGate, title: String, processNames: [String],
+                           checkOpenFiles: Bool) async -> Result<PlannedAction, PathRefusal> {
+        var validated: [ValidatedPath] = []
+        for path in paths {
+            switch gate.validate(path) {
+            case .failure(let refusal): return .failure(Self.pathRefusal(refusal, path))
+            case .success(let ok): validated.append(ok)
+            }
+        }
+        guard let sizes = await TimeBudget.run(TimeBudget.sizeMeasure, { paths.map { AllocatedSize.of($0) ?? 0 } })
+        else {
+            return .failure(PathRefusal(reason: "No se pudo medir a tiempo lo que ocupa; Airy no lo toca."))
+        }
+        let planned = zip(validated, sizes).map { PlannedPath(validated: $0, bytes: $1) }
+        return .success(PlannedAction(
+            kind: .trash(planned), title: title, bytes: sizes.reduce(0, +), upperBound: false,
+            processNames: processNames, guardPaths: checkOpenFiles ? paths : [], checkOpenFiles: checkOpenFiles))
+    }
 
-    private func blockReason(for item: CleanupItem, live: CatalogEntry) -> String? {
-        if case .info = live.cleanup { return "Este elemento es solo informativo." }
-        if !item.usedBy.isEmpty { return "Lo usa: \(item.usedBy.joined(separator: ", "))." }
-        if live.risk == .doNotTouch || item.risk == .doNotTouch || item.entry.risk == .doNotTouch {
-            return "Marcado como «No tocar»."
+    // MARK: - Actuar
+
+    private func act(_ plan: PlannedAction, context: OperationContext) async -> CleanupOutcome {
+        switch plan.kind {
+        case .command(let executable, let arguments):
+            if let reason = await recheck(plan, context: context).reason { return .blocked(reason: reason) }
+            return await runCommand(executable: executable, arguments: arguments, title: plan.title, context: context)
+        case .trash(let paths):
+            var moved: Int64 = 0
+            func stop(_ outcome: CleanupOutcome) -> CleanupOutcome {
+                if moved > 0 { record(title: plan.title, bytes: moved, wentToTrash: true, context: context) }
+                return outcome
+            }
+            for (index, planned) in paths.enumerated() {
+                let path = planned.validated.path
+                beforeMove?(path)
+                // Justo antes de cada movimiento: ajustes vivos (interruptor, «Proteger esto»), procesos (la
+                // primera vez), las reglas de `PathGate` y la misma identidad que se comprobó en el plan.
+                let check = await recheck(plan, context: context, processes: index == 0)
+                if let reason = check.reason { return stop(.blocked(reason: reason)) }
+                if case .failure(let refusal) = check.gate.validate(path) {
+                    return stop(.blocked(reason: Self.pathRefusal(refusal, path).reason))
+                }
+                if let refusal = check.gate.confirmUnchanged(planned.validated) {
+                    return stop(.blocked(reason: Self.pathRefusal(refusal, path).reason))
+                }
+                do {
+                    // Mueve la entrada en sí: un enlace simbólico va a la Papelera, no su destino.
+                    try FileManager.default.trashItem(at: URL(fileURLWithPath: path, isDirectory: false),
+                                                      resultingItemURL: nil)
+                    moved += planned.bytes
+                } catch {
+                    return stop(.failed("No se pudo mover \(path) a la Papelera: \(error.localizedDescription)"))
+                }
+            }
+            record(title: plan.title, bytes: moved, wentToTrash: true, context: context)
+            return .movedToTrash(moved)
         }
-        for path in item.paths
-        where RiskPolicy.effectiveRisk(path: path, home: home, catalog: live.risk, ai: nil) == .doNotTouch {
-            return "Marcado como «No tocar»: \(path)."
-        }
-        return openAppsReason(live.mustBeClosed + item.entry.mustBeClosed)
+    }
+
+    /// Ajustes releídos y, si `processes`, el guardián de procesos otra vez. Devuelve la `PathGate` con
+    /// la lista «Proteger esto» actual.
+    private func recheck(_ plan: PlannedAction, context: OperationContext, processes: Bool = true) async
+        -> (gate: PathGate, reason: String?) {
+        let load = settings()
+        let gate = gate(load)
+        if let refusal = policyRefusal(load, context: context) { return (gate, refusal.reason) }
+        guard processes else { return (gate, nil) }
+        let reason = await processReason(plan.processNames, paths: plan.guardPaths, checkOpenFiles: plan.checkOpenFiles)
+        return (gate, reason)
+    }
+
+    // MARK: - Comprobaciones
+
+    /// Ajustes ilegibles ⇒ nadie limpia (no se conoce la lista «Proteger esto»); interruptor apagado ⇒
+    /// ningún agente.
+    private func policyRefusal(_ load: SettingsLoad, context: OperationContext) -> PathRefusal? {
+        if load.isUnreadable { return PathRefusal(reason: Self.unreadableSettingsReason) }
+        if context.isAgent, !load.allowsAgentActions { return PathRefusal(reason: Self.agentsOffReason) }
+        return nil
+    }
+
+    private func gate(_ load: SettingsLoad) -> PathGate {
+        PathGate(home: home, catalog: catalog,
+                 userProtected: ProtectList(patterns: load.effective.protectedPaths, home: home),
+                 protections: protections)
+    }
+
+    private static func pathRefusal(_ refusal: PathRefusal, _ path: String) -> PathRefusal {
+        PathRefusal(reason: "\(refusal.reason) No se envía a la Papelera: \(path).")
     }
 
     private func openAppsReason(_ bundleIDs: [String]) -> String? {
@@ -138,115 +418,40 @@ public struct CleanupExecutor: Sendable {
         return open.isEmpty ? nil : "Cierra primero: \(open.joined(separator: ", "))."
     }
 
-    // MARK: - Papelera
-
-    private func trash(_ paths: [String], title: String, mustBeClosed: [String]) async -> CleanupOutcome {
-        var apps = mustBeClosed
-        for path in paths {
-            if let reason = unsafeTrashReason(path) { return .blocked(reason: reason) }
-            // Apps de cualquier ficha relacionada (la ruta está dentro de ella o la contiene).
-            let forms = Self.forms(of: path)
-            for entry in catalog.entries where !entry.mustBeClosed.isEmpty
-            && entry.paths.contains(where: { pattern in forms.contains { related($0, pattern) } }) {
-                apps.append(contentsOf: entry.mustBeClosed)
-            }
-        }
-        if let reason = await referenceReason(paths) { return .blocked(reason: reason) }
-        if let reason = openAppsReason(apps) { return .blocked(reason: reason) }
-
-        var moved: Int64 = 0
-        for path in paths {
-            // Se revalida justo antes de cada movimiento (la ruta pudo cambiar mientras tanto).
-            if let reason = unsafeTrashReason(path) {
-                if moved > 0 { record(title: title, bytes: moved, wentToTrash: true) }
-                return .blocked(reason: reason)
-            }
-            let size = AllocatedSize.of(path) ?? 0
-            do {
-                // `trashItem` mueve la entrada en sí: un enlace simbólico va a la Papelera, no su destino.
-                try FileManager.default.trashItem(at: URL(fileURLWithPath: path, isDirectory: false),
-                                                  resultingItemURL: nil)
-                moved += size
-            } catch {
-                if moved > 0 { record(title: title, bytes: moved, wentToTrash: true) }
-                return .failed("No se pudo mover \(path) a la Papelera: \(error.localizedDescription)")
-            }
-        }
-        record(title: title, bytes: moved, wentToTrash: true)
-        return .movedToTrash(moved)
+    /// En marcha o sin poder comprobarlo ⇒ motivo (falla cerrado).
+    private func processReason(_ names: [String], paths: [String], checkOpenFiles: Bool) async -> String? {
+        guard !names.isEmpty || (checkOpenFiles && !paths.isEmpty) else { return nil }
+        var unique: [String] = []
+        for name in names where !unique.contains(name) { unique.append(name) }
+        return await processGuard.check(processNames: unique, paths: paths, checkOpenFiles: checkOpenFiles)
+            .blockedReason
     }
 
-    /// `true` si `trashPaths` rechazaría esta ruta (ubicación protegida o sellada, "No tocar", caché
-    /// que solo se limpia con su comando oficial…). La interfaz lo usa para no ofrecer "Mover a la
-    /// Papelera…" donde el ejecutor se negará: misma regla en los dos sitios.
-    public func wouldRefuseTrash(path: String) -> Bool { unsafeTrashReason(path) != nil }
-
-    /// `nil` si la ruta se puede enviar a la Papelera; si no, el motivo.
-    public func unsafeTrashReason(_ path: String) -> String? {
-        guard path.hasPrefix("/") else { return "Ruta no absoluta: \(path)." }
-        guard path != "/" else { return "No se puede tocar la raíz del disco." }
-        let parts = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
-        guard !parts.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else {
-            return "Ruta no canónica: \(path)."
-        }
-        var info = stat()
-        guard lstat(path, &info) == 0 else { return "No existe: \(path)." }
-
-        let forms = Self.forms(of: path)
-        let homes = homeForms()
-        for form in forms {
-            if let reason = RiskPolicy.trashRefusal(forCanonicalPath: form, homes: homes, catalog: catalog) {
-                return "\(reason) No se envía a la Papelera: \(path)."
-            }
-            if RiskPolicy.minimumRisk(forPath: form, home: home) == .doNotTouch {
-                return "Marcado como «No tocar»: \(path)."
-            }
-        }
-        if let entry = catalog.match(path: path, home: home), entry.risk == .doNotTouch {
-            return "Marcado como «No tocar»: \(path)."
-        }
-        // Las cachés con comando oficial se limpian solo con ese comando, nunca a mano.
-        for entry in catalog.entries {
-            guard case .command = entry.cleanup else { continue }
-            for pattern in entry.paths where forms.contains(where: { related($0, pattern) }) {
-                return "«\(entry.title)» se limpia solo con su comando oficial: \(path)."
-            }
-        }
-        // Ni dentro de un patrón "No tocar" ni una carpeta que lo contenga (exista o no ahora).
-        for entry in catalog.entries where entry.risk == .doNotTouch {
-            for pattern in entry.paths where forms.contains(where: { related($0, pattern) }) {
-                return "Contiene o está dentro de algo marcado como «No tocar» (\(entry.title)): \(path)."
-            }
-        }
-        return nil
-    }
-
-    /// La ruta tal cual y con su carpeta padre resuelta (por si pasa por un enlace), canónicas.
+    /// Formas canónicas de una ruta (tal cual, padre resuelto, destino del enlace) para buscar fichas.
     private static func forms(of path: String) -> [String] {
-        var forms = [RiskPolicy.canonical(path)]
-        let parent = (path as NSString).deletingLastPathComponent
-        if let real = realpath(parent, nil) {
-            let resolvedParent = String(cString: real)
-            free(real)
-            let resolved = RiskPolicy.canonical(resolvedParent + "/" + (path as NSString).lastPathComponent)
-            if resolved != forms[0] { forms.append(resolved) }
+        PathGate.forms(of: path, isSymlink: PathGate.identity(of: path)?.isSymlink ?? false)
+            ?? [RiskPolicy.canonical(path)]
+    }
+
+    /// Fichas del catálogo relacionadas con alguna ruta (la ruta está dentro de ellas o las contiene).
+    private func relatedEntries(of paths: [String]) -> [CatalogEntry] {
+        let forms = paths.flatMap(Self.forms)
+        return catalog.entries.filter { entry in
+            entry.paths.contains { pattern in forms.contains { related($0, pattern) } }
         }
-        return forms
     }
 
     /// `true` si la ruta canónica está dentro del patrón (o lo iguala) o es una carpeta superior suya.
     private func related(_ canonicalPath: String, _ pattern: String) -> Bool {
         var expanded = pattern
         if pattern == "~" { expanded = home } else if pattern.hasPrefix("~/") { expanded = home + pattern.dropFirst(1) }
-        let patternParts = RiskPolicy.canonical(expanded).split(separator: "/").map(String.init)
-        let pathParts = canonicalPath.split(separator: "/").map(String.init)
-        return zip(patternParts, pathParts).allSatisfy { pat, name in
-            pat.contains("*") ? fnmatch(pat, name, 0) == 0 : pat == name
-        }
+        let patternParts = HardProtections.components(RiskPolicy.canonical(expanded))
+        let pathParts = HardProtections.components(canonicalPath)
+        return zip(patternParts, pathParts).allSatisfy { HardProtections.componentMatches($0, $1) }
     }
 
-    /// Si alguna ruta toca algo con comprobación de referencias (modelos de Hugging Face…),
-    /// se vuelve a buscar en los proyectos: si se usa, no se toca.
+    /// Si alguna ruta toca algo con comprobación de referencias (modelos de Hugging Face…), se vuelve a
+    /// buscar en los proyectos: si se usa, o si la búsqueda no termina a tiempo, no se toca.
     private func referenceReason(_ paths: [String]) async -> String? {
         var needles: [String] = []
         for path in paths {
@@ -264,24 +469,16 @@ public struct CleanupExecutor: Sendable {
             }
         }
         guard !needles.isEmpty else { return nil }
-        let found = await references.references(toAny: needles, timeout: Self.referenceTimeout)
-        let users = needles.flatMap { found[$0] ?? [] }
-        return users.isEmpty ? nil : "Lo usa: \(users.joined(separator: ", "))."
+        let checked = await references.referencesChecked(toAny: needles, timeout: Self.referenceTimeout)
+        let users = needles.flatMap { checked.found[$0] ?? [] }
+        if !users.isEmpty { return "Lo usa: \(users.joined(separator: ", "))." }
+        return checked.complete ? nil : "No se pudo comprobar a tiempo si lo usa algún proyecto."
     }
 
-    /// `home` tal cual y resuelto (por si pasa por un enlace).
-    private func homeForms() -> [String] {
-        var homes = [home]
-        if let real = realpath(home, nil) {
-            homes.append(String(cString: real))
-            free(real)
-        }
-        return homes
-    }
+    // MARK: - Comandos y Papelera
 
-    // MARK: - Comandos
-
-    private func runCommand(executable: String, arguments: [String], title: String) async -> CleanupOutcome {
+    private func runCommand(executable: String, arguments: [String], title: String,
+                            context: OperationContext) async -> CleanupOutcome {
         guard let resolved = await runner.resolve(executable) else {
             return .failed("No se encontró \(executable) en este Mac.")
         }
@@ -297,11 +494,55 @@ public struct CleanupExecutor: Sendable {
             return .failed("\(executable) terminó con código \(output.status)\(detail.isEmpty ? "" : ": \(detail)")")
         }
         let freed = max(0, freeSpace() - before)
-        record(title: title, bytes: freed, wentToTrash: false)
+        record(title: title, bytes: freed, wentToTrash: false, context: context)
         return .freed(freed)
     }
 
-    private func record(title: String, bytes: Int64, wentToTrash: Bool) {
-        try? store.append(CleanupRecord(date: Date(), title: title, bytes: bytes, wentToTrash: wentToTrash))
+    private func emptyTrashNow(context: OperationContext) async -> CleanupOutcome {
+        do {
+            let before = freeSpace()
+            let emptied = try await probes.emptyTrash()
+            var rose = max(0, freeSpace() - before)
+            var attempts = 0
+            while emptied > 0, Double(rose) < Double(emptied) * TrashFollowUp.expectedRiseFraction,
+                  attempts < trashSettleAttempts {
+                attempts += 1
+                try? await Task.sleep(for: trashSettleDelay)
+                rose = max(rose, freeSpace() - before)
+            }
+            record(title: "Vaciar Papelera", bytes: rose, wentToTrash: false, context: context)
+            return .freed(rose)
+        } catch {
+            return .failed("No se pudo vaciar la Papelera: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Registros
+
+    /// Historial de limpiezas (lo que se ve en la app).
+    private func record(title: String, bytes: Int64, wentToTrash: Bool, context: OperationContext) {
+        try? store.append(CleanupRecord(date: Date(), title: title, bytes: bytes, wentToTrash: wentToTrash,
+                                        byAgent: context.isAgent))
+    }
+
+    private func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
+                           paths: [String], command: [String]?, _ outcome: CleanupOutcome) {
+        let (name, bytes, message): (String, Int64, String?) = switch outcome {
+        case .freed(let b): ("freed", b, nil)
+        case .movedToTrash(let b): ("moved_to_trash", b, nil)
+        case .blocked(let reason): ("blocked", 0, reason)
+        case .failed(let error): ("failed", 0, error)
+        }
+        appendLog(context, action: action, itemID: itemID, title: title, paths: paths, command: command,
+                  dryRun: false, outcome: name, bytes: bytes, message: message)
+    }
+
+    private func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
+                           paths: [String], command: [String]?, dryRun: Bool, outcome: String, bytes: Int64,
+                           message: String?) {
+        try? log?.append(OperationRecord(
+            runID: context.runID, date: Date(), actor: context.actor, action: action, itemID: itemID, title: title,
+            paths: paths, command: command, dryRun: dryRun, outcome: outcome, bytes: bytes, message: message,
+            proposedBy: context.proposedBy))
     }
 }
