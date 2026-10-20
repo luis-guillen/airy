@@ -38,6 +38,11 @@ enum Theme {
                               startPoint: .top, endPoint: .bottom)
     }
 
+    /// Tinta AA del tipo para texto e iconos en primer plano (el color puro solo sirve de relleno).
+    static func ink(for kind: ContentKind) -> Color {
+        Airy.dynamic(dark: AiryPalette.kindInk(kind, .dark), light: AiryPalette.kindInk(kind, .light))
+    }
+
     static func symbol(for kind: ContentKind) -> String {
         switch kind {
         case .video: "film"
@@ -109,7 +114,7 @@ extension Theme {
             dynamic(dark: pick(AiryPalette.tokens(.dark)), light: pick(AiryPalette.tokens(.light)))
         }
 
-        private static func dynamic(dark: UInt32, light: UInt32) -> Color {
+        fileprivate static func dynamic(dark: UInt32, light: UInt32) -> Color {
             Color(nsColor: NSColor(name: nil) { appearance in
                 let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 return NSColor(Color(hex: isDark ? dark : light))

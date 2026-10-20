@@ -77,7 +77,7 @@ struct HoverCard: View {
                         .fill(details.kind.map(Theme.gradient(for:)) ?? Theme.gradient(for: .system))
                     Image(systemName: symbol)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: AiryPalette.tileInk(details.kind.map(AiryPalette.kind) ?? AiryPalette.kind(.system))))
                 }
                 .frame(width: 26, height: 26)
                 Text(details.title)
@@ -108,7 +108,7 @@ struct HoverCard: View {
                 HStack(spacing: 12) {
                     if let kind = details.kind {
                         Label(kind.title, systemImage: Theme.symbol(for: kind))
-                            .foregroundStyle(Theme.color(for: kind))
+                            .foregroundStyle(Theme.ink(for: kind))
                     }
                     if let modified = details.modified {
                         Label(Theme.relative(modified), systemImage: "clock")
