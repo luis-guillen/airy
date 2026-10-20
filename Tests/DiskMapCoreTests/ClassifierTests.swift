@@ -257,6 +257,31 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(throws: DecodingError.self) { try Catalog.decode(Data(bad.utf8)) }
     }
 
+    /// Tras las protecciones duras, ninguna ficha del catálogo incluido queda menos estricta que en la
+    /// fase 1 (`RiskPolicy.effectiveRisk` con el riesgo de la ficha), en ningún modo. Las que pasan a
+    /// «No tocar» o pierden rutas son las esperadas (lista fija: si cambia, hay que revisarla).
+    @Test func bundledCatalogIsNeverLessStrictThanPhaseOne() throws {
+        let catalog = try Catalog.bundled()
+        var becameRed: Set<String> = [], dropped: Set<String> = []
+        for mode in CleanupMode.allCases {
+            let c = RiskClassifier(catalog: catalog, settings: settings(mode), home: home)
+            for e in catalog.entries {
+                let paths = e.paths.map { p in
+                    (p.hasPrefix("~/") ? home + p.dropFirst() : p).replacingOccurrences(of: "*", with: "muestra")
+                }
+                let phaseOne = paths.reduce(e.risk) {
+                    .strictest($0, RiskPolicy.effectiveRisk(path: $1, home: home, catalog: e.risk, ai: nil))
+                }
+                let now = c.classify(entry: e, paths: paths)
+                #expect(now.risk >= phaseOne, "\(e.id) en modo \(mode): \(now.risk) < \(phaseOne)")
+                if now.risk == .doNotTouch && phaseOne != .doNotTouch { becameRed.insert(e.id) }
+                if now.keptPaths.count < paths.count, case .trash = e.cleanup { dropped.insert(e.id) }
+            }
+        }
+        #expect(becameRed == expectedRedAfterHardProtections, "Nuevas en rojo: \(becameRed.sorted())")
+        #expect(dropped == expectedDroppedAfterHardProtections, "Con rutas quitadas: \(dropped.sorted())")
+    }
+
     @Test func highlightedItemsComeFirstWithinGroup() {
         func item(_ id: String, bytes: Int64, highlighted: Bool = false, risk: Risk = .safe) -> CleanupItem {
             CleanupItem(id: id, entry: entry(id, risk: risk), paths: [cache], bytes: bytes, risk: risk,
@@ -303,3 +328,8 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(rec?.action == nil)
     }
 }
+
+/// Fichas del catálogo incluido que las protecciones duras dejan en «No tocar» (antes no lo estaban).
+private let expectedRedAfterHardProtections: Set<String> = []
+/// Fichas de Papelera a las que las protecciones duras quitan alguna ruta.
+private let expectedDroppedAfterHardProtections: Set<String> = []

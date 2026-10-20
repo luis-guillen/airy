@@ -100,7 +100,7 @@ public struct GetDiskSummaryTool: MCPTool {
             return .ok(.object(["scan_available": .bool(false)]), summary: "Aún no hay análisis guardado. Abre Airy o usa rescan.")
         }
         let capacity = env.capacity()
-        let lastScan = (try? env.index.lastScanDate()) ?? nil
+        let lastScan = scan.scannedAt
         let kinds: [JSONValue] = zip(ContentKind.allCases, scan.root.kindBytes)
             .filter { $0.1 > 0 }
             .sorted { ($0.1, $1.0.rawValue) > ($1.1, $0.0.rawValue) }

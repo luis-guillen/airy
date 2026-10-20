@@ -148,3 +148,36 @@ private func tempDir() -> String {
         #expect(unknown.allSatisfy { $0.blockedReason != nil })
     }
 }
+
+@Suite struct RunningAppsTests {
+    private func fakeApp(_ name: String, id: String) throws -> String {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("airy-apps-\(UUID().uuidString)")
+        let contents = root.appendingPathComponent("\(name).app/Contents", isDirectory: true)
+        try FileManager.default.createDirectory(at: contents.appendingPathComponent("MacOS"), withIntermediateDirectories: true)
+        let plist = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": id], format: .xml, options: 0)
+        try plist.write(to: contents.appendingPathComponent("Info.plist"))
+        return contents.appendingPathComponent("MacOS/\(name)").path
+    }
+
+    @Test func bundleIDsComeFromTheFreshProcessListing() throws {
+        let safari = try fakeApp("Safari", id: "com.apple.Safari")
+        let helper = try fakeApp("Brave Browser Helper", id: "com.brave.Browser.helper")
+        let listing = FakeListing(list: [process("Safari", path: safari), process("Brave Browser Helper", path: helper),
+                                         process("zsh", path: "/bin/zsh"), process("raro", path: nil)])
+        #expect(RunningApps.bundleIDs(listing: listing) == ["com.apple.Safari", "com.brave.Browser.helper"])
+        #expect(RunningApps.appBundle(ofExecutable: "/A/X.app/Contents/Frameworks/H.app/Contents/MacOS/H") == "/A/X.app/Contents/Frameworks/H.app")
+        #expect(RunningApps.appBundle(ofExecutable: "/usr/bin/true") == nil)
+    }
+
+    @Test func probesFailClosedWhenTheListingCannotBeRead() throws {
+        #expect(RunningApps.bundleIDs(listing: FakeListing(list: nil)) == nil)
+        let probes = SystemProbes(home: NSHomeDirectory(), runner: FakeRunner(), allowFinderFallback: false,
+                                  processListing: FakeListing(list: nil))
+        #expect(probes.currentRunningBundleIDs() == nil)
+        // Lo que ve el listado al momento cuenta aunque NSWorkspace aún no lo sepa.
+        let safari = try fakeApp("Safari", id: "local.airy.test.safari")
+        let fresh = SystemProbes(home: NSHomeDirectory(), runner: FakeRunner(), allowFinderFallback: false,
+                                 processListing: FakeListing(list: [process("Safari", path: safari)]))
+        #expect(fresh.currentRunningBundleIDs()?.contains("local.airy.test.safari") == true)
+    }
+}

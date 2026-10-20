@@ -82,7 +82,13 @@ import Testing
         try write("{no json", to: file)
         let store = SettingsStore(file: file)
         let fresh = try store.resetUnreadable()
-        #expect(fresh == .defaults && store.load() == .loaded(.defaults))
+        // Nada rescatable: lista vacía y agentes apagados (falla cerrado).
+        var expected = AirySettings.defaults
+        expected.agentsEnabled = false
+        #expect(fresh.settings == expected && store.load() == .loaded(expected))
+        #expect(fresh.salvage.recoveredProtectedPaths == false)
+        #expect(fresh.message.contains("No se pudo recuperar tu lista «Proteger esto»"))
+        #expect(fresh.message.contains("Los agentes quedan desactivados"))
         let aside = try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path)
             .filter { $0.hasPrefix("settings.unreadable-") && $0.hasSuffix(".json") }
         #expect(aside.count == 1)
@@ -128,5 +134,97 @@ import Testing
         #expect(s.protectedPaths == ["~/Work"])
         s.unprotect("~/Work")
         #expect(s.protectedPaths.isEmpty)
+    }
+
+    // MARK: Ajustes en la app
+
+    @Test func unreadableSettingsBlockDestructiveActionsUntilReset() throws {
+        let file = tempFile()
+        try write("{ no es json", to: file)
+        var session = SettingsSession(store: SettingsStore(file: file))
+        #expect(session.load.isUnreadable)
+        #expect(session.destructiveRefusal != nil)
+        #expect(session.unreadableNotice
+                == "No se pudieron leer los ajustes (settings.json no es válido). Los agentes no pueden limpiar hasta que los restablezcas.")
+        // Con el fichero ilegible no se guarda nada encima: lo decide el usuario con «Restablecer ajustes».
+        #expect(throws: SettingsSession.Unreadable.self) { _ = try session.update { $0.mode = .prudent } }
+        #expect(try String(contentsOf: file, encoding: .utf8) == "{ no es json")
+        #expect(session.resetConfirmation()?.contains("no se puede recuperar") == true)
+        try session.reset()
+        var expected = AirySettings.defaults
+        expected.agentsEnabled = false
+        #expect(session.load == .loaded(expected))
+        #expect(session.destructiveRefusal == nil && session.unreadableNotice == nil)
+        let aside = try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path)
+            .filter { $0.hasPrefix("settings.unreadable-") }
+        #expect(aside.count == 1)
+    }
+
+    @Test func resetKeepsProtectionsFromANewerVersionAndLeavesAgentsAsTheyWere() throws {
+        let file = tempFile()
+        // Un Airy más nuevo escribió la versión 2: no se carga, pero su lista y el interruptor se rescatan.
+        try write(#"{"version":2,"mode":"prudent","agentsEnabled":false,"protectedPaths":["~/Work","~/Models/*.gguf"],"newThing":{"x":1}}"#, to: file)
+        var session = SettingsSession(store: SettingsStore(file: file))
+        #expect(session.load.isUnreadable)
+        let maybeConfirmation = session.resetConfirmation()
+        let confirmation = try #require(maybeConfirmation)
+        #expect(confirmation.contains("Se conservará tu lista «Proteger esto» (2 rutas)"))
+        #expect(confirmation.contains("Los agentes quedarán desactivados"))
+        let maybeResult = try session.reset()
+        let result = try #require(maybeResult)
+        #expect(result.settings.protectedPaths == ["~/Work", "~/Models/*.gguf"])
+        #expect(result.settings.agentsEnabled == false && result.settings.mode == .prudent)
+        #expect(result.message.contains("Se conservó tu lista «Proteger esto» (2 rutas)"))
+        #expect(result.backup.map { FileManager.default.fileExists(atPath: $0.path) } == true)
+        #expect(SettingsStore(file: file).load() == .loaded(result.settings))
+    }
+
+    @Test func resetSalvagesAgentsOnOnlyWithTheProtectList() throws {
+        let file = tempFile()
+        try write(#"{"version":9,"agentsEnabled":true,"protectedPaths":["~/Work"]}"#, to: file)
+        let kept = try SettingsStore(file: file).resetUnreadable()
+        #expect(kept.settings.agentsEnabled && kept.settings.protectedPaths == ["~/Work"])
+        // Sin lista legible, los agentes quedan apagados aunque el fichero dijera que no.
+        try write(#"{"version":9,"agentsEnabled":true,"protectedPaths":"~/Work"}"#, to: file)
+        let lost = try SettingsStore(file: file).resetUnreadable()
+        #expect(!lost.settings.agentsEnabled && lost.settings.protectedPaths.isEmpty)
+        #expect(SettingsSalvage(data: Data(#"{"agentsEnabled":1,"protectedPaths":[]}"#.utf8)).agentsEnabled == nil)
+        #expect(SettingsSalvage(data: Data(#"{"protectedPaths":["a",3]}"#.utf8)).protectedPaths == nil)
+    }
+
+    @Test func resetDoesNothingIfTheFileBecameReadable() throws {
+        let file = tempFile()
+        try write("{ roto", to: file)
+        var session = SettingsSession(store: SettingsStore(file: file))
+        #expect(session.load.isUnreadable)
+        // Mientras tanto, otro proceso (o el usuario a mano) lo arregla.
+        try write(#"{"version":1,"protectedPaths":["~/Work"]}"#, to: file)
+        #expect(session.resetConfirmation() == nil)
+        #expect(try session.reset() == nil)
+        guard case .loaded(let s) = session.load else { Issue.record("expected loaded"); return }
+        #expect(s.protectedPaths == ["~/Work"])
+        let aside = try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path)
+            .filter { $0.hasPrefix("settings.unreadable-") }
+        #expect(aside.isEmpty)
+    }
+
+    @Test func settingsSessionSavesAndSaysWhenRiskInputsChange() throws {
+        let file = tempFile()
+        var session = SettingsSession(store: SettingsStore(file: file))
+        #expect(session.load == .missing && session.destructiveRefusal == nil)
+        #expect(try session.update { $0.agentsEnabled = false } == false)
+        #expect(try session.update { $0.mode = .prudent } == true)
+        #expect(try session.update { _ = $0.protect("~/Work", home: h) } == true)
+        #expect(try session.update { $0.mode = .prudent } == false)
+        var expected = AirySettings.defaults
+        expected.agentsEnabled = false
+        expected.mode = .prudent
+        expected.protectedPaths = ["~/Work"]
+        #expect(SettingsStore(file: file).load() == .loaded(expected))
+        #expect(session.effective == expected)
+        // Otro proceso (o el usuario) lo estropea: se nota al volver a leer y bloquea.
+        try write("[]", to: file)
+        #expect(session.reload() == true)
+        #expect(session.destructiveRefusal != nil)
     }
 }

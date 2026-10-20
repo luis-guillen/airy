@@ -78,7 +78,7 @@ struct RootView: View {
             #if DEBUG
             if DebugSnapshot.showsGallery { return }
             #endif
-            model.startScan()
+            model.startScan(.automatic)
         }
         .task(id: model.pendingURLCommand?.id) {
             if let pending = model.pendingURLCommand { await model.run(pending, flow: cleanupFlow) }
@@ -113,7 +113,10 @@ struct RootView: View {
                 }
 
                 ForEach(visibleNotices) { notice in
-                    NoticeBanner(notice: notice) {
+                    NoticeBanner(notice: notice,
+                                 // Ajustes ilegibles: nada se borra hasta restablecerlos (se pregunta aquí).
+                                 resetSettings: notice.kind == .settings && model.settingsLoad.isUnreadable
+                                     ? { withAnimation(Theme.sectionSpring) { model.resetSettings() } } : nil) {
                         withAnimation(Theme.sectionSpring) { model.dismiss(notice.kind) }
                     }
                     .padding(.horizontal, Theme.contentPadding)
@@ -272,6 +275,7 @@ private struct SectionPlaceholder: View {
 /// Aviso descartable para problemas que no bloquean la app (reanálisis fallido, índice sin guardar…).
 private struct NoticeBanner: View {
     let notice: Notice
+    var resetSettings: (() -> Void)?
     var onDismiss: () -> Void
 
     var body: some View {
@@ -282,6 +286,11 @@ private struct NoticeBanner: View {
             Text(notice.message)
                 .font(.callout)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            if let resetSettings {
+                PrimaryButton("Restablecer ajustes", systemImage: "arrow.counterclockwise", style: .secondary,
+                              action: resetSettings)
+                    .fixedSize()
+            }
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))

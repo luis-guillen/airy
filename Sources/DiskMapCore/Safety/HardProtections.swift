@@ -77,15 +77,15 @@ public struct HardProtections: Sendable {
         "homekit", "shortcutssandboxcache", "gippseudonymousid", "cctclearcutlogger",
         "com.apple.e5rt.e5bundlecache", "com.crowdstrike.", "com.sentinelone.", "com.sentinel-labs.",
         "com.eset.", "com.jamf.", "com.jamfsoftware.", "com.paloaltonetworks.", "com.cisco.anyconnect",
-        "com.cisco.secureclient", "1password", "keychain", "bitwarden", "lastpass", "keepass", "dashlane",
-        "enpass", "gnupg",
+        "com.cisco.secureclient", "1password", "onepassword", "agilebits", "keychain", "bitwarden", "lastpass",
+        "keepass", "dashlane", "enpass", "gnupg",
     ]
 
     /// Capa C: carpetas de datos de apps sensibles bajo estas raíces del home.
     static let appDataRoots = ["Library/Application Support", "Library/Containers", "Library/Group Containers"]
     /// El nombre normalizado de la carpeta **contiene** uno de estos.
     static let sensitiveAppNames = """
-        1password bitwarden lastpass dashlane keepass authy yubico jetbrains vscode sublime typora cursor claude \
+        1password onepassword agilebits bitwarden lastpass dashlane keepass authy yubico jetbrains vscode sublime typora cursor claude \
         chatgpt openai codex ollama lmstudio perplexity drawthings windsurf gemini postman insomnia charles \
         proxyman clash surge tailscale zerotier wireguard openvpn cloudflare nordvpn expressvpn protonvpn mullvad \
         githubdesktop gitkraken sublimemerge iterm2 kitty alacritty wezterm docker orbstack vmware parallels \

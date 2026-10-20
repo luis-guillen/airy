@@ -147,6 +147,27 @@ public struct CleanupBoard: Sendable {
         return ([executable] + arguments).map(displayQuoted).joined(separator: " ")
     }
 
+    /// La orden de una vista previa (`CleanupPreview.wouldRun`), con el mismo entrecomillado.
+    public static func commandLine(_ argv: [String]) -> String {
+        argv.map(displayQuoted).joined(separator: " ")
+    }
+
+    /// Por qué una fila con casilla no se puede limpiar ahora (procesos abiertos, comprobación
+    /// incompleta…), para enseñarlo en la propia fila. `nil` si no está bloqueada así o está protegida
+    /// (entonces lo dice `protectionText`).
+    public static func blockedReasonText(_ item: CleanupItem) -> String? {
+        guard item.protection == nil, let reason = item.blockedReason, !reason.isEmpty else { return nil }
+        return reason
+    }
+
+    /// Qué dice una fila protegida: «Protegido por ti» o «Protegido por Airy: <motivo>».
+    public static func protectionText(_ protection: ProtectionMatch) -> String {
+        switch protection.source {
+        case .user: "Protegido por ti"
+        case .airy: "Protegido por Airy: \(protection.reason)"
+        }
+    }
+
     private static let plain = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./=:,@%+")
 
     private static func displayQuoted(_ word: String) -> String {

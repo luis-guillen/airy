@@ -15,7 +15,7 @@ private struct ReadFixture {
     }
 
     func saveScan(_ root: FileNode, inaccessible: [String] = []) throws {
-        try env.index.saveScan(ScanResult(root: root, inaccessible: inaccessible, duration: 1))
+        try env.index.saveScan(ScanResult(root: root, inaccessible: inaccessible, duration: 1, scannedAt: Date()))
     }
 }
 
