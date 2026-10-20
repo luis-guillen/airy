@@ -31,6 +31,8 @@ struct WindSwirl: View {
         }
         .animation(.easeInOut(duration: 0.3), value: tint)
         .onChange(of: motion) { _, now in if now != .running { spin.stop() } }
+        // Velocidad 0 o no finita: se para limpio (el ángulo se conserva hasta la siguiente válida).
+        .onChange(of: speed) { _, now in if !(now > 0 && now.isFinite) { spin.stop() } }
         .accessibilityHidden(true)
     }
 }
@@ -41,6 +43,8 @@ final class SpinState {
     private var angle = 0.0
     private var speed = 0.0
     private var time: Double?
+    /// Capa que gira ahora (la rasterizada); un cambio de velocidad solo le cambia la animación.
+    private weak var layer: CALayer?
 
     /// Ángulo al instante `now` con la velocidad que llevaba; deja `speed` como la vigente.
     func angle(at now: Double, newSpeed: Double) -> Double {
@@ -55,6 +59,27 @@ final class SpinState {
         if let time { angle = (angle + 2 * .pi * speed * max(CACurrentMediaTime() - time, 0)).truncatingRemainder(dividingBy: 2 * .pi) }
         time = nil
         speed = 0
+        layer = nil
+    }
+
+    /// Hace girar `layer` a `speed` desde el ángulo acumulado, sin rasterizar de nuevo.
+    func spin(_ layer: CALayer, speed: Double) {
+        self.layer = layer
+        let start = angle(at: CACurrentMediaTime(), newSpeed: speed)
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        // Con y hacia abajo, un ángulo positivo gira en sentido horario, como los arcos.
+        spin.fromValue = start
+        spin.toValue = start + 2 * Double.pi
+        spin.duration = 1 / speed
+        spin.repeatCount = .infinity
+        spin.isRemovedOnCompletion = false
+        layer.add(spin, forKey: "spin")
+    }
+
+    /// Nueva velocidad para la capa que ya gira (si la hay).
+    func respin(speed: Double) {
+        guard let layer, speed > 0, speed.isFinite else { return }
+        spin(layer, speed: speed)
     }
 }
 
@@ -65,24 +90,18 @@ private struct SpinningArt: View {
     let state: SpinState
 
     var body: some View {
-        RenderServerLayer(key: [AnyHashable(speed), AnyHashable(tint), AnyHashable(scale)]) { container, size in
+        // La velocidad no entra en la clave: el ráster no depende de ella (la carga llega continua).
+        RenderServerLayer(key: [AnyHashable(tint), AnyHashable(scale)]) { container, size in
             let renderer = ImageRenderer(content: SwirlArt(tint: tint).frame(width: size.width, height: size.height))
             renderer.scale = scale
             let layer = CALayer()
             layer.frame = CGRect(origin: .zero, size: size)
             layer.contents = renderer.cgImage
             layer.contentsGravity = .resizeAspect
-            let start = state.angle(at: CACurrentMediaTime(), newSpeed: speed)
-            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-            // Con y hacia abajo, un ángulo positivo gira en sentido horario, como los arcos.
-            spin.fromValue = start
-            spin.toValue = start + 2 * Double.pi
-            spin.duration = 1 / speed
-            spin.repeatCount = .infinity
-            spin.isRemovedOnCompletion = false
-            layer.add(spin, forKey: "spin")
+            state.spin(layer, speed: speed)
             container.addSublayer(layer)
         }
+        .onChange(of: speed) { _, now in state.respin(speed: now) }
     }
 }
 

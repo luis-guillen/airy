@@ -27,6 +27,8 @@ struct WindLeaves: View {
     @Environment(\.airyAmbientMotion) private var ambientMotion
     @Environment(\.airyTransientMotion) private var transientMotion
     @Environment(\.colorScheme) private var colorScheme
+    /// `.burst` terminada: el reloj desaparece aunque quien la muestra tarde en retirarla.
+    @ViewState private var burstEnded = false
 
     init(mode: Mode, count: Int = 7) {
         self.mode = mode
@@ -37,7 +39,7 @@ struct WindLeaves: View {
         switch mode {
         case .orbit: return ambientMotion != .running
         case .launch: return transientMotion != .running
-        // Con «Reducir movimiento» el fundido también necesita reloj (acotado: quien la muestra la retira).
+        // Con «Reducir movimiento» el fundido también necesita reloj (acotado: se quita a `dissolveDuration`).
         case .burst: return transientMotion == .paused
         }
     }
@@ -61,6 +63,8 @@ struct WindLeaves: View {
                 case .reduced:
                     Color.clear
                 }
+            case .burst where burstEnded:
+                Color.clear
             default:
                 TimelineView(.animation(minimumInterval: nil, paused: paused)) { context in
                     Canvas(rendersAsynchronously: true) { canvas, size in
@@ -75,6 +79,13 @@ struct WindLeaves: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+        .task(id: mode) {
+            guard case .burst(let start, _) = mode else { return }
+            burstEnded = false
+            let remaining = start.addingTimeInterval(WindMotion.dissolveDuration).timeIntervalSinceNow
+            if remaining > 0 { try? await Task.sleep(for: .seconds(remaining)) }
+            if !Task.isCancelled { burstEnded = true }
+        }
     }
 
     /// Instante en que `orbitLeaf` vale lo mismo que la primera pose de `OrbitingLeaves`.

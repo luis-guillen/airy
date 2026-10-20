@@ -86,14 +86,26 @@ struct CleanupView: View {
         }
         #endif
         }
+        .overlay {
+            // Ráfaga de la tanda: cruza la lista y desaparece; no recibe clics.
+            if let gust = flow.gust {
+                GustSweep(start: gust.start)
+                    .id(gust.id)
+            }
+        }
         .overlay(alignment: .bottom) {
             if !selected.isEmpty {
                 SelectionBar(items: selected) { selection = [] }
                     .padding(.bottom, 18)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if showsBatchPill {
+                BatchFreedPill(tally: flow.batchTally)
+                    .padding(.bottom, 18)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(Theme.sectionSpring, value: selected.isEmpty)
+        .animation(Theme.sectionSpring, value: showsBatchPill)
         .onAppear { withAnimation(Theme.zoomSpring) { appeared = true } }
         .onChange(of: model.cleanupItems.map(\.id)) { _, _ in
             selection = CleanupBoard(items: model.cleanupItems).pruned(selection)
@@ -109,6 +121,9 @@ struct CleanupView: View {
                                        select: { selection.formSymmetricDifference([$0]) }) }
         #endif
     }
+
+    /// La píldora sube con cada fila borrada mientras dura la tanda.
+    private var showsBatchPill: Bool { flow.isRunning && flow.batchFreed > 0 }
 
     private func subtitle(_ board: CleanupBoard) -> String {
         if model.catalogError != nil { return "No disponible: no se pudo cargar el catálogo" }
@@ -217,6 +232,7 @@ private struct HeroCard: View {
 // MARK: - Grupo
 
 private struct GroupSection: View {
+    @Environment(CleanupFlow.self) private var flow
     let group: CleanupBoard.Group
     @Binding var selection: Set<String>
 
@@ -249,10 +265,10 @@ private struct GroupSection: View {
                                 withAnimation(Theme.pressSpring) { selection.formSymmetricDifference([item.id]) }
                             }
                         }
+                        .gustSway(index: flow.gust?.order.firstIndex(of: item.id), start: flow.gust?.start)
                         .id(item.id)
-                        .transition(.asymmetric(
-                            insertion: .opacity,
-                            removal: .opacity.combined(with: .scale(scale: 0.97, anchor: .top))))
+                        // Al borrarse, la fila se la lleva el viento (con el mismo muelle que la colapsa).
+                        .transition(.leafAway)
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
