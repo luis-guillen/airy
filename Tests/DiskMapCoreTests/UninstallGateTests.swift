@@ -315,6 +315,58 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(gate.validate(support + "/SlackHelperTool", waiver: slack).failure != nil)
     }
 
+    @Test func browserAndSignalProfilesProtected() throws {
+        let gate = gate()
+        let expected: [(String, String)] = [
+            (support + "/Signal", "Signal"), (support + "/Firefox", "Firefox"), (support + "/Mozilla", "Mozilla"),
+            (support + "/Vivaldi", "Vivaldi"), (support + "/Microsoft Edge", "Microsoft Edge"),
+            (support + "/BraveSoftware", "Brave"), (support + "/Google", "Google"),
+            (h + "/Library/Containers/org.mozilla.firefox", "Firefox"),
+            (h + "/Library/Containers/com.microsoft.edgemac", "Microsoft Edge"),
+            (h + "/Library/Containers/com.brave.Browser", "Brave"),
+            (h + "/Library/Group Containers/group.org.whispersystems.signal-desktop", "Signal"),
+        ]
+        for (path, name) in expected {
+            touch(path + "/Default/Cookies")
+            #expect(gate.validate(path, waiver: nil).failure?.reason == "Datos de una app sensible (\(name)).", "\(path)")
+            #expect(gate.validate(path + "/Default/Cookies", waiver: nil).failure != nil, "\(path)")
+        }
+        touch(support + "/Google/Chrome/Default/Login Data")
+        touch(support + "/Firefox/Profiles/abc.default/logins.json")
+        touch(support + "/BraveSoftware/Brave-Browser/Default/Cookies")
+        for path in [support + "/Google/Chrome", support + "/Google/Chrome/Default/Login Data",
+                     support + "/Firefox/Profiles/abc.default", support + "/BraveSoftware/Brave-Browser"] {
+            #expect(gate.validate(path, waiver: nil).failure != nil, "\(path)")
+        }
+        // Solo con la dispensa de su propia app, y solo la carpeta en sí.
+        let signal = try #require(ProtectionWaiver.uninstall(
+            record("org.whispersystems.signal-desktop", "Signal", apps + "/Signal.app"), appRoots: [apps]))
+        let firefox = try #require(ProtectionWaiver.uninstall(record("org.mozilla.firefox", "Firefox", apps + "/Firefox.app"),
+                                                             appRoots: [apps]))
+        let edge = try #require(ProtectionWaiver.uninstall(record("com.microsoft.edgemac", "Microsoft Edge",
+                                                                  apps + "/Microsoft Edge.app"), appRoots: [apps]))
+        #expect(gate.validate(support + "/Signal", waiver: signal).failure == nil)
+        #expect(gate.validate(support + "/Firefox", waiver: firefox).failure == nil)
+        #expect(gate.validate(support + "/Microsoft Edge", waiver: edge).failure == nil)
+        #expect(gate.validate(h + "/Library/Containers/com.microsoft.edgemac", waiver: edge).failure == nil)
+        #expect(gate.validate(support + "/Signal", waiver: firefox).failure != nil)
+        #expect(gate.validate(support + "/Firefox", waiver: signal).failure != nil)
+        #expect(gate.validate(support + "/Firefox/Profiles/abc.default", waiver: firefox).failure != nil)
+        #expect(gate.validate(support + "/Mozilla", waiver: firefox).failure != nil)
+        // Las cachés de los navegadores (fuera de las raíces de datos, y la que declara el catálogo) siguen limpiables.
+        for path in [h + "/Library/Caches/Google/Chrome/Default/Cache/data_0",
+                     h + "/Library/Caches/Google/Chrome/Default/Code Cache/js/x",
+                     h + "/Library/Caches/Google/Chrome/Default/GPUCache/x",
+                     h + "/Library/Caches/BraveSoftware/Brave-Browser/Default/Cache/x",
+                     h + "/Library/Caches/Firefox/Profiles/abc.default/cache2/x",
+                     h + "/Library/Caches/com.microsoft.edgemac/x",
+                     h + "/Library/Containers/com.microsoft.edgemac/Data/Library/Caches/x"] {
+            touch(path)
+            #expect(gate.validate(path, waiver: nil).failure == nil, "\(path)")
+        }
+        #expect(gate.validate(h + "/Library/Caches/Google/Chrome", waiver: nil).failure == nil)
+    }
+
     @Test func sealedHomeNeverWaived() throws {
         let gate = gate()
         let docker = h + "/Library/Containers/com.docker.docker"

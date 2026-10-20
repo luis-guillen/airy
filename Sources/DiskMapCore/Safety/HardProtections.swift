@@ -101,7 +101,8 @@ public struct HardProtections: Sendable {
         githubdesktop gitkraken sublimemerge iterm2 kitty alacritty wezterm docker orbstack vmware parallels \
         virtualbox vagrant alfred raycast karabiner rectangle bartender obsidian notion logseq evernote dayone \
         goodnotes adobe figma sketch affinity pixelmator maxon autodesk nativeinstruments izotope fabfilter slack \
-        discord teams telegram whatsapp wechat dropbox onedrive googledrive backblaze teamviewer anydesk
+        discord teams telegram whatsapp wechat dropbox onedrive googledrive backblaze teamviewer anydesk \
+        signal firefox mozilla vivaldi microsoftedge bravesoftware bravebrowser google
         """.split(separator: " ").map(String.init)
     /// El último componente DNS de la carpeta **es** uno de estos.
     static let sensitiveShortAppNames = ["jan", "box", "paw", "code", "bear", "zoom", "warp", "nova", "fork", "utm", "tower"]
@@ -214,8 +215,12 @@ public struct HardProtections: Sendable {
         return nil
     }
 
+    private static let displayNames = [
+        "1password": "1Password", "microsoftedge": "Microsoft Edge", "bravesoftware": "Brave", "bravebrowser": "Brave",
+    ]
+
     private static func displayName(_ name: String) -> String {
-        name == "1password" ? "1Password" : name.prefix(1).uppercased() + name.dropFirst()
+        displayNames[name] ?? name.prefix(1).uppercased() + name.dropFirst()
     }
 
     /// `true` si un patrón literal (sin `*`) de una ficha con acción declara una ruta dentro de `folder`
