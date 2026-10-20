@@ -5,6 +5,8 @@ public enum TimeBudget {
     public static let processScan: Duration = .seconds(3)
     public static let sizeMeasure: Duration = .seconds(30)
     public static let references: TimeInterval = 10
+    /// Detección de versiones de herramientas de desarrollo (inventario, uso, `brew uses`).
+    public static let toolchains: Duration = .seconds(20)
 
     /// Resultado de `operation`, o `nil` si no termina a tiempo (la tarea se cancela).
     /// No usa un grupo de tareas: un grupo esperaría a una llamada bloqueante (libproc) aunque haya vencido el plazo.

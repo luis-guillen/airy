@@ -5,6 +5,8 @@ import Foundation
 public enum CommandPolicy {
     static let dockerVolumesReason = "Airy nunca borra volúmenes de Docker."
     static let invalidReason = "Orden no válida."
+    static let brewDependenciesReason = "Airy nunca fuerza a Homebrew a ignorar dependencias."
+    static let condaBaseReason = "Airy nunca borra el entorno base de conda."
 
     /// Motivo para no ejecutar nunca esta orden aunque venga del catálogo; `nil` si se permite.
     public static func refusal(executable: String, arguments: [String]) -> String? {
@@ -17,6 +19,14 @@ public enum CommandPolicy {
         let name = (executable as NSString).lastPathComponent.lowercased()
         // `docker-compose down -v` y compañía: Compose entero queda fuera.
         if name.hasPrefix("docker-compose") { return dockerVolumesReason }
+        if name == "brew", arguments.contains(where: { $0.hasPrefix("--ignore-dependencies") }) {
+            return brewDependenciesReason
+        }
+        // `conda env remove` / `conda remove`: nunca `--all` ni el entorno base (`conda clean --all` sí vale).
+        if name == "conda", arguments.contains(where: { ["remove", "uninstall"].contains($0) }),
+           arguments.contains(where: { $0 == "--all" || $0 == "base" || $0.hasPrefix("--name=base") }) {
+            return condaBaseReason
+        }
         guard name == "docker" else { return nil }
         for argument in arguments {
             // `volume …`, `--volumes…`, y `compose`/`rm` (que con `-v` se llevan volúmenes).
