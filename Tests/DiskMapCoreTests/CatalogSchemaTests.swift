@@ -464,3 +464,64 @@ private func replaceWithLink(_ path: String, to destination: String) {
         #expect(classifier.classify(entry: green, paths: [home + "/Library/Caches/g"]).risk == .safe)
     }
 }
+
+// MARK: - Versiones de herramientas de desarrollo (plan 3b)
+
+@Suite struct ToolchainCatalogSchemaTests {
+    @Test func toolchainDiscoveryDecodesAndRoundTrips() throws {
+        let json = Data(#"{"type":"toolchains","manager":"rustup"}"#.utf8)
+        let kind = try JSONDecoder().decode(DiscoveryKind.self, from: json)
+        #expect(kind == .toolchains(manager: .rustup))
+        #expect(try JSONDecoder().decode(DiscoveryKind.self, from: try JSONEncoder().encode(kind)) == kind)
+        for other in [DiscoveryKind.toolchainSystemInfo, .dependencyDuplicates] {
+            #expect(try JSONDecoder().decode(DiscoveryKind.self, from: try JSONEncoder().encode(other)) == other)
+        }
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(DiscoveryKind.self, from: Data(#"{"type":"toolchains","manager":"x"}"#.utf8))
+        }
+    }
+
+    private static func toolchainEntries() throws -> [(ToolchainManager, CatalogEntry)] {
+        try Catalog.bundled().entries.compactMap { entry in
+            if case .toolchains(let manager) = entry.discovery { return (manager, entry) }
+            return nil
+        }
+    }
+
+    @Test func toolchainFichasAreNeverGreen() throws {
+        let entries = try Self.toolchainEntries()
+        #expect(entries.count == 12)
+        let catalog = try Catalog.bundled()
+        for (_, entry) in entries {
+            #expect(entry.risk == .yourCall && entry.aggressiveRisk == nil && entry.profiles.isEmpty, "\(entry.id)")
+            for mode in CleanupMode.allCases {
+                var settings = AirySettings()
+                settings.mode = mode
+                #expect(RiskClassifier(catalog: catalog, settings: settings, home: "/Users/ana").baseRisk(of: entry)
+                    == .yourCall)
+            }
+        }
+        for id in ["toolchain-system-info", "node-dependency-duplicates"] {
+            #expect(catalog.entry(id: id)?.cleanup == .info, "\(id)")
+        }
+    }
+
+    @Test func toolchainCommandsAreArgumentArraysWithTarget() throws {
+        let commands: Set<ToolchainManager> = [.pyenv, .conda, .fnm, .rbenv, .rustup, .homebrew]
+        for (manager, entry) in try Self.toolchainEntries() where commands.contains(manager) {
+            guard case .command(let executable, let arguments, _) = entry.cleanup else {
+                Issue.record("\(entry.id) sin comando"); continue
+            }
+            #expect(entry.cleanup.usesTargets, "\(entry.id)")
+            #expect(!([executable] + arguments).contains { $0.contains(" ") || $0 == "sh" }, "\(entry.id)")
+            if manager == .conda { #expect(arguments.contains("-p") && !arguments.contains("-n")) }
+        }
+    }
+
+    @Test func shellFunctionManagersUseTrash() throws {
+        let trash: Set<ToolchainManager> = [.nvm, .volta, .asdf, .rvm, .sdkman, .goSDK]
+        let entries = try Self.toolchainEntries()
+        #expect(Set(entries.map(\.0)) == Set(ToolchainManager.allCases).subtracting([.system]))
+        for (manager, entry) in entries where trash.contains(manager) { #expect(entry.cleanup == .trash, "\(entry.id)") }
+    }
+}
