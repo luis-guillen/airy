@@ -27,12 +27,24 @@ public struct ScanProgress: Sendable {
     public var filesScanned: Int
     public var bytesScanned: Int64
     public var currentPath: String
+
+    public init(filesScanned: Int, bytesScanned: Int64, currentPath: String) {
+        self.filesScanned = filesScanned
+        self.bytesScanned = bytesScanned
+        self.currentPath = currentPath
+    }
 }
 
 public struct ScanResult: Sendable {
     public let root: FileNode
     public let inaccessible: [String]
     public let duration: TimeInterval
+
+    public init(root: FileNode, inaccessible: [String], duration: TimeInterval) {
+        self.root = root
+        self.inaccessible = inaccessible
+        self.duration = duration
+    }
 }
 
 /// Escáner paralelo: `opendir/readdir` + `fstatat` sin seguir enlaces, tamaño asignado
@@ -231,9 +243,16 @@ public final class DiskScanner: Sendable {
     // MARK: - Utilidades
 
     private static func normalize(_ path: String) -> String {
-        var result = (path as NSString).standardizingPath
-        while result.count > 1, result.hasSuffix("/") { result.removeLast() }
-        return result.isEmpty ? "/" : result
+        // Sin `standardizingPath`: quitaría `/private` y las exclusiones dejarían de coincidir.
+        var components: [Substring] = []
+        for component in path.split(separator: "/") {
+            switch component {
+            case ".": continue
+            case "..": _ = components.popLast()
+            default: components.append(component)
+            }
+        }
+        return "/" + components.joined(separator: "/")
     }
 
     private static func uniqueNormalized(_ paths: [String]) -> [String] {
