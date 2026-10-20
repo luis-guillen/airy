@@ -74,10 +74,23 @@ struct RootView: View {
             .environment(\.airyAmbientMotion, ambientMotion)
             .environment(\.airyTransientMotion, transientMotion)
         }
-        .task { model.startScan() }
+        .task {
+            #if DEBUG
+            if DebugSnapshot.showsGallery { return }
+            #endif
+            model.startScan()
+        }
         .task(id: model.pendingURLCommand?.id) {
             if let pending = model.pendingURLCommand { await model.run(pending, flow: cleanupFlow) }
         }
+    }
+
+    private var showsGallery: Bool {
+        #if DEBUG
+        DebugSnapshot.showsGallery
+        #else
+        false
+        #endif
     }
 
     private var showsBanner: Bool { !model.hasFullDiskAccess && !bannerDismissed }
@@ -109,7 +122,11 @@ struct RootView: View {
                 }
 
                 Group {
-                    if model.scan == nil, model.isScanning {
+                    if showsGallery {
+                        #if DEBUG
+                        MotionGallery()
+                        #endif
+                    } else if model.scan == nil, model.isScanning {
                         ScanProgressView(style: .hero)
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     } else if model.scan == nil, let error = model.scanError {

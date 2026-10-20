@@ -145,6 +145,11 @@ extension Theme {
         static let logoGradient = LinearGradient(colors: [logoTop, logoBottom],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing)
 
+        /// Tinte del remolino de Rendimiento: azul de marca que se calienta con la temperatura.
+        static func swirlTint(_ state: ProcessInfo.ThermalState) -> Color {
+            Color(hex: AiryPalette.swirlTint(heat: WindMotion.heat(for: state)))
+        }
+
         /// Señal de seguridad fija: solo fondos y rellenos grandes (y primer plano en oscuro).
         static func riskFill(_ risk: Risk) -> Color { Color(hex: AiryPalette.riskFill(risk)) }
 

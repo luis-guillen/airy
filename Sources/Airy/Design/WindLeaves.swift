@@ -179,17 +179,21 @@ struct LeafAwayEffect: ViewModifier, Animatable {
         let running = motion == .running
         let p = min(max(progress, 0), 1)
         let away = WindMotion.leafAwayTransform(progress: running ? p : 0)
-        content
-            .scaleEffect(away.scale)
-            .rotationEffect(.degrees(away.rotationDegrees))
-            .offset(x: away.dx, y: away.dy)
-            .opacity(running ? away.opacity : 1 - p)
-            .overlay(alignment: .topLeading) {
-                // En reposo (p = 0) no hay lienzo: las filas visibles no cargan con él.
-                if running, p > 0 {
-                    leaves(progress: p)
-                }
+        // Las hojas van en un `overlay` de la vista sin transformar: si fueran tras el desplazamiento
+        // se desplazarían dos veces. El `ZStack` conserva el tamaño de la vista.
+        ZStack {
+            content
+                .scaleEffect(away.scale)
+                .rotationEffect(.degrees(away.rotationDegrees))
+                .offset(x: away.dx, y: away.dy)
+                .opacity(running ? away.opacity : 1 - p)
+        }
+        .overlay(alignment: .topLeading) {
+            // En reposo (p = 0) no hay lienzo: las filas visibles no cargan con él.
+            if running, p > 0 {
+                leaves(progress: p)
             }
+        }
     }
 
     private func leaves(progress p: Double) -> some View {
