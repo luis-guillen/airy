@@ -78,7 +78,10 @@
         ]
       },
       "mustBeClosed": [],
-      "partialCleanup": true
+      "partialCleanup": true,
+      "processNames": [
+        "brew"
+      ]
     },
     {
       "id": "pip",
@@ -100,7 +103,11 @@
         ]
       },
       "mustBeClosed": [],
-      "partialCleanup": true
+      "partialCleanup": true,
+      "processNames": [
+        "pip",
+        "pip3"
+      ]
     },
     {
       "id": "uv",
@@ -121,7 +128,10 @@
           "clean"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "processNames": [
+        "uv"
+      ]
     },
     {
       "id": "pnpm",
@@ -143,7 +153,10 @@
         ]
       },
       "mustBeClosed": [],
-      "partialCleanup": true
+      "partialCleanup": true,
+      "processNames": [
+        "pnpm"
+      ]
     },
     {
       "id": "pnpm-cache",
@@ -159,7 +172,10 @@
       "cleanup": {
         "type": "trash"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "processNames": [
+        "pnpm"
+      ]
     },
     {
       "id": "npm",
@@ -181,7 +197,10 @@
           "--force"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "processNames": [
+        "npm"
+      ]
     },
     {
       "id": "cargo",
@@ -198,7 +217,10 @@
       "cleanup": {
         "type": "trash"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "processNames": [
+        "cargo"
+      ]
     },
     {
       "id": "conda",
@@ -222,7 +244,10 @@
         ]
       },
       "mustBeClosed": [],
-      "partialCleanup": true
+      "partialCleanup": true,
+      "processNames": [
+        "conda"
+      ]
     },
     {
       "id": "huggingface-model",
@@ -256,7 +281,10 @@
       "cleanup": {
         "type": "info"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "processNames": [
+        "ollama"
+      ]
     },
     {
       "id": "whisper-cache",
@@ -272,7 +300,10 @@
       "cleanup": {
         "type": "trash"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "processNames": [
+        "whisper"
+      ]
     },
     {
       "id": "playwright",
@@ -377,7 +408,11 @@
       "cleanup": {
         "type": "trash"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "processNames": [
+        "Xcode",
+        "xcodebuild"
+      ]
     },
     {
       "id": "xcode-simulators",
@@ -400,7 +435,11 @@
         ]
       },
       "mustBeClosed": [],
-      "partialCleanup": true
+      "partialCleanup": true,
+      "processNames": [
+        "Simulator",
+        "xcodebuild"
+      ]
     },
     {
       "id": "user-logs",

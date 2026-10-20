@@ -50,10 +50,16 @@ public struct CleanupScanner: Sendable {
     private let references: ReferenceChecker
     private let home: String
     private let classifier: RiskClassifier
+    private let processListing: any ProcessListing
+    private let referenceTimeout: TimeInterval
 
     /// `classifier`: `nil` ⇒ ajustes por defecto con este catálogo y este home.
     public init(catalog: Catalog, runner: any CommandRunning, probes: any SystemProbing,
-                references: ReferenceChecker, home: String = NSHomeDirectory(), classifier: RiskClassifier? = nil) {
+                references: ReferenceChecker, home: String = NSHomeDirectory(), classifier: RiskClassifier? = nil,
+                processListing: any ProcessListing = LibprocListing(),
+                referenceTimeout: TimeInterval = CleanupScanner.referenceTimeout) {
+        self.processListing = processListing
+        self.referenceTimeout = referenceTimeout
         self.catalog = catalog
         self.runner = runner
         self.probes = probes
@@ -82,8 +88,20 @@ public struct CleanupScanner: Sendable {
         let candidates = found.filter { $0.bytes > 0 }
 
         let needles = candidates.compactMap(\.needle)
-        let references = needles.isEmpty
-            ? [:] : await self.references.references(toAny: needles, timeout: Self.referenceTimeout)
+        let checked = needles.isEmpty
+            ? (found: [String: [String]](), complete: true)
+            : await self.references.referencesChecked(toAny: needles, timeout: referenceTimeout)
+        let references = checked.found
+
+        // Un solo listado de procesos por pasada, y solo si alguna ficha lo necesita.
+        let needsProcesses = candidates.contains { !$0.entry.processNames.isEmpty }
+        let processes: [RunningProcess]?
+        if needsProcesses {
+            let listing = processListing
+            processes = await TimeBudget.run(TimeBudget.processScan, { listing.processes() }) ?? nil
+        } else {
+            processes = nil
+        }
 
         return candidates.compactMap { candidate in
             let usedBy = candidate.needle.flatMap { references[$0] } ?? []
@@ -99,11 +117,17 @@ public struct CleanupScanner: Sendable {
                 bytes = paths.reduce(Int64(0)) { $0 + size(of: $1, scan: scan) }
                 guard bytes > 0 else { return nil }
             }
+            // Fallar cerrado: proceso en marcha, listado desconocido o referencias sin terminar bloquean.
+            var blockedReason = ProcessGuard.state(processNames: candidate.entry.processNames, among: processes)
+                .blockedReason
+            if blockedReason == nil, candidate.needle != nil, !checked.complete {
+                blockedReason = "No se pudo comprobar a tiempo si lo usa algún proyecto."
+            }
             return CleanupItem(
                 id: candidate.id, entry: candidate.entry, paths: paths, bytes: bytes,
                 risk: risk, blockedByOpenApps: candidate.entry.mustBeClosed.filter { running.contains($0) },
                 usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch,
-                highlighted: verdict.highlighted, protection: verdict.protection)
+                highlighted: verdict.highlighted, protection: verdict.protection, blockedReason: blockedReason)
         }
     }
 
