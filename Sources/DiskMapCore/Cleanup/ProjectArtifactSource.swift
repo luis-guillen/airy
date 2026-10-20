@@ -124,6 +124,18 @@ public enum ProjectArtifactRules {
 /// fichas `projectArtifacts` del mismo `DiscoveryContext`: un solo paseo y un solo plazo por pasada.
 final class ProjectWalkMemo: Sendable {
     private let state = Mutex<[String: [DiscoveredTarget]]?>(nil)
+    private let list = Mutex<ProjectList?>(nil)
+
+    /// Lista de proyectos de la pasada (un solo BFS), compartida por artefactos, pins y dependencias.
+    func projectList(compute: () async -> ProjectList) async -> ProjectList {
+        if let done = list.withLock({ $0 }) { return done }
+        let fresh = await compute()
+        return list.withLock { current in
+            if let current { return current }
+            current = fresh
+            return fresh
+        }
+    }
 
     func targets(compute: () async -> [String: [DiscoveredTarget]]) async -> [String: [DiscoveredTarget]] {
         if let done = state.withLock({ $0 }) { return done }
@@ -134,6 +146,14 @@ final class ProjectWalkMemo: Sendable {
             return fresh
         }
     }
+}
+
+/// Raíces de proyecto encontradas en una pasada; `complete == false` si el BFS se cortó por plazo.
+public struct ProjectList: Sendable, Equatable {
+    public var projects: [String]
+    public var complete: Bool
+
+    public init(projects: [String], complete: Bool) { self.projects = projects; self.complete = complete }
 }
 
 /// Fichas `discovery {"type":"projectArtifacts"}`: carpetas regenerables (node_modules, target…) de proyectos
@@ -150,6 +170,8 @@ public struct ProjectArtifactSource: CleanupTargetSource {
     private let isUbiquitous: @Sendable (String) -> Bool
     /// Solo para pruebas: se llama cada vez que empieza un paseo completo de las raíces.
     private let onWalk: (@Sendable () -> Void)?
+    /// Solo para pruebas: se llama cada vez que empieza un BFS de proyectos.
+    private let onListProjects: (@Sendable () -> Void)?
 
     public init(searchRoots: [String]? = nil, maxDepth: Int = 6,
                 projectBudget: Duration = .seconds(5), totalBudget: Duration = .seconds(30)) {
@@ -159,10 +181,29 @@ public struct ProjectArtifactSource: CleanupTargetSource {
 
     init(searchRoots: [String]? = nil, maxDepth: Int = 6, projectBudget: Duration = .seconds(5),
          totalBudget: Duration = .seconds(30), isUbiquitous: @escaping @Sendable (String) -> Bool,
-         onWalk: (@Sendable () -> Void)? = nil) {
+         onWalk: (@Sendable () -> Void)? = nil, onListProjects: (@Sendable () -> Void)? = nil) {
         self.searchRoots = searchRoots; self.maxDepth = maxDepth
         self.projectBudget = projectBudget; self.totalBudget = totalBudget
-        self.isUbiquitous = isUbiquitous; self.onWalk = onWalk
+        self.isUbiquitous = isUbiquitous; self.onWalk = onWalk; self.onListProjects = onListProjects
+    }
+
+    /// Proyectos de las raíces de búsqueda (BFS con `totalBudget`), memorizados en `context.projectWalk`.
+    public func projectList(context: DiscoveryContext) async -> ProjectList {
+        let deadline = ContinuousClock().now.advanced(by: totalBudget)
+        return await context.projectWalk.projectList {
+            listProjects(home: context.home, skipped: Self.artifactNames(in: context.catalog), deadline: deadline)
+        }
+    }
+
+    private func listProjects(home: String, skipped: Set<String>, deadline: ContinuousClock.Instant) -> ProjectList {
+        onListProjects?()
+        var all: [String] = []
+        for root in roots(home: home) {
+            let (found, complete) = projects(in: root, skipped: skipped, deadline: deadline)
+            all += found
+            if !complete { return ProjectList(projects: all, complete: false) }
+        }
+        return ProjectList(projects: all, complete: true)
     }
 
     // MARK: - Detección
@@ -189,22 +230,25 @@ public struct ProjectArtifactSource: CleanupTargetSource {
         let homeReal = CleanupTargets.realPath(context.home) ?? context.home
         let cutoff = context.now.addingTimeInterval(-ProjectArtifactRules.staleAfter)
         var result: [String: [DiscoveredTarget]] = [:]
-        for root in roots(home: context.home) {
-            for project in projects(in: root, skipped: skipped, deadline: deadline) {
-                guard clock.now < deadline, !Task.isCancelled else { return result }
-                guard let signal = Self.signal(of: project, budget: budget(until: deadline)), signal < cutoff
-                else { continue }
-                for ficha in fichas {
-                    let folders = artifacts(in: project, names: ficha.names, cachedirTag: ficha.cachedirTag,
-                                            skipped: skipped, deadline: deadline)
-                    for folder in folders {
-                        guard clock.now < deadline, !Task.isCancelled else { return result }
-                        let verdict = await inspect(folder, root: root, deadline: deadline, runner: context.runner)
-                        // Sin tiempo total, lo que estaba a medias no se ofrece.
-                        if case .blocked = verdict, clock.now >= deadline { return result }
-                        result[ficha.id, default: []].append(
-                            target(folder, verdict: verdict, signal: signal, home: homeReal))
-                    }
+        let list = await context.projectWalk.projectList {
+            listProjects(home: context.home, skipped: skipped, deadline: deadline)
+        }
+        let searchRoots = roots(home: context.home)
+        for project in list.projects {
+            let root = searchRoots.first { project == $0 || project.hasPrefix($0 + "/") } ?? project
+            guard clock.now < deadline, !Task.isCancelled else { return result }
+            guard let signal = Self.signal(of: project, budget: budget(until: deadline)), signal < cutoff
+            else { continue }
+            for ficha in fichas {
+                let folders = artifacts(in: project, names: ficha.names, cachedirTag: ficha.cachedirTag,
+                                        skipped: skipped, deadline: deadline)
+                for folder in folders {
+                    guard clock.now < deadline, !Task.isCancelled else { return result }
+                    let verdict = await inspect(folder, root: root, deadline: deadline, runner: context.runner)
+                    // Sin tiempo total, lo que estaba a medias no se ofrece.
+                    if case .blocked = verdict, clock.now >= deadline { return result }
+                    result[ficha.id, default: []].append(
+                        target(folder, verdict: verdict, signal: signal, home: homeReal))
                 }
             }
         }
@@ -401,14 +445,16 @@ public struct ProjectArtifactSource: CleanupTargetSource {
     }
 
     /// BFS hasta `maxDepth` sin seguir enlaces; un proyecto es la carpeta más externa con marcador.
-    private func projects(in root: String, skipped: Set<String>, deadline: ContinuousClock.Instant) -> [String] {
+    /// `complete == false` si se agotó el plazo.
+    private func projects(in root: String, skipped: Set<String>, deadline: ContinuousClock.Instant)
+        -> (found: [String], complete: Bool) {
         let clock = ContinuousClock()
         var found: [String] = []
         var level = [root]
         for depth in 0...maxDepth {
             var next: [String] = []
             for folder in level {
-                guard clock.now < deadline, !Task.isCancelled else { return found }
+                guard clock.now < deadline, !Task.isCancelled else { return (found, false) }
                 if ProjectArtifactRules.isProjectRoot(folder) {
                     found.append(folder)
                     continue
@@ -425,7 +471,7 @@ public struct ProjectArtifactSource: CleanupTargetSource {
             level = next
             if level.isEmpty { break }
         }
-        return found
+        return (found, true)
     }
 
     /// Carpetas reales con nombre de la ficha (y su ecosistema) o `CACHEDIR.TAG` dentro del proyecto, sin
