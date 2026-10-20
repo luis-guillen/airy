@@ -109,6 +109,38 @@ Aprobado por el usuario: se construye **tal como describe §7b del diseño de la
   - `propose_quit_app(app)`: abre Airy con la confirmación de cierre preparada; cerrar apps **nunca** lo hace el agente sin el clic del usuario.
 - La pestaña "Conectar agente" mantiene sus instrucciones de copia para Claude Code, Codex, opencode y JSON genérico, el interruptor y el registro de actividad.
 
+### 2.9 Lo que se aprende de Mole (eficacia y capacidad)
+
+Petición del usuario: "que sea como Mole en eficacia y capacidad". Estudio completo, de solo lectura, en `docs/superpowers/research/2026-10-20-mole-inspiracion.md`. Mole es **GPL-3.0**: se adaptan **ideas y listas de rutas**, nunca código (ni traducido línea a línea); se le cita como inspiración en "Acerca de". Se adopta (números = fila de la tabla §6 del estudio):
+
+- **Seguridad del borrado (requisitos de ingeniería):**
+  - **Embudo único** de borrado con validación de ruta: absoluta, sin `..` ni caracteres de control, enlaces simbólicos y ancestros resueltos, raíces críticas comparadas por inodo y sin distinguir mayúsculas, rechazo de `~` entero, e identidad del archivo comprobada otra vez justo antes de borrar (#1).
+  - **Guardián de proceso en tres estados** (corriendo / parado / desconocido ⇒ saltar) por familia de limpieza, y guardián de caché viva (proceso dueño o base SQLite abierta) (#2).
+  - **Lista de protecciones duras ampliada** con la de Mole (§2.15 del estudio), siempre re-aplicada encima de cualquier ajuste del usuario (#3).
+  - **Presupuestos de tiempo y fallo cerrado** en cada sondeo; **honestidad de análisis** (completo / parcial / no disponible, tamaños con "+" si parcial) (#31, #32).
+- **Control del usuario:**
+  - **"Proteger esto"**: lista blanca de rutas/patrones del usuario, respetada por la app y el MCP (#4).
+  - **Vista previa** sin borrar (también `dry_run: true` en las herramientas de acción del MCP) y **registro exportable** (JSON) con identificador de ejecución y autor (usuario o agente) (#5).
+- **Más objetivos de limpieza:**
+  - Instaladores `.dmg/.pkg/.mpkg/.iso/.xip` y `.zip` con instalador en Descargas/Escritorio/Documentos → ámbar; caché de Homebrew → verde (#7).
+  - Catálogo de artefactos de proyecto ampliado (`Pods`, `.gradle`, `.dart_tool`, `.build`, `.turbo`, `.angular`, `.svelte-kit`, `.astro`, `.tox`, `__pycache__`, `CACHEDIR.TAG`…) con guardias: repositorio anidado, claves `*-keypair.json`, archivos rastreados por Git, `bin`/`vendor` solo si son .NET/Composer (#8). Sigue la regla de "≥ 3 meses" de Airy, más prudente que Mole.
+  - Navegadores Chromium completos (todos los derivados, `Code Cache`, `GPUCache`, `ShaderCache`, Service Worker CacheStorage, versiones antiguas del framework dentro del `.app`) y heurística de caché regenerable en Application Support (#9).
+  - Xcode fino: conservar las **2** versiones más recientes de DeviceSupport, XCTestDevices, DocumentationCache, `simctl runtime delete` de runtimes huérfanos, solo con Xcode y simuladores parados (#12).
+  - Cola larga de cachés de desarrollo con comando oficial cuando existe (Go, Poetry, Ruff, mypy, Bundler, Composer, Gradle, Swift PM, Flutter, Expo, Electron, node-gyp, Prisma, Corepack, Terraform…) (#13).
+  - Cachés de apps de usuario (comunicación, creativas, medios, juegos, utilidades, oficina), ordenadas por perfil; **nunca** cachés de Mensajes ni de Mail (#14).
+  - Sistema con contraseña de administrador, en ámbar: `/Library/Logs/DiagnosticReports`, logs antiguos de `/private/var/log` y `/Library/Caches`, instaladores de macOS viejos (#15).
+  - Firmware `.ipsw` → verde (#33). Versiones antiguas de agentes de IA (Claude Code, Codex, Cursor…), conservando la activa y una anterior → verde (#30).
+  - Safari: compactar su base solo con Safari cerrado → ámbar (#23). Historial de privacidad (`QuarantineEventsV2`) → ámbar sin preselección (#24).
+  - **Solo revisar** (sin botón de borrar automático): Xcode Archives, copias de iPhone, emuladores Android, worktrees de agentes, copias de Time Machine fallidas (#11, #28).
+- **Huérfanos y desinstalador más precisos:** reglas por bundle id (inventario completo de apps o no se decide nada; 30 días sin uso; si `mdfind` falla, se asume instalada; solo Caches/Logs/Saved State; nunca Containers/Group Containers/LaunchAgents; patrones sensibles `ssh/gpg/keychain/1password…` nunca son huérfanos) (#10) y lista ampliada de ubicaciones del desinstalador, `launchctl bootout` de ayudantes, `brew uninstall --cask --zap` si vino de Homebrew, recibos `pkgutil` (#29).
+- **Rendimiento más completo:**
+  - **Diagnóstico por reglas** con causas reales: `syspolicyd`/WindowServer/Spotlight/CoreSimulator ≥ 25 % sostenido; swap > 50 % o libre < 15 %; VM de Docker > 2 GB sin contenedores; proceso desbocado; imágenes de disco montadas que cargan `syspolicyd` (#6).
+  - **Puntuación de salud** como frase + semáforo (#20).
+  - Métricas extra con APIs estables: batería (ciclos, salud), E/S de disco, red, tiempo encendido, procesos zombi, CPU por núcleos P/E (#18).
+  - **Elementos de inicio** rotos (LaunchAgents sin binario), solo informe con enlace a Ajustes del Sistema (#17).
+  - **Mantenimiento útil, en ámbar y reversible:** no crear `.DS_Store` en red/USB, quitar ajustes heredados dañinos, reparar `.plist` corruptos de apps, reindexar Spotlight solo tras diagnosticar (#21).
+- **Rechazado:** grados y ventiladores (sensores privados, #19), optimizaciones placebo —vaciar DNS, reiniciar red, `periodic`, Launch Services, `purge`, reiniciar Dock— (#22), `VACUUM` de Mail/Mensajes (#23), vaciar la Papelera solo (#25), borrar `.DS_Store` (#26), servicios de sistema huérfanos (solo informe, #27), cachés bajo `/private/var/folders` (#16), Touch ID para sudo (#34).
+
 ## 3. No-objetivos
 
 - Sin grados de temperatura ni lectura de sensores privados (de momento).
