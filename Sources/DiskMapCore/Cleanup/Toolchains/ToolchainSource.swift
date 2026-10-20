@@ -263,3 +263,52 @@ public struct ToolchainSource: CleanupTargetSource {
         return nil
     }
 }
+
+/// Ficha `discovery {"type":"toolchainSystemInfo"}`: instalaciones del sistema (/Library, Xcode) que forman parte
+/// de un lenguaje repetido. Solo informa.
+struct ToolchainSystemInfoSource: CleanupTargetSource {
+    static let sizeBudget: Duration = .seconds(10)
+
+    func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
+        guard entry.discovery == .toolchainSystemInfo else { return [] }
+        let d = await ToolchainSource().detection(context)
+        guard d.complete else { return [] }
+        let informational = d.installs.filter(\.informational)
+        var groups: [(String, [InstalledToolchain])] = []
+        for language in [ToolchainLanguage.python, .java] {
+            let infos = informational.filter { $0.language == language }
+            if !infos.isEmpty, d.installs.filter({ $0.language == language }).count >= 2 {
+                groups.append((language.title, infos))
+            }
+        }
+        let xcodes = informational.filter { $0.language == .other && $0.name.hasPrefix("Xcode") }
+        if xcodes.count >= 2 { groups.append(("Xcode", xcodes)) }
+        let deadline = ContinuousClock().now.advanced(by: Self.sizeBudget)
+        return groups.map { title, installs in
+            var bytes: Int64 = 0
+            var known = true
+            for install in installs {
+                if let scan = context.scan, let node = CleanupScanner.node(at: install.path, in: scan) {
+                    bytes += node.allocatedSize
+                } else if let summary = TreeWalk.summarize(
+                    install.path, budget: max(.zero, ContinuousClock().now.duration(to: deadline))) {
+                    bytes += summary.bytes
+                } else {
+                    known = false
+                }
+            }
+            var target = DiscoveredTarget(
+                idSuffix: title, paths: [], bytes: known ? bytes : 0,
+                details: installs.map {
+                    Format.tildePath($0.path, home: context.home) + (d.usage.defaults[$0.path] != nil ? " (en uso)" : "")
+                },
+                sizeNote: known ? nil : "Tamaño desconocido")
+            target.preselectable = false
+            return target
+        }
+    }
+
+    func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
+        "Este elemento es solo informativo."
+    }
+}

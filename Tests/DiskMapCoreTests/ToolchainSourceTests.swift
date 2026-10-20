@@ -259,3 +259,31 @@ private func pyenvHome() -> String {
         #expect(await source.discover(catalog.entries[0], context: context).isEmpty)
     }
 }
+
+@Suite struct ToolchainSystemInfoTests {
+    @Test func xcodeAndLibraryInstallsAreInfoRows() async throws {
+        let base = toolchainTempDir()
+        tcWrite(base + "/Applications/Xcode.app/Contents/Developer/x", "abc")
+        tcWrite(base + "/Applications/Xcode-15.4.app/Contents/x", "abc")
+        try FileManager.default.createSymbolicLink(atPath: base + "/xcode_link",
+                                                   withDestinationPath: base + "/Applications/Xcode.app/Contents/Developer")
+        let catalog = try tcCatalog("toolchain-system-info")
+        let items = await tcScan(catalog, base: base)
+        #expect(items.map(\.id) == ["toolchain-system-info:Xcode"])
+        let item = try #require(items.first)
+        #expect(item.details.sorted() == [base + "/Applications/Xcode-15.4.app",
+                                          base + "/Applications/Xcode.app (en uso)"])
+        #expect(item.paths.isEmpty && item.bytes > 0 && !item.preselected)
+        #expect(await tcExecute(item, catalog: catalog, base: base, runner: FakeRunner())
+            == .blocked(reason: "Este elemento es solo informativo."))
+    }
+
+    @Test func libraryPythonCountsTowardDuplicates() async throws {
+        let base = toolchainTempDir()
+        tcWrite(base + "/Python/3.11/bin/python3", "abc")
+        tcVersion(base + "/home/.pyenv/versions/3.12.1", usedDaysAgo: 200)
+        let items = await tcScan(try tcCatalog("toolchain-system-info", "toolchain-pyenv"), base: base)
+        #expect(items.map(\.id).sorted() == ["toolchain-pyenv:python 3.12.1", "toolchain-system-info:Python"])
+        #expect(items.first { $0.id.hasSuffix("3.12.1") }?.risk == .yourCall)
+    }
+}
