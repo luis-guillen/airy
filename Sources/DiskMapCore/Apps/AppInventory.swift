@@ -154,25 +154,40 @@ public struct AppInventory: Sendable {
         return walk
     }
 
-    private enum EntryKind { case directory, other }
+    private enum EntryKind {
+        case directory
+        /// Enlace simbólico; `true` si apunta a una carpeta.
+        case link(toDirectory: Bool)
+        case other
+        case failed(Int32)
+    }
 
     private static func kind(of path: String) -> EntryKind {
         var info = stat()
-        guard lstat(path, &info) == 0 else { return .other }
-        return (info.st_mode & S_IFMT) == S_IFDIR ? .directory : .other
+        guard lstat(path, &info) == 0 else { return .failed(errno) }
+        switch info.st_mode & S_IFMT {
+        case S_IFDIR: return .directory
+        case S_IFLNK:
+            var target = stat()
+            return .link(toDirectory: stat(path, &target) == 0 && (target.st_mode & S_IFMT) == S_IFDIR)
+        default: return .other
+        }
     }
 
-    /// Nombres de un directorio, o el `errno` con el que falló.
+    /// Nombres de un directorio, o el `errno` con el que falló (al abrir o a mitad de la lectura).
     private static func listing(_ path: String) -> Result<[String], POSIXError> {
         guard let dir = opendir(path) else { return .failure(POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)) }
         defer { closedir(dir) }
         var names: [String] = []
-        while let entry = readdir(dir) {
+        while true {
+            errno = 0
+            guard let entry = readdir(dir) else { break }
             let name = withUnsafePointer(to: &entry.pointee.d_name) {
                 $0.withMemoryRebound(to: CChar.self, capacity: Int(entry.pointee.d_namlen) + 1) { String(cString: $0) }
             }
             if name != "." && name != ".." { names.append(name) }
         }
+        if errno != 0 { return .failure(POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)) }
         return .success(names)
     }
 
@@ -182,23 +197,37 @@ public struct AppInventory: Sendable {
         switch listing(directory) {
         case .success(let found): names = found
         case .failure(let error):
-            if error.code == .ENOENT { return }
-            if isRoot || error.code == .EACCES || error.code == .EPERM {
-                walk.problems.append("No se pudo leer «\(directory)».")
-            }
+            if error.code != .ENOENT { walk.problems.append("No se pudo leer «\(directory)».") }
             return
         }
         for name in names.sorted() {
             if Task.isCancelled { walk.cancelled = true; return }
             let path = directory + "/" + name
-            guard kind(of: path) == .directory else { continue }   // ni enlaces ni ficheros
-            if name.hasSuffix(".app") {
-                guard seen.insert(path).inserted else { continue }
-                record(app: path, usage: usage, casks: casks, walk: &walk)
-            } else if depth < maxDepth, !name.hasPrefix(".") {
-                scan(directory: path, depth: depth + 1, isRoot: false, usage: usage, casks: casks,
-                     seen: &seen, walk: &walk)
-                if walk.cancelled { return }
+            let isApp = name.hasSuffix(".app")
+            switch kind(of: path) {
+            case .directory:
+                if isApp {
+                    guard seen.insert(path).inserted else { continue }
+                    record(app: path, usage: usage, casks: casks, walk: &walk)
+                } else if depth < maxDepth, !name.hasPrefix(".") {
+                    scan(directory: path, depth: depth + 1, isRoot: false, usage: usage, casks: casks,
+                         seen: &seen, walk: &walk)
+                    if walk.cancelled { return }
+                }
+            case .link(let toDirectory):
+                // Las carpetas enlazadas no se siguen; una app enlazada se incluye si apunta a una carpeta.
+                guard isApp else { continue }
+                if toDirectory {
+                    let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+                    guard seen.insert(real).inserted else { continue }
+                    record(app: path, usage: usage, casks: casks, walk: &walk)
+                } else {
+                    walk.problems.append("El enlace «\(name)» no apunta a una app legible.")
+                }
+            case .other:
+                continue
+            case .failed(let code):
+                if code != ENOENT { walk.problems.append("No se pudo examinar «\(path)».") }
             }
         }
     }
@@ -224,17 +253,29 @@ public struct AppInventory: Sendable {
         return nil
     }
 
-    private static func helperIDs(ofApp path: String) -> [String] {
+    /// Identificadores de los ayudantes; cualquier fallo de lectura se anota en `problems`.
+    private static func helperIDs(ofApp path: String, problems: inout [String]) -> [String] {
         var ids: [String] = []
+        let fileName = (path as NSString).lastPathComponent
         for (folder, ext) in [("Contents/Library/LoginItems", ".app"), ("Contents/Helpers", ".app"),
                               ("Contents/XPCServices", ".xpc")] {
-            guard case .success(let names) = listing(path + "/" + folder) else { continue }
+            let names: [String]
+            switch listing(path + "/" + folder) {
+            case .success(let found): names = found
+            case .failure(let error):
+                if error.code != .ENOENT && error.code != .ENOTDIR {
+                    problems.append("No se pudo leer «\(folder)» de «\(fileName)».")
+                }
+                continue
+            }
             for name in names.sorted() where name.hasSuffix(ext) {
                 let base = path + "/" + folder + "/" + name
                 let plist = readPlist(base + "/Contents/Info.plist") ?? readPlist(base + "/Info.plist")
-                if let id = plist?["CFBundleIdentifier"] as? String, !id.isEmpty, !ids.contains(id) {
-                    ids.append(id)
+                guard let id = plist?["CFBundleIdentifier"] as? String, !id.isEmpty else {
+                    problems.append("No se pudo leer el ayudante «\(name)» de «\(fileName)».")
+                    continue
                 }
+                if !ids.contains(id) { ids.append(id) }
             }
         }
         return ids
@@ -258,9 +299,10 @@ public struct AppInventory: Sendable {
         let name = text("CFBundleDisplayName") ?? text("CFBundleName") ?? fallback
         let isSystem = path.hasPrefix("/System/Applications/")
             || systemCriticalBundleIDs.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
+        let helpers = helperIDs(ofApp: path, problems: &walk.problems)
         walk.apps.append(AppRecord(
             bundleID: bundleID, name: name, version: text("CFBundleShortVersionString"), path: path,
-            helperBundleIDs: helperIDs(ofApp: path), isSystem: isSystem,
+            helperBundleIDs: helpers, isSystem: isSystem,
             isAppStore: FileManager.default.fileExists(atPath: path + "/Contents/_MASReceipt/receipt"),
             caskToken: casks[fileName], lastUsed: usage.lastUsed(bundlePath: path)))
     }
