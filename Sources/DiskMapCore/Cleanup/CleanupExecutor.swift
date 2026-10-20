@@ -56,22 +56,26 @@ public struct CleanupExecutor: Sendable {
     static let agentsOffReason =
         "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes)."
 
-    private let runner: any CommandRunning
+    let runner: any CommandRunning
     private let probes: any SystemProbing
-    private let store: IndexStore
+    let store: IndexStore
     private let catalog: Catalog
     private let references: ReferenceChecker
-    private let home: String
+    let home: String
     private let commandTimeout: TimeInterval
     private let freeSpace: @Sendable () -> Int64
     private let trashSettleAttempts: Int
     private let trashSettleDelay: Duration
-    private let settings: @Sendable () -> SettingsLoad
-    private let log: OperationLog?
+    let settings: @Sendable () -> SettingsLoad
+    let log: OperationLog?
     private let processGuard: ProcessGuard
-    private let protections: HardProtections
+    let protections: HardProtections
     /// Solo para pruebas: se llama con cada ruta entre el plan y su movimiento.
-    private let beforeMove: (@Sendable (String) -> Void)?
+    let beforeMove: (@Sendable (String) -> Void)?
+    let privileged: any PrivilegedRunning
+    let quitter: any AppQuitting
+    /// `nil` ⇒ `ProtectionWaiver.productionAppRoots(home:)`.
+    let appRoots: [String]?
 
     /// `catalog` es obligatorio: toda acción se decide con la ficha viva del catálogo, nunca con la
     /// copia que trae el elemento. `references` (por defecto, las carpetas de proyectos de `home`)
@@ -87,13 +91,16 @@ public struct CleanupExecutor: Sendable {
         trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1),
         settings: @escaping @Sendable () -> SettingsLoad,
         log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
-        protections: HardProtections = .standard
+        protections: HardProtections = .standard,
+        privileged: any PrivilegedRunning = OsascriptPrivilegedRunner(),
+        quitter: any AppQuitting = WorkspaceQuitter(),
+        appRoots: [String]? = nil
     ) {
         self.init(runner: runner, probes: probes, store: store, catalog: catalog, references: references,
                   home: home, commandTimeout: commandTimeout, freeSpace: freeSpace,
                   trashSettleAttempts: trashSettleAttempts, trashSettleDelay: trashSettleDelay,
                   settings: settings, log: log, processGuard: processGuard, protections: protections,
-                  beforeMove: nil)
+                  privileged: privileged, quitter: quitter, appRoots: appRoots, beforeMove: nil)
     }
 
     init(
@@ -105,6 +112,9 @@ public struct CleanupExecutor: Sendable {
         settings: @escaping @Sendable () -> SettingsLoad,
         log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
         protections: HardProtections = .standard,
+        privileged: any PrivilegedRunning = OsascriptPrivilegedRunner(),
+        quitter: any AppQuitting = WorkspaceQuitter(),
+        appRoots: [String]? = nil,
         beforeMove: (@Sendable (String) -> Void)?
     ) {
         let home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
@@ -123,6 +133,9 @@ public struct CleanupExecutor: Sendable {
         self.processGuard = processGuard
         self.protections = protections
         self.beforeMove = beforeMove
+        self.privileged = privileged
+        self.quitter = quitter
+        self.appRoots = appRoots
     }
 
     // MARK: - API
@@ -419,9 +432,7 @@ public struct CleanupExecutor: Sendable {
                     return stop(.blocked(reason: Self.pathRefusal(refusal, path).reason))
                 }
                 do {
-                    // Mueve la entrada en sí: un enlace simbólico va a la Papelera, no su destino.
-                    try FileManager.default.trashItem(at: URL(fileURLWithPath: path, isDirectory: false),
-                                                      resultingItemURL: nil)
+                    try moveToTrash(planned.validated)
                     moved += planned.bytes
                     movedPaths.append(path)
                 } catch {
@@ -466,7 +477,7 @@ public struct CleanupExecutor: Sendable {
         return nil
     }
 
-    private func gate(_ load: SettingsLoad) -> PathGate {
+    func gate(_ load: SettingsLoad) -> PathGate {
         PathGate(home: home, catalog: catalog,
                  userProtected: ProtectList(patterns: load.effective.protectedPaths, home: home),
                  protections: protections)
@@ -558,6 +569,20 @@ public struct CleanupExecutor: Sendable {
 
     // MARK: - Comandos y Papelera
 
+    /// Mide y envía a la Papelera una ruta ya validada (y confirmada sin cambios por quien llama).
+    /// Devuelve los bytes medidos justo antes de moverla.
+    func trashValidated(_ v: ValidatedPath) throws -> Int64 {
+        let bytes = AllocatedSize.of(v.path) ?? 0
+        try moveToTrash(v)
+        return bytes
+    }
+
+    /// Única llamada a la Papelera de todo Airy. Mueve la entrada en sí: un enlace simbólico va a la
+    /// Papelera, no su destino.
+    private func moveToTrash(_ v: ValidatedPath) throws {
+        try FileManager.default.trashItem(at: URL(fileURLWithPath: v.path, isDirectory: false), resultingItemURL: nil)
+    }
+
     private func runCommand(executable: String, arguments: [String], title: String,
                             context: OperationContext) async -> CleanupOutcome {
         guard let resolved = await runner.resolve(executable) else {
@@ -601,7 +626,7 @@ public struct CleanupExecutor: Sendable {
     // MARK: - Registros
 
     /// Historial de limpiezas (lo que se ve en la app).
-    private func record(title: String, bytes: Int64, wentToTrash: Bool, context: OperationContext) {
+    func record(title: String, bytes: Int64, wentToTrash: Bool, context: OperationContext) {
         do {
             try store.append(CleanupRecord(date: Date(), title: title, bytes: bytes, wentToTrash: wentToTrash,
                                            byAgent: context.isAgent))
@@ -612,7 +637,7 @@ public struct CleanupExecutor: Sendable {
 
     /// `moved`/`movedBytes`: lo que llegó a la Papelera. Si la operación se paró a medias, el registro
     /// es `partial` con esas rutas y bytes (igual que el historial) y el motivo en `message`.
-    private func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
+    func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
                            paths: [String], command: [String]?, _ outcome: CleanupOutcome,
                            moved: [String] = [], movedBytes: Int64 = 0) {
         var paths = paths
@@ -630,7 +655,7 @@ public struct CleanupExecutor: Sendable {
                   dryRun: false, outcome: name, bytes: bytes, message: message)
     }
 
-    private func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
+    func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
                            paths: [String], command: [String]?, dryRun: Bool, outcome: String, bytes: Int64,
                            message: String?) {
         // Un fallo queda pendiente en `log.takeWriteFailure()`: la app lo avisa y `airy-mcp` lo devuelve al agente.

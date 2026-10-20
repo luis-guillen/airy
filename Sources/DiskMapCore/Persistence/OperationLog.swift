@@ -35,7 +35,7 @@ public struct OperationRecord: Codable, Sendable, Equatable {
     public var runID: UUID
     public var date: Date
     public var actor: OperationActor
-    /// "clean" | "trash_paths" | "empty_trash" | "propose" | "show" | "rescan"
+    /// "clean" | "trash_paths" | "empty_trash" | "propose" | "show" | "rescan" | "uninstall" | "remove_broken_links"
     public var action: String
     public var itemID: String?
     public var title: String
