@@ -139,6 +139,25 @@ import Foundation
         #expect(FileKindClassifier.kind(forDirectoryPath: "/Users/ana/Documents") == nil)
     }
 
+    @Test func privatePathsAreKeptAndExcluded() async throws {
+        let tree = try TempTree()
+        // Ruta real, con `/private` delante, como la ve el escáner al recorrer `/`.
+        let real = try #require(tree.path.withCString { realpath($0, nil) }.map { pointer in
+            defer { free(pointer) }
+            return String(cString: pointer)
+        })
+        #expect(real.hasPrefix("/private/"))
+        try tree.makeDirectory("vm")
+        try tree.makeFile("vm/swapfile0", bytes: 2 * 1_048_576)
+        try tree.makeDirectory("keep")
+        try tree.makeFile("keep/f.bin", bytes: 2 * 1_048_576)
+        let options = ScanOptions(roots: [URL(fileURLWithPath: real)], excludedPrefixes: [real + "/vm"])
+        let result = try await DiskScanner(options: options).scan { _ in }
+        #expect(result.root.path == real)
+        #expect(findChild(result.root, "vm") == nil)
+        #expect(findChild(result.root, "keep")?.path == real + "/keep")
+    }
+
     @Test func multipleRootsKeepAbsolutePaths() async throws {
         let first = try TempTree()
         let second = try TempTree()
