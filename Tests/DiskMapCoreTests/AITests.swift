@@ -80,9 +80,31 @@ private let snapshotsEntry = CatalogEntry(
     id: "snapshots", title: "Instantáneas", explanation: "", whoCreatesIt: "Time Machine",
     regenerates: false, risk: .yourCall, kind: .system, paths: [], cleanup: .info)
 
-private let testCatalog = Catalog(entries: [uvEntry, snapshotsEntry])
+private let xCacheEntry = CatalogEntry(
+    id: "xcache", title: "Caché de X", explanation: "", whoCreatesIt: "X", regenerates: true,
+    risk: .safe, kind: .caches, paths: ["~/Library/Caches/x"], cleanup: .trash)
 
-/// Árbol: /Users/prueba → .cache/uv (5 GB), Documents/a.pdf (1 GB), Library/Caches/x (2 GB).
+private let homebrewEntry = CatalogEntry(
+    id: "homebrew", title: "Homebrew", explanation: "", whoCreatesIt: "brew", regenerates: true,
+    risk: .safe, kind: .caches, paths: ["~/Library/Caches/Homebrew"],
+    cleanup: .command(executable: "brew", arguments: ["cleanup"], sizeProbe: nil))
+
+private let dockerBuildEntry = CatalogEntry(
+    id: "docker-build-cache", title: "Caché de compilación de Docker", explanation: "", whoCreatesIt: "Docker",
+    regenerates: true, risk: .safe, kind: .containers, paths: [],
+    cleanup: .command(executable: "docker", arguments: ["builder", "prune", "-a", "-f"], sizeProbe: nil))
+
+private let dockerVolumesEntry = CatalogEntry(
+    id: "docker-volumes", title: "Volúmenes de Docker", explanation: "", whoCreatesIt: "Docker",
+    regenerates: false, risk: .doNotTouch, kind: .containers,
+    paths: ["~/Library/Containers/com.docker.docker"], cleanup: .info)
+
+private let testCatalog = Catalog(entries: [
+    uvEntry, snapshotsEntry, xCacheEntry, homebrewEntry, dockerBuildEntry, dockerVolumesEntry,
+])
+
+/// Árbol: /Users/prueba → .cache/uv (5 GB), Documents/a.pdf (1 GB), Library/Caches/x (2 GB),
+/// Library/Containers/com.docker.docker (3 GB), Library/Mobile Documents (4 GB).
 private func sampleTree() -> FileNode {
     let uv = FileNode(name: "uv", isDirectory: true, allocatedSize: 5_000_000_000, kind: .caches)
     let cache = FileNode(name: ".cache", isDirectory: true, allocatedSize: 5_000_000_000, children: [uv])
@@ -90,14 +112,20 @@ private func sampleTree() -> FileNode {
     let docs = FileNode(name: "Documents", isDirectory: true, allocatedSize: 1_000_000_000, children: [pdf])
     let x = FileNode(name: "x", isDirectory: true, allocatedSize: 2_000_000_000, kind: .caches)
     let caches = FileNode(name: "Caches", isDirectory: true, allocatedSize: 2_000_000_000, children: [x])
-    let library = FileNode(name: "Library", isDirectory: true, allocatedSize: 2_000_000_000, children: [caches])
-    return FileNode(name: home, isDirectory: true, allocatedSize: 8_000_000_000, children: [cache, docs, library])
+    let docker = FileNode(name: "com.docker.docker", isDirectory: true, allocatedSize: 3_000_000_000, kind: .containers)
+    let containers = FileNode(name: "Containers", isDirectory: true, allocatedSize: 3_000_000_000, children: [docker])
+    let icloud = FileNode(name: "Mobile Documents", isDirectory: true, allocatedSize: 4_000_000_000, kind: .documents)
+    let library = FileNode(name: "Library", isDirectory: true, allocatedSize: 9_000_000_000,
+                           children: [caches, containers, icloud])
+    return FileNode(name: home, isDirectory: true, allocatedSize: 15_000_000_000, children: [cache, docs, library])
 }
 
 private func sampleContext() -> String {
     let item = CleanupItem(id: "uv", entry: uvEntry, paths: [home + "/.cache/uv"], bytes: 5_000_000_000,
                            risk: .safe, blockedByOpenApps: [], usedBy: [])
-    return AIContextBuilder.context(scan: sampleTree(), items: [item], catalog: testCatalog, home: home)
+    let build = CleanupItem(id: "docker-build-cache", entry: dockerBuildEntry, paths: [], bytes: 29_000_000_000,
+                            risk: .safe, blockedByOpenApps: [], usedBy: [])
+    return AIContextBuilder.context(scan: sampleTree(), items: [item, build], catalog: testCatalog, home: home)
 }
 
 /// Salida de `claude -p --output-format json --json-schema …` con `structured_output` dado.
@@ -306,9 +334,9 @@ private let streamFixture = [
     @Test func reportDropsTrashOfPathNotInContext() async throws {
         let runner = AIFakeRunner(stdout: claudeResult("""
         {"summary":"s","reclaimableBytes":0,"recommendations":[
-          {"path":"~/Library/Caches/x","verdict":"safe","reason":"r","bytes":1,"action":{"type":"trash","path":"~/Library"}},
+          {"path":"~/Library/Caches","verdict":"safe","reason":"r","bytes":1,"action":{"type":"trash","path":"~/Library"}},
           {"path":"~/Documents","verdict":"safe","reason":"r","bytes":1,"action":{"type":"trash","path":"~/Documentos"}},
-          {"path":"~/.cache/uv","verdict":"safe","reason":"r","bytes":1,"action":{"type":"trash","path":"~/.cache/uv"}}
+          {"path":"~/Library/Caches/x","verdict":"safe","reason":"r","bytes":1,"action":{"type":"trash","path":"~/Library/Caches/x"}}
         ]}
         """))
         let report = try await assistant(runner).report(context: sampleContext())
@@ -316,9 +344,64 @@ private let streamFixture = [
         #expect(report.recommendations[0].action == nil)  // ~/Library está en el contexto, pero no es la ruta recomendada
         #expect(report.recommendations[1].action == nil)  // ruta inexistente en el contexto
         #expect(report.recommendations[1].verdict == .yourCall)
-        let uv = report.recommendations[2]
-        #expect(uv.action == .trash(path: home + "/.cache/uv"))
-        #expect(uv.bytes == 5_000_000_000)  // tamaño del contexto, no el de la IA
+        let x = report.recommendations[2]
+        #expect(x.action == .trash(path: home + "/Library/Caches/x"))  // ficha de Papelera, sin riesgo
+        #expect(x.verdict == .safe)
+        #expect(x.bytes == 2_000_000_000)  // tamaño del contexto, no el de la IA
+        #expect(report.reclaimableBytes == 2_000_000_000)
+    }
+
+    @Test func reportNeverTrashesUncataloguedOrProtectedPaths() async throws {
+        let runner = AIFakeRunner(stdout: claudeResult("""
+        {"summary":"s","reclaimableBytes":0,"recommendations":[
+          {"path":"~","verdict":"safe","reason":"r","bytes":1,"action":{"type":"trash","path":"~"}},
+          {"path":"~/Library/Containers/com.docker.docker","verdict":"safe","reason":"r","bytes":1,
+           "action":{"type":"trash","path":"~/Library/Containers/com.docker.docker"}},
+          {"path":"~/Library/Mobile Documents","verdict":"safe","reason":"r","bytes":1,
+           "action":{"type":"trash","path":"~/Library/Mobile Documents"}},
+          {"path":"~/Library/Containers","verdict":"safe","reason":"r","bytes":1,
+           "action":{"type":"trash","path":"~/Library/Containers"}}
+        ]}
+        """))
+        let report = try await assistant(runner).report(context: sampleContext())
+        #expect(report.recommendations.count == 4)
+        for rec in report.recommendations {
+            #expect(rec.action == nil, "\(rec.path)")
+            #expect(rec.verdict != .safe, "\(rec.path)")
+        }
+        #expect(report.recommendations[1].verdict == .doNotTouch)  // ficha docker-volumes
+        #expect(report.reclaimableBytes == 0)
+    }
+
+    @Test func reportNeverTrashesCommandCaches() async throws {
+        let runner = AIFakeRunner(stdout: claudeResult("""
+        {"summary":"s","reclaimableBytes":0,"recommendations":[
+          {"path":"~/.cache/uv","verdict":"safe","reason":"r","bytes":1,"action":{"type":"trash","path":"~/.cache/uv"}}
+        ]}
+        """))
+        let rec = try #require(try await assistant(runner).report(context: sampleContext()).recommendations.first)
+        #expect(rec.action == nil)  // uv se limpia solo con `uv cache clean`
+        #expect(rec.verdict == .safe)
+    }
+
+    @Test func reportCommandMustMatchRecommendation() async throws {
+        let runner = AIFakeRunner(stdout: claudeResult("""
+        {"summary":"s","reclaimableBytes":0,"recommendations":[
+          {"path":"~/Documents/a.pdf","verdict":"safe","reason":"r","bytes":1,"action":{"type":"runCatalogCommand","id":"homebrew"}},
+          {"path":"~/.cache/uv","verdict":"safe","reason":"r","bytes":1,"action":{"type":"runCatalogCommand","id":"homebrew"}},
+          {"path":"docker-build-cache","verdict":"safe","reason":"r","bytes":1,
+           "action":{"type":"runCatalogCommand","id":"docker-build-cache"}}
+        ]}
+        """))
+        let report = try await assistant(runner).report(context: sampleContext())
+        #expect(report.recommendations.count == 3)
+        #expect(report.recommendations[0].action == nil)
+        #expect(report.recommendations[1].action == nil)
+        let build = report.recommendations[2]
+        #expect(build.action == .runCatalogCommand(id: "docker-build-cache"))
+        #expect(build.verdict == .safe)
+        #expect(build.bytes == 29_000_000_000)
+        #expect(report.reclaimableBytes == 29_000_000_000)
     }
 
     @Test func reportCannotLowerRisk() async throws {
@@ -474,6 +557,45 @@ private let streamFixture = [
         }
     }
 
+    @Test func processRunnerStreamCancelKillsProcess() async throws {
+        let started = Date()
+        var pid: pid_t = 0
+        for try await line in ProcessRunner().stream(
+            "/bin/sh", ["-c", "echo $$; exec /bin/sleep 30"], stdin: nil, workingDirectory: nil, timeout: 60) {
+            pid = pid_t(line) ?? 0
+            break  // el consumidor deja de leer: se cancela el stream
+        }
+        #expect(pid > 0)
+        var alive = true
+        for _ in 0..<60 where alive {
+            alive = kill(pid, 0) == 0
+            if alive { try await Task.sleep(for: .milliseconds(50)) }
+        }
+        #expect(!alive)
+        #expect(Date().timeIntervalSince(started) < 5)
+    }
+
+    @Test func processRunnerStreamCapsLineLength() async throws {
+        await #expect {
+            for try await _ in ProcessRunner().stream(
+                "/bin/sh", ["-c", "head -c 5000000 /dev/zero | tr '\\0' a"], stdin: nil, workingDirectory: nil,
+                timeout: 20) {}
+        } throws: { error in
+            if case CommandError.lineTooLong = error { return true }
+            return false
+        }
+    }
+
+    @Test func defaultRunnerRejectsStdinAndDirectory() async throws {
+        await #expect(throws: CommandError.self) {
+            _ = try await FakeRunner().run("/bin/cat", [], stdin: "x", workingDirectory: nil, timeout: 1)
+        }
+        await #expect(throws: CommandError.self) {
+            _ = try await FakeRunner().run("/bin/cat", [], stdin: nil, workingDirectory: "/tmp", timeout: 1)
+        }
+        _ = try await FakeRunner().run("/bin/cat", [], stdin: nil, workingDirectory: nil, timeout: 1)
+    }
+
     // MARK: Pruebas reales (DISKMAP_REAL=1)
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DISKMAP_REAL"] == "1"))
@@ -489,7 +611,8 @@ private let streamFixture = [
               + report.recommendations.map { "\($0.path) → \($0.verdict.jsonName) \(String(describing: $0.action))" }
                 .joined(separator: " | ") + "; recuperable: \(report.reclaimableBytes)")
         #expect(!report.summary.isEmpty)
-        #expect(report.recommendations.allSatisfy { $0.path.hasPrefix(home) })
+        // Rutas del contexto, o el id de un elemento de limpieza sin rutas.
+        #expect(report.recommendations.allSatisfy { $0.path.hasPrefix(home) || $0.path == "docker-build-cache" })
         #expect(!report.recommendations.contains { $0.path.contains("Documents") && $0.verdict == .safe })
     }
 

@@ -434,6 +434,51 @@ private func executor(
         #expect(exists(runtime + "/bin/tool"))
     }
 
+    @Test func trashPathsRefusesProtectedLocationsAndTheirChildren() async throws {
+        let home = makeTempDir()
+        let exec = executor(store: makeStore(), home: home)
+        let sealed = [
+            "Library/Containers/com.docker.docker", "Library/Group Containers/group.com.docker",
+            "Library/Mobile Documents", "Library/Mail", "Library/Messages", "Library/Keychains",
+            "Library/Application Support/AddressBook", "Library/Calendars", "Library/Photos",
+        ].map { home + "/" + $0 }
+        for location in sealed {
+            writeFile(location + "/hijo/f")
+            for path in [location, location + "/hijo", location + "/hijo/f", (location as NSString).deletingLastPathComponent] {
+                let outcome = await exec.trashPaths([path], title: "x")
+                guard case .blocked = outcome else { Issue.record("debió bloquear \(path), hubo \(outcome)"); continue }
+            }
+            #expect(exists(location + "/hijo/f"))
+        }
+    }
+
+    @Test func protectedSystemLocationsRefuseChildren() {
+        let homes = ["/Users/prueba"]
+        for path in ["/Applications/Safari.app", "/Library/Preferences", "/usr/local/bin", "/bin/ls", "/sbin/x",
+                     "/private/etc/hosts", "/opt/homebrew/Cellar", "/Applications", "/opt",
+                     "/Users/prueba/Library/Mobile Documents/x", "/Users/prueba/Library", "/Users/prueba"] {
+            #expect(RiskPolicy.trashRefusal(forCanonicalPath: RiskPolicy.canonical(path), homes: homes) != nil, "\(path)")
+        }
+        for path in ["/Users/prueba/Library/Caches/x", "/Users/prueba/.cache/whisper", "/opt/otra/x"] {
+            #expect(RiskPolicy.trashRefusal(forCanonicalPath: RiskPolicy.canonical(path), homes: homes) == nil, "\(path)")
+        }
+        // La carpeta temporal del usuario (dentro de /private) sí admite su contenido.
+        let temp = RiskPolicy.userTemporaryDirectory
+        #expect(RiskPolicy.trashRefusal(forCanonicalPath: temp + "/x", homes: homes) == nil)
+        #expect(RiskPolicy.trashRefusal(forCanonicalPath: temp, homes: homes) != nil)
+    }
+
+    @Test func trashPathsRefusesFoldersOfCommandCleanups() async throws {
+        let home = makeTempDir()
+        writeFile(home + "/.cache/uv/wheels/f")
+        let exec = executor(store: makeStore(), home: home)  // uv: solo con `uv cache clean`
+        for path in [home + "/.cache/uv", home + "/.cache/uv/wheels", home + "/.cache"] {
+            let outcome = await exec.trashPaths([path], title: "x")
+            guard case .blocked = outcome else { Issue.record("debió bloquear \(path), hubo \(outcome)"); continue }
+        }
+        #expect(exists(home + "/.cache/uv/wheels/f"))
+    }
+
     @Test func trashPathsRefusesAncestorOfDoNotTouchPatternEvenIfMissing() async throws {
         let home = makeTempDir()
         let parent = home + "/.cache/codex-runtimes"

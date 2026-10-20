@@ -45,6 +45,9 @@ import Foundation
     @Test func policyEntriesMatchBrief() throws {
         let catalog = try Catalog.bundled()
         #expect(catalog.entry(id: "docker-volumes")?.risk == .doNotTouch)
+        // El disco de Docker (Docker.raw, con todos los volúmenes) es "No tocar" por ruta.
+        #expect(catalog.match(path: "/Users/x/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw",
+                              home: "/Users/x")?.id == "docker-volumes")
         #expect(catalog.entry(id: "codex-runtime")?.risk == .doNotTouch)
         guard case .command(let exe, let args, let probe)? = catalog.entry(id: "docker-build-cache")?.cleanup else {
             Issue.record("docker-build-cache debe ser command"); return
@@ -97,7 +100,10 @@ import Foundation
     @Test func unknownDefaultsToYourCall() {
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: nil) == .yourCall)
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: .safe, ai: nil) == .safe)
-        #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: .safe) == .safe)
+        // Sin ficha, la IA no puede bajar de "Depende de ti"; solo subir.
+        #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: .safe) == .yourCall)
+        #expect(RiskPolicy.effectiveRisk(path: home + "/Library/Mail", home: home, catalog: nil, ai: .safe) == .yourCall)
+        #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: .doNotTouch) == .doNotTouch)
     }
 
     @Test func pathsAreCanonicalized() {

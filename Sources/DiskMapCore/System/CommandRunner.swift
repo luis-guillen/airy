@@ -16,6 +16,8 @@ public struct CommandOutput: Sendable, Equatable {
 public enum CommandError: Error, Sendable, CustomStringConvertible {
     case timedOut(executable: String, seconds: TimeInterval)
     case launchFailed(executable: String, message: String)
+    /// Una línea de la salida en streaming superó `limit` bytes.
+    case lineTooLong(executable: String, limit: Int)
 
     public var description: String {
         switch self {
@@ -23,6 +25,8 @@ public enum CommandError: Error, Sendable, CustomStringConvertible {
             "\((executable as NSString).lastPathComponent) no terminó en \(Int(seconds)) s y se detuvo."
         case .launchFailed(let executable, let message):
             "No se pudo ejecutar \((executable as NSString).lastPathComponent): \(message)"
+        case .lineTooLong(let executable, let limit):
+            "\((executable as NSString).lastPathComponent) escribió una línea de más de \(limit / 1_048_576) MB y se detuvo."
         }
     }
 }
@@ -43,10 +47,14 @@ public protocol CommandRunning: Sendable {
 }
 
 extension CommandRunning {
-    /// Por defecto (dobles de prueba antiguos) ignora `stdin` y el directorio; `ProcessRunner` sí los aplica.
+    /// Por defecto (dobles de prueba antiguos) no admite `stdin` ni directorio: lanza en vez de ignorarlos.
     public func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
                     timeout: TimeInterval) async throws -> CommandOutput {
-        try await run(executable, arguments, timeout: timeout)
+        guard stdin == nil, workingDirectory == nil else {
+            throw CommandError.launchFailed(
+                executable: executable, message: "este ejecutor no admite entrada estándar ni directorio de trabajo")
+        }
+        return try await run(executable, arguments, timeout: timeout)
     }
 
     /// Por defecto: ejecuta entero y emite las líneas de la salida al final.
@@ -179,6 +187,9 @@ public struct ProcessRunner: CommandRunning {
         }
     }
 
+    /// Máximo de una línea en streaming (protege la memoria ante una salida sin saltos de línea).
+    static let maxStreamLineBytes = 4 * 1_048_576
+
     /// Tras salir el proceso, cuánto se espera a que se cierren las tuberías (nietos que las heredan).
     static let drainGrace: TimeInterval = 2
 
@@ -294,7 +305,13 @@ public struct ProcessRunner: CommandRunning {
                 let count = read(fds[index], &chunk, chunk.count)
                 if count > 0 {
                     buffers[index].append(contentsOf: chunk[0..<count])
-                    if index == 0, let onLine { emitLines(&buffers[0], onLine) }
+                    if index == 0, let onLine {
+                        emitLines(&buffers[0], onLine)
+                        if buffers[0].count > maxStreamLineBytes {
+                            terminateGroup(pid, reaped: exitedAt != nil)
+                            throw CommandError.lineTooLong(executable: executable, limit: maxStreamLineBytes)
+                        }
+                    }
                 } else if count == 0 || (errno != EINTR && errno != EAGAIN) {
                     close(fds[index])
                     fds[index] = -1
