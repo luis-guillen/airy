@@ -90,6 +90,7 @@ public struct ProcessRunner: CommandRunning {
     public static let fallbackPatterns = [
         "~/anaconda3/bin", "~/miniconda3/bin", "/opt/homebrew/bin", "/usr/local/bin",
         "~/.local/bin", "~/.cargo/bin", "~/Library/pnpm",
+        "~/.pyenv/bin", "~/.rbenv/bin", "~/miniforge3/bin", "~/.volta/bin",
     ]
 
     private let searchPath: [String]?

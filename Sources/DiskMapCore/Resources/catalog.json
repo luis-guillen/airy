@@ -2740,6 +2740,362 @@
       "staleAfterDays": 90
     },
     {
+      "id": "toolchain-pyenv",
+      "title": "Versión de Python (pyenv)",
+      "explanation": "Una versión de Python instalada con pyenv. Si tienes varias, puedes quitar las que ya no usas.",
+      "whoCreatesIt": "pyenv",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.pyenv/versions/*"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "pyenv",
+        "arguments": [
+          "uninstall",
+          "-f",
+          "{target}"
+        ]
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "pyenv"
+      }
+    },
+    {
+      "id": "toolchain-conda",
+      "title": "Entorno de conda",
+      "explanation": "Un entorno de conda con su propio Python y sus paquetes. El entorno base nunca se ofrece.",
+      "whoCreatesIt": "conda (Anaconda, Miniconda, Miniforge)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/miniconda3/envs/*",
+        "~/anaconda3/envs/*",
+        "~/miniforge3/envs/*",
+        "~/mambaforge/envs/*",
+        "~/.conda/envs/*"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "conda",
+        "arguments": [
+          "env",
+          "remove",
+          "-p",
+          "{target}",
+          "-y"
+        ]
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "conda"
+      }
+    },
+    {
+      "id": "toolchain-nvm",
+      "title": "Versión de Node (nvm)",
+      "explanation": "Una versión de Node instalada con nvm. Va a la Papelera, porque nvm no tiene una orden que Airy pueda usar.",
+      "whoCreatesIt": "nvm",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.nvm/versions/node/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "nvm"
+      }
+    },
+    {
+      "id": "toolchain-fnm",
+      "title": "Versión de Node (fnm)",
+      "explanation": "Una versión de Node instalada con fnm.",
+      "whoCreatesIt": "fnm",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/Library/Application Support/fnm/node-versions/*",
+        "~/.local/share/fnm/node-versions/*",
+        "~/.fnm/node-versions/*"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "fnm",
+        "arguments": [
+          "uninstall",
+          "{target}"
+        ]
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "fnm"
+      }
+    },
+    {
+      "id": "toolchain-volta",
+      "title": "Versión de Node (Volta)",
+      "explanation": "Una versión de Node instalada con Volta. Va a la Papelera, porque Volta no tiene orden para quitar versiones de Node.",
+      "whoCreatesIt": "Volta",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.volta/tools/image/node/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "volta"
+      }
+    },
+    {
+      "id": "toolchain-asdf",
+      "title": "Versión instalada con asdf",
+      "explanation": "Una versión de una herramienta instalada con asdf. Va a la Papelera; luego ejecuta asdf reshim.",
+      "whoCreatesIt": "asdf",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.asdf/installs/*/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "asdf"
+      }
+    },
+    {
+      "id": "toolchain-rbenv",
+      "title": "Versión de Ruby (rbenv)",
+      "explanation": "Una versión de Ruby instalada con rbenv.",
+      "whoCreatesIt": "rbenv",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.rbenv/versions/*"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "rbenv",
+        "arguments": [
+          "uninstall",
+          "-f",
+          "{target}"
+        ]
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "rbenv"
+      }
+    },
+    {
+      "id": "toolchain-rvm",
+      "title": "Versión de Ruby (rvm)",
+      "explanation": "Una versión de Ruby instalada con rvm. Va a la Papelera, porque rvm es una función de la shell.",
+      "whoCreatesIt": "rvm",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.rvm/rubies/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "rvm"
+      }
+    },
+    {
+      "id": "toolchain-sdkman",
+      "title": "Versión instalada con SDKMAN",
+      "explanation": "Una versión de Java u otra herramienta instalada con SDKMAN. Va a la Papelera, porque sdk es una función de la shell.",
+      "whoCreatesIt": "SDKMAN",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.sdkman/candidates/*/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "sdkman"
+      }
+    },
+    {
+      "id": "toolchain-rustup",
+      "title": "Toolchain de Rust",
+      "explanation": "Un toolchain de Rust instalado con rustup.",
+      "whoCreatesIt": "rustup",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.rustup/toolchains/*"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "rustup",
+        "arguments": [
+          "toolchain",
+          "uninstall",
+          "{target}"
+        ]
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "rustup"
+      }
+    },
+    {
+      "id": "toolchain-go-sdk",
+      "title": "Versión de Go (~/sdk)",
+      "explanation": "Una versión de Go descargada en ~/sdk.",
+      "whoCreatesIt": "go install golang.org/dl",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/sdk/go*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "goSDK"
+      }
+    },
+    {
+      "id": "toolchain-homebrew",
+      "title": "Versión de Homebrew",
+      "explanation": "Una versión de Python, Node, Java o Go instalada con Homebrew. Airy no la quita si otra fórmula la necesita.",
+      "whoCreatesIt": "Homebrew",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "brew",
+        "arguments": [
+          "uninstall",
+          "{target}"
+        ]
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "profiles": [],
+      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "discovery": {
+        "type": "toolchains",
+        "manager": "homebrew"
+      }
+    },
+    {
+      "id": "toolchain-system-info",
+      "title": "Versiones instaladas en el sistema",
+      "explanation": "Varias versiones de la misma herramienta fuera de tu carpeta (Xcode, /Library). Airy solo te las muestra.",
+      "whoCreatesIt": "Instaladores de Apple, Python.org y Java",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "profiles": [],
+      "shortReason": "Están fuera de tu carpeta; se quitan a mano.",
+      "discovery": {
+        "type": "toolchainSystemInfo"
+      },
+      "reviewHint": "Las versiones de /Library y las apps Xcode se quitan a mano o con el Desinstalador de Airy."
+    },
+    {
+      "id": "node-dependency-duplicates",
+      "title": "Paquetes de Node repetidos entre proyectos",
+      "explanation": "El mismo paquete, en la misma versión, copiado en el node_modules de varios proyectos. Airy solo te lo muestra.",
+      "whoCreatesIt": "npm y yarn",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "profiles": [],
+      "shortReason": "Cada proyecto necesita su copia mientras uses npm o yarn.",
+      "discovery": {
+        "type": "dependencyDuplicates"
+      },
+      "reviewHint": "Con pnpm cada versión de un paquete se guarda una sola vez en el disco y la comparten todos tus proyectos."
+    },
+    {
       "id": "app-support-caches",
       "title": "Cachés regenerables de una app",
       "explanation": "Carpetas de caché de apps (GPUCache, Code Cache, DawnCache…) que Airy encuentra en Application Support sin que ninguna otra ficha las conozca. Se vuelven a crear al abrir la app; Airy nunca toca apps de contraseñas, mensajería ni claves. Van a la Papelera.",
