@@ -216,7 +216,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         makeCache(f, "prueba")
         f.saveSettings { $0.agentsEnabled = false }
         await assertAllActionToolsBlocked(
-            f, message: "Has desactivado en Airy que los agentes ejecuten acciones (Asistente › Conectar agente).")
+            f, message: "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes).")
     }
 
     @Test func unreadableSettingsBlocksActions() async throws {
@@ -279,7 +279,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         #expect(rows.first?["outcome"]?.stringValue == "freed")
         #expect(rows.last?["outcome"]?.stringValue == "blocked")
         #expect(rows.last?["message"]?.stringValue
-            == "Has desactivado en Airy que los agentes ejecuten acciones (Asistente › Conectar agente).")
+            == "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes).")
         #expect(f.runner.calls.count == 1)
         #expect(f.records().map(\.outcome) == ["freed", "blocked"])
     }
