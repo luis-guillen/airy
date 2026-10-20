@@ -301,7 +301,13 @@ public struct CleanupExecutor: Sendable {
         // Comandos: las protecciones y referencias se comprueban sobre las rutas de la ficha viva que
         // existen ahora, nunca sobre las que trae el elemento (que solo pueden ser un subconjunto).
         var checkPaths = item.paths
-        if case .command = live.cleanup {
+        if case .command(let executable, let arguments, _) = live.cleanup {
+            // Veto antes de cualquier sonda: una orden prohibida (volúmenes de Docker…) no llega a nada más.
+            for args in item.targets.isEmpty ? [arguments] : item.targets.map({ Self.substitute($0, in: arguments) }) {
+                if let reason = CommandPolicy.refusal(executable: executable, arguments: args) {
+                    return .failure(PathRefusal(reason: reason))
+                }
+            }
             let livePaths = Self.existingPaths(of: live, home: home)
             if !live.paths.isEmpty, livePaths.isEmpty {
                 return .failure(PathRefusal(reason: "No se encuentra «\(live.title)» en este Mac; no se ejecuta nada."))
@@ -643,6 +649,10 @@ public struct CleanupExecutor: Sendable {
     private func runOnce(executable: String, arguments: [String]) async -> Result<Int64, CommandFailureMessage> {
         guard let resolved = await runner.resolve(executable) else {
             return .failure(CommandFailureMessage("No se encontró \(executable) en este Mac."))
+        }
+        // Última barrera, con la ruta resuelta y los argumentos finales, justo antes de ejecutar.
+        if let reason = CommandPolicy.refusal(executable: resolved, arguments: arguments) {
+            return .failure(CommandFailureMessage(reason))
         }
         let before = freeSpace()
         let output: CommandOutput

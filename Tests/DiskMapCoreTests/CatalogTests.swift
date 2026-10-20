@@ -195,6 +195,7 @@ import Foundation
         #expect(catalog.entry(id: "playwright")?.regenerates == false)
         #expect(catalog.entry(id: "playwright")?.explanation.contains("npx playwright install") == true)
         #expect(catalog.entry(id: "spotify-cache")?.risk == .yourCall)
-        #expect(catalog.entry(id: "docker-images")?.regenerates == false)
+        // Tarea 2 del plan 3: las imágenes se limpian con `image prune` y Docker las vuelve a bajar o construir.
+        #expect(catalog.entry(id: "docker-images")?.regenerates == true)
     }
 }
