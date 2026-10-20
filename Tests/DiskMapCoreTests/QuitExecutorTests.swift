@@ -13,10 +13,12 @@ private final class FakeTerminator: ProcessTerminating {
     private let state: Mutex<(calls: [Call], alive: Bool)>
     private let diesOnRequest: Bool
     private let forceSucceeds: Bool
+    private let diesOnForce: Bool
 
-    init(diesOnRequest: Bool = true, forceSucceeds: Bool = true) {
+    init(diesOnRequest: Bool = true, forceSucceeds: Bool = true, diesOnForce: Bool = true) {
         self.diesOnRequest = diesOnRequest
         self.forceSucceeds = forceSucceeds
+        self.diesOnForce = diesOnForce
         state = Mutex((calls: [], alive: true))
     }
 
@@ -33,7 +35,7 @@ private final class FakeTerminator: ProcessTerminating {
     func forceQuit(pid: Int32, isApp: Bool) -> Bool {
         state.withLock { s in
             s.calls.append(.force(pid, isApp: isApp))
-            if forceSucceeds { s.alive = false }
+            if forceSucceeds && diesOnForce { s.alive = false }
         }
         return forceSucceeds
     }
@@ -101,6 +103,15 @@ private final class FakeTerminator: ProcessTerminating {
 
     @Test func failedForceStaysForceable() async {
         let fake = FakeTerminator(diesOnRequest: false, forceSucceeds: false)
+        let g = group()
+        let quitter = executor(fake, groups: [g])
+        #expect(await quitter.quit(g, context: .user()) == .didNotClose)
+        #expect(await quitter.forceQuit(g, context: .user()) == .failed("No se pudo forzar el cierre."))
+        #expect(quitter.canForceQuit(g))
+    }
+
+    @Test func forceSentButStillAliveIsNotClosed() async {
+        let fake = FakeTerminator(diesOnRequest: false, forceSucceeds: true, diesOnForce: false)
         let g = group()
         let quitter = executor(fake, groups: [g])
         #expect(await quitter.quit(g, context: .user()) == .didNotClose)

@@ -117,6 +117,28 @@ import Testing
         #expect(g.first { $0.leadPID == 300 }?.pids == [300])
     }
 
+    @Test func sameBundleIDFromTwoPathsGetsDistinctIDs() {
+        let a = "/Applications/TextEdit.app", b = "/Users/x/Downloads/TextEdit.app"
+        let procs = [OwnProcess(pid: 400, name: "TextEdit", executablePath: a + "/Contents/MacOS/TextEdit"),
+                     OwnProcess(pid: 500, name: "TextEdit", executablePath: b + "/Contents/MacOS/TextEdit")]
+        let apps = [RunningAppInfo(pid: 400, bundleID: "com.apple.TextEdit", name: "TextEdit", bundlePath: a),
+                    RunningAppInfo(pid: 500, bundleID: "com.apple.TextEdit", name: "TextEdit", bundlePath: b)]
+        let g = AppGrouper.group(raw(procs, apps: apps), cpu: [:], energy: [:], catalog: nil)
+        #expect(g.count == 2)
+        #expect(Set(g.map(\.id)) == ["com.apple.TextEdit#400", "com.apple.TextEdit#500"])
+        #expect(g.first { $0.leadPID == 400 }?.bundlePath == a)
+        // Una sola instancia conserva el id sin calificar.
+        let one = AppGrouper.group(raw([procs[0]], apps: [apps[0]]), cpu: [:], energy: [:], catalog: nil)
+        #expect(one.map(\.id) == ["com.apple.TextEdit"])
+    }
+
+    @Test func unknownExecutablePathIsNeverLoose() {
+        let p = OwnProcess(pid: 600, name: "misterio", executablePath: nil, footprint: 50 * Self.mb)
+        let g = AppGrouper.group(raw([p]), cpu: [:], energy: [:], catalog: nil)
+        #expect(g.count == 1 && g[0].kind == .system)
+        #expect(!QuitPolicy(currentUID: g[0].uid, ownPIDs: []).eligibility(g[0]).isAllowed)
+    }
+
     @Test func bundledAppCatalogHasRequiredIDs() throws {
         let catalog = try AppCatalog.bundled(executableURL: nil, searchProcessBundles: true)
         let ids = ["chrome", "safari", "firefox", "brave", "edge", "arc", "slack", "discord", "teams", "zoom", "spotify",
