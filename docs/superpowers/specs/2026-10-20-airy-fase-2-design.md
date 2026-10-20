@@ -83,6 +83,16 @@ Petición del usuario: "que sea agresivo, hay que borrar muchas cosas de las cac
 - **Selección múltiple:** casillas por fila, "Seleccionar todo lo verde", "Seleccionar todo" (solo verde + ámbar; el rojo nunca se selecciona), y botón **"Borrar todo · X GB"**. **Una sola** hoja de confirmación con la lista completa, el total y qué es Papelera / qué es comando. Se ejecuta en secuencia con progreso por fila y resumen final (lo que funcionó, lo que falló y por qué).
 - "Hasta X GB" para los comandos que no garantizan liberar todo (como en la fase 1).
 
+
+### 2.5b Instalaciones duplicadas de desarrollo (añadido 20-10-2026, petición del usuario)
+
+"También instalaciones duplicadas de cosas de desarrollo, dependencias y eso." Airy detecta varias versiones instaladas de la misma herramienta y propone quitar las que sobran:
+- **Lenguajes y toolchains:** Python (pyenv, conda/miniconda/anaconda, Homebrew `python@3.x`, python.org en /Library/Frameworks — este último solo informativo), entornos de conda, Node (nvm, fnm, volta, asdf, Homebrew `node@x`), Ruby (rbenv, rvm, asdf), Java/JDK (`/Library/Java/JavaVirtualMachines` solo informativo; SDKMAN, Homebrew `openjdk@x`), Rust (`rustup toolchain list`), Go (varias versiones en `~/sdk`, Homebrew `go@x`), Xcode (varias `Xcode*.app`) y simuladores.
+- **Dependencias duplicadas:** `node_modules` del mismo paquete repetidos entre proyectos (información + sugerir pnpm), varias copias de modelos de IA idénticos (ya cubierto por Duplicados), virtualenvs duplicados.
+- **Qué versión se usa:** se marca como **en uso** (rojo, no se ofrece) la versión por defecto (PATH actual, `pyenv global`, `nvm alias default`, `rustup default`, `xcode-select -p`) y cualquier versión que pida un proyecto (`.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `rust-toolchain(.toml)`, `.ruby-version`, `pom/gradle` toolchains si es fácil) dentro de las raíces de proyectos de §2.5.
+- **Riesgo:** las demás versiones son **ámbar**; en Agresivo se preseleccionan solo si llevan ≥ 3 meses sin usarse (fecha de último acceso del ejecutable o de su carpeta) y nada las pide; nunca verde. Lo que está bajo `/Library`, `/Applications` o `/System` es solo informativo salvo `Xcode*.app` (que pasa por el Desinstalador).
+- **Cómo se quita:** siempre con el comando oficial (`pyenv uninstall -f`, `conda env remove -n`, `nvm uninstall`, `fnm uninstall`, `volta uninstall`, `rbenv uninstall -f`, `rustup toolchain uninstall`, `brew uninstall` solo si `brew uses --installed` no lo necesita), o a la Papelera si la herramienta no tiene comando. Siempre por el embudo y con confirmación; el MCP solo lo lista (nunca lo ejecuta, porque es ámbar).
+
 ### 2.6 Rendimiento (sección nueva)
 
 Petición del usuario: "coges toda la información del Monitor de Actividad y lo pones de manera que el usuario lo entienda; ver si el Mac está muy caliente y poder cerrar cosas". IA opcional.
