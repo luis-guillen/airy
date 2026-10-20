@@ -28,7 +28,7 @@ struct RootView: View {
             .environment(model)
             .environment(cleanupFlow)
         }
-        .task { model.startScan() }
+        .task { model.startScan(.automatic) }
         .task(id: model.pendingURLCommand?.id) {
             if let pending = model.pendingURLCommand { await model.run(pending, flow: cleanupFlow) }
         }
