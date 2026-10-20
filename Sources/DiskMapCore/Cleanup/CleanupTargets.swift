@@ -61,6 +61,7 @@ public enum CleanupTargets {
     /// `discovery` ⇒ su fuente; `retention` ⇒ `RetentionSource`; si no, `StaticPatternSource`.
     public static func source(for entry: CatalogEntry) -> any CleanupTargetSource {
         if entry.discovery == .docker { return DockerSource() }
+        if entry.discovery == .simulatorRuntimes { return SimulatorRuntimeSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()
