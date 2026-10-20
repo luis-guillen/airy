@@ -92,7 +92,7 @@ public final class FileNode: @unchecked Sendable, Identifiable {
             node = current.parent
         }
         var joined = parts.reversed().joined(separator: "/")
-        if joined.hasPrefix("//") { joined.removeFirst() }
+        while joined.hasPrefix("//") { joined.removeFirst() }
         return joined
     }
 
