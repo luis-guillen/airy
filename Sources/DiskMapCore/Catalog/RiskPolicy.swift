@@ -2,7 +2,7 @@ import Foundation
 
 /// Suelo de riesgo por ruta y combinación "gana el más estricto" entre catálogo e IA.
 public enum RiskPolicy {
-    private static let personalRoots = [
+    static let personalRoots = [
         "Documents", "Desktop", "Pictures", "Movies", "Music", "Downloads", "orca", "Projects",
     ]
 
