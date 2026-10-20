@@ -48,6 +48,8 @@ struct ChatView: View {
             .padding(.horizontal, 2)
             .animation(Theme.zoomSpring, value: session.transcript.bubbles.count)
         }
+        // Ningún enlace de una respuesta abre nada fuera de la app (además, `ChatText` ya los quita).
+        .environment(\.openURL, OpenURLAction { _ in .discarded })
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
         .scrollIndicators(.automatic)
@@ -111,7 +113,7 @@ struct ChatView: View {
             .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
             .animation(Theme.pressSpring, value: composerFocused)
 
-            Text("Claude solo ve rutas, tamaños y fechas · Usa tu Claude Code · tarda unos segundos")
+            Text("Claude solo ve rutas, tamaños y fechas · Usa tu Claude Code · puede tardar hasta un minuto")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -272,11 +274,8 @@ private struct ChatBubbleRow: View {
         }
     }
 
-    /// Markdown solo en línea (negritas, cursivas, `código`), conservando los saltos de línea.
-    static func rendered(_ text: String) -> AttributedString {
-        (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
-            ?? AttributedString(text)
-    }
+    /// Markdown en línea sin enlaces (ver `ChatText`).
+    static func rendered(_ text: String) -> AttributedString { ChatText.rendered(text) }
 }
 
 /// Burbuja con la esquina del lado del que habla un poco menos redondeada, como en Mensajes.

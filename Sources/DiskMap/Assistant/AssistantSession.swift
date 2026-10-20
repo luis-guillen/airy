@@ -37,6 +37,8 @@ final class AssistantSession {
     /// Resultado de cada acción ejecutada desde el informe, por id de recomendación.
     private(set) var outcomes: [String: CleanupOutcome] = [:]
     private(set) var busyRecommendation: String?
+    /// Sube con cada informe: un resultado que llega tarde no se pega a una tarjeta del informe nuevo.
+    @ObservationIgnored private var reportGeneration = 0
 
     @ObservationIgnored private let runner = ProcessRunner()
     @ObservationIgnored private var reportTask: Task<Void, Never>?
@@ -140,6 +142,8 @@ final class AssistantSession {
         reportTask?.cancel()
         report = .loading
         outcomes = [:]
+        busyRecommendation = nil
+        reportGeneration += 1
         reportTask = Task { [weak self] in
             guard let self else { return }
             guard let (context, _) = await self.context(model: model),
@@ -177,14 +181,16 @@ final class AssistantSession {
     func execute(_ offer: AssistantActionOffer, for rec: AIRecommendation, title: String, model: AppModel) {
         guard busyRecommendation == nil else { return }
         busyRecommendation = rec.id
+        let generation = reportGeneration
         Task { [weak self] in
             let outcome: CleanupOutcome
             switch offer.action {
             case .perform(let item): outcome = await model.perform(item)
             case .trashPaths(let paths): outcome = await model.trash(paths: paths, title: title)
             }
-            self?.outcomes[rec.id] = outcome
-            self?.busyRecommendation = nil
+            guard let self, generation == self.reportGeneration else { return }
+            self.outcomes[rec.id] = outcome
+            self.busyRecommendation = nil
         }
     }
 
