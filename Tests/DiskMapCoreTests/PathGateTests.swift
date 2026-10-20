@@ -173,7 +173,10 @@ private func link(_ path: String, to target: String) {
 
     @Test func fragmentsAnywhere() {
         for p in [h + "/Library/Caches/com.apple.FontRegistry", h + "/Library/Caches/com.crowdstrike.x",
-                  tmp + "/MiSpotlightIndex/x"] {
+                  tmp + "/MiSpotlightIndex/x",
+                  // 1Password 7: contenedor y contenedor de grupo de AgileBits.
+                  h + "/Library/Containers/com.agilebits.onepassword7/Data/x",
+                  h + "/Library/Group Containers/2BUA8C4S2C.com.agilebits/x"] {
             touch(p)
             #expect(gate().validate(p).failure != nil, "\(p)")
         }

@@ -233,3 +233,50 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
         try Catalog.bundled(executableURL: empty, searchProcessBundles: false)
     }
 }
+
+@Test func transportDiscardsOverlongMessageWithParseError() async throws {
+    let input = Pipe(), output = Pipe()
+    let long = #"{"jsonrpc":"2.0","id":1,"method":"ping","params":{"x":""# + String(repeating: "a", count: 500) + #""}}"#
+    let lines = [long, #"{"jsonrpc":"2.0","id":2,"method":"ping"}"#, String(repeating: "b", count: 300)]
+    try input.fileHandleForWriting.write(contentsOf: Data(lines.joined(separator: "\n").utf8))
+    try input.fileHandleForWriting.close()
+    await StdioTransport.run(server: makeServer(), input: input.fileHandleForReading,
+                             output: output.fileHandleForWriting, maxLineBytes: 128)
+    try output.fileHandleForWriting.close()
+    let text = String(decoding: try output.fileHandleForReading.readToEnd() ?? Data(), as: UTF8.self)
+    let responses = text.split(separator: "\n").map(String.init)
+    #expect(responses.count == 3)
+    let first = try parse(responses.first)
+    #expect(first["error"]?["code"]?.intValue == -32700)
+    #expect(first["id"] == .null)
+    // El mensaje siguiente se atiende con normalidad.
+    let second = try parse(responses.count > 1 ? responses[1] : nil)
+    #expect(second["id"]?.intValue == 2 && second["result"] == .object([:]))
+    // También al final de la entrada, sin salto de línea.
+    #expect(try parse(responses.last)["error"]?["code"]?.intValue == -32700)
+    #expect(StdioTransport.maxLineBytes == 1 << 20)
+}
+
+/// Herramienta que no consigue anotar en el registro.
+private struct AuditFailingTool: MCPTool {
+    var name: String { "fake_tool" }
+    var description: String { "Prueba." }
+    var inputSchema: JSONValue { .object(["type": .string("object")]) }
+    var annotations: MCPToolAnnotations { MCPToolAnnotations(readOnly: false, destructive: true, idempotent: false) }
+    func call(_ arguments: [String: JSONValue], context: MCPCallContext) async -> MCPToolResult {
+        context.environment.log.reportFailure("no se pudo anotar «x» en el registro de operaciones (disco lleno)")
+        return .ok(.object(["outcome": .string("freed")]), summary: "Hecho.")
+    }
+}
+
+@Test func auditFailureIsReportedInTheToolResult() async throws {
+    let server = MCPServer(registry: MCPToolRegistry([AuditFailingTool()]),
+                           environment: makeTestEnvironment(home: makeTempHome()), serverVersion: "9.9.9")
+    _ = try await initialize(server, version: "2025-06-18")
+    let response = try await callTool(server, arguments: "{}")
+    guard case .array(let content)? = response["result"]?["content"] else { Issue.record("sin content"); return }
+    let text = content.first?["text"]?.stringValue ?? ""
+    #expect(text.contains("Aviso: no se pudo anotar «x»"))
+    #expect(response["result"]?["structuredContent"]?["audit_warning"]?.stringValue?.contains("incompleto") == true)
+    #expect(response["result"]?["structuredContent"]?["outcome"]?.stringValue == "freed")
+}

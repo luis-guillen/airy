@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import DiskMapCore
 
@@ -33,6 +34,40 @@ import Testing
         try handle.seekToEnd(); try handle.write(contentsOf: Data("{basura\n".utf8)); try handle.close()
         try log.append(record("b"))
         #expect(try log.records().map(\.title) == ["a", "b"])
+    }
+
+    @Test func tornLineDoesNotSwallowTheNextRecord() throws {
+        let file = tempDir().appendingPathComponent("ops.jsonl")
+        let log = OperationLog(file: file)
+        try log.append(record("a"))
+        // Otro proceso murió a media escritura: una línea sin `\n` al final.
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.seekToEnd(); try handle.write(contentsOf: Data(#"{"runID":"cortado","tit"#.utf8)); try handle.close()
+        try log.append(record("b"))
+        try log.append(record("c"))
+        #expect(try log.records().map(\.title) == ["a", "b", "c"])
+        #expect(log.takeWriteFailure() == nil)
+    }
+
+    @Test func failedShortWriteIsRolledBackAndReported() throws {
+        let file = tempDir().appendingPathComponent("ops.jsonl")
+        try OperationLog(file: file).append(record("a"))
+        let before = try Data(contentsOf: file)
+        // Escribe la mitad y luego falla (disco lleno).
+        let calls = Mutex(0)
+        let broken = OperationLog(file: file, writer: { fd, bytes, count in
+            let call = calls.withLock { n in defer { n += 1 }; return n }
+            if call == 0 { return Darwin.write(fd, bytes, count / 2) }
+            errno = ENOSPC
+            return -1
+        })
+        #expect(throws: (any Error).self) { try broken.append(self.record("b")) }
+        #expect(try Data(contentsOf: file) == before)
+        let failure = try #require(broken.takeWriteFailure())
+        #expect(failure.contains("«b»"))
+        #expect(broken.takeWriteFailure() == nil)
+        try OperationLog(file: file).append(record("c"))
+        #expect(try OperationLog(file: file).records().map(\.title) == ["a", "c"])
     }
 
     @Test func concurrentAppendsFromTwoLogsKeepAll() async throws {
@@ -80,8 +115,8 @@ import Testing
     @Test func recordFieldsAreMetadataOnly() {
         let names = Set(Mirror(reflecting: record()).children.compactMap(\.label))
         #expect(names == ["runID", "date", "actor", "action", "itemID", "title", "paths", "command",
-                          "dryRun", "outcome", "bytes", "message", "proposedBy"])
-        #expect(names.count == 13)
+                          "dryRun", "outcome", "bytes", "message", "proposedBy", "proposedVia"])
+        #expect(names.count == 14)
     }
 
     @Test func oldHistoryWithoutByAgentDecodes() throws {

@@ -10,16 +10,20 @@ public enum CleanupOutcome: Sendable, Equatable {
 }
 
 /// Quién pide la operación y en qué tanda (`runID`). `proposedBy`: el agente que la propuso, si la
-/// confirmó el usuario.
+/// confirmó el usuario; `proposedVia`: por dónde llegó la propuesta (`viaUnverifiedURL` = un enlace
+/// `airy://`, cuyo nombre de agente no se puede verificar).
 public struct OperationContext: Sendable, Equatable {
-    public let runID: UUID, actor: OperationActor, proposedBy: String?
+    public static let viaUnverifiedURL = "url-unverified"
 
-    public static func user(runID: UUID = UUID(), proposedBy: String? = nil) -> OperationContext {
-        OperationContext(runID: runID, actor: .user, proposedBy: proposedBy)
+    public let runID: UUID, actor: OperationActor, proposedBy: String?, proposedVia: String?
+
+    public static func user(runID: UUID = UUID(), proposedBy: String? = nil,
+                            proposedVia: String? = nil) -> OperationContext {
+        OperationContext(runID: runID, actor: .user, proposedBy: proposedBy, proposedVia: proposedVia)
     }
 
     public static func agent(_ client: String, runID: UUID = UUID()) -> OperationContext {
-        OperationContext(runID: runID, actor: .agent(client: client), proposedBy: nil)
+        OperationContext(runID: runID, actor: .agent(client: client), proposedBy: nil, proposedVia: nil)
     }
 
     var isAgent: Bool {
@@ -124,7 +128,10 @@ public struct CleanupExecutor: Sendable {
     // MARK: - API
 
     /// Lo que haría `execute(item, context:)` ahora: mismo plan, sin mover ni ejecutar nada.
-    public func preview(_ item: CleanupItem, context: OperationContext = .user()) async -> CleanupPreview {
+    /// `logged`: anotarla en el registro como simulación (`dry_run` pedido por un agente). La vista previa
+    /// de la hoja de confirmación no es una operación y no se anota (`false`).
+    public func preview(_ item: CleanupItem, context: OperationContext = .user(),
+                        logged: Bool = true) async -> CleanupPreview {
         let preview: CleanupPreview
         var title = item.title
         switch await plan(item, context: context) {
@@ -145,6 +152,7 @@ public struct CleanupExecutor: Sendable {
         case .wouldRun(_, let b, _): ("would_run", b, nil)
         case .blocked(let reason): ("blocked", 0, reason)
         }
+        guard logged else { return preview }
         let paths: [String] = if case .wouldTrash(let p, _) = preview { p } else { item.paths }
         appendLog(context, action: "clean", itemID: item.id, title: title, paths: paths, command: command,
                   dryRun: true, outcome: outcome, bytes: bytes, message: message)
@@ -236,10 +244,33 @@ public struct CleanupExecutor: Sendable {
         let title: String
         let bytes: Int64
         let upperBound: Bool
+        /// Para reclasificar justo antes de actuar (agentes): la ficha viva, las rutas y el riesgo de la IA.
+        var risk: RiskInputs? = nil
         /// Para volver a comprobarlos justo antes de actuar.
         let processNames: [String]
         let guardPaths: [String]
         let checkOpenFiles: Bool
+    }
+
+    struct RiskInputs: Sendable {
+        let entry: CatalogEntry
+        let paths: [String]
+        let ai: Risk?
+        let itemDoNotTouch: Bool
+    }
+
+    /// Riesgo con los ajustes vivos: el mismo cálculo en el plan y justo antes de actuar.
+    private func classify(_ inputs: RiskInputs, settings: AirySettings) -> Classification {
+        var verdict = RiskClassifier(catalog: catalog, settings: settings, home: home, protections: protections)
+            .classify(entry: inputs.entry, paths: inputs.paths, ai: inputs.ai)
+        if inputs.itemDoNotTouch { verdict.risk = .doNotTouch }
+        return verdict
+    }
+
+    private static func agentRiskRefusal(_ risk: Risk, title: String) -> PathRefusal {
+        PathRefusal(reason: risk == .doNotTouch
+            ? "«\(title)» es «\(Risk.doNotTouch.label)»: Airy no lo toca."
+            : "«\(title)» es «\(risk.label)»: solo se ejecuta lo marcado «\(Risk.safe.label)».")
     }
 
     /// Único camino de decisión para `preview` y `execute`. Orden: ajustes vivos → clasificador vivo →
@@ -268,16 +299,12 @@ public struct CleanupExecutor: Sendable {
             }
             checkPaths = livePaths
         }
-        let verdict = RiskClassifier(catalog: catalog, settings: load.effective, home: home, protections: protections)
-            .classify(entry: live, paths: checkPaths, ai: item.risk)
-        var risk = verdict.risk
-        if item.entry.risk == .doNotTouch { risk = .doNotTouch }
+        let riskInputs = RiskInputs(entry: live, paths: checkPaths, ai: item.risk,
+                                    itemDoNotTouch: item.entry.risk == .doNotTouch)
+        let verdict = classify(riskInputs, settings: load.effective)
+        let risk = verdict.risk
 
-        if context.isAgent, risk != .safe {
-            return .failure(PathRefusal(reason: risk == .doNotTouch
-                ? "«\(title)» es «\(Risk.doNotTouch.label)»: Airy no lo toca."
-                : "«\(title)» es «\(risk.label)»: solo se ejecuta lo marcado «\(Risk.safe.label)»."))
-        }
+        if context.isAgent, risk != .safe { return .failure(Self.agentRiskRefusal(risk, title: title)) }
 
         if case .info = live.cleanup { return .failure(PathRefusal(reason: "Este elemento es solo informativo.")) }
         if !item.usedBy.isEmpty {
@@ -293,6 +320,7 @@ public struct CleanupExecutor: Sendable {
         if isTrash { apps += relatedEntries(of: item.paths).flatMap(\.mustBeClosed) }
         if let reason = openAppsReason(apps) { return .failure(PathRefusal(reason: reason)) }
 
+        let planned: Result<PlannedAction, PathRefusal>
         let guardPaths = isTrash ? item.paths : []
         if let reason = await processReason(live.processNames, paths: guardPaths, checkOpenFiles: isTrash) {
             return .failure(PathRefusal(reason: reason))
@@ -305,7 +333,7 @@ public struct CleanupExecutor: Sendable {
         case .info:
             return .failure(PathRefusal(reason: "Este elemento es solo informativo."))
         case .command(let executable, let arguments, _):
-            return .success(PlannedAction(
+            planned = .success(PlannedAction(
                 kind: .command(executable: executable, arguments: arguments, entry: live, paths: checkPaths),
                 title: title, bytes: item.bytes, upperBound: live.partialCleanup, processNames: live.processNames,
                 guardPaths: [], checkOpenFiles: false))
@@ -314,9 +342,10 @@ public struct CleanupExecutor: Sendable {
             for path in item.paths where !allowed.contains(RiskPolicy.canonical(path)) {
                 return .failure(PathRefusal(reason: "La ruta no corresponde a «\(live.title)»: \(path)."))
             }
-            return await planTrash(item.paths, gate: gate(load), title: title, processNames: live.processNames,
-                                   checkOpenFiles: true)
+            planned = await planTrash(item.paths, gate: gate(load), title: title, processNames: live.processNames,
+                                      checkOpenFiles: true)
         }
+        return planned.map { var action = $0; action.risk = riskInputs; return action }
     }
 
     /// Plan de rutas sueltas: primero `PathGate` (lo inválido se rechaza sin más), luego apps, procesos,
@@ -411,6 +440,12 @@ public struct CleanupExecutor: Sendable {
         let load = settings()
         let gate = gate(load)
         if let refusal = policyRefusal(load, context: context) { return (gate, refusal.reason) }
+        // Un agente solo actúa sobre lo que sigue siendo «Sin problema» con los ajustes de ahora (el modo o la
+        // lista protegida pueden haber cambiado desde el plan).
+        if context.isAgent, let inputs = plan.risk {
+            let risk = classify(inputs, settings: load.effective).risk
+            if risk != .safe { return (gate, Self.agentRiskRefusal(risk, title: plan.title).reason) }
+        }
         if case .command(_, _, let entry, let paths) = plan.kind,
            let protection = RiskClassifier(catalog: catalog, settings: load.effective, home: home,
                                            protections: protections).classify(entry: entry, paths: paths).protection {
@@ -441,9 +476,15 @@ public struct CleanupExecutor: Sendable {
         PathRefusal(reason: "\(refusal.reason) No se envía a la Papelera: \(path).")
     }
 
+    /// Apps abiertas leídas al momento (`currentRunningBundleIDs`: en `airy-mcp`, sin bucle de AppKit, la lista
+    /// de `NSWorkspace` puede estar desfasada). Si no se puede saber, falla cerrado.
     private func openAppsReason(_ bundleIDs: [String]) -> String? {
         guard !bundleIDs.isEmpty else { return nil }
-        let running = probes.runningBundleIDs()
+        guard let running = probes.currentRunningBundleIDs() else {
+            var unique: [String] = []
+            for id in bundleIDs where !unique.contains(id) { unique.append(id) }
+            return "No se pudo comprobar si \(unique.joined(separator: ", ")) está abierta; Airy no lo toca."
+        }
         var open: [String] = []
         for id in bundleIDs where running.contains(id) && !open.contains(id) { open.append(id) }
         return open.isEmpty ? nil : "Cierra primero: \(open.joined(separator: ", "))."
@@ -561,8 +602,12 @@ public struct CleanupExecutor: Sendable {
 
     /// Historial de limpiezas (lo que se ve en la app).
     private func record(title: String, bytes: Int64, wentToTrash: Bool, context: OperationContext) {
-        try? store.append(CleanupRecord(date: Date(), title: title, bytes: bytes, wentToTrash: wentToTrash,
-                                        byAgent: context.isAgent))
+        do {
+            try store.append(CleanupRecord(date: Date(), title: title, bytes: bytes, wentToTrash: wentToTrash,
+                                           byAgent: context.isAgent))
+        } catch {
+            log?.reportFailure("no se pudo anotar «\(title)» en el historial de limpiezas (\(error.localizedDescription))")
+        }
     }
 
     /// `moved`/`movedBytes`: lo que llegó a la Papelera. Si la operación se paró a medias, el registro
@@ -588,9 +633,10 @@ public struct CleanupExecutor: Sendable {
     private func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
                            paths: [String], command: [String]?, dryRun: Bool, outcome: String, bytes: Int64,
                            message: String?) {
+        // Un fallo queda pendiente en `log.takeWriteFailure()`: la app lo avisa y `airy-mcp` lo devuelve al agente.
         try? log?.append(OperationRecord(
             runID: context.runID, date: Date(), actor: context.actor, action: action, itemID: itemID, title: title,
             paths: paths, command: command, dryRun: dryRun, outcome: outcome, bytes: bytes, message: message,
-            proposedBy: context.proposedBy))
+            proposedBy: context.proposedBy, proposedVia: context.proposedVia))
     }
 }

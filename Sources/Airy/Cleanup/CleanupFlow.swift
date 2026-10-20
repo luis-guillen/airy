@@ -31,16 +31,18 @@ final class CleanupFlow {
         let runID = UUID()
         let kind: Kind
         var warning: Warning? = nil
-        /// Agente que propuso esto (por `airy://propose`); la confirmación del usuario lo deja en el
-        /// registro como `.user(…, proposedBy:)`.
+        /// Agente que propuso esto y por dónde (`airy://propose`: `OperationContext.viaUnverifiedURL`, el
+        /// nombre es solo lo que dice el enlace); la confirmación del usuario lo deja en el registro como
+        /// `.user(…, proposedBy:, proposedVia:)`.
         var proposedBy: String? = nil
+        var proposedVia: String? = nil
         /// Al confirmar (antes de ejecutar) y con el resultado de cada elemento, para quien pidió la
         /// confirmación (p. ej. la tarjeta del asistente o el aviso del mapa).
         var onConfirm: (@MainActor () -> Void)? = nil
         var onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil
 
         /// Lo confirma el usuario; si lo propuso un agente, queda anotado como tal.
-        var context: OperationContext { .user(runID: runID, proposedBy: proposedBy) }
+        var context: OperationContext { .user(runID: runID, proposedBy: proposedBy, proposedVia: proposedVia) }
     }
 
     struct SnapshotNotice: Identifiable {
@@ -97,11 +99,12 @@ final class CleanupFlow {
     // MARK: Peticiones (abren la confirmación)
 
     func requestClean(_ items: [CleanupItem], warning: ConfirmRequest.Warning? = nil, proposedBy: String? = nil,
+                      proposedVia: String? = nil,
                       onConfirm: (@MainActor () -> Void)? = nil,
                       onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
         guard !items.isEmpty, !isBusy else { return }
         sheet = .confirm(ConfirmRequest(kind: .items(items), warning: warning, proposedBy: proposedBy,
-                                        onConfirm: onConfirm, onOutcome: onOutcome))
+                                        proposedVia: proposedVia, onConfirm: onConfirm, onOutcome: onOutcome))
     }
 
     func requestEmptyTrash(_ model: AppModel) {
@@ -110,12 +113,13 @@ final class CleanupFlow {
     }
 
     func requestTrash(paths: [String], title: String, warning: ConfirmRequest.Warning? = nil,
-                      proposedBy: String? = nil,
+                      proposedBy: String? = nil, proposedVia: String? = nil,
                       onConfirm: (@MainActor () -> Void)? = nil,
                       onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
         guard !paths.isEmpty, !isBusy else { return }
         sheet = .confirm(ConfirmRequest(kind: .trashPaths(paths, title: title), warning: warning,
-                                        proposedBy: proposedBy, onConfirm: onConfirm, onOutcome: onOutcome))
+                                        proposedBy: proposedBy, proposedVia: proposedVia,
+                                        onConfirm: onConfirm, onOutcome: onOutcome))
     }
 
     func cancelSheet() { sheet = nil }

@@ -93,7 +93,7 @@ struct Volume: Identifiable, Hashable, Sendable {
 
 /// Aviso no bloqueante que la interfaz muestra como banner descartable.
 struct Notice: Identifiable, Equatable {
-    enum Kind: String { case scan, save, history, catalog, migration, url, settings }
+    enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit }
     let kind: Kind
     let message: String
     var id: String { kind.rawValue }
@@ -137,6 +137,8 @@ final class AppModel {
     /// Orden de un enlace `airy://` pendiente de procesar: `RootView` la consume con su `CleanupFlow`.
     /// Nunca ejecuta nada: como mucho abre la hoja de confirmación.
     var pendingURLCommand: PendingURLCommand?
+    /// Cualquier app o web puede abrir `airy://`: una ráfaga de enlaces se descarta.
+    private var urlLimiter = URLCommandRateLimiter()
     /// Sube cada vez que el árbol mostrado cambia en sitio (p. ej. algo enviado a la Papelera).
     private(set) var treeRevision = 0
 
@@ -222,11 +224,29 @@ final class AppModel {
         }
     }
 
-    /// «Restablecer ajustes»: aparta el `settings.json` ilegible y vuelve a los valores por defecto.
+    /// «Restablecer ajustes»: vuelve a leer `settings.json`; si sigue ilegible, pide confirmación (diciendo
+    /// qué se conserva y qué se pierde), lo aparta y escribe ajustes nuevos con lo rescatado. Avisa de
+    /// lo que pasó (p. ej. que la lista «Proteger esto» no se pudo recuperar).
     func resetSettings() {
+        guard let explanation = settingsSession.resetConfirmation() else {
+            syncSettingsNotice()
+            refreshCleanup()
+            return
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "¿Restablecer los ajustes de Airy?"
+        alert.informativeText = explanation
+        alert.addButton(withTitle: "Restablecer")
+        alert.addButton(withTitle: "Cancelar")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
-            try settingsSession.reset()
-            dismiss(.settings)
+            guard let result = try settingsSession.reset() else {
+                syncSettingsNotice()
+                refreshCleanup()
+                return
+            }
+            report(.settings, result.message)
             refreshCleanup()
         } catch {
             report(.settings, "No se pudieron restablecer los ajustes (\(error.localizedDescription)).")
@@ -291,6 +311,10 @@ final class AppModel {
 
     /// Entrada de `.onOpenURL`: valida y deja la orden pendiente. Una URL inválida solo avisa.
     func handle(url: URL) {
+        guard urlLimiter.allow() else {
+            report(.url, URLProposalPolicy.rateLimited)
+            return
+        }
         guard let command = AiryURLCommand(url: url) else {
             report(.url, "Airy no entendió ese enlace, así que no hizo nada.")
             return
@@ -311,40 +335,45 @@ final class AppModel {
             guard await waitUntil({ $0.scan != nil }) else { return }
             navigation.reveal(path: path)
         case .propose(let target, let reason, let agent):
-            guard !flow.isBusy else {
-                report(.url, "Airy está limpiando; vuelve a pedirlo en un momento.")
+            // Nunca sustituye una hoja ya abierta (el usuario confirmaría otra cosa) ni una limpieza en curso.
+            if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
+                report(.url, refusal)
                 return
             }
+            // El nombre lo pone quien abre el enlace: se enseña y se anota como algo que «dice ser».
+            let claimed = URLProposalPolicy.claimedAgent(agent)
             let warning = CleanupFlow.ConfirmRequest.Warning(
-                title: "Un agente propone limpiar esto",
-                subtitle: "\(agent ?? "Un agente") · \(reason.isEmpty ? "sin motivo" : reason)",
-                reason: "Nada se borra hasta que lo confirmes aquí.",
-                note: "Revisa qué es antes de seguir.")
+                title: URLProposalPolicy.warningTitle(),
+                subtitle: URLProposalPolicy.warningSubtitle(agent: agent, reason: reason),
+                reason: URLProposalPolicy.warningReason,
+                note: URLProposalPolicy.warningNote)
+            let via = OperationContext.viaUnverifiedURL
             switch target {
             case .item(let id):
                 section = .cleanup
                 // La detección ya terminada (o la que está en curso) decide si el id sigue existiendo.
                 guard await waitUntil({ !$0.isRefreshingCleanup && ($0.scan != nil || !$0.isScanning) }) else { return }
                 guard let item = cleanupItems.first(where: { $0.id == id }) else {
-                    report(.url, "Un agente propuso «\(id)», pero ya no aparece en Limpieza.")
+                    report(.url, "Llegó por enlace una propuesta de «\(URLProposalPolicy.shortPath(id))», pero ya no aparece en Limpieza.")
                     return
                 }
                 guard item.protection == nil else {
-                    report(.url, "Un agente propuso «\(item.title)», pero es «No tocar»: Airy no lo ofrece.")
+                    report(.url, "Llegó por enlace una propuesta de «\(item.title)», pero es «No tocar»: Airy no lo ofrece.")
                     return
                 }
-                guard !flow.isBusy else {
-                    report(.url, "Airy está limpiando; vuelve a pedirlo en un momento.")
+                // Mientras se esperaba la detección pudo abrirse otra hoja o empezar una limpieza.
+                if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
+                    report(.url, refusal)
                     return
                 }
-                flow.requestClean([item], warning: warning, proposedBy: agent)
+                flow.requestClean([item], warning: warning, proposedBy: claimed, proposedVia: via)
             case .path(let path):
                 if let refusal = trashRefusal(path: path) {
-                    report(.url, "Un agente propuso mover «\(path)» a la Papelera, pero Airy no puede: \(refusal)")
+                    report(.url, "Llegó por enlace una propuesta de mover «\(URLProposalPolicy.shortPath(path))» a la Papelera, pero Airy no puede: \(refusal)")
                     return
                 }
                 let title = path.split(separator: "/").last.map(String.init) ?? path
-                flow.requestTrash(paths: [path], title: title, warning: warning, proposedBy: agent)
+                flow.requestTrash(paths: [path], title: title, warning: warning, proposedBy: claimed, proposedVia: via)
             }
         }
     }
@@ -560,7 +589,8 @@ final class AppModel {
                               uniquingKeysWith: { a, _ in a })
         }
         var previews: [String: CleanupPreview] = [:]
-        for item in items { previews[item.id] = await executor.preview(item, context: context) }
+        // La vista previa de la hoja no es una operación: no se anota en el registro.
+        for item in items { previews[item.id] = await executor.preview(item, context: context, logged: false) }
         return previews
     }
 
@@ -577,7 +607,14 @@ final class AppModel {
         await refreshCounters()
         await refreshVolumes()
         refreshCleanup()
+        reportAuditFailure()
         return outcome
+    }
+
+    /// Si no se pudo anotar algo en el registro de operaciones o en el historial, se dice (no se calla).
+    private func reportAuditFailure() {
+        guard let failure = operationLog.takeWriteFailure() else { return }
+        report(.audit, "Airy hizo la operación, pero \(failure). El registro exportable puede estar incompleto.")
     }
 
     /// Envía rutas elegidas en el mapa a la Papelera con todas las comprobaciones de
@@ -618,6 +655,7 @@ final class AppModel {
         await refreshCounters()
         await refreshVolumes()
         refreshCleanup()
+        reportAuditFailure()
         return outcome
     }
 
@@ -699,6 +737,7 @@ final class AppModel {
         await refreshVolumes()
         await refreshCounters()
         refreshCleanup()
+        reportAuditFailure()
         return outcome
     }
 

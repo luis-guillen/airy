@@ -183,10 +183,7 @@ struct AgentsView: View {
 
     /// Lo hecho o propuesto por agentes, lo más reciente primero, hasta 200.
     static func agentActivity(_ all: [OperationRecord]) -> [OperationRecord] {
-        let mine = all.filter { record in
-            if case .agent = record.actor { return true }
-            return record.proposedBy != nil
-        }
+        let mine = all.filter(URLProposalPolicy.isAgentActivity)
         return Array(mine.suffix(200).reversed())
     }
 
@@ -266,10 +263,8 @@ extension SnippetCard where Extra == EmptyView {
 private struct ActivityRow: View {
     let record: OperationRecord
 
-    private var agent: String {
-        if case .agent(let client) = record.actor { return client.isEmpty ? "Agente" : client }
-        return record.proposedBy ?? "Agente"
-    }
+    /// El nombre que trae un enlace `airy://` no está verificado: se enseña como «dice ser».
+    private var agent: String { URLProposalPolicy.activityAuthor(record) }
 
     private var action: String {
         let base: String = switch record.action {
