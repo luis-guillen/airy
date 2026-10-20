@@ -8,10 +8,10 @@ import Foundation
         ScanBudget.resolve(intensity, performanceCores: cores, lowPowerMode: lowPower, thermalState: thermal)
     }
 
-    @Test func backgroundIsTwoUtilityWorkers() {
-        #expect(budget(.background) == ScanBudget(workers: 2, qos: .utility))
-        #expect(budget(.background, cores: 16) == ScanBudget(workers: 2, qos: .utility))
-        #expect(budget(.background, lowPower: true, thermal: .critical) == ScanBudget(workers: 2, qos: .utility))
+    @Test func backgroundIsTwoWorkersAtBackgroundQoS() {
+        #expect(budget(.background) == ScanBudget(workers: 2, qos: .background))
+        #expect(budget(.background, cores: 16) == ScanBudget(workers: 2, qos: .background))
+        #expect(budget(.background, lowPower: true, thermal: .critical) == ScanBudget(workers: 2, qos: .background))
     }
 
     @Test func normalIsAtMostFourWorkersAtUtility() {
@@ -79,6 +79,14 @@ import Foundation
         #expect(ScanRootsOverride.roots(from: [:]) == nil)
         #expect(ScanRootsOverride.roots(from: ["AIRY_SCAN_ROOTS": ""]) == nil)
         #expect(ScanRootsOverride.roots(from: ["AIRY_SCAN_ROOTS": " : "]) == nil)
+    }
+
+    @Test func scanRootsOverrideSavesOnlyToATempSupportDir() {
+        #expect(ScanRootsOverride.allowsSaving(environment: [:]))
+        #expect(ScanRootsOverride.allowsSaving(environment: ["AIRY_SUPPORT_DIR": "/tmp/s"]))
+        #expect(!ScanRootsOverride.allowsSaving(environment: ["AIRY_SCAN_ROOTS": "/tmp/a"]))
+        #expect(!ScanRootsOverride.allowsSaving(environment: ["AIRY_SCAN_ROOTS": "/tmp/a", "AIRY_SUPPORT_DIR": ""]))
+        #expect(ScanRootsOverride.allowsSaving(environment: ["AIRY_SCAN_ROOTS": "/tmp/a", "AIRY_SUPPORT_DIR": "/tmp/s"]))
     }
     #endif
 }

@@ -440,7 +440,8 @@ final class AppModel {
             let expectedRoot = Self.expectedRootName(for: volume)
             let stored = await Task.detached(priority: .userInitiated) { () -> (ScanResult, Date?)? in
                 guard let result = try? store.loadScan(), result.root.name == expectedRoot else { return nil }
-                return (result, try? store.lastScanDate())
+                // La fecha del análisis va en el índice (no la del archivo: cada limpieza lo regraba).
+                return (result, result.scannedAt)
             }.value
             guard generation == self.scanGeneration else { return }
             if let (result, date) = stored {
@@ -465,7 +466,7 @@ final class AppModel {
             // 3. Nuevo análisis con hilos y QoS limitados por la intensidad, cancelable.
             let scanStarted = Date()
             let scanner = DiskScanner(options: ScanOptions(roots: Self.scanRoots(for: volume)), intensity: intensity)
-            let job = Task.detached(priority: .utility) {
+            let job = Task.detached(priority: intensity == .background ? .background : .utility) {
                 try await scanner.scan(progress: onProgress)
             }
             let result: ScanResult
@@ -501,7 +502,7 @@ final class AppModel {
             self.touchedPaths = self.touchedPaths.filter { $0.value >= scanStarted }
 
             // 5. Publicar, guardar y refrescar la limpieza.
-            self.show(result, date: Date(), volume: volume)
+            self.show(result, date: result.scannedAt ?? Date(), volume: volume)
             self.isScanning = false
             self.progress = nil
             self.refreshSystemState()
@@ -531,6 +532,10 @@ final class AppModel {
     /// antes de escribir, uno que ya no es el último pedido se salta: nunca queda en disco el
     /// árbol más antiguo.
     private func saveIndex(_ result: ScanResult, to store: IndexStore, key: String) async {
+        #if DEBUG
+        // Con AIRY_SCAN_ROOTS y sin AIRY_SUPPORT_DIR, el árbol parcial nunca pisa el índice real.
+        guard ScanRootsOverride.allowsSaving(environment: ProcessInfo.processInfo.environment) else { return }
+        #endif
         let sequencer = saveSequencer
         let ticket = sequencer.begin(key)
         let previous = lastSave[key]
@@ -592,7 +597,10 @@ final class AppModel {
             CleanupScanner(catalog: $0, runner: runner, probes: probes, references: ReferenceChecker(),
                            classifier: classifier)
         }
-        cleanupTask = Task { [weak self] in
+        // Prioridad `.utility` también para la tarea que espera: si la esperara una tarea del hilo
+        // principal (`.userInitiated`), la detección (que puede medir carpetas fuera del índice)
+        // subiría a esa prioridad.
+        cleanupTask = Task(priority: .utility) { [weak self] in
             await self?.refreshCounters()
             // Lee el árbol vivo: lector cancelable de `treeGate` (un cambio la cancela y la espera).
             guard let gate = self?.treeGate else { return }
