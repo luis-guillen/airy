@@ -71,6 +71,8 @@ public enum CleanupTargets {
         if case .projectArtifacts = entry.discovery { return ProjectArtifactSource() }
         if entry.discovery == .installers { return InstallerSource() }
         if case .toolchains = entry.discovery { return ToolchainSource() }
+        if entry.discovery == .toolchainSystemInfo { return ToolchainSystemInfoSource() }
+        if entry.discovery == .dependencyDuplicates { return DependencyDuplicateSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()
