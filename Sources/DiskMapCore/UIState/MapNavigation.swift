@@ -56,6 +56,36 @@ public struct MapNavigation: Sendable {
         return restored
     }
 
+    /// Muestra `path` desde la raíz: baja por nombre hasta la carpeta más honda que exista en el
+    /// análisis (un archivo deja el mapa en su carpeta). `true` solo si la ruta es una carpeta y se
+    /// llegó hasta ella; sin análisis o con una ruta fuera de la raíz no cambia nada y da `false`.
+    @discardableResult
+    public mutating func reveal(path: String) -> Bool {
+        guard let root else { return false }
+        let rootPath = root.path
+        let rest: Substring
+        if rootPath == "/" {
+            rest = Substring(path)
+        } else if path == rootPath || path.hasPrefix(rootPath + "/") {
+            rest = path.dropFirst(rootPath.count)
+        } else {
+            return false
+        }
+        var chain: [FileNode] = [root]
+        var reachedEnd = true
+        for name in rest.split(separator: "/") {
+            guard let next = chain.last?.children.first(where: {
+                $0.name == name && $0.isDirectory && $0.aggregatedCount == 0
+            }) else {
+                reachedEnd = false
+                break
+            }
+            chain.append(next)
+        }
+        stack = chain
+        return reachedEnd
+    }
+
     /// Sube un nivel; en la raíz no hace nada.
     public mutating func zoomOut() {
         guard stack.count > 1 else { return }

@@ -128,3 +128,42 @@ import Foundation
         #expect(navigation.stack.isEmpty)
     }
 }
+
+@Suite struct MapNavigationRevealTests {
+    private func tree() -> (root: FileNode, projects: FileNode, file: FileNode) {
+        let projects = FileNode(name: "Proyectos", isDirectory: true, allocatedSize: 10)
+        let file = FileNode(name: "notas.txt", isDirectory: false, allocatedSize: 1)
+        let ana = FileNode(name: "ana", isDirectory: true, allocatedSize: 11, children: [projects, file])
+        let users = FileNode(name: "Users", isDirectory: true, allocatedSize: 11, children: [ana])
+        let root = FileNode(name: "/", isDirectory: true, allocatedSize: 11, children: [users])
+        return (root, projects, file)
+    }
+
+    @Test func revealZoomsToDeepestExistingFolder() {
+        let t = tree()
+        var navigation = MapNavigation(root: t.root)
+        #expect(navigation.reveal(path: "/Users/ana/Proyectos/no-existe") == false)
+        #expect(navigation.current === t.projects)
+        #expect(navigation.breadcrumb == ["Macintosh HD", "Users", "ana", "Proyectos"])
+    }
+
+    @Test func revealReachesExistingFolderAndRestartsFromRoot() {
+        let t = tree()
+        var navigation = MapNavigation(root: t.root)
+        #expect(navigation.reveal(path: "/Users/ana/Proyectos") == true)
+        #expect(navigation.reveal(path: "/Users") == true)
+        #expect(navigation.stack.count == 2)
+        #expect(navigation.reveal(path: "/") == true)
+        #expect(navigation.stack.count == 1)
+    }
+
+    @Test func revealOfFileStopsInItsFolderAndWithoutScanDoesNothing() {
+        let t = tree()
+        var navigation = MapNavigation(root: t.root)
+        #expect(navigation.reveal(path: "/Users/ana/notas.txt") == false)
+        #expect(navigation.breadcrumb.last == "ana")
+        var empty = MapNavigation()
+        #expect(empty.reveal(path: "/Users") == false)
+        #expect(empty.current == nil)
+    }
+}
