@@ -79,9 +79,9 @@ public struct MCPToolRegistry: Sendable {
         MCPToolRegistry(readTools() + actionTools() + performanceTools())
     }
 
-    /// Rendimiento (plan 4): solo proponer; un agente nunca cierra una app. `GetPerformanceTool` llega con el diagnóstico.
+    /// Rendimiento (plan 4): leer y proponer; un agente nunca cierra una app.
     static func performanceTools() -> [any MCPTool] {
-        [ProposeQuitAppTool()]
+        [GetPerformanceTool(), ProposeQuitAppTool()]
     }
 
     /// Herramientas de solo lectura (Task 12).

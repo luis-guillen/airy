@@ -19,7 +19,7 @@ private let me = getuid()
 private let mb: Int64 = 1 << 20
 
 /// Spotify, Finder, Airy, airy-mcp suelto y dos `node` sueltos (uno grande); todo del usuario actual.
-private func sampleRaw() -> RawSample {
+private func sampleRaw(_ n: Int = 0) -> RawSample {
     let spotifyApp = "/Applications/Spotify.app", finderApp = "/System/Library/CoreServices/Finder.app"
     let airyApp = "/Applications/Airy.app"
     let processes = [
@@ -39,7 +39,10 @@ private func sampleRaw() -> RawSample {
         RunningAppInfo(pid: 1001, bundleID: "com.apple.finder", name: "Finder", bundlePath: finderApp, policy: .regular),
         RunningAppInfo(pid: 1002, bundleID: "local.airy.Airy", name: "Airy", bundlePath: airyApp, policy: .regular),
     ]
-    return RawSample(date: Date(timeIntervalSince1970: 1_000), uptimeNs: 1, memory: MemoryStats(total: 16 << 30),
+    let memory = MemoryStats(total: 16 << 30, used: 15 << 30, fileCache: 1 << 29, free: 1 << 28,
+                             pressure: .critical, swapUsed: 3 << 30, swapTotal: 4 << 30)
+    return RawSample(date: Date(timeIntervalSince1970: 1_000 + Double(n)), uptimeNs: UInt64(n + 1) * 1_000_000_000,
+                     memory: memory,
                      cores: Array(repeating: CoreTicks(user: 0, system: 0, idle: 0), count: 4),
                      processes: processes, apps: apps)
 }
@@ -53,6 +56,9 @@ private struct PerfFixture {
     func call(_ arguments: [String: JSONValue]) async -> MCPToolResult {
         await ProposeQuitAppTool().call(arguments, context: context)
     }
+    func performance() async -> MCPToolResult {
+        await GetPerformanceTool(interval: .milliseconds(1)).call([:], context: context)
+    }
 }
 
 private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()) -> PerfFixture {
@@ -60,7 +66,7 @@ private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()
     let home = root.appendingPathComponent("home", isDirectory: true).path
     try! FileManager.default.createDirectory(atPath: home, withIntermediateDirectories: true)
     let paths = AppPaths(support: root.appendingPathComponent("support", isDirectory: true), legacySupport: nil)
-    let sampler = FakeSampler([sampleRaw()])
+    let sampler = FakeSampler([sampleRaw(0), sampleRaw(1)])
     let env = AiryEnvironment(
         home: home, paths: paths, catalog: Catalog(entries: []), catalogError: nil,
         settings: SettingsStore(file: paths.settingsFile), index: IndexStore(directory: paths.support),
@@ -71,6 +77,65 @@ private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()
 }
 
 @Suite struct MCPPerformanceToolTests {
+    @Test func getPerformanceSamplesItselfAndReportsHealth() async {
+        let f = makePerfFixture()
+        let result = await f.performance()
+        #expect(!result.isError)
+        #expect(f.sampler.calls == 2)
+        // El mismo veredicto que da el monitor con esas dos muestras.
+        let monitor = PerformanceMonitor(sampler: FakeSampler([sampleRaw(0), sampleRaw(1)]), grouper: { raw, cpu, energy in
+            AppGrouper.group(raw, cpu: cpu, energy: energy, catalog: nil)
+        })
+        _ = await monitor.refresh(); _ = await monitor.refresh()
+        let expected = await monitor.verdict(probes: nil)
+        #expect(expected.findings.contains { $0.id == "memory" })
+        #expect(result.structured?["health"]?["sentence"] == .string(expected.sentence))
+        #expect(result.structured?["health"]?["light"] == .string(GetPerformanceTool.light(expected.level)))
+        #expect(result.text.hasPrefix(expected.sentence))
+        #expect(result.structured?["memory"]?["total_bytes"] == .number(Double(16 << 30)))
+        #expect(result.structured?["memory"]?["available_bytes"] == .number(Double((1 << 29) + (1 << 28))))
+        #expect(result.structured?["memory"]?["pressure"] == .string("critical"))
+        #expect(result.structured?["thermal"]?["label"] == .string("Normal"))
+        #expect(f.records().isEmpty)
+        #expect(f.opener.urls.isEmpty)
+    }
+
+    @Test func getPerformanceNeverLeaksPathsOrArgs() async {
+        let f = makePerfFixture()
+        let result = await f.performance()
+        let json = result.structured?.prettyString() ?? ""
+        for leak in ["proyecto-secreto", "/opt/homebrew", "/Applications", "/Users/", "1000", "1004", "1005", "pid"] {
+            #expect(!result.text.contains(leak), "\(leak)")
+            #expect(!json.contains(leak), "\(leak)")
+        }
+    }
+
+    @Test func getPerformanceMarksNeverClosable() async throws {
+        let f = makePerfFixture()
+        let result = await f.performance()
+        guard case .array(let top)? = result.structured?["top_by_memory"] else {
+            Issue.record("sin top_by_memory"); return
+        }
+        #expect(top.count == 5)
+        func row(_ name: String) -> JSONValue? { top.first { $0["name"] == .string(name) } }
+        #expect(row("Finder")?["closable"] == .bool(false) && row("Finder")?["risk"] == .null)
+        #expect(row("Spotify")?["closable"] == .bool(true) && row("Spotify")?["risk"] == .string("safe"))
+        #expect(row("Spotify")?["bundle_id"] == .string("com.spotify.client"))
+        #expect(row("node")?["risk"] == .string("yourCall"))
+        #expect(row("Airy")?["closable"] == .bool(false))
+    }
+
+    @Test func getPerformanceWorksWithToggleOff() async throws {
+        let f = makePerfFixture()
+        var off = AirySettings()
+        off.agentsEnabled = false
+        try f.env.settings.save(off)
+        let result = await f.performance()
+        #expect(!result.isError)
+        #expect(result.structured?["health"]?["sentence"] != nil)
+        #expect(GetPerformanceTool().annotations == MCPToolAnnotations(readOnly: true, destructive: false, idempotent: true))
+    }
+
     @Test func proposeQuitOpensURLAndNeverQuits() async {
         let f = makePerfFixture()
         let result = await f.call(["app": .string("com.spotify.client"), "reason": .string("pesa")])
