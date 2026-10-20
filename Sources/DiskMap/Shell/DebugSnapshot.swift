@@ -49,7 +49,9 @@ enum DebugSnapshot {
             FileHandle.standardError.write(Data(String(format: "[snap] %@ a %.2f s (%.0f ms)\n", url.lastPathComponent,
                 began.timeIntervalSince(start), Date().timeIntervalSince(began) * 1000).utf8))
         }
-        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
+        guard let main = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
+        // Con DISKMAP_SNAPSHOT_SHEET=1, si hay una hoja abierta se captura la hoja.
+        let window = environment["DISKMAP_SNAPSHOT_SHEET"] == "1" ? (main.attachedSheet ?? main) : main
         if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") {
             let create = unsafeBitCast(symbol, to: CreateImage.self)
             // .optionIncludingWindow = 1 << 3; .boundsIgnoreFraming = 1 << 0, .bestResolution = 1 << 3
