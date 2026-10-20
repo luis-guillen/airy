@@ -83,6 +83,22 @@ public enum AiryPalette {
         }
     }
 
+    /// Tinta de texto/icono de un tipo: el color del tipo, aclarado (oscuro) u oscurecido (claro)
+    /// lo justo para alcanzar AA sobre el fondo y el fondo elevado del modo.
+    public static func kindInk(_ kind: ContentKind, _ appearance: AiryAppearance) -> UInt32 {
+        let t = tokens(appearance)
+        let base = Self.kind(kind)
+        let target: UInt32 = appearance == .dark ? 0xffffff : 0x000000
+        func passes(_ c: UInt32) -> Bool {
+            ColorMath.contrastRatio(c, t.background) >= 4.5 && ColorMath.contrastRatio(c, t.backgroundRaised) >= 4.5
+        }
+        for step in 0...20 {
+            let candidate = ColorMath.mix(base, target, Double(step) / 20)
+            if passes(candidate) { return candidate }
+        }
+        return target
+    }
+
     /// Degradado de una tesela: más claro arriba, más oscuro abajo.
     public static func tileStops(_ base: UInt32) -> [UInt32] {
         [ColorMath.mix(base, 0xffffff, 0.10), base, ColorMath.mix(base, 0x000000, 0.10)]

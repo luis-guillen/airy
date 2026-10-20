@@ -33,6 +33,16 @@ struct AiryPaletteTests {
         }
     }
 
+    @Test(arguments: AiryAppearance.allCases)
+    func kindInkMeetsAAOnBothSurfaces(_ appearance: AiryAppearance) {
+        let t = AiryPalette.tokens(appearance)
+        for kind in ContentKind.allCases {
+            let ink = AiryPalette.kindInk(kind, appearance)
+            #expect(ColorMath.contrastRatio(ink, t.background) >= 4.5, "\(appearance) \(kind) fondo")
+            #expect(ColorMath.contrastRatio(ink, t.backgroundRaised) >= 4.5, "\(appearance) \(kind) elevado")
+        }
+    }
+
     @Test func tileLabelsMeetAAOnEveryGradientStop() {
         for base in ContentKind.allCases.map(AiryPalette.kind) + [AiryPalette.others] {
             let ink = AiryPalette.tileInk(base)
