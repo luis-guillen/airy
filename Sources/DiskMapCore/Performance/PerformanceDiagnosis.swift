@@ -136,13 +136,16 @@ public enum PerformanceDiagnosis {
         }
 
         // R8: procesos propios desbocados.
-        for p in last.raw.processes.sorted(by: { $0.pid < $1.pid }) where !p.isZombie {
+        // Airy (y su airy-mcp) nunca se señala a sí misma.
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        for p in last.raw.processes.sorted(by: { $0.pid < $1.pid })
+        where !p.isZombie && p.pid != ownPID && !QuitPolicy.isAiry(p) {
             let age = last.date.timeIntervalSince(p.startTime)
             guard age >= runawayAge else { continue }
             let lifetimeCPU = Double(p.cpuTimeNs) / 1_000_000_000 / age * 100
             guard lifetimeCPU >= runawayCPU else { continue }
             findings.append(Finding(id: "runaway:\(p.pid)", level: .fair,
-                                    sentence: "\(p.name) lleva \(Int(age / 3600)) h usando mucho procesador sin parar."))
+                                    sentence: "\(AppGrouper.friendlyName(p, catalog: nil)) lleva \(Int(age / 3600)) h usando mucho procesador sin parar."))
         }
 
         // Familias del sistema (solo con lista de `ps` en las dos últimas).

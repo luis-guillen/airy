@@ -372,6 +372,15 @@
       "processNames": [
         "kernel_task"
       ]
+    },
+    {
+      "id": "claude-code",
+      "title": "Claude Code",
+      "explanation": "Asistente de programación de Anthropic en la terminal; cada sesión abierta es un proceso aparte.",
+      "bundleIDs": [],
+      "processNames": [
+        "claude"
+      ]
     }
   ]
 }

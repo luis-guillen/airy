@@ -50,6 +50,11 @@ public struct QuitPolicy: Sendable {
         return group.kind == .looseProcess ? .allowed(.yourCall) : .allowed(.safe)
     }
 
+    /// El propio Airy o su `airy-mcp` (por nombre o por estar dentro de `Airy.app`).
+    static func isAiry(_ p: OwnProcess) -> Bool {
+        ["airy", "airy-mcp"].contains(p.name.lowercased()) || isInsideAiryBundle(p.executablePath)
+    }
+
     private static func isInsideAiryBundle(_ path: String?) -> Bool {
         guard let path else { return false }
         return (path + "/").contains("/Airy.app/")

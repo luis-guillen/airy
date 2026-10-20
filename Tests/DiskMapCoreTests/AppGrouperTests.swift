@@ -139,6 +139,27 @@ import Testing
         #expect(!QuitPolicy(currentUID: g[0].uid, ownPIDs: []).eligibility(g[0]).isAllowed)
     }
 
+    @Test func friendlyNamesForTruncatedVersionedAndDockerVM() {
+        let vmPath = "/System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine"
+        let claude = OwnProcess(pid: 30, name: "2.1.304", executablePath: "/Users/u/.local/share/claude/versions/2.1.304")
+        let catalog = AppCatalog(entries: [AppCatalogEntry(id: "claude-code", title: "Claude Code", explanation: "",
+                                                           processNames: ["claude"])])
+        #expect(AppGrouper.friendlyName(claude, catalog: catalog) == "Claude Code")
+        #expect(AppGrouper.friendlyName(claude, catalog: nil) == "claude")
+        let vm = OwnProcess(pid: 31, name: "com.apple.Virtualization.Virtua", executablePath: vmPath, footprint: 4 << 30)
+        #expect(AppGrouper.friendlyName(vm, catalog: nil) == "com.apple.Virtualization.VirtualMachine")
+        let node = OwnProcess(pid: 32, name: "node", executablePath: "/opt/homebrew/bin/node")
+        #expect(AppGrouper.friendlyName(node, catalog: Self.catalog) == "node")
+
+        let docker = OwnProcess(pid: 40, name: "Docker Desktop", executablePath: "/Applications/Docker.app/Contents/MacOS/Docker Desktop")
+        let apps = [RunningAppInfo(pid: 40, bundleID: "com.docker.docker", name: "Docker Desktop",
+                                   bundlePath: "/Applications/Docker.app", policy: .regular)]
+        let withDocker = AppGrouper.group(raw([docker, vm], apps: apps), cpu: [:], energy: [:], catalog: nil)
+        #expect(withDocker.contains { $0.kind == .system && $0.name == AppGrouper.dockerVMName })
+        let alone = AppGrouper.group(raw([vm]), cpu: [:], energy: [:], catalog: nil)
+        #expect(alone.first?.name == "com.apple.Virtualization.VirtualMachine")
+    }
+
     @Test func bundledAppCatalogHasRequiredIDs() throws {
         let catalog = try AppCatalog.bundled(executableURL: nil, searchProcessBundles: true)
         let ids = ["chrome", "safari", "firefox", "brave", "edge", "arc", "slack", "discord", "teams", "zoom", "spotify",
