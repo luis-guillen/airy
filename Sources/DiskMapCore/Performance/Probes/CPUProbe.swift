@@ -7,7 +7,7 @@ public enum CPUProbe {
         var cpuCount: natural_t = 0
         var info: processor_info_array_t?
         var infoCount: mach_msg_type_number_t = 0
-        let status = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &cpuCount, &info, &infoCount)
+        let status = host_processor_info(machHost, PROCESSOR_CPU_LOAD_INFO, &cpuCount, &info, &infoCount)
         guard status == KERN_SUCCESS, let info else { return nil }
         defer {
             vm_deallocate(mach_task_self_, vm_address_t(UInt(bitPattern: info)),

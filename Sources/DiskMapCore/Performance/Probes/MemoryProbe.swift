@@ -8,13 +8,13 @@ public enum MemoryProbe {
         var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
         let status = withUnsafeMutablePointer(to: &vm) { ptr in
             ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+                host_statistics64(machHost, HOST_VM_INFO64, $0, &count)
             }
         }
         guard status == KERN_SUCCESS else { return nil }
 
         var pageSize: vm_size_t = 0
-        guard host_page_size(mach_host_self(), &pageSize) == KERN_SUCCESS, pageSize > 0 else { return nil }
+        guard host_page_size(machHost, &pageSize) == KERN_SUCCESS, pageSize > 0 else { return nil }
         guard let total = sysctlValue("hw.memsize", as: UInt64.self), total > 0 else { return nil }
 
         var swap = xsw_usage()
@@ -51,6 +51,9 @@ public enum MemoryProbe {
         }
     }
 }
+
+/// Puerto del host obtenido una sola vez: `mach_host_self()` añade una referencia en cada llamada y nunca se libera.
+let machHost: mach_port_t = mach_host_self()
 
 /// Lee un entero de `sysctlbyname` (nil si no existe).
 func sysctlValue<T: FixedWidthInteger>(_ name: String, as: T.Type) -> T? {
