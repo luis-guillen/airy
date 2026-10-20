@@ -12,7 +12,7 @@ struct SettingsView: View {
             if let notice = model.unreadableSettingsNotice {
                 SwiftUI.Section {
                     Label(notice, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Theme.color(for: .yourCall))
+                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                     HStack {
                         Spacer()
                         PrimaryButton("Restablecer ajustes", systemImage: "arrow.counterclockwise", style: .secondary) {

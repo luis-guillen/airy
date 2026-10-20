@@ -8,6 +8,35 @@ struct RootView: View {
     @ViewState private var columnVisibility = NavigationSplitViewVisibility.all
     /// Confirmaciones, tandas de limpieza, Papelera y celebración (compartido con la barra lateral).
     @ViewState private var cleanupFlow = CleanupFlow()
+    /// Portero de movimiento: hasta que la ventana informa, todo quieto.
+    @ViewState private var windowVisible = false
+    @ViewState private var appActive = false
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    /// Capa de arranque (`LaunchSwirl`): una sola vez por proceso, aunque se abra otra ventana.
+    @ViewState private var launching = RootView.launchPending
+    static var hasPlayed = false
+
+    private static var launchPending: Bool {
+        #if DEBUG
+        if DebugSnapshot.skipsLaunch { return false }
+        #endif
+        return !hasPlayed
+    }
+
+    private var reduceMotion: Bool {
+        #if DEBUG
+        if DebugSnapshot.forcesReduceMotion { return true }
+        #endif
+        return systemReduceMotion
+    }
+
+    private var ambientMotion: MotionMode {
+        AnimationGate.ambient(windowVisible: windowVisible, appActive: appActive, reduceMotion: reduceMotion)
+    }
+
+    private var transientMotion: MotionMode {
+        AnimationGate.transient(windowVisible: windowVisible, reduceMotion: reduceMotion)
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -17,7 +46,20 @@ struct RootView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 1100, minHeight: 720)
+        .tint(Theme.Airy.accent)
+        .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
+        // Por encima de todo; el análisis arranca a la vez (`.task` no la espera).
+        .overlay { launchLayer }
         .environment(cleanupFlow)
+        .environment(\.airyAmbientMotion, ambientMotion)
+        .environment(\.airyTransientMotion, transientMotion)
+        .background {
+            WindowActivityReader { visible, active in
+                windowVisible = visible
+                appActive = active
+            }
+        }
+        .logAmbientMotion(ambientMotion)
         .sheet(item: $cleanupFlow.sheet) { sheet in
             Group {
                 switch sheet {
@@ -25,13 +67,30 @@ struct RootView: View {
                 case .snapshots(let notice): SnapshotsSheet(notice: notice)
                 }
             }
+            .tint(Theme.Airy.accent)
+            .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
             .environment(model)
             .environment(cleanupFlow)
+            .environment(\.airyAmbientMotion, ambientMotion)
+            .environment(\.airyTransientMotion, transientMotion)
         }
-        .task { model.startScan() }
+        .task {
+            #if DEBUG
+            if DebugSnapshot.showsGallery { return }
+            #endif
+            model.startScan(.automatic)
+        }
         .task(id: model.pendingURLCommand?.id) {
             if let pending = model.pendingURLCommand { await model.run(pending, flow: cleanupFlow) }
         }
+    }
+
+    private var showsGallery: Bool {
+        #if DEBUG
+        DebugSnapshot.showsGallery
+        #else
+        false
+        #endif
     }
 
     private var showsBanner: Bool { !model.hasFullDiskAccess && !bannerDismissed }
@@ -43,7 +102,7 @@ struct RootView: View {
 
     private var detail: some View {
         ZStack(alignment: .top) {
-            DetailBackground()
+            BreezeBackground(intensity: .ambient)
 
             VStack(spacing: 0) {
                 if showsBanner {
@@ -66,7 +125,11 @@ struct RootView: View {
                 }
 
                 Group {
-                    if model.scan == nil, model.isScanning {
+                    if showsGallery {
+                        #if DEBUG
+                        MotionGallery()
+                        #endif
+                    } else if model.scan == nil, model.isScanning {
                         ScanProgressView(style: .hero)
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     } else if model.scan == nil, let error = model.scanError {
@@ -101,6 +164,13 @@ struct RootView: View {
 }
 
 extension RootView {
+    @ViewBuilder fileprivate var launchLayer: some View {
+        if launching {
+            LaunchSwirl { launching = false }
+                .onAppear { RootView.hasPlayed = true }
+        }
+    }
+
     /// Celebración al liberar espacio, encima del contenido (venga de Limpieza o de la barra lateral).
     @ViewBuilder fileprivate var celebrationLayer: some View {
         if let celebration = cleanupFlow.celebration {
@@ -112,22 +182,6 @@ extension RootView {
             .id(celebration.id)
             .transition(.opacity)
         }
-    }
-}
-
-/// Fondo del contenido: color de ventana con un halo muy suave de la marca.
-private struct DetailBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        ZStack {
-            Color(nsColor: .windowBackgroundColor)
-            RadialGradient(colors: [Color(hex: 0x0A84FF, opacity: colorScheme == .dark ? 0.10 : 0.06), .clear],
-                           center: .topTrailing, startRadius: 0, endRadius: 700)
-            RadialGradient(colors: [Color(hex: 0x5E5CE6, opacity: colorScheme == .dark ? 0.08 : 0.04), .clear],
-                           center: .bottomLeading, startRadius: 0, endRadius: 600)
-        }
-        .ignoresSafeArea()
     }
 }
 
@@ -228,7 +282,7 @@ private struct NoticeBanner: View {
         HStack(spacing: 12) {
             Image(systemName: notice.kind == .scan ? "exclamationmark.triangle.fill" : "exclamationmark.circle.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.color(for: .yourCall))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
             Text(notice.message)
                 .font(.callout)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -265,7 +319,7 @@ private struct ScanErrorView: View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 40))
-                .foregroundStyle(Theme.color(for: .yourCall))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
             Text(message)
                 .font(.headline)
                 .multilineTextAlignment(.center)

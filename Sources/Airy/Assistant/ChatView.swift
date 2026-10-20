@@ -259,7 +259,7 @@ private struct ChatBubbleRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
-                    .foregroundStyle(Theme.color(for: .yourCall))
+                    .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 if isLast {
                     PrimaryButton("Reintentar", systemImage: "arrow.clockwise", style: .secondary) {
                         model.assistant.retry(model: model)

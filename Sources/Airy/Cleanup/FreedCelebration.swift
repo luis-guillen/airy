@@ -31,14 +31,14 @@ struct FreedCelebration: View {
                         .stroke(.primary.opacity(0.08), lineWidth: 14)
                     Circle()
                         .trim(from: 0, to: fill)
-                        .stroke(LinearGradient(colors: [Color(hex: 0x30D158), Color(hex: 0x64D2FF)],
+                        .stroke(LinearGradient(colors: [Theme.Airy.riskFill(.safe), Theme.Airy.sky],
                                                startPoint: .topLeading, endPoint: .bottomTrailing),
                                 style: StrokeStyle(lineWidth: 14, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                     VStack(spacing: 2) {
                         Image(systemName: "leaf.fill")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Theme.color(for: .caches))
+                            .foregroundStyle(Theme.Airy.riskInk(.safe))
                         BytesCounter(bytes: bytes, font: .system(size: 30, weight: .bold, design: .rounded),
                                      countsUpOnAppear: !reduceMotion)
                         Text("liberados")
@@ -104,8 +104,8 @@ private struct ParticleBurst: View {
 
     private static let count = 42
     private static let colors: [Color] = [
-        Color(hex: 0x30D158), Color(hex: 0x64D2FF), Color(hex: 0x0A84FF),
-        Color(hex: 0xBF5AF2), Color(hex: 0xFF9F0A), Color(hex: 0xFFD60A),
+        Theme.Airy.riskFill(.safe), Theme.Airy.sky, Theme.Airy.accent,
+        Theme.Airy.leafSky, Theme.Airy.logoTop,
     ]
 
     var body: some View {

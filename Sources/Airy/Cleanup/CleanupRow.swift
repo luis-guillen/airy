@@ -114,7 +114,7 @@ struct CleanupRow: View {
             let names = blocked.map(CleanupFlow.appName)
             HStack(spacing: 10) {
                 Image(systemName: "lock.app.dashed")
-                    .foregroundStyle(Theme.color(for: .yourCall))
+                    .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 Text(CleanupBoard.blockedMessage(appNames: names) ?? "")
                     .font(.callout.weight(.medium))
                 Spacer(minLength: 8)
@@ -129,13 +129,13 @@ struct CleanupRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Theme.color(for: .yourCall).opacity(0.10),
+            .background(Theme.Airy.riskFill(.yourCall).opacity(0.10),
                         in: RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous))
             ForEach(blocked, id: \.self) { bundleID in
                 if let refusal = flow.appRefusals[bundleID] {
                     Label(refusal, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
-                        .foregroundStyle(Theme.color(for: .yourCall))
+                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 }
             }
         }
@@ -148,13 +148,13 @@ struct CleanupRow: View {
         if let reason = CleanupBoard.blockedReasonText(item) {
             Label(reason, systemImage: "hand.raised.fill")
                 .font(.callout.weight(.medium))
-                .foregroundStyle(Theme.color(for: .yourCall))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 .lineLimit(3)
         }
         if let used = CleanupBoard.usedByMessage(item.usedBy) {
             Label(used, systemImage: "link")
                 .font(.callout.weight(.medium))
-                .foregroundStyle(Theme.color(for: .doNotTouch))
+                .foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
                 .lineLimit(2)
                 .truncationMode(.middle)
         }
@@ -218,7 +218,7 @@ struct CleanupIcon: View {
                 .saturation(dimmed ? 0.35 : 1)
             Image(systemName: Self.symbol(for: entry))
                 .font(.system(size: size * 0.44, weight: .semibold))
-                .foregroundStyle(darkGlyph ? Color.black.opacity(0.72) : .white)
+                .foregroundStyle(glyphInk)
         }
         .frame(width: size, height: size)
         .overlay {
@@ -228,8 +228,11 @@ struct CleanupIcon: View {
         .shadow(color: Theme.color(for: entry.kind).opacity(dimmed ? 0 : 0.28), radius: 6, y: 3)
     }
 
-    /// Texto oscuro sobre los tonos claros (amarillo, celeste, verde), como en el mapa.
-    private var darkGlyph: Bool { [.documents, .aiModels, .caches].contains(entry.kind) }
+    /// Glifo con contraste AA sobre los dos extremos del degradado del tipo, como en el mapa.
+    private var glyphInk: Color {
+        let base = AiryPalette.kind(entry.kind)
+        return Color(hex: AiryPalette.inkForFill([ColorMath.mix(base, 0xffffff, 0.18), base]))
+    }
 
     static func symbol(for entry: CatalogEntry) -> String {
         let id = entry.id

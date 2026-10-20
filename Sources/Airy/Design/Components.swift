@@ -36,26 +36,36 @@ struct GlassCard<Content: View>: View {
 
 // MARK: - RiskBadge
 
-/// Etiqueta de riesgo: "Borrar sin riesgo", "Depende de ti" o "No tocar".
+/// Etiqueta de riesgo: «Sin problema», «Tú decides» o «No borrar». Texto e icono en la tinta AA del
+/// modo; el fondo y el borde llevan la señal de seguridad fija.
 struct RiskBadge: View {
     let risk: Risk
     var compact = false
+    var reason: String?
+
+    init(risk: Risk, compact: Bool = false, reason: String? = nil) {
+        self.risk = risk
+        self.compact = compact
+        self.reason = reason
+    }
 
     var body: some View {
-        let tint = Theme.color(for: risk)
+        let fill = Theme.Airy.riskFill(risk)
         Label {
-            if !compact { Text(risk.title) }
+            if !compact { Text(risk.label) }
         } icon: {
             Image(systemName: Theme.symbol(for: risk))
                 .imageScale(.small)
         }
         .font(.caption.weight(.semibold))
-        .foregroundStyle(tint)
+        .foregroundStyle(Theme.Airy.riskInk(risk))
         .padding(.horizontal, compact ? 6 : 9)
         .padding(.vertical, 4)
-        .background(tint.opacity(0.14), in: Capsule())
-        .overlay(Capsule().strokeBorder(tint.opacity(0.25), lineWidth: 0.5))
-        .help(risk.title)
+        .background(fill.opacity(AiryPalette.badgeTintOpacity), in: Capsule())
+        .overlay(Capsule().strokeBorder(fill.opacity(0.35), lineWidth: 0.5))
+        .help(reason ?? risk.label)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(reason.map { "\(risk.label). \($0)" } ?? risk.label)
     }
 }
 
@@ -159,6 +169,7 @@ private struct PrimaryButtonBody: View {
                     radius: hovering ? 10 : 6, y: 3)
             .brightness(hovering && isEnabled ? 0.05 : 0)
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .hoverSway(hovering && isEnabled)
             .opacity(isEnabled ? 1 : 0.45)
             .animation(Theme.pressSpring, value: configuration.isPressed)
             .animation(Theme.pressSpring, value: hovering)
@@ -171,7 +182,7 @@ private struct PrimaryButtonBody: View {
     }
 
     private var shadowColor: Color {
-        style == .destructive ? Theme.color(for: .doNotTouch) : Theme.userFilesColor
+        style == .destructive ? Theme.Airy.destructiveBottom : Theme.Airy.accent
     }
 
     @ViewBuilder private var background: some View {
@@ -179,8 +190,7 @@ private struct PrimaryButtonBody: View {
         case .primary: Capsule().fill(Theme.brand)
         case .secondary: Capsule().fill(.thinMaterial)
         case .destructive:
-            Capsule().fill(LinearGradient(colors: [Color(hex: 0xFF6961), Color(hex: 0xFF3B30)],
-                                          startPoint: .top, endPoint: .bottom))
+            Capsule().fill(Theme.Airy.destructiveGradient)
         }
     }
 }
