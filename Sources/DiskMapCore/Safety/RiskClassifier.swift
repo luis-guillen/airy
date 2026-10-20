@@ -48,7 +48,8 @@ public struct RiskClassifier: Sendable {
         return entry.risk
     }
 
-    public func classify(entry: CatalogEntry, paths: [String], ai: Risk? = nil) -> Classification {
+    /// `floor`: guardia de la fuente de objetivos (p. ej. un proyecto con claves); solo sube el riesgo.
+    public func classify(entry: CatalogEntry, paths: [String], ai: Risk? = nil, floor: Risk? = nil) -> Classification {
         let base = baseRisk(of: entry)
         var reasons: [String] = []
         if base != entry.risk { reasons.append("Modo \(settings.mode.title): «\(base.label)».") }
@@ -80,6 +81,7 @@ public struct RiskClassifier: Sendable {
 
         var risk = base
         if let ai { risk = .strictest(risk, ai) }
+        if let floor { risk = .strictest(risk, floor) }
         for path in kept { risk = .strictest(risk, RiskPolicy.minimumRisk(forPath: path, home: home)) }
         if protection != nil { risk = .doNotTouch }
 
