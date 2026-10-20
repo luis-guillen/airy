@@ -34,7 +34,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
               isAppStore: false, caskToken: nil, lastUsed: nil)
 }
 
-@Suite struct LeftoverTests {
+@Suite final class LeftoverTests {
     let tmp = makeDir("airy-leftovers")
     var apps: String { tmp + "/Applications" }
     var h: String { tmp + "/home" }
@@ -49,6 +49,8 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         mkdir(tmp + "/Library")
         makeBundle(tmp + "/Applications/Foo.app", id: "com.example.foo")
     }
+
+    deinit { try? FileManager.default.removeItem(atPath: tmp) }
 
     func finder(protected patterns: [String] = [], runner: FakeRunner? = nil) -> LeftoverFinder {
         let gate = PathGate(home: h, catalog: try? Catalog.bundled(),
@@ -225,6 +227,8 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         write(sysLib + "/PrivilegedHelperTools/com.example.foo.helper")
         write(sysLib + "/Application Support/Foo Bar/x")
         write(sysLib + "/Logs/Unrelated/x")
+        write(sysLib + "/Caches/com.example.foobar/x")                    // otro id que empieza igual: no
+        write(sysLib + "/Application Support/Foo Barista/x")              // otro nombre que empieza igual: no
         let plan = await plan()
         let system = plan.leftovers.filter { $0.kind == .systemLocation }
         #expect(Set(system.map(\.path)) == [sysLib + "/Caches/com.example.foo",
@@ -282,6 +286,9 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(plan.leftoverBytes == 0 && plan.realBytes == plan.appBytes)
         // Mismo registro (misma ruta): no es otra copia.
         #expect(await self.plan(others: [foo]).sharedWith == nil)
+        // Sin identificador no hay «otra copia» por coincidir en vacío.
+        let blank = record("", "Blank", apps + "/Blank.app")
+        #expect(await self.plan(blank, others: [record("", "Other", apps + "/Other.app")]).sharedWith == nil)
     }
 
     @Test func linkedAppOutsideAppRootsIsInformational() async {
@@ -339,5 +346,102 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         let plan = await finder.plan(for: foo, inventory: inventory([foo]))
         #expect(!plan.sizeComplete)
         #expect(plan.appBytes == 0 && plan.leftovers.allSatisfy { $0.bytes == 0 })
+    }
+
+    // MARK: - Datos de otras apps instaladas
+
+    @Test func sharedHelperWithAnotherInstalledAppIsRed() async {
+        // Foo y Suite comparten el ayudante com.example.foo.helper; además, el id de Foo es ayudante de Other.
+        write(lib + "/Caches/com.example.foo.helper/x")
+        write(lib + "/Containers/com.example.foo.helper/x")
+        write(lib + "/Caches/\(id)/x")
+        write(lib + "/Logs/\(id)/x")
+        let suite = record("com.example.suite", "Suite", apps + "/Suite.app", helpers: ["com.example.foo.helper"])
+        let shared = await plan(others: [suite])
+        for path in [lib + "/Caches/com.example.foo.helper", lib + "/Containers/com.example.foo.helper"] {
+            let leftover = try! #require(shared.leftovers.first { $0.path == path })
+            #expect(leftover.risk == .doNotTouch && !leftover.preselected && !leftover.canSelect)
+            #expect(leftover.reason == "Otra app instalada («Suite») también lo usa.")
+            #expect(!shared.defaultSelection.contains(leftover.id))
+        }
+        #expect(shared.leftovers.first { $0.path == lib + "/Caches/\(id)" }?.preselected == true)
+        let host = record("com.example.host", "Host", apps + "/Host.app", helpers: [id])
+        let owned = await plan(others: [host])
+        for path in [lib + "/Caches/\(id)", lib + "/Logs/\(id)"] {
+            let leftover = try! #require(owned.leftovers.first { $0.path == path })
+            #expect(leftover.risk == .doNotTouch && leftover.reason == "Otra app instalada («Host») también lo usa.")
+        }
+        // El ayudante propio (com.example.foo.helper) desciende de un id de Foo: sigue siendo de Foo.
+        #expect(owned.leftovers.first { $0.path == lib + "/Caches/com.example.foo.helper" }?.risk == .safe)
+        // Una app cuyo id es antepasado del propio no reclama los restos de Foo.
+        let vendor = record("com.example", "Example Vendor", apps + "/Vendor.app")
+        let ancestor = await plan(others: [vendor])
+        #expect(ancestor.leftovers.first { $0.path == lib + "/Caches/\(id)" }?.preselected == true)
+    }
+
+    @Test func prefixOfAnotherInstalledAppIsNotClaimed() async {
+        write(lib + "/Preferences/ByHost/\(id).1111.plist")
+        write(lib + "/Preferences/ByHost/\(id).pro.2222.plist")
+        writePlist(lib + "/LaunchAgents/own.plist", ["Label": "\(id).agent"])
+        writePlist(lib + "/LaunchAgents/pro.plist", ["Label": "\(id).pro.agent"])
+        let pro = record("\(id).pro", "Foo Pro", apps + "/Foo Pro.app")
+        let plan = await plan(others: [pro])
+        let reason = "Otra app instalada («Foo Pro») también lo usa."
+        for path in [lib + "/Preferences/ByHost/\(id).pro.2222.plist", lib + "/LaunchAgents/pro.plist"] {
+            let leftover = try! #require(plan.leftovers.first { $0.path == path })
+            #expect(leftover.risk == .doNotTouch && !leftover.preselected && leftover.reason == reason)
+        }
+        for path in [lib + "/Preferences/ByHost/\(id).1111.plist", lib + "/LaunchAgents/own.plist"] {
+            let leftover = try! #require(plan.leftovers.first { $0.path == path })
+            #expect(leftover.risk == .yourCall && leftover.preselected)
+        }
+    }
+
+    @Test func receiptSharedWithOtherAppIsNotSelected() async {
+        let info = "/usr/sbin/pkgutil --file-info \(fooPath)"
+        let ids = "pkgid: com.example.foo.pkg\npkgid: com.example.suite.pkg\npkgid: com.example.unknown.pkg\n"
+        let runner = FakeRunner(outputs: [
+            info: CommandOutput(status: 0, stdout: ids, stderr: ""),
+            "/usr/sbin/pkgutil --files com.example.foo.pkg --only-dirs": CommandOutput(
+                status: 0, stdout: "Applications\nApplications/Foo.app\nApplications/Foo.app/Contents/Helpers/H.app\n",
+                stderr: ""),
+            "/usr/sbin/pkgutil --files com.example.suite.pkg --only-dirs": CommandOutput(
+                status: 0, stdout: "Applications/Foo.app\nApplications/Suite Tools/Bar.app/Contents\n", stderr: ""),
+            "/usr/sbin/pkgutil --files com.example.unknown.pkg --only-dirs": CommandOutput(
+                status: 1, stdout: "", stderr: "No receipt"),
+        ])
+        let plan = await plan(runner: runner)
+        #expect(runner.calls.contains {
+            $0.arguments == ["--files", "com.example.suite.pkg", "--only-dirs"] && $0.timeout == 10
+        })
+        func receipt(_ id: String) -> Leftover? { plan.leftovers.first { $0.kind == .receipt && $0.path == id } }
+        #expect(receipt("com.example.foo.pkg")?.risk == .safe)
+        #expect(receipt("com.example.foo.pkg")?.preselected == true)
+        let suite = try! #require(receipt("com.example.suite.pkg"))
+        #expect(suite.risk == .doNotTouch && !suite.preselected)
+        #expect(suite.reason == "Este registro incluye también otras apps (Bar.app).")
+        let unknown = try! #require(receipt("com.example.unknown.pkg"))
+        #expect(unknown.risk == .yourCall && !unknown.preselected)
+        #expect(unknown.reason == "No se pudo comprobar si este registro incluye otras apps.")
+        #expect(plan.defaultSelection.filter { $0.hasPrefix("receipt:") } == ["receipt:com.example.foo.pkg"])
+    }
+
+    @Test func moreAccountAppsNeedTheWaiver() async {
+        // Además de Slack: Discord (Application Support) y WhatsApp (Containers).
+        let cases: [(id: String, name: String, data: String)] = [
+            ("com.hnc.Discord", "Discord", lib + "/Application Support/discord"),
+            ("net.whatsapp.WhatsApp", "WhatsApp", lib + "/Containers/net.whatsapp.WhatsApp"),
+            ("ru.keepcoder.Telegram", "Telegram", lib + "/Containers/ru.keepcoder.Telegram"),
+        ]
+        for item in cases {
+            let path = apps + "/\(item.name).app"
+            makeBundle(path, id: item.id)
+            write(item.data + "/x")
+            let plan = await plan(record(item.id, item.name, path))
+            let data = try! #require(plan.leftovers.first { $0.path == item.data }, "\(item.name)")
+            #expect(data.risk == .yourCall && !data.preselected, "\(item.name)")
+            #expect(data.reason == "Datos de cuenta de «\(item.name)»: si la reinstalas tendrás que volver a configurarla.",
+                    "\(item.name)")
+        }
     }
 }

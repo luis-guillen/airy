@@ -125,6 +125,38 @@ public struct LeftoverFinder: Sendable {
         var launchLabel: String? = nil
         /// Ruta de disco que se mide (no en los recibos).
         var measured = true
+        /// Nombre de otra app instalada cuyo identificador también reclama este resto.
+        var claimedBy: String? = nil
+    }
+
+    /// Identificadores (en minúsculas) de las demás apps instaladas y sus ayudantes → nombre de la app.
+    private struct OtherOwners {
+        let owners: [(id: String, name: String)]
+        let ownIDs: [String]
+
+        init(apps: [AppRecord], ownIDs: [String]) {
+            var seen = Set<String>()
+            var owners: [(String, String)] = []
+            for app in apps {
+                for id in [app.bundleID] + app.helperBundleIDs {
+                    let lower = id.lowercased()
+                    if !lower.isEmpty, seen.insert(lower).inserted { owners.append((lower, app.name)) }
+                }
+            }
+            // El más largo primero: el dueño más concreto.
+            self.owners = owners.sorted { $0.0.count != $1.0.count ? $0.0.count > $1.0.count : $0.0 < $1.0 }
+            self.ownIDs = ownIDs
+        }
+
+        /// La app instalada a la que también pertenece `entry` (en minúsculas). Gana el id más concreto que lo
+        /// nombra (`entry` es el id o empieza por `<id>.`): si el de otra app es igual de largo (compartido) o
+        /// más largo que el propio (`com.example.foo.pro` frente a `com.example.foo`), es de esa app; un id
+        /// más corto (`com.example`) no reclama lo que es de esta.
+        func claimant(of entry: String) -> String? {
+            func names(_ id: String) -> Bool { entry == id || entry.hasPrefix(id + ".") }
+            let own = ownIDs.filter(names).map(\.count).max() ?? 0
+            return owners.first { names($0.id) && $0.id.count >= own }?.name
+        }
     }
 
     public func plan(for app: AppRecord, inventory: AppInventorySnapshot) async -> UninstallPlan {
@@ -136,6 +168,9 @@ public struct LeftoverFinder: Sendable {
             if !lower.isEmpty, !ids.contains(lower) { ids.append(lower) }
         }
         let names = Set(AppInventory.nameVariants(app.name).map { $0.lowercased() })
+        let canonicalPath = RiskPolicy.canonical(app.path)
+        let otherApps = inventory.apps.filter { RiskPolicy.canonical($0.path) != canonicalPath }
+        let others = OtherOwners(apps: otherApps, ownIDs: ids)
 
         var candidates: [Candidate] = []
         var seen = Set<String>()
@@ -156,23 +191,33 @@ public struct LeftoverFinder: Sendable {
                         candidate.preselected = false
                         candidate.reason = "Coincide por nombre: revisa que sea de «\(app.name)»."
                     }
+                    if match == .id { candidate.claimedBy = others.claimant(of: entry.lowercased()) }
                     add(candidate)
                 }
             }
-            for agent in launchAgents(in: library + "/LaunchAgents", ids: ids, appPath: app.path) { add(agent) }
+            for agent in launchAgents(in: library + "/LaunchAgents", ids: ids, appPath: app.path, others: others) {
+                add(agent)
+            }
         }
         // Reglas 2 y 3: el embudo (con y sin dispensa) y el suelo por ruta.
         candidates = candidates.map(labelled(waiver: waiver, appName: app.name))
+        // Nunca se selecciona lo que también es de otra app instalada.
+        candidates = candidates.map {
+            guard let owner = $0.claimedBy else { return $0 }
+            var copy = $0
+            copy.risk = .doNotTouch
+            copy.preselected = false
+            copy.reason = "Otra app instalada («\(owner)») también lo usa."
+            return copy
+        }
         if !ids.isEmpty || !names.isEmpty {
             for candidate in systemLocations(ids: ids, names: names) { add(candidate) }
         }
         for receipt in await receipts(for: app) { add(receipt) }
 
         // Regla 4: otra copia instalada; y enlaces a apps fuera de las raíces: solo informativo.
-        let canonicalPath = RiskPolicy.canonical(app.path)
-        let other = inventory.apps.first {
+        let other = app.bundleID.isEmpty ? nil : otherApps.first {
             $0.bundleID.caseInsensitiveCompare(app.bundleID) == .orderedSame
-                && RiskPolicy.canonical($0.path) != canonicalPath
         }
         let override: String? = if let other {
             "Otra copia instalada en \(other.path) los usa."
@@ -193,7 +238,10 @@ public struct LeftoverFinder: Sendable {
             }
         }
 
-        let (sizes, complete) = await measure([app.path] + candidates.filter(\.measured).map(\.path))
+        // Primero lo seleccionable: si se agota el tiempo, lo informativo es lo que queda sin medir.
+        let measured = candidates.filter(\.measured)
+        let (sizes, complete) = await measure([app.path] + measured.filter { $0.risk != .doNotTouch }.map(\.path)
+                                              + measured.filter { $0.risk == .doNotTouch }.map(\.path))
         let leftovers = candidates.map {
             Leftover(path: $0.path, kind: $0.kind, bytes: $0.measured ? sizes[$0.path] ?? 0 : 0, risk: $0.risk,
                      preselected: $0.preselected, matchedByName: $0.matchedByName, reason: $0.reason,
@@ -228,7 +276,7 @@ public struct LeftoverFinder: Sendable {
 
     /// `LaunchAgents/*.plist` cuyo `Label` es un id o empieza por `<id>.`, o cuyo programa está dentro del
     /// `.app` (la ruta tal cual, sin seguir enlaces). Los plist ilegibles se saltan.
-    private func launchAgents(in folder: String, ids: [String], appPath: String) -> [Candidate] {
+    private func launchAgents(in folder: String, ids: [String], appPath: String, others: OtherOwners) -> [Candidate] {
         let bundle = RiskPolicy.canonical(appPath)
         var result: [Candidate] = []
         for entry in Self.entries(of: folder) where entry.lowercased().hasSuffix(".plist") {
@@ -245,7 +293,7 @@ public struct LeftoverFinder: Sendable {
             guard byLabel || byProgram else { continue }
             result.append(Candidate(path: path, kind: .launchAgent, matchedByName: false, risk: .yourCall,
                                     preselected: true, reason: "Se ejecuta al iniciar sesión; se detiene antes.",
-                                    launchLabel: label))
+                                    launchLabel: label, claimedBy: others.claimant(of: lower)))
         }
         return result
     }
@@ -257,14 +305,21 @@ public struct LeftoverFinder: Sendable {
             let folder = systemLibrary + "/" + sub
             for entry in Self.entries(of: folder) {
                 let lower = entry.lowercased()
-                let byID = ids.contains { lower.hasPrefix($0) }
-                guard byID || names.contains(where: { lower.hasPrefix($0) }) else { continue }
+                let byID = ids.contains { Self.startsWord(lower, $0) }
+                guard byID || names.contains(where: { Self.startsWord(lower, $0) }) else { continue }
                 result.append(Candidate(path: folder + "/" + entry, kind: .systemLocation, matchedByName: !byID,
                                         risk: .doNotTouch, preselected: false,
                                         reason: "Fuera de tu carpeta personal: Airy no lo borra."))
             }
         }
         return result
+    }
+
+    /// `entry` empieza por `prefix` y sigue el final o un separador (`.`, `-`, `_`, espacio).
+    static func startsWord(_ entry: String, _ prefix: String) -> Bool {
+        guard entry.hasPrefix(prefix) else { return false }
+        guard let next = entry.dropFirst(prefix.count).first else { return true }
+        return ".-_ ".contains(next)
     }
 
     /// `pkgutil --file-info <app>` → líneas `pkgid: X`. Los id con caracteres raros se descartan.
@@ -277,14 +332,45 @@ public struct LeftoverFinder: Sendable {
             guard text.hasPrefix("pkgid:") else { continue }
             let id = text.dropFirst("pkgid:".count).trimmingCharacters(in: .whitespaces)
             guard Self.isValidPackageID(id), !result.contains(where: { $0.path == id }) else { continue }
-            let isApple = id.lowercased().hasPrefix("com.apple.")
-            result.append(Candidate(
-                path: id, kind: .receipt, matchedByName: false, risk: isApple ? .doNotTouch : .safe,
-                preselected: !isApple,
-                reason: isApple ? "Es parte de macOS." : "Registro de instalación; pide contraseña de administrador.",
-                measured: false))
+            if id.lowercased().hasPrefix("com.apple.") {
+                result.append(Candidate(path: id, kind: .receipt, matchedByName: false, risk: .doNotTouch,
+                                        preselected: false, reason: "Es parte de macOS.", measured: false))
+                continue
+            }
+            var receipt = Candidate(path: id, kind: .receipt, matchedByName: false, risk: .safe, preselected: true,
+                                    reason: "Registro de instalación; pide contraseña de administrador.",
+                                    measured: false)
+            switch await otherBundles(inPackage: id, ownBundle: app.path) {
+            case nil:
+                receipt.risk = .yourCall
+                receipt.preselected = false
+                receipt.reason = "No se pudo comprobar si este registro incluye otras apps."
+            case let found? where !found.isEmpty:
+                receipt.risk = .doNotTouch
+                receipt.preselected = false
+                receipt.reason = "Este registro incluye también otras apps (\(found.joined(separator: ", ")))."
+            default:
+                break
+            }
+            result.append(receipt)
         }
         return result
+    }
+
+    /// `.app` del paquete (el primer componente `*.app` de cada carpeta de `pkgutil --files <id> --only-dirs`)
+    /// distintos del propio, ordenados; `nil` si la consulta falla.
+    private func otherBundles(inPackage id: String, ownBundle: String) async -> [String]? {
+        guard let output = try? await runner.run(Self.pkgutil, ["--files", id, "--only-dirs"],
+                                                 timeout: Self.pkgutilTimeout),
+              output.status == 0 else { return nil }
+        let own = (ownBundle as NSString).lastPathComponent.lowercased()
+        var found = Set<String>()
+        for line in output.stdout.split(whereSeparator: \.isNewline) {
+            guard let bundle = line.split(separator: "/").first(where: { $0.lowercased().hasSuffix(".app") })
+            else { continue }
+            if bundle.lowercased() != own { found.insert(String(bundle)) }
+        }
+        return found.sorted()
     }
 
     /// `^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$`
