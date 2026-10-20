@@ -62,7 +62,11 @@ public struct PathGate: Sendable {
     public func validate(_ path: String) -> Result<ValidatedPath, PathRefusal> {
         if let reason = Self.syntaxRefusal(path) { return .failure(PathRefusal(reason: reason)) }
         guard let identity = Self.identity(of: path) else { return .failure(PathRefusal(reason: "No existe.")) }
-        let forms = Self.forms(of: path, isSymlink: identity.isSymlink)
+        // Si no se puede resolver la carpeta padre (o el destino de un enlace que existe), no se sabe
+        // dónde está de verdad: se rechaza (fallo cerrado).
+        guard let forms = Self.forms(of: path, isSymlink: identity.isSymlink) else {
+            return .failure(PathRefusal(reason: "No se puede resolver la ruta real; no se toca."))
+        }
         for form in forms {
             if let reason = refusal(forForm: form) { return .failure(PathRefusal(reason: reason)) }
         }
@@ -140,9 +144,12 @@ public struct PathGate: Sendable {
         for key in keys {
             if let root = criticalInodes[key] { return "Carpeta crítica del sistema (la misma que \(root))." }
         }
-        if let usersInode, let parent = Self.realPath((path as NSString).deletingLastPathComponent),
-           Self.statKey(parent) == usersInode {
-            return "Carpeta crítica del sistema (carpeta de un usuario)."
+        if let usersInode {
+            guard let parent = Self.realPath((path as NSString).deletingLastPathComponent),
+                  let parentKey = Self.statKey(parent) else {
+                return "No se puede resolver la ruta real; no se toca."
+            }
+            if parentKey == usersInode { return "Carpeta crítica del sistema (carpeta de un usuario)." }
         }
         return nil
     }
@@ -186,20 +193,23 @@ public struct PathGate: Sendable {
     }
 
     /// Canónicas: la ruta tal cual, con su carpeta padre resuelta y, si es un enlace, su destino.
-    static func forms(of path: String, isSymlink: Bool) -> [String] {
+    /// `nil` si la carpeta padre no se puede resolver o el destino existe pero no se puede resolver.
+    static func forms(of path: String, isSymlink: Bool) -> [String]? {
         var forms = [RiskPolicy.canonical(path)]
         func add(_ form: String) { if !forms.contains(form) { forms.append(form) } }
         let parent = (path as NSString).deletingLastPathComponent
-        let resolvedParent = realPath(parent)
-        if let resolvedParent {
-            add(RiskPolicy.canonical(resolvedParent + "/" + (path as NSString).lastPathComponent))
-        }
+        guard let resolvedParent = realPath(parent) else { return nil }
+        add(RiskPolicy.canonical(resolvedParent + "/" + (path as NSString).lastPathComponent))
         if isSymlink {
             if let target = realPath(path) {
                 add(RiskPolicy.canonical(target))
-            } else if let raw = try? FileManager.default.destinationOfSymbolicLink(atPath: path) {
-                // Enlace roto: su destino, relativo a la carpeta padre resuelta.
-                add(RiskPolicy.canonical(raw.hasPrefix("/") ? raw : (resolvedParent ?? parent) + "/" + raw))
+            } else {
+                // Solo un enlace roto (el destino no existe) se acepta sin resolver: su destino en texto,
+                // relativo a la carpeta padre resuelta.
+                var info = stat()
+                guard stat(path, &info) != 0, errno == ENOENT,
+                      let raw = try? FileManager.default.destinationOfSymbolicLink(atPath: path) else { return nil }
+                add(RiskPolicy.canonical(raw.hasPrefix("/") ? raw : resolvedParent + "/" + raw))
             }
         }
         return forms
