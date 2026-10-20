@@ -258,7 +258,7 @@ public struct AIAssistant: Sendable {
                 // Solo la propia ruta (no "~/Library" para "~/Library/x"), con ficha de Papelera y fuera de lo protegido.
                 if !match.isItemID, let target = lookup(path), target.path == match.path,
                    let pathEntry, case .trash = pathEntry.cleanup,
-                   RiskPolicy.trashRefusal(forCanonicalPath: RiskPolicy.canonical(match.path), homes: homes) == nil {
+                   RiskPolicy.trashRefusal(forCanonicalPath: RiskPolicy.canonical(match.path), homes: homes, catalog: catalog) == nil {
                     action = .trash(path: match.path)
                 }
             case .runCatalogCommand(let id):
