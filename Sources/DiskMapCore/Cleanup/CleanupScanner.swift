@@ -177,7 +177,7 @@ public struct CleanupScanner: Sendable {
             return CleanupItem(
                 id: candidate.id, entry: candidate.entry, paths: paths, bytes: bytes,
                 risk: risk, blockedByOpenApps: candidate.entry.mustBeClosed.filter { running.contains($0) },
-                usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch,
+                usedBy: usedBy, preselected: verdict.preselected && risk != .doNotTouch && target.preselectable,
                 highlighted: verdict.highlighted, protection: verdict.protection, blockedReason: blockedReason,
                 details: target.details, targets: targets, sizeNote: target.sizeNote,
                 lastModified: target.lastModified, riskReason: target.floorReason ?? verdict.protection?.reason)
