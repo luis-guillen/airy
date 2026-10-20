@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "DiskMapCore", targets: ["DiskMapCore"]),
         .executable(name: "Airy", targets: ["Airy"]),
+        .executable(name: "airy-mcp", targets: ["AiryMCP"]),
     ],
     targets: [
         .target(
@@ -18,6 +19,11 @@ let package = Package(
             name: "Airy",
             dependencies: ["DiskMapCore"],
             path: "Sources/Airy"
+        ),
+        .executableTarget(
+            name: "AiryMCP",
+            dependencies: ["DiskMapCore"],
+            path: "Sources/AiryMCP"
         ),
         .testTarget(
             name: "DiskMapCoreTests",
