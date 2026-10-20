@@ -120,7 +120,7 @@ private struct Fixture {
             cleanup: .command(executable: "uv", arguments: ["cache", "clean"], sizeProbe: nil))
         let exec = CleanupExecutor(
             runner: f.runner, probes: FakeProbes(), store: f.store, catalog: Catalog(entries: [amber, amberCommand]),
-            references: ReferenceChecker(roots: []), home: f.home, freeSpace: { 0 },
+            references: ReferenceChecker(roots: []), home: f.home, freeSpace: { 0 }, settings: { .missing },
             log: f.log, processGuard: ProcessGuard(listing: FakeListing()))
         let outcome = await exec.execute(f.item(amber), context: .agent("test"))
         guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
@@ -227,6 +227,7 @@ private struct Fixture {
 
     @Test func previewRunsNoCommand() async throws {
         let f = Fixture()
+        try FileManager.default.createDirectory(atPath: f.home + "/.cache/uv", withIntermediateDirectories: true)
         let exec = f.executor([])
         let preview = await exec.preview(f.item(uvEntry, paths: [f.home + "/.cache/uv"], bytes: 7_000))
         #expect(preview == .wouldRun(command: ["uv", "cache", "clean"], bytes: 7_000, upperBound: false))
@@ -363,6 +364,77 @@ private struct Fixture {
         }
         #expect(exec.unsafeTrashReason(f.folder) == nil)
         #expect(!exec.wouldRefuseTrash(path: f.folder))
+    }
+
+    // Revisión 1: los comandos se comprueban con las rutas de la ficha viva, no con las del elemento.
+    @Test func commandProtectedIsRefusedEvenWithEmptyPaths() async throws {
+        let f = Fixture()
+        try FileManager.default.createDirectory(atPath: f.home + "/.cache/uv", withIntermediateDirectories: true)
+        let exec = f.executor([], settings: { settings(protected: ["~/.cache/uv"]) })
+        for item in [f.item(uvEntry, paths: []), f.item(uvEntry, paths: [f.home + "/.cache/uv"])] {
+            guard case .blocked(let reason) = await exec.preview(item),
+                  case .blocked(let same) = await exec.execute(item) else {
+                Issue.record("el comando sobre una carpeta protegida debió bloquearse"); continue
+            }
+            #expect(reason == same && reason.contains("Lo has protegido tú"), "\(reason)")
+        }
+        #expect(f.runner.calls.isEmpty)
+    }
+
+    @Test func commandProtectedBetweenPlanAndActIsRefused() async throws {
+        let f = Fixture()
+        try FileManager.default.createDirectory(atPath: f.home + "/.cache/uv", withIntermediateDirectories: true)
+        // Primera lectura (plan): sin proteger; las siguientes (antes de ejecutar): protegida.
+        let live = LiveSettings(settings())
+        let exec = f.executor([], settings: {
+            let load = live.read()
+            live.set(settings(protected: ["~/.cache/uv"]))
+            return load
+        })
+        guard case .blocked(let reason) = await exec.execute(f.item(uvEntry, paths: [])) else {
+            Issue.record("debió bloquearse al ejecutar"); return
+        }
+        #expect(reason.contains("Lo has protegido tú"), "\(reason)")
+        #expect(f.runner.calls.isEmpty)
+    }
+
+    @Test func commandNeedsItsLiveFolderAndOnlyItsPaths() async throws {
+        let f = Fixture()
+        let exec = f.executor([])
+        // Sin ~/.cache/uv en el disco no se ejecuta nada.
+        guard case .blocked = await exec.execute(f.item(uvEntry, paths: [])) else {
+            Issue.record("sin carpeta debió bloquearse"); return
+        }
+        try FileManager.default.createDirectory(atPath: f.home + "/.cache/uv", withIntermediateDirectories: true)
+        // Una ruta ajena a la ficha tampoco.
+        guard case .blocked(let reason) = await exec.execute(f.item(uvEntry, paths: [f.folder])) else {
+            Issue.record("ruta ajena debió bloquearse"); return
+        }
+        #expect(reason.contains("no corresponde"), "\(reason)")
+        #expect(f.runner.calls.isEmpty)
+        guard case .freed = await exec.execute(f.item(uvEntry, paths: [])) else { Issue.record("debió ejecutarse"); return }
+        #expect(f.runner.calls.count == 1)
+        #expect(try f.log.records().last?.paths == [f.home + "/.cache/uv"])
+    }
+
+    // Revisión 2: una tanda que se para a medias se registra con lo que de verdad se movió.
+    @Test func partialTrashIsLoggedWithWhatMoved() async throws {
+        let f = Fixture()
+        let second = f.home + "/Library/Caches/segunda"
+        writeFile(second + "/f")
+        let firstBytes = try #require(AllocatedSize.of(f.folder))
+        let exec = f.executor([], beforeMove: { path in
+            if path == second { try? FileManager.default.removeItem(atPath: second) }
+        })
+        let outcome = await exec.trashPaths([f.folder, second], title: "Tanda")
+        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        #expect(!exists(f.folder))
+        let record = try #require(try f.log.records().last)
+        #expect(record.outcome == "partial")
+        #expect(record.paths == [f.folder])
+        #expect(record.bytes == firstBytes)
+        #expect(record.message == reason)
+        #expect(try f.store.history().last?.bytes == record.bytes)
     }
 
     @Test func trashItemOnlyCalledFromTheFunnel() throws {

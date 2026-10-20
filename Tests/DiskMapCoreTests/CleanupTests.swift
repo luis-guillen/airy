@@ -149,11 +149,13 @@ private func executor(
     home: String, freeSpace: FakeFreeSpace = FakeFreeSpace([0]), entries: [CatalogEntry] = [],
     roots: [String] = []
 ) -> CleanupExecutor {
-    CleanupExecutor(
+    // La caché de uv existe en el home de prueba: un comando solo se ejecuta si su carpeta está en el disco.
+    makeDir(home + "/.cache/uv")
+    return CleanupExecutor(
         runner: runner, probes: probes, store: store,
         catalog: Catalog(entries: entries + [uvEntry, dockerEntry]),
         references: ReferenceChecker(roots: roots), home: home,
-        freeSpace: { freeSpace.next() }, trashSettleDelay: .zero)
+        freeSpace: { freeSpace.next() }, trashSettleDelay: .zero, settings: { .missing })
 }
 
 // MARK: - Tests del brief
@@ -870,7 +872,7 @@ private func executor(
         let volumes = try #require(byID["docker-volumes"])
         let exec = CleanupExecutor(
             runner: runner, probes: FakeProbes(), store: makeStore(), catalog: catalog,
-            references: ReferenceChecker(roots: []), home: makeTempDir())
+            references: ReferenceChecker(roots: []), home: makeTempDir(), settings: { .missing })
         guard case .blocked = await exec.execute(volumes) else { Issue.record("volúmenes no bloqueados"); return }
         guard case .blocked = await exec.execute(try #require(byID["docker-images"])) else {
             Issue.record("imágenes no bloqueadas"); return

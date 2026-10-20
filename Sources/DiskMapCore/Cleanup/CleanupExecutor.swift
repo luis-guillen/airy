@@ -72,15 +72,16 @@ public struct CleanupExecutor: Sendable {
     /// `catalog` es obligatorio: toda acción se decide con la ficha viva del catálogo, nunca con la
     /// copia que trae el elemento. `references` (por defecto, las carpetas de proyectos de `home`)
     /// vuelve a comprobar si un modelo está en uso. `freeSpace` mide el espacio disponible del
-    /// volumen de `home` (inyectable en pruebas). `settings` se lee en cada operación (y otra vez
-    /// antes de actuar): apagar el interruptor de agentes o proteger una ruta surte efecto al momento.
+    /// volumen de `home` (inyectable en pruebas). `settings` es obligatorio (sin valor por defecto, para
+    /// que olvidarlo no deje pasar nada) y se lee en cada operación y otra vez antes de actuar: apagar el
+    /// interruptor de agentes o proteger una ruta surte efecto al momento.
     public init(
         runner: any CommandRunning, probes: any SystemProbing, store: IndexStore, catalog: Catalog,
         references: ReferenceChecker? = nil, home: String = NSHomeDirectory(),
         commandTimeout: TimeInterval = CleanupExecutor.defaultCommandTimeout,
         freeSpace: (@Sendable () -> Int64)? = nil,
         trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1),
-        settings: @escaping @Sendable () -> SettingsLoad = { .missing },
+        settings: @escaping @Sendable () -> SettingsLoad,
         log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
         protections: HardProtections = .standard
     ) {
@@ -97,7 +98,7 @@ public struct CleanupExecutor: Sendable {
         commandTimeout: TimeInterval = CleanupExecutor.defaultCommandTimeout,
         freeSpace: (@Sendable () -> Int64)? = nil,
         trashSettleAttempts: Int = 3, trashSettleDelay: Duration = .seconds(1),
-        settings: @escaping @Sendable () -> SettingsLoad = { .missing },
+        settings: @escaping @Sendable () -> SettingsLoad,
         log: OperationLog? = nil, processGuard: ProcessGuard = ProcessGuard(),
         protections: HardProtections = .standard,
         beforeMove: (@Sendable (String) -> Void)?
@@ -133,7 +134,7 @@ public struct CleanupExecutor: Sendable {
             title = planned.title
             switch planned.kind {
             case .trash(let paths): preview = .wouldTrash(paths: paths.map(\.validated.path), bytes: planned.bytes)
-            case .command(let executable, let arguments):
+            case .command(let executable, let arguments, _, _):
                 preview = .wouldRun(command: [executable] + arguments, bytes: planned.bytes,
                                     upperBound: planned.upperBound)
             }
@@ -155,16 +156,18 @@ public struct CleanupExecutor: Sendable {
         var title = item.title
         var paths = item.paths
         var command: [String]?
+        var moved: [String] = [], movedBytes: Int64 = 0
         switch await plan(item, context: context) {
         case .failure(let refusal):
             outcome = .blocked(reason: refusal.reason)
         case .success(let planned):
             title = planned.title
             if case .trash(let planned) = planned.kind { paths = planned.map(\.validated.path) }
-            if case .command(let e, let a) = planned.kind { command = [e] + a }
-            outcome = await act(planned, context: context)
+            if case .command(let e, let a, _, let p) = planned.kind { command = [e] + a; paths = p }
+            (outcome, moved, movedBytes) = await act(planned, context: context)
         }
-        appendLog(context, action: "clean", itemID: item.id, title: title, paths: paths, command: command, outcome)
+        appendLog(context, action: "clean", itemID: item.id, title: title, paths: paths, command: command, outcome,
+                  moved: moved, movedBytes: movedBytes)
         return outcome
     }
 
@@ -172,6 +175,7 @@ public struct CleanupExecutor: Sendable {
     /// la Papelera. Si una sola ruta no es segura, no se mueve ninguna. Nunca para agentes.
     public func trashPaths(_ paths: [String], title: String, context: OperationContext = .user()) async -> CleanupOutcome {
         let outcome: CleanupOutcome
+        var moved: [String] = [], movedBytes: Int64 = 0
         if context.isAgent {
             outcome = .blocked(reason: "Los agentes no pueden enviar rutas sueltas a la Papelera; solo el usuario, desde Airy.")
         } else if paths.isEmpty {
@@ -179,10 +183,11 @@ public struct CleanupExecutor: Sendable {
         } else {
             switch await planLoose(paths, title: title, context: context) {
             case .failure(let refusal): outcome = .blocked(reason: refusal.reason)
-            case .success(let planned): outcome = await act(planned, context: context)
+            case .success(let planned): (outcome, moved, movedBytes) = await act(planned, context: context)
             }
         }
-        appendLog(context, action: "trash_paths", itemID: nil, title: title, paths: paths, command: nil, outcome)
+        appendLog(context, action: "trash_paths", itemID: nil, title: title, paths: paths, command: nil, outcome,
+                  moved: moved, movedBytes: movedBytes)
         return outcome
     }
 
@@ -224,7 +229,8 @@ public struct CleanupExecutor: Sendable {
     struct PlannedAction: Sendable {
         enum Kind: Sendable {
             case trash([PlannedPath])
-            case command(executable: String, arguments: [String])
+            /// `entry` y `paths` (las de la ficha viva): para volver a mirar «Proteger esto» antes de ejecutar.
+            case command(executable: String, arguments: [String], entry: CatalogEntry, paths: [String])
         }
         let kind: Kind
         let title: String
@@ -248,8 +254,22 @@ public struct CleanupExecutor: Sendable {
             return .failure(PathRefusal(reason: "No está en el catálogo: no se ejecuta nada."))
         }
         let title = parts.count > 1 ? "\(live.title): \(parts[1])" : live.title
+        // Comandos: las protecciones y referencias se comprueban sobre las rutas de la ficha viva que
+        // existen ahora, nunca sobre las que trae el elemento (que solo pueden ser un subconjunto).
+        var checkPaths = item.paths
+        if case .command = live.cleanup {
+            let livePaths = Self.existingPaths(of: live, home: home)
+            if !live.paths.isEmpty, livePaths.isEmpty {
+                return .failure(PathRefusal(reason: "No se encuentra «\(live.title)» en este Mac; no se ejecuta nada."))
+            }
+            let allowed = Set(livePaths.map(RiskPolicy.canonical))
+            for path in item.paths where !allowed.contains(RiskPolicy.canonical(path)) {
+                return .failure(PathRefusal(reason: "La ruta no corresponde a «\(live.title)»: \(path)."))
+            }
+            checkPaths = livePaths
+        }
         let verdict = RiskClassifier(catalog: catalog, settings: load.effective, home: home, protections: protections)
-            .classify(entry: live, paths: item.paths, ai: item.risk)
+            .classify(entry: live, paths: checkPaths, ai: item.risk)
         var risk = verdict.risk
         if item.entry.risk == .doNotTouch { risk = .doNotTouch }
 
@@ -279,17 +299,18 @@ public struct CleanupExecutor: Sendable {
         }
         // Las referencias se comprueban de nuevo: no se fía de `item.usedBy` (puede venir vacío de una
         // detección cancelada o anterior a la referencia).
-        if let reason = await referenceReason(item.paths) { return .failure(PathRefusal(reason: reason)) }
+        if let reason = await referenceReason(checkPaths) { return .failure(PathRefusal(reason: reason)) }
 
         switch live.cleanup {
         case .info:
             return .failure(PathRefusal(reason: "Este elemento es solo informativo."))
         case .command(let executable, let arguments, _):
             return .success(PlannedAction(
-                kind: .command(executable: executable, arguments: arguments), title: title, bytes: item.bytes,
-                upperBound: live.partialCleanup, processNames: live.processNames, guardPaths: [], checkOpenFiles: false))
+                kind: .command(executable: executable, arguments: arguments, entry: live, paths: checkPaths),
+                title: title, bytes: item.bytes, upperBound: live.partialCleanup, processNames: live.processNames,
+                guardPaths: [], checkOpenFiles: false))
         case .trash:
-            let allowed = Set(live.paths.flatMap { CleanupScanner.expand($0, home: home) }.map(RiskPolicy.canonical))
+            let allowed = Set(Self.existingPaths(of: live, home: home).map(RiskPolicy.canonical))
             for path in item.paths where !allowed.contains(RiskPolicy.canonical(path)) {
                 return .failure(PathRefusal(reason: "La ruta no corresponde a «\(live.title)»: \(path)."))
             }
@@ -340,16 +361,20 @@ public struct CleanupExecutor: Sendable {
 
     // MARK: - Actuar
 
-    private func act(_ plan: PlannedAction, context: OperationContext) async -> CleanupOutcome {
+    /// Resultado y lo que de verdad llegó a la Papelera (rutas y bytes), también si se paró a medias.
+    private func act(_ plan: PlannedAction, context: OperationContext) async
+        -> (outcome: CleanupOutcome, moved: [String], movedBytes: Int64) {
         switch plan.kind {
-        case .command(let executable, let arguments):
-            if let reason = await recheck(plan, context: context).reason { return .blocked(reason: reason) }
-            return await runCommand(executable: executable, arguments: arguments, title: plan.title, context: context)
+        case .command(let executable, let arguments, _, _):
+            if let reason = await recheck(plan, context: context).reason { return (.blocked(reason: reason), [], 0) }
+            return (await runCommand(executable: executable, arguments: arguments, title: plan.title,
+                                     context: context), [], 0)
         case .trash(let paths):
             var moved: Int64 = 0
-            func stop(_ outcome: CleanupOutcome) -> CleanupOutcome {
-                if moved > 0 { record(title: plan.title, bytes: moved, wentToTrash: true, context: context) }
-                return outcome
+            var movedPaths: [String] = []
+            func stop(_ outcome: CleanupOutcome) -> (outcome: CleanupOutcome, moved: [String], movedBytes: Int64) {
+                if !movedPaths.isEmpty { record(title: plan.title, bytes: moved, wentToTrash: true, context: context) }
+                return (outcome, movedPaths, moved)
             }
             for (index, planned) in paths.enumerated() {
                 let path = planned.validated.path
@@ -369,12 +394,13 @@ public struct CleanupExecutor: Sendable {
                     try FileManager.default.trashItem(at: URL(fileURLWithPath: path, isDirectory: false),
                                                       resultingItemURL: nil)
                     moved += planned.bytes
+                    movedPaths.append(path)
                 } catch {
                     return stop(.failed("No se pudo mover \(path) a la Papelera: \(error.localizedDescription)"))
                 }
             }
             record(title: plan.title, bytes: moved, wentToTrash: true, context: context)
-            return .movedToTrash(moved)
+            return (.movedToTrash(moved), movedPaths, moved)
         }
     }
 
@@ -385,6 +411,11 @@ public struct CleanupExecutor: Sendable {
         let load = settings()
         let gate = gate(load)
         if let refusal = policyRefusal(load, context: context) { return (gate, refusal.reason) }
+        if case .command(_, _, let entry, let paths) = plan.kind,
+           let protection = RiskClassifier(catalog: catalog, settings: load.effective, home: home,
+                                           protections: protections).classify(entry: entry, paths: paths).protection {
+            return (gate, "Marcado como «No tocar»: \(protection.reason)")
+        }
         guard processes else { return (gate, nil) }
         let reason = await processReason(plan.processNames, paths: plan.guardPaths, checkOpenFiles: plan.checkOpenFiles)
         return (gate, reason)
@@ -425,6 +456,15 @@ public struct CleanupExecutor: Sendable {
         for name in names where !unique.contains(name) { unique.append(name) }
         return await processGuard.check(processNames: unique, paths: paths, checkOpenFiles: checkOpenFiles)
             .blockedReason
+    }
+
+    /// Rutas de la ficha que existen ahora en disco, sin repetir.
+    private static func existingPaths(of entry: CatalogEntry, home: String) -> [String] {
+        var unique: [String] = []
+        for path in entry.paths.flatMap({ CleanupScanner.expand($0, home: home) }) where !unique.contains(path) {
+            unique.append(path)
+        }
+        return unique
     }
 
     /// Formas canónicas de una ruta (tal cual, padre resuelto, destino del enlace) para buscar fichas.
@@ -525,13 +565,21 @@ public struct CleanupExecutor: Sendable {
                                         byAgent: context.isAgent))
     }
 
+    /// `moved`/`movedBytes`: lo que llegó a la Papelera. Si la operación se paró a medias, el registro
+    /// es `partial` con esas rutas y bytes (igual que el historial) y el motivo en `message`.
     private func appendLog(_ context: OperationContext, action: String, itemID: String?, title: String,
-                           paths: [String], command: [String]?, _ outcome: CleanupOutcome) {
-        let (name, bytes, message): (String, Int64, String?) = switch outcome {
+                           paths: [String], command: [String]?, _ outcome: CleanupOutcome,
+                           moved: [String] = [], movedBytes: Int64 = 0) {
+        var paths = paths
+        var (name, bytes, message): (String, Int64, String?) = switch outcome {
         case .freed(let b): ("freed", b, nil)
         case .movedToTrash(let b): ("moved_to_trash", b, nil)
         case .blocked(let reason): ("blocked", 0, reason)
         case .failed(let error): ("failed", 0, error)
+        }
+        if case .movedToTrash = outcome { paths = moved }
+        if name == "blocked" || name == "failed", !moved.isEmpty {
+            (name, bytes, paths) = ("partial", movedBytes, moved)
         }
         appendLog(context, action: action, itemID: itemID, title: title, paths: paths, command: command,
                   dryRun: false, outcome: name, bytes: bytes, message: message)

@@ -81,11 +81,12 @@ public struct AiryEnvironment: Sendable {
                               home: home, classifier: classifier())
     }
 
-    /// Ejecutor sobre el mismo historial que la app.
-    /// TODO(Task 8): pasar `settings: { settings.load() }, log: log` cuando `CleanupExecutor` los admita.
+    /// Ejecutor sobre el mismo historial, ajustes (leídos en cada operación) y registro que la app.
     public func makeExecutor() -> CleanupExecutor? {
         guard let catalog else { return nil }
+        let store = settings
         return CleanupExecutor(runner: runner, probes: probes, store: index, catalog: catalog,
-                               references: references, home: home)
+                               references: references, home: home, settings: { store.load() }, log: log,
+                               processGuard: processGuard)
     }
 }
