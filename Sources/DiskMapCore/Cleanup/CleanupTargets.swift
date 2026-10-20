@@ -131,7 +131,7 @@ public struct StaticPatternSource: CleanupTargetSource {
         var result: [DiscoveredTarget] = []
         for var group in groups {
             if entry.staleAfterDays != nil || entry.minimumBytes != nil {
-                guard measure(&group, entry: entry, now: context.now) else { continue }
+                guard measure(&group, entry: entry, now: context.now, scan: context.scan) else { continue }
             }
             if entry.cleanup.usesTargets { group.targets = group.paths }
             result.append(group)
@@ -140,12 +140,18 @@ public struct StaticPatternSource: CleanupTargetSource {
     }
 
     /// Aplica `staleAfterDays` (quita las rutas recientes o sin medir) y `minimumBytes`. `false` ⇒ fuera.
-    private func measure(_ group: inout DiscoveredTarget, entry: CatalogEntry, now: Date) -> Bool {
+    /// Sin `staleAfterDays`, el tamaño del índice basta (no hace falta recorrer el disco).
+    private func measure(_ group: inout DiscoveredTarget, entry: CatalogEntry, now: Date, scan: FileNode?) -> Bool {
         let cutoff = entry.staleAfterDays.map { now.addingTimeInterval(-Double($0) * 86_400) }
         var kept: [String] = []
         var bytes: Int64 = 0
         var latest: Date?
         for path in group.paths {
+            if cutoff == nil, let scan, let node = CleanupScanner.node(at: path, in: scan) {
+                kept.append(path)
+                bytes += node.allocatedSize
+                continue
+            }
             guard let summary = TreeWalk.summarize(path, budget: TimeBudget.sizeMeasure) else { continue }
             if let cutoff {
                 guard let modified = summary.latestModification, modified < cutoff else { continue }

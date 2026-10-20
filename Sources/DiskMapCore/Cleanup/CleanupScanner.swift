@@ -114,7 +114,6 @@ public struct CleanupScanner: Sendable {
                         target.bytes = nil // se vuelve a medir sin las rutas de otro elemento
                     }
                     guard !target.paths.isEmpty else { continue }
-                    claimed.formUnion(target.paths.map(RiskPolicy.canonical))
                 }
                 var bytes = target.bytes
                 if bytes == nil {
@@ -126,6 +125,8 @@ public struct CleanupScanner: Sendable {
                 }
                 let size = bytes ?? 0
                 guard size > 0 || target.sizeNote != nil || target.blockedReason != nil else { continue }
+                // Solo reclama sus rutas el elemento que sobrevive (no uno de 0 bytes que se descarta).
+                claimed.formUnion(target.paths.map(RiskPolicy.canonical))
                 let id = target.idSuffix.map { "\(entry.id):\($0)" } ?? entry.id
                 candidates.append(Candidate(id: id, entry: entry, target: target, bytes: size))
             }
@@ -193,10 +194,22 @@ public struct CleanupScanner: Sendable {
             if let scan, let node = Self.node(at: path, in: scan) { total += node.allocatedSize; continue }
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
-            guard let summary = TreeWalk.summarize(path, budget: measureBudget) else { return nil }
-            total += summary.bytes
+            if let summary = TreeWalk.summarize(path, budget: measureBudget) {
+                total += summary.bytes
+            } else if (info.st_mode & S_IFMT) == S_IFDIR, !Self.canOpen(path) {
+                // Carpeta que no se puede leer (TCC, permisos): como en la fase 1, solo su propia entrada.
+                total += AllocatedSize.of(path) ?? 0
+            } else {
+                return nil
+            }
         }
         return total
+    }
+
+    private static func canOpen(_ path: String) -> Bool {
+        guard let dir = opendir(path) else { return false }
+        closedir(dir)
+        return true
     }
 
     /// Nodo del índice para `path`, o `nil` si no está (p. ej. agrupado en "Otros").
