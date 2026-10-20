@@ -93,10 +93,16 @@ struct Volume: Identifiable, Hashable, Sendable {
 
 /// Aviso no bloqueante que la interfaz muestra como banner descartable.
 struct Notice: Identifiable, Equatable {
-    enum Kind: String { case scan, save, history, catalog, migration }
+    enum Kind: String { case scan, save, history, catalog, migration, url }
     let kind: Kind
     let message: String
     var id: String { kind.rawValue }
+}
+
+/// Orden de URL con identidad propia: dos `airy://rescan` seguidos son dos peticiones distintas.
+struct PendingURLCommand: Identifiable, Equatable {
+    let id = UUID()
+    let command: AiryURLCommand
 }
 
 /// Estado global de la app. Todo lo pesado (análisis, lectura del índice, sondas, comandos)
@@ -128,6 +134,9 @@ final class AppModel {
     var pendingAssistantQuestion: String?
     /// Informe, chat y Claude localizado: sobreviven a los cambios de sección.
     let assistant = AssistantSession()
+    /// Orden de un enlace `airy://` pendiente de procesar: `RootView` la consume con su `CleanupFlow`.
+    /// Nunca ejecuta nada: como mucho abre la hoja de confirmación.
+    var pendingURLCommand: PendingURLCommand?
     /// Sube cada vez que el árbol mostrado cambia en sitio (p. ej. algo enviado a la Papelera).
     private(set) var treeRevision = 0
 
@@ -195,6 +204,78 @@ final class AppModel {
     func dismiss(_ kind: Notice.Kind) {
         notices.removeAll { $0.kind == kind }
         if kind == .scan { scanError = nil }
+    }
+
+    // MARK: Enlaces airy://
+
+    /// Entrada de `.onOpenURL`: valida y deja la orden pendiente. Una URL inválida solo avisa.
+    func handle(url: URL) {
+        guard let command = AiryURLCommand(url: url) else {
+            report(.url, "Airy no entendió ese enlace, así que no hizo nada.")
+            return
+        }
+        pendingURLCommand = PendingURLCommand(command: command)
+    }
+
+    /// Procesa la orden pendiente (la llama `RootView`). Nunca ejecuta una limpieza por sí misma:
+    /// una propuesta solo abre la hoja de confirmación, y el usuario es quien confirma.
+    func run(_ pending: PendingURLCommand, flow: CleanupFlow) async {
+        defer { if pendingURLCommand?.id == pending.id { pendingURLCommand = nil } }
+        switch pending.command {
+        case .rescan:
+            section = .map
+            if !isScanning { startScan() }
+        case .show(let path):
+            section = .map
+            guard await waitUntil({ $0.scan != nil }) else { return }
+            navigation.reveal(path: path)
+        case .propose(let target, let reason, let agent):
+            guard !flow.isBusy else {
+                report(.url, "Airy está limpiando; vuelve a pedirlo en un momento.")
+                return
+            }
+            let warning = CleanupFlow.ConfirmRequest.Warning(
+                title: "Un agente propone limpiar esto",
+                subtitle: "\(agent ?? "Un agente") · \(reason.isEmpty ? "sin motivo" : reason)",
+                reason: "Nada se borra hasta que lo confirmes aquí.",
+                note: "Revisa qué es antes de seguir.")
+            switch target {
+            case .item(let id):
+                section = .cleanup
+                // La detección ya terminada (o la que está en curso) decide si el id sigue existiendo.
+                guard await waitUntil({ !$0.isRefreshingCleanup && ($0.scan != nil || !$0.isScanning) }) else { return }
+                guard let item = cleanupItems.first(where: { $0.id == id }) else {
+                    report(.url, "Un agente propuso «\(id)», pero ya no aparece en Limpieza.")
+                    return
+                }
+                guard item.protection == nil else {
+                    report(.url, "Un agente propuso «\(item.title)», pero es «No tocar»: Airy no lo ofrece.")
+                    return
+                }
+                guard !flow.isBusy else {
+                    report(.url, "Airy está limpiando; vuelve a pedirlo en un momento.")
+                    return
+                }
+                flow.requestClean([item], warning: warning, proposedBy: agent)
+            case .path(let path):
+                if let refusal = trashRefusal(path: path) {
+                    report(.url, "Un agente propuso mover «\(path)» a la Papelera, pero Airy no puede: \(refusal)")
+                    return
+                }
+                let title = path.split(separator: "/").last.map(String.init) ?? path
+                flow.requestTrash(paths: [path], title: title, warning: warning, proposedBy: agent)
+            }
+        }
+    }
+
+    /// Espera (hasta 2 minutos, cancelable) a que se cumpla `condition` en el hilo principal.
+    private func waitUntil(_ condition: (AppModel) -> Bool) async -> Bool {
+        let deadline = Date().addingTimeInterval(120)
+        while !condition(self) {
+            guard !Task.isCancelled, Date() < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+        return !Task.isCancelled
     }
 
     // MARK: Derivados
@@ -475,6 +556,12 @@ final class AppModel {
     func canOfferTrash(path: String) -> Bool {
         guard let executor else { return false }
         return !executor.wouldRefuseTrash(path: path)
+    }
+
+    /// Motivo por el que `trashPaths` rechazaría esta ruta, o `nil` si podría ofrecerse.
+    func trashRefusal(path: String) -> String? {
+        guard let executor else { return "el catálogo de limpiezas no está disponible." }
+        return executor.unsafeTrashReason(path)
     }
 
     /// Nodo del análisis mostrado para una ruta absoluta, bajando por nombre desde la raíz.
