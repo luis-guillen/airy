@@ -91,6 +91,17 @@ final class CleanupFlow {
     private(set) var closingApps: Set<String> = []
     private(set) var appRefusals: [String: String] = [:]
 
+    /// Ráfaga de una tanda de dos filas o más: cuándo empezó y el orden de ejecución (`gustSway`).
+    struct Gust: Equatable {
+        let id: UUID
+        let start: Date
+        let order: [String]
+    }
+    private(set) var gust: Gust?
+    /// Lo que va despejando la tanda `.items` en curso (píldora «liberados»/«despejados»).
+    private(set) var batchTally = BatchMotion.Tally()
+    var batchFreed: Int64 { batchTally.bytes }
+
     var isRunning: Bool { currentID != nil || !queuedIDs.isEmpty }
     var isBusy: Bool { isRunning || isEmptyingTrash }
 
@@ -136,6 +147,8 @@ final class CleanupFlow {
             guard !items.isEmpty else { return }
             start(request)
             queuedIDs = items.map(\.id)
+            batchTally = BatchMotion.Tally()
+            startGust(order: BatchMotion.gustOrder(ids: queuedIDs))
             Task { await run(items, model: model, context: context, onOutcome: request.onOutcome) }
         case .emptyTrash:
             start(request)
@@ -154,6 +167,18 @@ final class CleanupFlow {
         sheet = nil
         lastResult = nil
         request.onConfirm?()
+    }
+
+    /// Solo reacciona a una tanda ya confirmada; se retira sola al acabar la ráfaga.
+    private func startGust(order: [String]?) {
+        guard let order else { gust = nil; return }
+        let gust = Gust(id: UUID(), start: .now, order: order)
+        self.gust = gust
+        let lifetime = WindMotion.gustDuration(rowCount: order.count) + 0.1
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(lifetime))
+            if self?.gust == gust { self?.gust = nil }
+        }
     }
 
     /// La nueva detección ya refleja lo limpiado: nada que ocultar a mano.
@@ -178,9 +203,10 @@ final class CleanupFlow {
                 onOutcome?(gone)
                 return gone
             }
-            let outcome = await model.perform(current, context: context)
+            let outcome = await model.perform(current, context: context, refreshesCleanup: false)
             switch outcome {
             case .freed, .movedToTrash:
+                self?.batchTally.add(outcome)
                 // La fila se colapsa con el muelle en cuanto termina (la detección llega después).
                 withAnimation(Theme.zoomSpring) { _ = self?.hiddenIDs.insert(item.id) }
             case .blocked, .failed: break
@@ -190,6 +216,8 @@ final class CleanupFlow {
         })
         currentID = nil
         queuedIDs = []
+        // Una sola detección al final de la tanda (no una por elemento).
+        model.refreshCleanup()
         withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
         if summary.freed > 0 { celebration = Celebration(bytes: summary.freed) }
     }

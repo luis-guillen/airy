@@ -13,6 +13,7 @@ struct MapView: View {
     /// La confirmación única de la app (la misma hoja que Limpieza y el asistente).
     @Environment(CleanupFlow.self) private var flow: CleanupFlow?
     @ViewState private var toast: MapToast?
+    @Environment(\.airyTransientMotion) private var transientMotion
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -195,17 +196,25 @@ struct MapView: View {
                 Divider()
                 Button("Mover a la Papelera…", systemImage: "trash", role: .destructive) {
                     requestTrash(TrashCandidate(title: details.title, path: path, tildePath: tildePath,
-                                                bytes: details.bytes))
+                                                bytes: details.bytes,
+                                                rect: scene.layout?.tile(id: details.id)?.rect))
                 }
                 .disabled(flow == nil || flow?.isBusy == true)
             }
         }
     }
 
-    /// Abre `ConfirmSheet` (`.trashPaths`); al terminar, el aviso del mapa cuenta el resultado.
+    /// Abre `ConfirmSheet` (`.trashPaths`); al terminar, la tesela se deshace en hojas (si ya se
+    /// fue) y el aviso del mapa cuenta el resultado. La ráfaga solo reacciona al resultado.
     private func requestTrash(_ candidate: TrashCandidate) {
         let title = candidate.title
+        let rect = candidate.rect
         flow?.requestTrash(paths: [candidate.path], title: title, onOutcome: { outcome in
+            switch outcome {
+            case .movedToTrash, .freed:
+                if let rect, transientMotion == .running { scene.burst(rect: rect) }
+            case .blocked, .failed: break
+            }
             showToast(MapToast(outcome: outcome, title: title))
         })
     }
@@ -238,6 +247,8 @@ struct TrashCandidate: Equatable {
     let path: String
     let tildePath: String
     let bytes: Int64
+    /// Rectángulo de la tesela en el lienzo (para la ráfaga de hojas); `nil` si no se conoce.
+    var rect: CGRect? = nil
 }
 
 struct MapToast: Equatable {
@@ -250,19 +261,19 @@ struct MapToast: Equatable {
         switch outcome {
         case .movedToTrash(let bytes):
             symbol = "trash.fill"
-            tint = Theme.color(for: .safe)
+            tint = Theme.Airy.riskInk(.safe)
             message = "«\(title)» está en la Papelera (\(Format.bytes(bytes))). Se libera al vaciarla."
         case .freed(let bytes):
             symbol = "checkmark.circle.fill"
-            tint = Theme.color(for: .safe)
+            tint = Theme.Airy.riskInk(.safe)
             message = "Liberados \(Format.bytes(bytes))."
         case .blocked(let reason):
             symbol = "hand.raised.fill"
-            tint = Theme.color(for: .yourCall)
+            tint = Theme.Airy.riskInk(.yourCall)
             message = "No se ha movido: \(reason)"
         case .failed(let reason):
             symbol = "exclamationmark.triangle.fill"
-            tint = Theme.color(for: .doNotTouch)
+            tint = Theme.Airy.riskInk(.doNotTouch)
             message = reason
         }
     }
@@ -424,7 +435,8 @@ enum MapDebugScript {
             case "trash":
                 if let tile = pick(false), let node = tile.node {
                     openTrash(TrashCandidate(title: tile.name, path: node.path,
-                                             tildePath: Format.tildePath(node.path), bytes: tile.bytes))
+                                             tildePath: Format.tildePath(node.path), bytes: tile.bytes,
+                                             rect: tile.rect))
                 }
             default:
                 FPSMeter.log("[script] acción desconocida: \(action)")

@@ -30,7 +30,7 @@ struct CleanupView: View {
         let selected = board.selected(selection)
         ScrollViewReader { proxy in
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            LazyVStack(alignment: .leading, spacing: 22) {
                 SectionHeader(title: "Limpieza", subtitle: subtitle(board)) {
                     PrimaryButton(model.isRefreshingCleanup ? "Buscando…" : "Buscar de nuevo",
                                   systemImage: "arrow.clockwise", style: .secondary,
@@ -60,6 +60,8 @@ struct CleanupView: View {
 
                     ForEach(Array(board.groups.enumerated()), id: \.element.id) { index, group in
                         GroupSection(group: group, selection: $selection)
+                            // La última fila de un grupo se va con el grupo entero: también en hojas.
+                            .transition(.leafAway)
                             .opacity(appeared ? 1 : 0)
                             .offset(y: appeared ? 0 : 10)
                             .animation(Theme.stagger(index: index * 4), value: appeared)
@@ -68,11 +70,10 @@ struct CleanupView: View {
             }
             .padding(.horizontal, Theme.contentPadding)
             .padding(.top, 34)
-            .padding(.bottom, selected.isEmpty ? 28 : 96)
+            // La barra de selección o la píldora de la tanda no tapan la última fila.
+            .padding(.bottom, selected.isEmpty && !showsBatchPill ? 28 : 96)
             .frame(maxWidth: 980, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Un único muelle para filas que se colapsan o llegan con la nueva detección.
-            .animation(Theme.zoomSpring, value: board.items.map(\.id))
             .animation(Theme.sectionSpring, value: flow.lastResult?.id)
         }
         .scrollContentBackground(.hidden)
@@ -86,14 +87,30 @@ struct CleanupView: View {
         }
         #endif
         }
-        .overlay(alignment: .bottom) {
-            if !selected.isEmpty {
-                SelectionBar(items: selected) { selection = [] }
-                    .padding(.bottom, 18)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        .overlay {
+            // Ráfaga de la tanda: cruza la lista y desaparece; no recibe clics.
+            if let gust = flow.gust {
+                GustSweep(start: gust.start)
+                    .id(gust.id)
             }
         }
-        .animation(Theme.sectionSpring, value: selected.isEmpty)
+        .overlay(alignment: .bottom) {
+            // Las animaciones van aquí dentro: solo mueven la barra o la píldora, no toda la lista.
+            Group {
+                if !selected.isEmpty {
+                    SelectionBar(items: selected) { selection = [] }
+                        .padding(.bottom, 18)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if showsBatchPill {
+                    BatchFreedPill(tally: flow.batchTally)
+                        .padding(.bottom, 18)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(Theme.sectionSpring, value: selected.isEmpty)
+            .animation(Theme.sectionSpring, value: showsBatchPill)
+        }
+        .environment(\.airyQuietShadows, flow.isRunning)
         .onAppear { withAnimation(Theme.zoomSpring) { appeared = true } }
         .onChange(of: model.cleanupItems.map(\.id)) { _, _ in
             selection = CleanupBoard(items: model.cleanupItems).pruned(selection)
@@ -110,6 +127,9 @@ struct CleanupView: View {
         #endif
     }
 
+    /// La píldora sube con cada fila borrada mientras dura la tanda.
+    private var showsBatchPill: Bool { flow.isRunning && flow.batchFreed > 0 }
+
     private func subtitle(_ board: CleanupBoard) -> String {
         if model.catalogError != nil { return "No disponible: no se pudo cargar el catálogo" }
         if model.isRefreshingCleanup && model.cleanupItems.isEmpty { return "Buscando cachés y restos…" }
@@ -121,7 +141,7 @@ struct CleanupView: View {
         GlassCard {
             Label(model.catalogError ?? "No se pudo cargar el catálogo de limpiezas.",
                   systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(Theme.color(for: .yourCall))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
         }
     }
 
@@ -139,7 +159,7 @@ struct CleanupView: View {
                 HStack(spacing: 16) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 30))
-                        .foregroundStyle(Theme.color(for: .safe))
+                        .foregroundStyle(Theme.Airy.riskInk(.safe))
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Nada que limpiar").font(.title3.weight(.semibold))
                         Text("No se ha encontrado ninguna caché ni resto conocido que ocupe espacio.")
@@ -155,6 +175,7 @@ struct CleanupView: View {
 
 private struct HeroCard: View {
     @Environment(CleanupFlow.self) private var flow
+    @Environment(\.airyQuietShadows) private var quietShadows
     let board: CleanupBoard
     /// Primera detección en curso: aún no se sabe cuánto hay (nunca un "0 kB" que parezca real).
     var isDetecting = false
@@ -164,14 +185,15 @@ private struct HeroCard: View {
         GlassCard(padding: 22) {
             HStack(alignment: .center, spacing: 20) {
                 ZStack {
-                    Circle().fill(LinearGradient(colors: [Color(hex: 0x30D158), Color(hex: 0x64D2FF)],
+                    Circle().fill(LinearGradient(colors: [Theme.Airy.riskFill(.safe), Theme.Airy.sky],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
                     Image(systemName: "sparkles")
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.Airy.night)
                 }
                 .frame(width: 56, height: 56)
-                .shadow(color: Color(hex: 0x30D158).opacity(0.35), radius: 12, y: 5)
+                .shadow(color: Theme.Airy.riskFill(.safe).opacity(quietShadows ? 0 : 0.35), radius: quietShadows ? 0 : 12,
+                        y: quietShadows ? 0 : 5)
 
                 VStack(alignment: .leading, spacing: 2) {
                     // Con limpiezas parciales en la suma (p. ej. `pnpm store prune`) es solo un máximo.
@@ -217,6 +239,7 @@ private struct HeroCard: View {
 // MARK: - Grupo
 
 private struct GroupSection: View {
+    @Environment(CleanupFlow.self) private var flow
     let group: CleanupBoard.Group
     @Binding var selection: Set<String>
 
@@ -224,7 +247,7 @@ private struct GroupSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: Theme.symbol(for: group.risk))
-                    .foregroundStyle(Theme.color(for: group.risk))
+                    .foregroundStyle(Theme.Airy.riskInk(group.risk))
                 Text(group.title)
                     .font(.system(.title3, design: .rounded, weight: .bold))
                 Text(Self.blurb(group.risk))
@@ -249,12 +272,15 @@ private struct GroupSection: View {
                                 withAnimation(Theme.pressSpring) { selection.formSymmetricDifference([item.id]) }
                             }
                         }
+                        .gustSway(index: flow.gust?.order.firstIndex(of: item.id), start: flow.gust?.start)
                         .id(item.id)
-                        .transition(.asymmetric(
-                            insertion: .opacity,
-                            removal: .opacity.combined(with: .scale(scale: 0.97, anchor: .top))))
+                        // Al borrarse, la fila se la lleva el viento (con el mismo muelle que la colapsa).
+                        .transition(.leafAway)
                     }
                 }
+                // El muelle de las filas que llegan o se van con una nueva detección, solo en este grupo
+                // (los borrados de una tanda ya llegan dentro de `withAnimation`).
+                .animation(Theme.zoomSpring, value: group.items.map(\.id))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
             }
         }
@@ -345,7 +371,7 @@ private struct ResultBanner: View {
                 ForEach(summary.problems) { problem in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Theme.color(for: .yourCall))
+                            .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                         Text("\(problem.title): \(problem.message)")
                             .foregroundStyle(.secondary)
                     }
@@ -361,7 +387,7 @@ private struct ResultBanner: View {
     }
 
     private func tint(_ summary: CleanupRunSummary) -> Color {
-        summary.succeededIDs.isEmpty ? Theme.color(for: .yourCall) : Theme.color(for: .safe)
+        summary.succeededIDs.isEmpty ? Theme.Airy.riskInk(.yourCall) : Theme.Airy.riskInk(.safe)
     }
 }
 

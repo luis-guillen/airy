@@ -12,7 +12,7 @@ struct TreemapCanvas: View {
     var body: some View {
         // Se lee aquí (en `body`) para que Observation sepa qué redibujar; el lienzo recibe valores.
         let frame = MapFrame(layout: scene.layout, transition: scene.transition,
-                             hover: scene.hover, dim: scene.dim)
+                             hover: scene.hover, dim: scene.dim, bursts: scene.bursts)
         TimelineView(.animation(minimumInterval: nil, paused: !scene.isAnimating)) { timeline in
             // El lienzo depende de la fecha del fotograma: si no, SwiftUI no lo vuelve a pintar.
             let tick = timeline.date
@@ -34,6 +34,7 @@ struct MapFrame {
     let transition: MapTransition?
     let hover: Fade<Int>
     let dim: Fade<ContentKind>
+    var bursts: [MapLeafBurst] = []
 }
 
 // MARK: - Paleta de las teselas
@@ -43,19 +44,17 @@ private struct TilePalette {
     let text: Color
     let secondaryText: Color
 
-    init(base: Color, darkText: Bool) {
-        gradient = Gradient(colors: [base.mix(with: .white, by: 0.24), base, base.mix(with: .black, by: 0.10)])
-        text = darkText ? Color.black.opacity(0.82) : .white
-        secondaryText = darkText ? Color.black.opacity(0.58) : Color.white.opacity(0.78)
+    /// Degradado de la tesela y tinta de mayor contraste; el tamaño se distingue por el peso de la
+    /// fuente, no por transparencia.
+    init(base: UInt32) {
+        gradient = Gradient(colors: AiryPalette.tileStops(base).map { Color(hex: $0) })
+        text = Color(hex: AiryPalette.tileInk(base))
+        secondaryText = text
     }
 
-    static let kinds: [TilePalette] = ContentKind.allCases.map { kind in
-        // Amarillo, celeste y verde son claros: texto oscuro para que se lea.
-        let darkText = kind == .documents || kind == .aiModels || kind == .caches
-        return TilePalette(base: Theme.color(for: kind), darkText: darkText)
-    }
+    static let kinds: [TilePalette] = ContentKind.allCases.map { TilePalette(base: AiryPalette.kind($0)) }
 
-    static let others = TilePalette(base: Color(hex: 0x86868B), darkText: false)
+    static let others = TilePalette(base: AiryPalette.others)
 
     static func of(_ style: TileStyle) -> TilePalette {
         switch style {
@@ -86,6 +85,21 @@ enum MapRenderer {
                 drawTile(tile, in: fit(tile.rect), context: context, opacity: 1, labelOpacity: 1,
                          frame: frame, now: now)
             }
+        }
+        drawBursts(frame.bursts, context: &context, now: now)
+    }
+
+    /// Hojas de las teselas que se deshacen, por encima de todo, en la tinta clara de las teselas.
+    private static let burstColors: [Color] = [.white, Theme.Airy.leafSky]
+
+    private static func drawBursts(_ bursts: [MapLeafBurst], context: inout GraphicsContext, now: Double) {
+        for burst in bursts where burst.isAlive(at: now) {
+            let progress = (now - burst.start) / WindMotion.dissolveDuration
+            let count = WindMotion.leafCount(for: burst.rect)
+            let poses = (0..<count).map {
+                WindMotion.dissolveLeaf(index: $0, count: count, progress: progress, in: burst.rect)
+            }
+            WindLeaves.paint(&context, poses: poses, colors: burstColors)
         }
     }
 
