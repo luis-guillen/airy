@@ -57,7 +57,6 @@ public struct CleanupItem: Sendable, Identifiable {
 /// solo `resolve` y las sondas de tamaño (`sizeProbe`).
 public struct CleanupScanner: Sendable {
     public static let referenceTimeout: TimeInterval = 10
-    public static let probeTimeout: TimeInterval = 60
 
     private let catalog: Catalog
     private let runner: any CommandRunning
@@ -96,16 +95,16 @@ public struct CleanupScanner: Sendable {
 
     public func findItems(scan: FileNode?) async -> [CleanupItem] {
         let running = probes.runningBundleIDs()
-        // Una sola llamada a `docker system df` para todas las fichas de Docker.
-        let dockerOutput = catalog.entries.contains { Self.dockerMeasure[$0.id] != nil }
-            ? await dockerSystemDF() : nil
+        // Una sola sonda de Docker por pasada para todas sus fichas.
+        let docker = catalog.entries.contains { $0.discovery == .docker }
+            ? await DockerProbe.state(runner: runner) : nil
         let context = DiscoveryContext(catalog: catalog, home: home, runner: runner,
-                                       processListing: processListing, now: Date(), scan: scan)
+                                       processListing: processListing, now: Date(), scan: scan, docker: docker)
         var candidates: [Candidate] = []
         // Una ruta, un elemento: la primera ficha del catálogo que la reclama se la queda.
         var claimed = Set<String>()
         for entry in catalog.entries {
-            for var target in await discover(entry, context: context, dockerOutput: dockerOutput) {
+            for var target in await CleanupTargets.source(for: entry).discover(entry, context: context) {
                 let original = target.paths
                 if !original.isEmpty {
                     let dropped = Set(original.filter { claimed.contains(RiskPolicy.canonical($0)) })
@@ -184,19 +183,6 @@ public struct CleanupScanner: Sendable {
         }
     }
 
-    /// Fichas de Docker con su medida de `docker system df`; el resto, su fuente de objetivos.
-    private func discover(_ entry: CatalogEntry, context: DiscoveryContext,
-                          dockerOutput: String?) async -> [DiscoveredTarget] {
-        if let measure = Self.dockerMeasure[entry.id] {
-            // Sin Docker o sin demonio (`df` falla) no hay elemento.
-            guard let dockerOutput,
-                  let bytes = Self.parseDockerDF(dockerOutput, type: measure.type, field: measure.field)
-            else { return [] }
-            return [DiscoveredTarget(paths: CleanupTargets.livePaths(of: entry, home: home), bytes: bytes)]
-        }
-        return await CleanupTargets.source(for: entry).discover(entry, context: context)
-    }
-
     // MARK: - Tamaños
 
     /// Suma del índice o, si una ruta no está en él, de `TreeWalk` con `measureBudget`. Una ruta que ya no
@@ -233,37 +219,6 @@ public struct CleanupScanner: Sendable {
             current = next
         }
         return current
-    }
-
-    /// Qué fila y qué campo de `docker system df` mide cada ficha de Docker.
-    static let dockerMeasure: [String: (type: String, field: String)] = [
-        "docker-build-cache": ("Build Cache", "Reclaimable"),
-        "docker-images": ("Images", "Size"),
-        "docker-volumes": ("Local Volumes", "Size"),
-    ]
-    static let dockerDFArguments = ["system", "df", "--format", "{{json .}}"]
-
-    /// Salida de `docker system df`, o `nil` si Docker no está instalado o el demonio no responde.
-    private func dockerSystemDF() async -> String? {
-        let probe = catalog.entry(id: "docker-build-cache").flatMap { entry -> [String]? in
-            if case .command(_, _, let sizeProbe) = entry.cleanup { return sizeProbe }
-            return nil
-        } ?? Self.dockerDFArguments
-        guard let docker = await runner.resolve("docker"),
-              let output = try? await runner.run(docker, probe, timeout: Self.probeTimeout),
-              output.status == 0 else { return nil }
-        return output.stdout
-    }
-
-    /// `docker system df --format {{json .}}`: un objeto JSON por línea con "Type", "Size" y "Reclaimable".
-    static func parseDockerDF(_ output: String, type: String, field: String) -> Int64? {
-        for line in output.split(whereSeparator: \.isNewline) {
-            guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
-                  object["Type"] as? String == type,
-                  let value = object[field] as? String else { continue }
-            return parseDockerSize(value)
-        }
-        return nil
     }
 
     /// "29.89GB (86%)" ⇒ 29 890 000 000 (unidades decimales; se ignora el paréntesis).

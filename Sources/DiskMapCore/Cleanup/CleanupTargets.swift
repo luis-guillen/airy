@@ -9,12 +9,15 @@ public struct DiscoveryContext: Sendable {
     public let now: Date
     /// Índice de la última exploración (para medir sin recorrer el disco), si lo hay.
     public let scan: FileNode?
+    /// Estado de Docker de esta pasada (una sola sonda); `nil` ⇒ `DockerSource` lo pregunta.
+    public let docker: DockerState?
 
     public init(catalog: Catalog, home: String, runner: any CommandRunning, processListing: any ProcessListing,
-                now: Date, scan: FileNode?) {
+                now: Date, scan: FileNode?, docker: DockerState? = nil) {
         self.catalog = catalog
         self.home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
         self.runner = runner; self.processListing = processListing; self.now = now; self.scan = scan
+        self.docker = docker
     }
 }
 
@@ -57,6 +60,7 @@ public protocol CleanupTargetSource: Sendable {
 public enum CleanupTargets {
     /// `discovery` ⇒ su fuente; `retention` ⇒ `RetentionSource`; si no, `StaticPatternSource`.
     public static func source(for entry: CatalogEntry) -> any CleanupTargetSource {
+        if entry.discovery == .docker { return DockerSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()
@@ -107,7 +111,7 @@ public struct StaticPatternSource: CleanupTargetSource {
         if case .command(let executable, _, let sizeProbe) = entry.cleanup {
             // Sin la herramienta instalada no se puede limpiar con su comando oficial.
             guard await context.runner.resolve(executable) != nil else { return [] }
-            // Solo se sabe interpretar la sonda de Docker (en el escáner): el resto (tmutil…) no se mide.
+            // Las sondas de tamaño (tmutil…) no se saben interpretar: no se mide (Docker va por `DockerSource`).
             if sizeProbe != nil { return [] }
         }
 

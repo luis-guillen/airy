@@ -25,7 +25,14 @@
           "{{json .}}"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "shortReason": "Docker la vuelve a descargar o construir cuando la necesita.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "docker"
+      }
     },
     {
       "id": "docker-volumes",
@@ -41,21 +48,98 @@
       "cleanup": {
         "type": "info"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "shortReason": "Guarda los datos de tus contenedores (bases de datos…): no se recuperan.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "docker"
+      }
     },
     {
       "id": "docker-images",
       "title": "Imágenes de Docker",
-      "explanation": "Son las plantillas con las que Docker crea contenedores. Las descargadas se pueden bajar de nuevo, pero las que hayas construido tú habrá que reconstruirlas; decide tú cuáles sobran.",
+      "explanation": "Son las plantillas con las que Docker crea contenedores. Se borran con su comando oficial las que ningún contenedor usa; Docker las vuelve a descargar o construir cuando las necesita, aunque las que construiste tú tardarán en rehacerse.",
+      "whoCreatesIt": "Docker",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "containers",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "docker",
+        "arguments": [
+          "image",
+          "prune",
+          "-a",
+          "-f"
+        ]
+      },
+      "mustBeClosed": [],
+      "aggressiveRisk": "safe",
+      "shortReason": "Docker la vuelve a descargar o construir cuando la necesita.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "docker"
+      }
+    },
+    {
+      "id": "docker-containers",
+      "title": "Contenedores parados de Docker",
+      "explanation": "Contenedores que ya no están en marcha. Se borran con el comando oficial de Docker; antes de hacerlo, mira la lista: si alguno guardaba datos en su propia capa (no en un volumen), se pierden.",
       "whoCreatesIt": "Docker",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "containers",
       "paths": [],
       "cleanup": {
-        "type": "info"
+        "type": "command",
+        "executable": "docker",
+        "arguments": [
+          "container",
+          "prune",
+          "-f"
+        ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "shortReason": "Un contenedor parado puede guardar datos en su capa: lo pierdes.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "docker"
+      }
+    },
+    {
+      "id": "docker-networks",
+      "title": "Redes sin usar de Docker",
+      "explanation": "Redes que creó Docker y que ya no usa ningún contenedor. No ocupan espacio en disco; quitarlas solo ordena la lista y Docker crea las que necesite.",
+      "whoCreatesIt": "Docker",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "containers",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "docker",
+        "arguments": [
+          "network",
+          "prune",
+          "-f"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "Docker crea de nuevo las redes que necesite.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "docker"
+      }
     },
     {
       "id": "homebrew",

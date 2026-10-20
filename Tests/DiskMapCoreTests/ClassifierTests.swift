@@ -263,7 +263,9 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
     /// «No tocar» o pierden rutas son las esperadas (lista fija: si cambia, hay que revisarla).
     @Test func bundledCatalogIsNeverLessStrictThanPhaseOne() throws {
         let catalog = try Catalog.bundled()
-        var becameRed: Set<String> = [], dropped: Set<String> = []
+        var becameRed: Set<String> = [], dropped: Set<String> = [], lowered: Set<String> = []
+        // Plan 3: el modo Agresivo baja a propósito lo que se regenera (`aggressiveRisk`); lista fija.
+        let expectedAggressiveLowerings: Set<String> = ["docker-images"]
         for mode in CleanupMode.allCases {
             let c = RiskClassifier(catalog: catalog, settings: settings(mode), home: home)
             for e in catalog.entries {
@@ -274,11 +276,16 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
                     .strictest($0, RiskPolicy.effectiveRisk(path: $1, home: home, catalog: e.risk, ai: nil))
                 }
                 let now = c.classify(entry: e, paths: paths)
-                #expect(now.risk >= phaseOne, "\(e.id) en modo \(mode): \(now.risk) < \(phaseOne)")
+                if mode == .aggressive, now.risk < phaseOne, e.regenerates, e.aggressiveRisk == now.risk {
+                    lowered.insert(e.id)
+                } else {
+                    #expect(now.risk >= phaseOne, "\(e.id) en modo \(mode): \(now.risk) < \(phaseOne)")
+                }
                 if now.risk == .doNotTouch && phaseOne != .doNotTouch { becameRed.insert(e.id) }
                 if now.keptPaths.count < paths.count, case .trash = e.cleanup { dropped.insert(e.id) }
             }
         }
+        #expect(lowered == expectedAggressiveLowerings, "Bajadas en Agresivo: \(lowered.sorted())")
         #expect(becameRed == expectedRedAfterHardProtections, "Nuevas en rojo: \(becameRed.sorted())")
         #expect(dropped == expectedDroppedAfterHardProtections, "Con rutas quitadas: \(dropped.sorted())")
     }
