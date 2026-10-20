@@ -134,4 +134,38 @@ import Testing
         // Sin sesión gráfica la lista puede venir vacía; con sesión, todas traen nombre.
         #expect(apps.allSatisfy { !$0.name.isEmpty && $0.pid > 0 })
     }
+
+    @Test func batteryHealthClamped() {
+        #expect(BatteryProbe.health(rawMax: 4200, design: 5000) == 84)
+        #expect(BatteryProbe.health(rawMax: 5200, design: 5000) == 100)
+        #expect(BatteryProbe.health(rawMax: nil, design: 5000) == nil)
+        #expect(BatteryProbe.health(rawMax: 4200, design: 0) == nil)
+    }
+
+    @Test func tunnelsAndLoopbackNotCounted() {
+        #expect(!IOProbe.countsInterface(name: "lo0", isLoopback: true))
+        #expect(!IOProbe.countsInterface(name: "utun3", isLoopback: false))
+        #expect(!IOProbe.countsInterface(name: "ipsec0", isLoopback: false))
+        #expect(IOProbe.countsInterface(name: "en0", isLoopback: false))
+    }
+
+    @Test func liveDiskAndNetworkReadable() {
+        #expect(IOProbe.disk() != nil)
+        #expect(IOProbe.network() != nil)
+    }
+
+    @Test func liveSamplerFillsEverything() async {
+        let s = await LiveSampler().sample()
+        #expect(s.memory.total > 0)
+        #expect(!s.cores.isEmpty)
+        #expect(s.processes.contains { $0.pid == getpid() })
+        #expect(s.system != nil)
+        #expect(s.uptimeNs > 0)
+    }
+
+    @Test func liveSamplerIsQuick() async {
+        let start = ContinuousClock.now
+        _ = await LiveSampler().sample()
+        #expect(ContinuousClock.now - start < .seconds(3))   // F7
+    }
 }
