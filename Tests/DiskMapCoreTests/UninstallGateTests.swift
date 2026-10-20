@@ -135,6 +135,78 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(ProtectionWaiver.uninstall(record("com.example.foo", "Foo", foo), appRoots: ["/"]) == nil)
     }
 
+    @Test func onlyApplicationsRootsAccepted() {
+        // Una raíz que no se llama «Applications» nunca da dispensa, aunque la app cuelgue de ella.
+        for (root, path) in [("/Library", "/Library/X.app"), ("/usr", "/usr/X.app"), ("/opt/homebrew", "/opt/homebrew/X.app"),
+                             ("/private", "/private/X.app"), ("/System", "/System/X.app"), ("/", "/X.app"),
+                             (h + "/Library/Keychains", h + "/Library/Keychains/X.app"), (tmp + "/Apps", tmp + "/Apps/X.app"),
+                             ("/Applications/Utilities", "/Applications/Utilities/A/B/X.app")] {
+            #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", path), appRoots: [root]) == nil, "\(root)")
+        }
+        // Mayúsculas aparte, «Applications» sí vale (y la de producción).
+        #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", tmp + "/APPLICATIONS/Foo.app"),
+                                           appRoots: [tmp + "/APPLICATIONS"]) != nil)
+        #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", foo),
+                                           appRoots: ["/Library", "/usr", apps]) != nil)
+    }
+
+    @Test func libraryRootNeverOpensItsSeal() throws {
+        // Aunque alguien llamara «Applications» a una carpeta dentro de un sello del sistema, solo el sello
+        // cuyo patrón es la raíz de apps se dispensa; el de fuera sigue rechazando.
+        let lib = tmp + "/Library"
+        let inner = lib + "/Applications/X.app"
+        makeBundle(inner, id: "com.example.x")
+        let gate = PathGate(home: h, catalog: nil, userProtected: ProtectList(patterns: [], home: h),
+                            protections: HardProtections(criticalRoots: [], sealedSystemLocations: [lib]))
+        #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", inner), appRoots: [lib]) == nil)
+        let waiver = try #require(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", inner),
+                                                            appRoots: [lib + "/Applications"]))
+        #expect(gate.validate(inner, waiver: waiver).failure?.reason == "Ubicación protegida por Airy: \(lib).")
+    }
+
+    @Test func systemnessRecomputedNotTrusted() throws {
+        // `isSystem: false` del llamante no basta: un enlace hacia /System se resuelve y se rechaza.
+        let calculator = "/System/Applications/Calculator.app"
+        if FileManager.default.fileExists(atPath: calculator) {
+            try FileManager.default.createSymbolicLink(atPath: apps + "/Calc.app", withDestinationPath: calculator)
+            #expect(ProtectionWaiver.uninstall(record("com.example.calc", "Calc", apps + "/Calc.app"), appRoots: [apps]) == nil)
+        } else {
+            Issue.record("No hay \(calculator) para probar el enlace hacia /System.")
+        }
+        // Carpeta de apps enlazada dentro de /System.
+        try FileManager.default.createSymbolicLink(atPath: tmp + "/SysLink", withDestinationPath: "/System")
+        #expect(ProtectionWaiver.uninstall(record("com.example.calc", "Calc", tmp + "/SysLink/Applications/Calculator.app"),
+                                           appRoots: [tmp + "/SysLink/Applications"]) == nil)
+        // Identificador imprescindible del sistema, en el registro o en el disco.
+        #expect(ProtectionWaiver.uninstall(record("com.apple.Finder", "Finder", apps + "/Finder.app"), appRoots: [apps]) == nil)
+        makeBundle(apps + "/Fake.app", id: "com.apple.Safari")
+        #expect(ProtectionWaiver.uninstall(record("com.example.fake", "Fake", apps + "/Fake.app"), appRoots: [apps]) == nil)
+        makeBundle(apps + "/Falcon.app", id: "com.crowdstrike.falcon")
+        #expect(ProtectionWaiver.uninstall(record("com.example.falcon", "Falcon", apps + "/Falcon.app"), appRoots: [apps]) == nil)
+        // Ni sin carpeta padre resoluble.
+        #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", tmp + "/Nada/Applications/X.app"),
+                                           appRoots: [tmp + "/Nada/Applications"]) == nil)
+    }
+
+    @Test func wrappedIOSAppPassesWithItsWaiver() throws {
+        // App de iOS/iPadOS: sin Contents/Info.plist; el identificador está en Wrapper/<nombre>.app/Info.plist.
+        let wrapped = apps + "/Juego.app"
+        mkdir(wrapped + "/Wrapper/Juego.app")
+        func writeWrapped(_ id: String) {
+            let data = try! PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": id], format: .xml, options: 0)
+            try! data.write(to: URL(fileURLWithPath: wrapped + "/Wrapper/Juego.app/Info.plist"))
+        }
+        writeWrapped("com.example.juego")
+        #expect(AppInventory.bundleIdentifier(ofApp: wrapped) == "com.example.juego")
+        let waiver = try #require(ProtectionWaiver.uninstall(record("com.example.juego", "Juego", wrapped), appRoots: [apps]))
+        let gate = gate()
+        #expect(gate.validate(wrapped, waiver: nil).failure != nil)
+        #expect(gate.validate(wrapped, waiver: waiver).failure == nil)
+        #expect(gate.validate(wrapped + "/Wrapper/Juego.app", waiver: waiver).failure != nil)
+        writeWrapped("com.example.otro")
+        #expect(gate.validate(wrapped, waiver: waiver).failure?.reason == "Ya no es la app que elegiste.")
+    }
+
     @Test func criticalRootNeverWaived() throws {
         let waiver = try #require(fooWaiver)
         #expect(gate(criticalRoots: [foo]).validate(foo, waiver: waiver).failure != nil)
@@ -145,10 +217,10 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         let lateWaiver = try #require(ProtectionWaiver.uninstall(record("com.example.late", "Late", late), appRoots: [apps]))
         #expect(lateGate.validate(late, waiver: lateWaiver).failure?.reason == "Carpeta crítica del sistema.")
         // Una «raíz de apps» dentro de una ubicación sellada del home: el sello del home no se dispensa.
-        let keychainApp = h + "/Library/Keychains/Evil.app"
+        let keychainApp = h + "/Library/Keychains/Applications/Evil.app"
         makeBundle(keychainApp, id: "com.example.evil")
         let keychainWaiver = try #require(ProtectionWaiver.uninstall(record("com.example.evil", "Evil", keychainApp),
-                                                                    appRoots: [h + "/Library/Keychains"]))
+                                                                    appRoots: [h + "/Library/Keychains/Applications"]))
         #expect(gate().validate(keychainApp, waiver: keychainWaiver).failure?.reason
             == "Ubicación protegida por Airy: Llaveros.")
         // La lista dura real: /Applications/Safari.app es raíz crítica, con o sin dispensa.
@@ -193,6 +265,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
             #expect(ProtectionWaiver.uninstall(record(id, "Foo Bar", foo), appRoots: [apps]) == nil, "\(id)")
         }
         // Profundidad 1 y 2 sí; 0, 3 o fuera de las raíces, no.
+        mkdir(apps + "/Utilidades")
         #expect(ProtectionWaiver.uninstall(fooApp, appRoots: [apps]) != nil)
         #expect(ProtectionWaiver.uninstall(record("com.example.foo", "Foo", apps + "/Utilidades/Foo.app"),
                                            appRoots: [apps]) != nil)

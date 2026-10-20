@@ -239,8 +239,20 @@ public struct AppInventory: Sendable {
         return dict
     }
 
+    /// `CFBundleIdentifier` del `.app` leído ahora mismo (también de apps de iOS envueltas), o `nil`.
+    static func bundleIdentifier(ofApp path: String) -> String? {
+        guard let id = infoPlist(ofApp: path)?["CFBundleIdentifier"] as? String, !id.isEmpty else { return nil }
+        return id
+    }
+
+    /// Parte de macOS: dentro de `/System` o con un identificador imprescindible del sistema.
+    static func isSystemApp(path: String, bundleID: String) -> Bool {
+        RiskPolicy.isInside(RiskPolicy.canonical(path), root: "/system")
+            || systemCriticalBundleIDs.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
+    }
+
     /// `Contents/Info.plist`; si falta y es una app de iOS, el del envoltorio `Wrapper/*.app`.
-    private static func infoPlist(ofApp path: String) -> [String: Any]? {
+    static func infoPlist(ofApp path: String) -> [String: Any]? {
         let main = path + "/Contents/Info.plist"
         if FileManager.default.fileExists(atPath: main) { return readPlist(main) }
         guard case .success(let inner) = listing(path + "/Wrapper") else { return nil }
@@ -297,8 +309,7 @@ public struct AppInventory: Sendable {
             (plist[key] as? String).flatMap { $0.isEmpty ? nil : $0 }
         }
         let name = text("CFBundleDisplayName") ?? text("CFBundleName") ?? fallback
-        let isSystem = path.hasPrefix("/System/Applications/")
-            || systemCriticalBundleIDs.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
+        let isSystem = isSystemApp(path: path, bundleID: bundleID)
         let helpers = helperIDs(ofApp: path, problems: &walk.problems)
         walk.apps.append(AppRecord(
             bundleID: bundleID, name: name, version: text("CFBundleShortVersionString"), path: path,
