@@ -134,6 +134,17 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         #expect(verdict(hours: 13, cpu: 20).findings.isEmpty)
     }
 
+    @Test func runawayNeverPointsAtAiry() {
+        let age = 13.0 * 3600
+        let cpu = UInt64(age * 0.5 * 1e9)
+        let own = OwnProcess(pid: ProcessInfo.processInfo.processIdentifier, name: "xctest",
+                             startTime: t0.addingTimeInterval(-age), cpuTimeNs: cpu)
+        let airy = OwnProcess(pid: 43, name: "Airy", executablePath: "/Applications/Airy.app/Contents/MacOS/Airy",
+                              startTime: t0.addingTimeInterval(-age), cpuTimeNs: cpu)
+        let mcp = OwnProcess(pid: 44, name: "airy-mcp", startTime: t0.addingTimeInterval(-age), cpuTimeNs: cpu)
+        #expect(PerformanceDiagnosis.evaluate([snap(0, processes: [own, airy, mcp])], extras: .unknown).findings.isEmpty)
+    }
+
     @Test func diskImagesOnlyWithSyspolicyd() {
         let images = DiagnosisExtras(dockerRunningContainers: nil, mountedDiskImages: ["Xcode.dmg", "a.dmg", "b.dmg", "c.dmg"])
         let quiet = PerformanceDiagnosis.evaluate([snap(0), snap(1.5)], extras: images)
