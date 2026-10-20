@@ -40,18 +40,25 @@ public struct ProtectionWaiver: Sendable, Equatable {
 
     /// `nil` (no hay dispensa) si: app.isSystem; id con prefijo de officialUninstallerPrefixes; id con prefijo
     /// "local.airy."; o app.path no cuelga de un elemento de `appRoots` a profundidad 1 o 2.
+    /// Solo valen raíces cuyo último componente es `Applications` (`/Applications`, `~/Applications` o, en
+    /// DEBUG, una carpeta temporal `…/Applications`). No se fía de `app.isSystem`: lo recalcula con la ruta
+    /// resuelta y con el identificador que hay ahora en disco.
     public static func uninstall(_ app: AppRecord, appRoots: [String]) -> ProtectionWaiver? {
         let id = app.bundleID.lowercased()
-        guard !app.isSystem, !id.isEmpty, !id.hasPrefix("local.airy."),
-              !AppInventory.officialUninstallerPrefixes.contains(where: { id.hasPrefix($0.lowercased()) }),
+        guard !app.isSystem, !id.isEmpty, !isRefusedID(id),
               PathGate.syntaxRefusal(app.path) == nil, app.path.lowercased().hasSuffix(".app") else { return nil }
         let path = RiskPolicy.canonical(app.path)
         let parts = HardProtections.components(path)
         let root = appRoots.lazy.map(RiskPolicy.canonical).first { root in
             let depth = parts.count - HardProtections.components(root).count
-            return root != "/" && RiskPolicy.isInside(path, root: root) && (1...2).contains(depth)
+            return isAppRoot(root) && RiskPolicy.isInside(path, root: root) && (1...2).contains(depth)
         }
-        guard let root else { return nil }
+        guard let root, let resolved = resolvedPath(app.path),
+              !AppInventory.isSystemApp(path: resolved, bundleID: app.bundleID) else { return nil }
+        if let onDisk = AppInventory.bundleIdentifier(ofApp: app.path),
+           AppInventory.isSystemApp(path: resolved, bundleID: onDisk) || isRefusedID(onDisk.lowercased()) {
+            return nil
+        }
         var owned: [String] = []
         for name in [app.bundleID] + app.helperBundleIDs + AppInventory.nameVariants(app.name) {
             let lower = name.lowercased()
@@ -63,14 +70,34 @@ public struct ProtectionWaiver: Sendable, Equatable {
 
     public static func productionAppRoots(home: String) -> [String] { ["/Applications", home + "/Applications"] }
 
+    /// Airy y las apps con desinstalador oficial (id en minúsculas).
+    private static func isRefusedID(_ id: String) -> Bool {
+        id.hasPrefix("local.airy.") || AppInventory.officialUninstallerPrefixes.contains { id.hasPrefix($0.lowercased()) }
+    }
+
+    /// Raíz canónica cuyo último componente es `applications`.
+    private static func isAppRoot(_ root: String) -> Bool {
+        HardProtections.components(root).last == "applications"
+    }
+
+    /// Ruta real del `.app` (o, si aún no existe, la de su carpeta padre más su nombre); `nil` si no se resuelve.
+    private static func resolvedPath(_ path: String) -> String? {
+        func real(_ p: String) -> String? {
+            guard let r = realpath(p, nil) else { return nil }
+            defer { free(r) }
+            return String(cString: r)
+        }
+        if let full = real(path) { return full }
+        guard let parent = real((path as NSString).deletingLastPathComponent) else { return nil }
+        return parent + "/" + (path as NSString).lastPathComponent
+    }
+
     static let bundleChanged = "Ya no es la app que elegiste."
 
-    /// `true` si el `.app` (que no es un enlace) tiene ahora mismo `CFBundleIdentifier == bundleID`.
+    /// `true` si el `.app` (que no es un enlace) tiene ahora mismo `CFBundleIdentifier == bundleID`, leído
+    /// como lo lee el inventario (también apps de iOS envueltas en `Wrapper/*.app`).
     func bundleStillMatches(identity: FileIdentity) -> Bool {
-        guard !identity.isSymlink,
-              let data = FileManager.default.contents(atPath: appPath + "/Contents/Info.plist"),
-              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              let id = plist["CFBundleIdentifier"] as? String else { return false }
+        guard !identity.isSymlink, let id = AppInventory.bundleIdentifier(ofApp: appPath) else { return false }
         return id == bundleID
     }
 
@@ -81,7 +108,9 @@ public struct ProtectionWaiver: Sendable, Equatable {
         if isBundle {
             switch match.rule {
             case .sealedSystem:
-                return RiskPolicy.canonical(match.pattern) == appRoot
+                // Solo el sello de la propia raíz de apps (en la práctica, `/Applications`).
+                let pattern = RiskPolicy.canonical(match.pattern)
+                return pattern == appRoot && Self.isAppRoot(pattern)
             case .fragment:
                 // Solo si el fragmento está en el nombre del `.app`, no en una carpeta superior.
                 let fragment = match.pattern.trimmingCharacters(in: CharacterSet(charactersIn: "*"))
