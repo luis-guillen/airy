@@ -91,6 +91,8 @@ public struct DuplicateRemoval: Sendable, Equatable {
     public let size: Int64
     let fingerprint: ContentFingerprint?
 
+    /// Sin huella: `verify` solo puede comprobar el tamaño de `keep` (las demás se comparan con `keep`
+    /// releído). Para pruebas y vistas previas; lo que se borra sale de `DuplicateBoard.removals()`.
     public init(keep: String, remove: [String], size: Int64) {
         self.init(keep: keep, remove: remove, size: size, fingerprint: nil)
     }
@@ -204,7 +206,7 @@ public struct DuplicateFinder: Sendable {
 
         // 4. Huella parcial (inicio y final).
         let partialInput = sizeGroups.flatMap { $0 }
-        let partials = await Self.mapBounded(partialInput) { candidate in
+        let partials = await Self.mapBounded(partialInput, limits: limits) { candidate in
             Self.hash(candidate.path, size: candidate.size, partial: true, limits: limits)
         }
         var byPartial: [PartialKey: [Candidate]] = [:]
@@ -218,7 +220,7 @@ public struct DuplicateFinder: Sendable {
         if Task.isCancelled || limits.exceeded { return finish([], complete: false) }
 
         // 5. Huella completa.
-        let fulls = await Self.mapBounded(fullInput) { candidate -> SHA256.Digest? in
+        let fulls = await Self.mapBounded(fullInput, limits: limits) { candidate -> SHA256.Digest? in
             defer { counter.add(1) }
             return Self.hash(candidate.path, size: candidate.size, partial: false, limits: limits)
         }
@@ -306,15 +308,18 @@ public struct DuplicateFinder: Sendable {
             }
         }
         let limits = Limits(bytes: .max, time: .seconds(3_600))
-        guard let keepInfo, (keepInfo.st_mode & S_IFMT) == S_IFREG else {
-            refusals[removal.keep] = refusals[removal.keep] ?? "Ya no existe la copia que conservas."
+        // Si falla la copia conservada, se rechazan también todas las demás: nunca se borra un grupo entero.
+        func refuseAll(_ reason: String) -> [String: String] {
+            for path in removal.remove + [removal.keep] where refusals[path] == nil { refusals[path] = reason }
             return refusals
+        }
+        guard let keepInfo, (keepInfo.st_mode & S_IFMT) == S_IFREG else {
+            return refuseAll("Ya no existe la copia que conservas.")
         }
         guard Int64(keepInfo.st_size) == removal.size,
               let keepDigest = Self.hash(removal.keep, size: removal.size, partial: false, limits: limits),
               removal.fingerprint.map({ $0.digest == keepDigest }) ?? true else {
-            refusals[removal.keep] = refusals[removal.keep] ?? "La copia que conservas ha cambiado."
-            return refusals
+            return refuseAll("La copia que conservas ha cambiado.")
         }
         for path in removal.remove where refusals[path] == nil {
             if Task.isCancelled { refusals[path] = "Ha cambiado desde la búsqueda."; continue }
@@ -335,10 +340,13 @@ public struct DuplicateFinder: Sendable {
         var notes: [String] = []
         for removal in removals {
             let refusals = await verify(removal)
+            if let reason = refusals[removal.keep] {
+                notes.append("\(Format.tildePath(removal.keep, home: home)): \(reason)")
+                continue
+            }
             for (path, reason) in refusals.sorted(by: { $0.key < $1.key }) {
                 notes.append("\(Format.tildePath(path, home: home)): \(reason)")
             }
-            if refusals[removal.keep] != nil { continue }
             paths += removal.remove.filter { refusals[$0] == nil && $0 != removal.keep }
         }
         return (paths, notes)
@@ -386,13 +394,13 @@ public struct DuplicateFinder: Sendable {
     }
 
     /// A lo sumo `width` a la vez, con prioridad baja; el orden del resultado es el de `items`.
-    private static func mapBounded<T: Sendable, R: Sendable>(_ items: [T],
+    private static func mapBounded<T: Sendable, R: Sendable>(_ items: [T], limits: Limits,
                                                              _ body: @escaping @Sendable (T) -> R?) async -> [R?] {
         var results = [R?](repeating: nil, count: items.count)
         await withTaskGroup(of: (Int, R?).self) { group in
             var next = 0
             func launch() {
-                guard next < items.count, !Task.isCancelled else { return }
+                guard next < items.count, !Task.isCancelled, !limits.exceeded else { return }
                 let index = next, item = items[index]
                 next += 1
                 group.addTask(priority: priority) { (index, Task.isCancelled ? nil : body(item)) }
