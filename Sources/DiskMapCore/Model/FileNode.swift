@@ -4,6 +4,8 @@ import Synchronization
 public enum ContentKind: String, Codable, CaseIterable, Sendable {
     case video, images, apps, code, caches, aiModels, containers, documents, system, other
 
+    var index: Int { ContentKind.allCases.firstIndex(of: self)! }
+
     public var title: String {
         switch self {
         case .video: "Vídeo"
