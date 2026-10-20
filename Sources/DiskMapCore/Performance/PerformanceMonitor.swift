@@ -7,6 +7,10 @@ public actor PerformanceMonitor {
     private let grouper: @Sendable (RawSample, [Int32: Double], [Int32: Double]) -> [AppGroup]
     private var previous: RawSample?
     private var snapshots: [PerformanceSnapshot] = []
+    // F4: caché de las sondas del diagnóstico (30 s por dato, medido con la fecha de la muestra).
+    private var extras = DiagnosisExtras.unknown
+    private var extrasDates: (docker: Date?, images: Date?) = (nil, nil)
+    public static let extrasCacheSeconds: TimeInterval = 30
 
     public init(sampler: any PerformanceSampling, historyLimit: Int = 6,
                 grouper: @escaping @Sendable (RawSample, [Int32: Double], [Int32: Double]) -> [AppGroup] = { _, _, _ in [] }) {
@@ -53,6 +57,37 @@ public actor PerformanceMonitor {
         snapshots.append(snapshot)
         if snapshots.count > historyLimit { snapshots.removeFirst(snapshots.count - historyLimit) }
         return snapshot
+    }
+
+    // MARK: - Diagnóstico
+
+    /// Llama a docker solo si dockerVMMemory > dockerVMBytes y a hdiutil solo si syspolicyd ≥ umbral en las dos últimas; caché 30 s.
+    public func verdict(probes: DiagnosisProbes?) async -> HealthVerdict {
+        let history = snapshots
+        guard let last = history.last else { return PerformanceDiagnosis.evaluate([], extras: .unknown) }
+        let now = last.date
+        func fresh(_ date: Date?) -> Bool {
+            guard let date else { return false }
+            let age = now.timeIntervalSince(date)
+            return age >= 0 && age < Self.extrasCacheSeconds
+        }
+
+        var current = DiagnosisExtras.unknown
+        if let vm = PerformanceDiagnosis.dockerVMMemory(last), vm > PerformanceDiagnosis.dockerVMBytes {
+            if !fresh(extrasDates.docker), let probes {
+                extras.dockerRunningContainers = await probes.dockerRunningContainers()
+                extrasDates.docker = now
+            }
+            if fresh(extrasDates.docker) { current.dockerRunningContainers = extras.dockerRunningContainers }
+        }
+        if PerformanceDiagnosis.sustained(.syspolicyd, history) {
+            if !fresh(extrasDates.images), let probes {
+                extras.mountedDiskImages = await probes.mountedDiskImages()
+                extrasDates.images = now
+            }
+            if fresh(extrasDates.images) { current.mountedDiskImages = extras.mountedDiskImages }
+        }
+        return PerformanceDiagnosis.evaluate(history, extras: current)
     }
 
     // MARK: - Deltas
