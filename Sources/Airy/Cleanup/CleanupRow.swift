@@ -210,6 +210,7 @@ struct CleanupIcon: View {
     let entry: CatalogEntry
     var dimmed = false
     var size: CGFloat = 36
+    @Environment(\.airyQuietShadows) private var quietShadows
 
     var body: some View {
         ZStack {
@@ -225,7 +226,8 @@ struct CleanupIcon: View {
             RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
                 .strokeBorder(.white.opacity(0.18), lineWidth: 0.75)
         }
-        .shadow(color: Theme.color(for: entry.kind).opacity(dimmed ? 0 : 0.28), radius: 6, y: 3)
+        .shadow(color: Theme.color(for: entry.kind).opacity(dimmed || quietShadows ? 0 : 0.28),
+                radius: quietShadows ? 0 : 6, y: quietShadows ? 0 : 3)
     }
 
     /// Glifo con contraste AA sobre los dos extremos del degradado del tipo, como en el mapa.

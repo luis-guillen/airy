@@ -30,7 +30,7 @@ struct CleanupView: View {
         let selected = board.selected(selection)
         ScrollViewReader { proxy in
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            LazyVStack(alignment: .leading, spacing: 22) {
                 SectionHeader(title: "Limpieza", subtitle: subtitle(board)) {
                     PrimaryButton(model.isRefreshingCleanup ? "Buscando…" : "Buscar de nuevo",
                                   systemImage: "arrow.clockwise", style: .secondary,
@@ -60,6 +60,8 @@ struct CleanupView: View {
 
                     ForEach(Array(board.groups.enumerated()), id: \.element.id) { index, group in
                         GroupSection(group: group, selection: $selection)
+                            // La última fila de un grupo se va con el grupo entero: también en hojas.
+                            .transition(.leafAway)
                             .opacity(appeared ? 1 : 0)
                             .offset(y: appeared ? 0 : 10)
                             .animation(Theme.stagger(index: index * 4), value: appeared)
@@ -68,11 +70,10 @@ struct CleanupView: View {
             }
             .padding(.horizontal, Theme.contentPadding)
             .padding(.top, 34)
-            .padding(.bottom, selected.isEmpty ? 28 : 96)
+            // La barra de selección o la píldora de la tanda no tapan la última fila.
+            .padding(.bottom, selected.isEmpty && !showsBatchPill ? 28 : 96)
             .frame(maxWidth: 980, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Un único muelle para filas que se colapsan o llegan con la nueva detección.
-            .animation(Theme.zoomSpring, value: board.items.map(\.id))
             .animation(Theme.sectionSpring, value: flow.lastResult?.id)
         }
         .scrollContentBackground(.hidden)
@@ -94,18 +95,22 @@ struct CleanupView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if !selected.isEmpty {
-                SelectionBar(items: selected) { selection = [] }
-                    .padding(.bottom, 18)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if showsBatchPill {
-                BatchFreedPill(tally: flow.batchTally)
-                    .padding(.bottom, 18)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            // Las animaciones van aquí dentro: solo mueven la barra o la píldora, no toda la lista.
+            Group {
+                if !selected.isEmpty {
+                    SelectionBar(items: selected) { selection = [] }
+                        .padding(.bottom, 18)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if showsBatchPill {
+                    BatchFreedPill(tally: flow.batchTally)
+                        .padding(.bottom, 18)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
+            .animation(Theme.sectionSpring, value: selected.isEmpty)
+            .animation(Theme.sectionSpring, value: showsBatchPill)
         }
-        .animation(Theme.sectionSpring, value: selected.isEmpty)
-        .animation(Theme.sectionSpring, value: showsBatchPill)
+        .environment(\.airyQuietShadows, flow.isRunning)
         .onAppear { withAnimation(Theme.zoomSpring) { appeared = true } }
         .onChange(of: model.cleanupItems.map(\.id)) { _, _ in
             selection = CleanupBoard(items: model.cleanupItems).pruned(selection)
@@ -170,6 +175,7 @@ struct CleanupView: View {
 
 private struct HeroCard: View {
     @Environment(CleanupFlow.self) private var flow
+    @Environment(\.airyQuietShadows) private var quietShadows
     let board: CleanupBoard
     /// Primera detección en curso: aún no se sabe cuánto hay (nunca un "0 kB" que parezca real).
     var isDetecting = false
@@ -186,7 +192,8 @@ private struct HeroCard: View {
                         .foregroundStyle(Theme.Airy.night)
                 }
                 .frame(width: 56, height: 56)
-                .shadow(color: Theme.Airy.riskFill(.safe).opacity(0.35), radius: 12, y: 5)
+                .shadow(color: Theme.Airy.riskFill(.safe).opacity(quietShadows ? 0 : 0.35), radius: quietShadows ? 0 : 12,
+                        y: quietShadows ? 0 : 5)
 
                 VStack(alignment: .leading, spacing: 2) {
                     // Con limpiezas parciales en la suma (p. ej. `pnpm store prune`) es solo un máximo.
@@ -271,6 +278,9 @@ private struct GroupSection: View {
                         .transition(.leafAway)
                     }
                 }
+                // El muelle de las filas que llegan o se van con una nueva detección, solo en este grupo
+                // (los borrados de una tanda ya llegan dentro de `withAnimation`).
+                .animation(Theme.zoomSpring, value: group.items.map(\.id))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
             }
         }

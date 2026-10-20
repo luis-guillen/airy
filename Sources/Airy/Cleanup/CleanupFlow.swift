@@ -203,7 +203,7 @@ final class CleanupFlow {
                 onOutcome?(gone)
                 return gone
             }
-            let outcome = await model.perform(current, context: context)
+            let outcome = await model.perform(current, context: context, refreshesCleanup: false)
             switch outcome {
             case .freed, .movedToTrash:
                 self?.batchTally.add(outcome)
@@ -216,6 +216,8 @@ final class CleanupFlow {
         })
         currentID = nil
         queuedIDs = []
+        // Una sola detección al final de la tanda (no una por elemento).
+        model.refreshCleanup()
         withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
         if summary.freed > 0 { celebration = Celebration(bytes: summary.freed) }
     }
