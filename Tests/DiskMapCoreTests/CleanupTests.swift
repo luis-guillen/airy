@@ -966,8 +966,10 @@ private func executor(
 
     @Test func bundledCatalogOnEmptyHomeFindsNothingAndRunsNoCleanup() async throws {
         let runner = FakeRunner(resolved: [:])
+        // Las fichas «Solo revisar» con rutas absolutas (`/Library`…) miran el Mac real, no la carpeta personal.
+        let homeOnly = Catalog(entries: try Catalog.bundled().entries.filter { $0.paths.allSatisfy { !$0.hasPrefix("/") } })
         let items = await CleanupScanner(
-            catalog: try Catalog.bundled(), runner: runner, probes: FakeProbes(),
+            catalog: homeOnly, runner: runner, probes: FakeProbes(),
             references: ReferenceChecker(roots: []), home: makeTempDir()
         ).findItems(scan: nil)
         #expect(items.isEmpty)

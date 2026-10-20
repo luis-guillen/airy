@@ -67,6 +67,7 @@ public enum CleanupTargets {
         if entry.discovery == .docker { return DockerSource() }
         if entry.discovery == .simulatorRuntimes { return SimulatorRuntimeSource() }
         if case .projectArtifacts = entry.discovery { return ProjectArtifactSource() }
+        if entry.discovery == .installers { return InstallerSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()
@@ -117,8 +118,13 @@ public struct StaticPatternSource: CleanupTargetSource {
         if case .command(let executable, _, let sizeProbe) = entry.cleanup {
             // Sin la herramienta instalada no se puede limpiar con su comando oficial.
             guard await context.runner.resolve(executable) != nil else { return [] }
-            // Las sondas de tamaño (tmutil…) no se saben interpretar: no se mide (Docker va por `DockerSource`).
-            if sizeProbe != nil { return [] }
+            // Solo se sabe interpretar la sonda de sqlite3 (espacio libre de una base de datos). Las demás
+            // (tmutil…) no se miden (Docker va por `DockerSource`).
+            if let sizeProbe {
+                guard executable == "sqlite3", let resolved = await context.runner.resolve(executable) else { return [] }
+                return await sqliteGroups(entry, paths: unique, probe: sizeProbe, executable: resolved,
+                                          runner: context.runner)
+            }
         }
 
         var groups: [DiscoveredTarget] = []
@@ -143,6 +149,29 @@ public struct StaticPatternSource: CleanupTargetSource {
             result.append(group)
         }
         return result
+    }
+
+    static let sqliteProbeTimeout: TimeInterval = 10
+
+    /// Una sonda por base de datos: `bytes = page_size × freelist_count` (dos enteros, uno por línea). Si falla o
+    /// no se entiende, esa base no se ofrece. Un solo elemento con las bases que pasan `minimumBytes`.
+    private func sqliteGroups(_ entry: CatalogEntry, paths: [String], probe: [String], executable: String,
+                              runner: any CommandRunning) async -> [DiscoveredTarget] {
+        var kept: [String] = []
+        var bytes: Int64 = 0
+        for path in paths {
+            let arguments = probe.map { $0 == CleanupMethod.targetPlaceholder ? path : $0 }
+            guard let output = try? await runner.run(executable, arguments, timeout: Self.sqliteProbeTimeout),
+                  output.status == 0 else { continue }
+            let numbers = output.stdout.split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            guard numbers.count == 2, let pageSize = Int64(numbers[0]), let freePages = Int64(numbers[1]),
+                  pageSize > 0, pageSize <= 65_536, freePages >= 0 else { continue }
+            kept.append(path)
+            bytes += pageSize * freePages
+        }
+        guard !kept.isEmpty, bytes >= (entry.minimumBytes ?? 1) else { return [] }
+        return [DiscoveredTarget(paths: kept, targets: kept, bytes: bytes)]
     }
 
     /// Aplica `staleAfterDays` (quita las rutas recientes o sin medir) y `minimumBytes`. `false` ⇒ fuera.
