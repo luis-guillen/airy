@@ -23,11 +23,13 @@ public struct ScanBudget: Sendable, Equatable {
         self.qos = qos
     }
 
-    /// Regla pura: `background` = 2 hilos; `normal` = hasta 4 (sin pasar de los núcleos de
-    /// rendimiento). Con Bajo consumo o temperatura `.serious` o peor, 2. Siempre QoS `.utility`:
-    /// medido sobre ~/Library (580 000 elementos), 2 hilos `.background` caen en los núcleos de
-    /// eficiencia y gastan 3,6 veces más CPU (37 s frente a 10 s) a más %CPU visible (~140 % frente
-    /// a ~100 %) y tardan 3 veces más que 2 hilos `.utility`.
+    /// Regla pura:
+    /// - `background` = 2 hilos en QoS `.background`: núcleos de eficiencia y E/S de disco
+    ///   moderada por el sistema, para no competir con lo que haga el usuario. Tarda más
+    ///   (~30 s frente a ~11 s con `.utility` sobre ~/Library, 580 000 elementos), y se acepta.
+    /// - `normal` = hasta 4 hilos (sin pasar de los núcleos de rendimiento) en `.utility`: el
+    ///   usuario espera delante del progreso.
+    /// Con Bajo consumo o temperatura `.serious` o peor, como mucho 2 hilos.
     public static func resolve(
         _ intensity: ScanIntensity,
         performanceCores: Int,
@@ -37,7 +39,7 @@ public struct ScanBudget: Sendable, Equatable {
         let constrained = lowPowerMode || thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue
         switch intensity {
         case .background:
-            return ScanBudget(workers: lightWorkers, qos: .utility)
+            return ScanBudget(workers: lightWorkers, qos: .background)
         case .normal:
             let cores = max(1, performanceCores)
             let workers = constrained ? min(lightWorkers, cores) : min(maxWorkers, cores)
@@ -116,6 +118,13 @@ public enum ScanRootsOverride {
             .filter { !$0.isEmpty }
             .map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
         return roots.isEmpty ? nil : roots
+    }
+
+    /// Con raíces sustituidas solo se guarda el índice en una carpeta de datos temporal
+    /// (`AIRY_SUPPORT_DIR`): un árbol parcial nunca pisa el índice real.
+    public static func allowsSaving(environment: [String: String]) -> Bool {
+        guard roots(from: environment) != nil else { return true }
+        return !(environment["AIRY_SUPPORT_DIR"] ?? "").isEmpty
     }
 }
 #endif

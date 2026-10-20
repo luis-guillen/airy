@@ -39,11 +39,15 @@ public struct ScanResult: Sendable {
     public let root: FileNode
     public let inaccessible: [String]
     public let duration: TimeInterval
+    /// Cuándo terminó el análisis completo que produjo el árbol. Volver a guardar el árbol tras
+    /// una limpieza o la Papelera no lo cambia. `nil`: no se sabe (índice de antes de guardarla).
+    public let scannedAt: Date?
 
-    public init(root: FileNode, inaccessible: [String], duration: TimeInterval) {
+    public init(root: FileNode, inaccessible: [String], duration: TimeInterval, scannedAt: Date? = nil) {
         self.root = root
         self.inaccessible = inaccessible
         self.duration = duration
+        self.scannedAt = scannedAt
     }
 }
 
@@ -105,7 +109,7 @@ public final class DiskScanner: Sendable {
         let root = nodes.count == 1 ? nodes[0] : Self.combine(nodes)
         let elapsed = clock.now - start
         let duration = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
-        return ScanResult(root: root, inaccessible: shared.inaccessibleSorted(), duration: duration)
+        return ScanResult(root: root, inaccessible: shared.inaccessibleSorted(), duration: duration, scannedAt: Date())
     }
 
     // MARK: - Recorrido
@@ -369,6 +373,7 @@ private final class WorkQueue: @unchecked Sendable {
         condition.lock()
         defer { condition.unlock() }
         while jobs.isEmpty, !finished { condition.wait() }
+        // La raíz solo se cierra cuando ya se entregó todo: con `finished` la pila está vacía.
         return jobs.popLast()
     }
 
