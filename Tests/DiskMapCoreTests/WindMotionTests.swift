@@ -41,6 +41,17 @@ struct WindMotionTests {
         }
     }
 
+    @Test func launchLeavesTumbleIndividuallyAndLandUpright() {
+        let n = WindMotion.launchLeafCount
+        for progress in [0.0, 0.2, 0.4] {
+            let rotations = (0..<n).map { WindMotion.launchLeaf(index: $0, count: n, progress: progress).rotation }
+            // Cada hoja gira a su aire: nada de un bando apuntando igual.
+            #expect(Set(rotations.map { ($0 * 100).rounded() }).count == n)
+            #expect(rotations.max()! - rotations.min()! > 1)
+        }
+        for i in 0..<n { #expect(WindMotion.launchLeaf(index: i, count: n, progress: 1).rotation == 0) }
+    }
+
     @Test func launchLeavesFadeOutDuringTheFadeSegment() {
         let t = WindMotion.launchTimeline(.running)
         let end = t.gather + t.hold + t.fade
@@ -105,6 +116,26 @@ struct WindMotionTests {
     @Test func gustDurationIsCappedForHugeLists() {
         #expect(WindMotion.gustDuration(rowCount: 500) <= WindMotion.gustMaxDuration)
         #expect(abs(WindMotion.gustRowOffset(row: 499, rowCount: 500, elapsed: WindMotion.gustMaxDuration)) < 1e-9)
+    }
+
+    @Test func gustNeedsTwoRowsAndKeepsExecutionOrder() {
+        #expect(BatchMotion.gustOrder(ids: []) == nil)
+        #expect(BatchMotion.gustOrder(ids: ["a"]) == nil)
+        #expect(BatchMotion.gustOrder(ids: ["c", "a", "b"]) == ["c", "a", "b"])
+    }
+
+    @Test func batchTallySumsFreedAndTrashAndSaysWhichIsWhich() {
+        var tally = BatchMotion.Tally()
+        #expect(tally.bytes == 0 && tally.label == "liberados" && tally.help == nil)
+        tally.add(.freed(1_000))
+        tally.add(.blocked(reason: "abierto"))
+        tally.add(.failed("sin permiso"))
+        #expect(tally.bytes == 1_000 && tally.label == "liberados" && tally.help == nil)
+        tally.add(.movedToTrash(500))
+        #expect(tally.bytes == 1_500 && tally.freed == 1_000 && tally.movedToTrash == 500)
+        #expect(tally.label == "despejados")
+        #expect(tally.help == "Lo movido a la Papelera se libera al vaciarla")
+        #expect(BatchMotion.tally([.freed(1), .movedToTrash(2), .freed(3)]).bytes == 6)
     }
 
     @Test func ambientBreezeIsSoftAndScanBreezeIsLively() {

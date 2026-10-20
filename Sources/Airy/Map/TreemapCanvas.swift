@@ -12,7 +12,7 @@ struct TreemapCanvas: View {
     var body: some View {
         // Se lee aquí (en `body`) para que Observation sepa qué redibujar; el lienzo recibe valores.
         let frame = MapFrame(layout: scene.layout, transition: scene.transition,
-                             hover: scene.hover, dim: scene.dim)
+                             hover: scene.hover, dim: scene.dim, bursts: scene.bursts)
         TimelineView(.animation(minimumInterval: nil, paused: !scene.isAnimating)) { timeline in
             // El lienzo depende de la fecha del fotograma: si no, SwiftUI no lo vuelve a pintar.
             let tick = timeline.date
@@ -34,6 +34,7 @@ struct MapFrame {
     let transition: MapTransition?
     let hover: Fade<Int>
     let dim: Fade<ContentKind>
+    var bursts: [MapLeafBurst] = []
 }
 
 // MARK: - Paleta de las teselas
@@ -84,6 +85,21 @@ enum MapRenderer {
                 drawTile(tile, in: fit(tile.rect), context: context, opacity: 1, labelOpacity: 1,
                          frame: frame, now: now)
             }
+        }
+        drawBursts(frame.bursts, context: &context, now: now)
+    }
+
+    /// Hojas de las teselas que se deshacen, por encima de todo, en la tinta clara de las teselas.
+    private static let burstColors: [Color] = [.white, Theme.Airy.leafSky]
+
+    private static func drawBursts(_ bursts: [MapLeafBurst], context: inout GraphicsContext, now: Double) {
+        for burst in bursts where burst.isAlive(at: now) {
+            let progress = (now - burst.start) / WindMotion.dissolveDuration
+            let count = WindMotion.leafCount(for: burst.rect)
+            let poses = (0..<count).map {
+                WindMotion.dissolveLeaf(index: $0, count: count, progress: progress, in: burst.rect)
+            }
+            WindLeaves.paint(&context, poses: poses, colors: burstColors)
         }
     }
 
