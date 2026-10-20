@@ -334,6 +334,9 @@ final class AppModel {
             section = .map
             guard await waitUntil({ $0.scan != nil }) else { return }
             navigation.reveal(path: path)
+        case .proposeQuit:
+            // Plan 4 Task 14 lo sustituye por la confirmación de cierre (ConfirmSheet → AppModel → QuitExecutor).
+            report(.url, "Un agente propuso cerrar una app; esta versión de Airy aún no lo admite.")
         case .propose(let target, let reason, let agent):
             // Nunca sustituye una hoja ya abierta (el usuario confirmaría otra cosa) ni una limpieza en curso.
             if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {

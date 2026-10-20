@@ -209,9 +209,8 @@ public struct Catalog: Sendable {
         try bundled(executableURL: Bundle.main.executableURL)
     }
 
-    /// Como `bundled()`, con el ejecutable dado: busca en su carpeta y en `<ejecutable>/../../Resources`
-    /// (`airy-mcp` en `Airy.app/Contents/MacOS/`). `searchProcessBundles: false` (pruebas) busca solo ahí.
-    public static func bundled(executableURL: URL?, searchProcessBundles: Bool = true) throws -> Catalog {
+    /// Carpetas donde buscar `Airy_DiskMapCore.bundle` (compartidas con `AppCatalog`).
+    static func resourceSearchDirectories(executableURL: URL?, searchProcessBundles: Bool) -> [URL] {
         var dirs: [URL] = []
         if let e = executableURL {
             let folder = e.deletingLastPathComponent()
@@ -224,6 +223,13 @@ public struct Catalog: Sendable {
             dirs.append(Bundle(for: BundleToken.self).bundleURL.deletingLastPathComponent())
             for b in Bundle.allBundles + Bundle.allFrameworks { dirs.append(b.bundleURL.deletingLastPathComponent()) }
         }
+        return dirs
+    }
+
+    /// Como `bundled()`, con el ejecutable dado: busca en su carpeta y en `<ejecutable>/../../Resources`
+    /// (`airy-mcp` en `Airy.app/Contents/MacOS/`). `searchProcessBundles: false` (pruebas) busca solo ahí.
+    public static func bundled(executableURL: URL?, searchProcessBundles: Bool = true) throws -> Catalog {
+        let dirs = resourceSearchDirectories(executableURL: executableURL, searchProcessBundles: searchProcessBundles)
         var tried: [String] = []
         for dir in dirs {
             let url = dir.appendingPathComponent(bundleName)
