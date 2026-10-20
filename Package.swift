@@ -13,7 +13,7 @@ let package = Package(
         .target(
             name: "DiskMapCore",
             path: "Sources/DiskMapCore",
-            resources: [.process("Resources/catalog.json")]
+            resources: [.process("Resources/catalog.json"), .process("Resources/apps.json")]
         ),
         .executableTarget(
             name: "Airy",

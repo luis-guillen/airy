@@ -1,0 +1,377 @@
+{
+  "entries": [
+    {
+      "id": "chrome",
+      "title": "Google Chrome",
+      "explanation": "Navegador de Google; cada pestaña y extensión es un proceso aparte, por eso suma tanto.",
+      "bundleIDs": [
+        "com.google.Chrome"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "safari",
+      "title": "Safari",
+      "explanation": "Navegador de Apple; las pestañas y páginas web pesadas pueden usar mucha memoria y CPU.",
+      "bundleIDs": [
+        "com.apple.Safari"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "firefox",
+      "title": "Firefox",
+      "explanation": "Navegador de Mozilla; reparte las pestañas en varios procesos y puede consumir bastante memoria.",
+      "bundleIDs": [
+        "org.mozilla.firefox"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "brave",
+      "title": "Brave",
+      "explanation": "Navegador basado en Chromium; cada pestaña y extensión es un proceso aparte.",
+      "bundleIDs": [
+        "com.brave.Browser"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "edge",
+      "title": "Microsoft Edge",
+      "explanation": "Navegador de Microsoft basado en Chromium; cada pestaña y extensión es un proceso aparte.",
+      "bundleIDs": [
+        "com.microsoft.edgemac"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "arc",
+      "title": "Arc",
+      "explanation": "Navegador basado en Chromium; mantiene muchas pestañas y espacios abiertos a la vez.",
+      "bundleIDs": [
+        "company.thebrowser.Browser"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "slack",
+      "title": "Slack",
+      "explanation": "App de mensajería de trabajo; está hecha con tecnología web y suele ocupar bastante memoria.",
+      "bundleIDs": [
+        "com.tinyspeck.slackmacgap"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "discord",
+      "title": "Discord",
+      "explanation": "App de chat y voz hecha con tecnología web; consume más si compartes pantalla o vídeo.",
+      "bundleIDs": [
+        "com.hnc.Discord"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "teams",
+      "title": "Microsoft Teams",
+      "explanation": "App de reuniones y chat de Microsoft; las videollamadas consumen mucha CPU.",
+      "bundleIDs": [
+        "com.microsoft.teams2",
+        "com.microsoft.teams"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "zoom",
+      "title": "Zoom",
+      "explanation": "App de videollamadas; usa mucha CPU mientras hay cámara o pantalla compartida.",
+      "bundleIDs": [
+        "us.zoom.xos"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "spotify",
+      "title": "Spotify",
+      "explanation": "Reproductor de música; guarda una caché y mantiene su interfaz web en memoria.",
+      "bundleIDs": [
+        "com.spotify.client"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "docker-desktop",
+      "title": "Docker Desktop",
+      "explanation": "Docker Desktop y su máquina virtual Linux; reserva memoria aunque no haya contenedores.",
+      "bundleIDs": [
+        "com.docker.docker"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "vscode",
+      "title": "Visual Studio Code",
+      "explanation": "Editor de código hecho con tecnología web; las extensiones y el análisis del proyecto suman procesos.",
+      "bundleIDs": [
+        "com.microsoft.VSCode"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "cursor",
+      "title": "Cursor",
+      "explanation": "Editor de código con IA basado en VS Code; las extensiones y el análisis del proyecto suman procesos.",
+      "bundleIDs": [
+        "com.todesktop.230313mzl4w4u92"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "xcode",
+      "title": "Xcode",
+      "explanation": "Entorno de desarrollo de Apple; compilar e indexar proyectos grandes usa mucha CPU y memoria.",
+      "bundleIDs": [
+        "com.apple.dt.Xcode"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "simulator",
+      "title": "Simulador de iOS",
+      "explanation": "Simulador de dispositivos de Apple; arranca un sistema completo que reserva memoria mientras está abierto.",
+      "bundleIDs": [
+        "com.apple.iphonesimulator"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "figma",
+      "title": "Figma",
+      "explanation": "App de diseño hecha con tecnología web; los archivos grandes consumen mucha memoria.",
+      "bundleIDs": [
+        "com.figma.Desktop"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "photoshop",
+      "title": "Photoshop",
+      "explanation": "Editor de imágenes de Adobe; guarda en memoria las capas y el historial de cada documento.",
+      "bundleIDs": [
+        "com.adobe.Photoshop"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "premiere",
+      "title": "Premiere Pro",
+      "explanation": "Editor de vídeo de Adobe; previsualizar y exportar usa mucha CPU, GPU y memoria.",
+      "bundleIDs": [
+        "com.adobe.PremierePro"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "final-cut",
+      "title": "Final Cut Pro",
+      "explanation": "Editor de vídeo de Apple; renderizar y exportar usa mucha CPU, GPU y memoria.",
+      "bundleIDs": [
+        "com.apple.FinalCut"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "notion",
+      "title": "Notion",
+      "explanation": "App de notas y documentos hecha con tecnología web; los espacios grandes ocupan bastante memoria.",
+      "bundleIDs": [
+        "notion.id"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "whatsapp",
+      "title": "WhatsApp",
+      "explanation": "App de mensajería; mantiene abiertas tus conversaciones y su caché de archivos en memoria.",
+      "bundleIDs": [
+        "net.whatsapp.WhatsApp",
+        "desktop.WhatsApp"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "telegram",
+      "title": "Telegram",
+      "explanation": "App de mensajería; guarda en memoria los chats y archivos multimedia recientes.",
+      "bundleIDs": [
+        "ru.keepcoder.Telegram"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "claude",
+      "title": "Claude",
+      "explanation": "App de Anthropic para hablar con Claude; está hecha con tecnología web y reserva memoria.",
+      "bundleIDs": [
+        "com.anthropic.claudefordesktop"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "chatgpt",
+      "title": "ChatGPT",
+      "explanation": "App de OpenAI para conversar con IA; mantiene tus chats y su interfaz web en memoria.",
+      "bundleIDs": [
+        "com.openai.chat"
+      ],
+      "processNames": []
+    },
+    {
+      "id": "ollama",
+      "title": "Ollama",
+      "explanation": "Ejecuta modelos de IA en tu Mac; mantiene el modelo cargado en memoria un rato tras usarlo.",
+      "bundleIDs": [
+        "com.electron.ollama"
+      ],
+      "processNames": [
+        "ollama"
+      ]
+    },
+    {
+      "id": "lm-studio",
+      "title": "LM Studio",
+      "explanation": "Ejecuta modelos de IA en tu Mac; el modelo cargado ocupa varios gigas de memoria.",
+      "bundleIDs": [
+        "ai.elementlabs.lmstudio"
+      ],
+      "processNames": [
+        "LM Studio"
+      ]
+    },
+    {
+      "id": "node",
+      "title": "Node.js",
+      "explanation": "Programa de JavaScript, normalmente un servidor o una herramienta que lanzaste en la terminal.",
+      "bundleIDs": [],
+      "processNames": [
+        "node"
+      ]
+    },
+    {
+      "id": "python",
+      "title": "Python",
+      "explanation": "Programa escrito en Python, normalmente un script o un servidor que lanzaste en la terminal.",
+      "bundleIDs": [],
+      "processNames": [
+        "python",
+        "python3",
+        "Python"
+      ]
+    },
+    {
+      "id": "ruby",
+      "title": "Ruby",
+      "explanation": "Programa escrito en Ruby, normalmente un servidor o una herramienta de desarrollo lanzada en la terminal.",
+      "bundleIDs": [],
+      "processNames": [
+        "ruby"
+      ]
+    },
+    {
+      "id": "java",
+      "title": "Java",
+      "explanation": "Programa que corre sobre la máquina virtual de Java; suele reservar bastante memoria desde el inicio.",
+      "bundleIDs": [],
+      "processNames": [
+        "java"
+      ]
+    },
+    {
+      "id": "bun",
+      "title": "Bun",
+      "explanation": "Programa de JavaScript ejecutado con Bun, normalmente un servidor o una herramienta de desarrollo.",
+      "bundleIDs": [],
+      "processNames": [
+        "bun"
+      ]
+    },
+    {
+      "id": "deno",
+      "title": "Deno",
+      "explanation": "Programa de JavaScript o TypeScript ejecutado con Deno, normalmente un servidor o una herramienta.",
+      "bundleIDs": [],
+      "processNames": [
+        "deno"
+      ]
+    },
+    {
+      "id": "postgres",
+      "title": "PostgreSQL",
+      "explanation": "Servidor de base de datos; mantiene en memoria una caché de datos aunque no lo estés usando.",
+      "bundleIDs": [],
+      "processNames": [
+        "postgres"
+      ]
+    },
+    {
+      "id": "redis",
+      "title": "Redis",
+      "explanation": "Base de datos en memoria; por diseño guarda sus datos en RAM mientras está encendida.",
+      "bundleIDs": [],
+      "processNames": [
+        "redis-server"
+      ]
+    },
+    {
+      "id": "webkit-content",
+      "title": "Contenido web",
+      "explanation": "Páginas web que muestran Safari y otras apps; cada página o pestaña pesada es un proceso aparte.",
+      "bundleIDs": [
+        "com.apple.WebKit.WebContent"
+      ],
+      "processNames": [
+        "com.apple.WebKit.WebContent"
+      ]
+    },
+    {
+      "id": "windowserver",
+      "title": "WindowServer",
+      "explanation": "Dibuja todas las ventanas de macOS; trabaja más con varias pantallas, transparencias o mucho movimiento.",
+      "bundleIDs": [],
+      "processNames": [
+        "WindowServer"
+      ]
+    },
+    {
+      "id": "spotlight",
+      "title": "Spotlight",
+      "explanation": "Indexa los archivos para poder buscarlos; trabaja más tras instalar apps o mover muchos archivos.",
+      "bundleIDs": [],
+      "processNames": [
+        "mds",
+        "mds_stores",
+        "mdworker",
+        "mdworker_shared"
+      ]
+    },
+    {
+      "id": "syspolicyd",
+      "title": "syspolicyd",
+      "explanation": "Comprueba que las apps son seguras al abrirlas; puede tardar tras instalar o actualizar muchas apps.",
+      "bundleIDs": [],
+      "processNames": [
+        "syspolicyd"
+      ]
+    },
+    {
+      "id": "kernel-task",
+      "title": "kernel_task",
+      "explanation": "Parte del sistema que también frena el Mac cuando se calienta; no es una app que puedas cerrar.",
+      "bundleIDs": [],
+      "processNames": [
+        "kernel_task"
+      ]
+    }
+  ]
+}
