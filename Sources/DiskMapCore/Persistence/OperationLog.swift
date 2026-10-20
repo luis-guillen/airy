@@ -41,7 +41,7 @@ public struct OperationRecord: Codable, Sendable, Equatable {
     public var paths: [String]
     public var command: [String]?
     public var dryRun: Bool
-    /// "freed" | "moved_to_trash" | "blocked" | "failed" | "would_trash" | "would_run" | "pending_user" | "requested"
+    /// "freed" | "moved_to_trash" | "partial" | "blocked" | "failed" | "would_trash" | "would_run" | "pending_user" | "requested"
     public var outcome: String
     public var bytes: Int64
     public var message: String?

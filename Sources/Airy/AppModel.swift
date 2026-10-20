@@ -603,8 +603,14 @@ final class AppModel {
         return outcome
     }
 
+    /// Ajustes leídos de disco en cada operación (nunca cacheados) y registro de operaciones compartido con `airy-mcp`.
     private var executor: CleanupExecutor? {
-        catalog.map { CleanupExecutor(runner: runner, probes: probes, store: store, catalog: $0) }
+        let paths = AppPaths.standard()
+        let settings = SettingsStore(file: paths.settingsFile)
+        return catalog.map {
+            CleanupExecutor(runner: runner, probes: probes, store: store, catalog: $0,
+                            settings: { settings.load() }, log: OperationLog(file: paths.operationsFile))
+        }
     }
 
     /// Papelera y total liberado, leídos fuera del hilo principal.
