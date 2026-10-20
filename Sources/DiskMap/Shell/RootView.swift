@@ -20,6 +20,11 @@ struct RootView: View {
 
     private var showsBanner: Bool { !model.hasFullDiskAccess && !bannerDismissed }
 
+    /// El error de análisis ocupa la pantalla cuando no hay nada que enseñar; si no, va como aviso.
+    private var visibleNotices: [Notice] {
+        model.notices.filter { !($0.kind == .scan && model.scan == nil) }
+    }
+
     private var detail: some View {
         ZStack(alignment: .top) {
             DetailBackground()
@@ -30,6 +35,15 @@ struct RootView: View {
                         .padding(.horizontal, Theme.contentPadding)
                         .padding(.top, 16)
                         .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                ForEach(visibleNotices) { notice in
+                    NoticeBanner(notice: notice) {
+                        withAnimation(Theme.sectionSpring) { model.dismiss(notice.kind) }
+                    }
+                    .padding(.horizontal, Theme.contentPadding)
+                    .padding(.top, 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 Group {
@@ -51,6 +65,7 @@ struct RootView: View {
             .animation(Theme.sectionSpring, value: model.section)
             .animation(Theme.sectionSpring, value: model.scan == nil)
             .animation(Theme.sectionSpring, value: showsBanner)
+            .animation(Theme.sectionSpring, value: model.notices)
 
             if model.isScanning, model.scan != nil {
                 ScanProgressView(style: .compact)
@@ -102,7 +117,7 @@ private struct SectionContent: View {
         case .cleanup:
             SectionPlaceholder(
                 section: section,
-                subtitle: model.isRefreshingCleanup ? "Buscando cachés y restos…" : "\(Theme.count(model.cleanupItems.count)) elementos detectados",
+                subtitle: cleanupSubtitle,
                 line: "Cachés, registros y restos que se pueden borrar, cada uno con qué es, cuánto ocupa y su riesgo.")
         case .assistant:
             SectionPlaceholder(
@@ -112,6 +127,12 @@ private struct SectionContent: View {
         default:
             SectionPlaceholder(section: section, subtitle: "Próximamente", line: "Llegará en la fase 2.")
         }
+    }
+
+    private var cleanupSubtitle: String {
+        if model.catalogError != nil { return "No disponible: no se pudo cargar el catálogo" }
+        if model.isRefreshingCleanup { return "Buscando cachés y restos…" }
+        return "\(Theme.count(model.cleanupItems.count)) elementos detectados"
     }
 
     private func mapSubtitle(now: Date) -> String {
@@ -206,7 +227,7 @@ private struct KindSummary: View {
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
                                 .fill(Theme.gradient(for: slice.kind))
                                 .frame(width: max(appeared ? proxy.size.width * Double(slice.bytes) / total - 2 : 0, 0))
-                                .animation(Theme.stagger(index: index * 4), value: appeared)
+                                .animation(Theme.stagger(index: index), value: appeared)
                                 .help("\(slice.kind.title): \(Format.bytes(slice.bytes))")
                         }
                     }
@@ -233,12 +254,45 @@ private struct KindSummary: View {
                         .padding(.trailing, 10)
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 6)
-                        .animation(Theme.stagger(index: index * 4), value: appeared)
+                        .animation(Theme.stagger(index: index), value: appeared)
                     }
                 }
             }
         }
         .onAppear { appeared = true }
+    }
+}
+
+/// Aviso descartable para problemas que no bloquean la app (reanálisis fallido, índice sin guardar…).
+private struct NoticeBanner: View {
+    let notice: Notice
+    var onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: notice.kind == .scan ? "exclamationmark.triangle.fill" : "exclamationmark.circle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.color(for: .yourCall))
+            Text(notice.message)
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 22, height: 22)
+                    .background(.primary.opacity(0.06), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Ocultar aviso")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Theme.color(for: .yourCall).opacity(0.35), lineWidth: 0.75)
+        }
     }
 }
 
