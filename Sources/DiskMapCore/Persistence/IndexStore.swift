@@ -6,12 +6,35 @@ public struct CleanupRecord: Codable, Sendable {
     public var title: String
     public var bytes: Int64
     public var wentToTrash: Bool
+    /// `true` si la limpieza la pidió un agente (MCP). Se codifica solo cuando es `true`.
+    public var byAgent: Bool
 
-    public init(date: Date, title: String, bytes: Int64, wentToTrash: Bool) {
+    public init(date: Date, title: String, bytes: Int64, wentToTrash: Bool, byAgent: Bool = false) {
         self.date = date
         self.title = title
         self.bytes = bytes
         self.wentToTrash = wentToTrash
+        self.byAgent = byAgent
+    }
+
+    private enum CodingKeys: String, CodingKey { case date, title, bytes, wentToTrash, byAgent }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        date = try c.decode(Date.self, forKey: .date)
+        title = try c.decode(String.self, forKey: .title)
+        bytes = try c.decode(Int64.self, forKey: .bytes)
+        wentToTrash = try c.decode(Bool.self, forKey: .wentToTrash)
+        byAgent = try c.decodeIfPresent(Bool.self, forKey: .byAgent) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(date, forKey: .date)
+        try c.encode(title, forKey: .title)
+        try c.encode(bytes, forKey: .bytes)
+        try c.encode(wentToTrash, forKey: .wentToTrash)
+        if byAgent { try c.encode(true, forKey: .byAgent) }
     }
 }
 
@@ -88,11 +111,17 @@ public final class IndexStore: Sendable {
 
     public func append(_ record: CleanupRecord) throws {
         try lock.withLock { _ in
+            try ensureDirectory()
+            // Candado entre procesos (app y airy-mcp): leer-modificar-escribir en exclusiva.
+            let fd = open(directory.appendingPathComponent("history.lock").path, O_RDWR | O_CREAT, 0o600)
+            guard fd >= 0 else { throw CocoaError(.fileWriteUnknown) }
+            defer { close(fd) }
+            guard flock(fd, LOCK_EX) == 0 else { throw CocoaError(.fileWriteUnknown) }
+            defer { flock(fd, LOCK_UN) }
             var records = try readHistory()
             records.append(record)
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
-            try ensureDirectory()
             try encoder.encode(records).write(to: historyURL, options: .atomic)
         }
     }
