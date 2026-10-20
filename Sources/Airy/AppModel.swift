@@ -167,10 +167,10 @@ final class AppModel {
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        var directory = support.appendingPathComponent("DiskMap", isDirectory: true)
+        var directory = support.appendingPathComponent("Airy", isDirectory: true)
         #if DEBUG
         // Solo para revisar la interfaz: datos en otra carpeta (p. ej. primer arranque sin índice).
-        if let override = ProcessInfo.processInfo.environment["DISKMAP_SUPPORT_DIR"] {
+        if let override = ProcessInfo.processInfo.environment["AIRY_SUPPORT_DIR"] {
             directory = URL(fileURLWithPath: override, isDirectory: true)
         }
         #endif
@@ -330,7 +330,7 @@ final class AppModel {
         case .skipped: return
         case .saved: dismiss(.save)
         case .failed(let saveError):
-            report(.save, "No se pudo guardar el análisis (\(saveError)). Se ve bien ahora, pero al volver a abrir DiskMap habrá que analizar de nuevo.")
+            report(.save, "No se pudo guardar el análisis (\(saveError)). Se ve bien ahora, pero al volver a abrir Airy habrá que analizar de nuevo.")
         }
     }
 

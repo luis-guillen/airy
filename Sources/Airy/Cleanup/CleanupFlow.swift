@@ -239,7 +239,7 @@ final class CleanupFlow {
             sheet = nil
             var summary = CleanupRunSummary()
             summary.record(id: TrashFollowUp.snapshotEntryID, title: "Instantáneas de Time Machine",
-                           outcome: .failed("No se encontró su ficha en el catálogo de limpiezas; DiskMap no puede reducirlas."))
+                           outcome: .failed("No se encontró su ficha en el catálogo de limpiezas; Airy no puede reducirlas."))
             withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
             model.section = .cleanup
             return

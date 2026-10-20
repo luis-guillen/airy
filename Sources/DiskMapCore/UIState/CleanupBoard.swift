@@ -69,7 +69,7 @@ public struct CleanupBoard: Sendable {
 
     // MARK: Selección
 
-    /// Tiene casilla si DiskMap puede actuar sobre él: ni "No tocar" ni solo informativo.
+    /// Tiene casilla si Airy puede actuar sobre él: ni "No tocar" ni solo informativo.
     public static func showsCheckbox(_ item: CleanupItem) -> Bool {
         guard item.risk != .doNotTouch, item.entry.risk != .doNotTouch else { return false }
         if case .info = item.entry.cleanup { return false }

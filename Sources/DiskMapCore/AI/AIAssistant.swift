@@ -109,8 +109,8 @@ public struct AIAssistant: Sendable {
     public static let timeout: TimeInterval = 120
 
     static let systemPrompt = """
-    Eres el asistente de DiskMap, una app de macOS que muestra qué ocupa espacio en el disco. \
-    Solo ves metadatos (rutas, tamaños, fechas, tipos y fichas del catálogo de DiskMap), nunca el contenido de los archivos. \
+    Eres el asistente de Airy, una app de macOS que muestra qué ocupa espacio en el disco. \
+    Solo ves metadatos (rutas, tamaños, fechas, tipos y fichas del catálogo de Airy), nunca el contenido de los archivos. \
     Clasifica cada elemento en "safe" (borrar sin riesgo), "yourCall" (depende de ti) o "doNotTouch" (no tocar). \
     Nunca recomiendes borrar archivos personales (Documentos, Escritorio, Imágenes, Películas, Música, Descargas, proyectos), \
     volúmenes de Docker ni nada de /System. \
@@ -120,16 +120,16 @@ public struct AIAssistant: Sendable {
     Responde en español de España, en frases cortas, sin tecnicismos innecesarios.
     """
 
-    /// En el informe, los totales los calcula DiskMap ("Recuperable"): el texto de Claude no da cifras sumadas
+    /// En el informe, los totales los calcula Airy ("Recuperable"): el texto de Claude no da cifras sumadas
     /// que puedan contradecirlos.
     static let reportSystemPrompt = systemPrompt + " " + """
-    En el resumen no des totales ni sumas de espacio (ni "en total puedes liberar X"): DiskMap calcula los totales \
+    En el resumen no des totales ni sumas de espacio (ni "en total puedes liberar X"): Airy calcula los totales \
     y los muestra aparte. Puedes citar el tamaño de un elemento concreto tal como aparece en el contexto.
     """
 
     /// En el chat Claude no puede hacer nada por su cuenta: solo explica.
     static let chatSystemPrompt = systemPrompt + " " + """
-    En esta conversación no puedes realizar ninguna acción tú mismo y no debes ofrecerte a hacerla     ("¿quieres que lo borre?"); el usuario actúa desde la sección Limpieza o con los botones del Informe de DiskMap.
+    En esta conversación no puedes realizar ninguna acción tú mismo y no debes ofrecerte a hacerla     ("¿quieres que lo borre?"); el usuario actúa desde la sección Limpieza o con los botones del Informe de Airy.
     """
 
     private let claudePath: String
@@ -358,7 +358,7 @@ public struct AIAssistant: Sendable {
 
     /// Claude se ejecuta en un directorio vacío y recién creado, que se borra al terminar.
     private func withScratchDirectory<T>(_ body: (String) async throws -> T) async throws -> T {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("diskmap-claude-\(UUID().uuidString)")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-claude-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true,
                                                 attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: url) }

@@ -359,15 +359,15 @@ enum MapRenderer {
     }
 }
 
-// MARK: - Contador de FPS (solo Debug con DISKMAP_FPS=1)
+// MARK: - Contador de FPS (solo Debug con AIRY_FPS=1)
 
 #if DEBUG
 /// Cuenta los fotogramas que dibuja el lienzo durante cada animación y los escribe en stderr.
-/// Fuera de Debug, o sin `DISKMAP_FPS=1`, cada llamada sale en la primera línea.
+/// Fuera de Debug, o sin `AIRY_FPS=1`, cada llamada sale en la primera línea.
 final class FPSMeter: Sendable {
     static let shared = FPSMeter()
 
-    static let isEnabled: Bool = ProcessInfo.processInfo.environment["DISKMAP_FPS"] == "1"
+    static let isEnabled: Bool = ProcessInfo.processInfo.environment["AIRY_FPS"] == "1"
 
     private struct State {
         var label: String?

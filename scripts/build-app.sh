@@ -1,7 +1,7 @@
 #!/bin/bash
-# Empaqueta DiskMap como app de macOS firmada con una identidad local estable.
+# Empaqueta Airy como app de macOS firmada con una identidad local estable.
 #
-#   bash scripts/build-app.sh             → build/DiskMap.app
+#   bash scripts/build-app.sh             → build/Airy.app
 #   bash scripts/build-app.sh --install   → además la copia a /Applications
 #
 # La firma con la misma identidad en cada compilación hace que macOS conserve el permiso de
@@ -11,8 +11,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-APP_NAME="DiskMap"
-IDENTITY="DiskMap Local Signing"
+APP_NAME="Airy"
+IDENTITY="Airy Local Signing"
 APP="$ROOT/build/$APP_NAME.app"
 INSTALL=0
 for arg in "$@"; do
@@ -95,24 +95,70 @@ fi
 echo "✓ $APP ($(du -sh "$APP" | cut -f1))"
 
 # 5. Instalar en /Applications (opcional).
+# Orden: copia verificada → sustituir Airy.app → solo si todo fue bien, retirar la DiskMap.app antigua.
+# Nunca se usa pkill: las apps se cierran con un Apple Event de "quit" y se espera a que terminen.
+confirm() {
+    local answer
+    read -r -p "$1 [s/N] " answer
+    case "$answer" in
+        [sS]|[sS][iíIÍ]) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Cierra (tras preguntar) la app con ese bundle id si está abierta. Devuelve 1 si el usuario no quiere o no se cierra.
+quit_if_running() {
+    local bundle_id="$1" name="$2" exe="$3" waited=0
+    if pgrep -f "$exe" >/dev/null 2>&1; then
+        confirm "$name está abierta. ¿Cerrarla para continuar?" \
+            || { echo "Instalación cancelada: cierra $name y vuelve a ejecutar el script." >&2; return 1; }
+        osascript -e "tell application id \"$bundle_id\" to quit" >/dev/null 2>&1 || true
+        while pgrep -f "$exe" >/dev/null 2>&1 && [ "$waited" -lt 10 ]; do
+            sleep 1; waited=$((waited + 1))
+        done
+        if pgrep -f "$exe" >/dev/null 2>&1; then
+            echo "$name no se ha cerrado en 10 s: ciérrala tú y vuelve a ejecutar el script." >&2
+            return 1
+        fi
+    fi
+    return 0
+}
+
 if [ "$INSTALL" = 1 ]; then
     DEST="/Applications/$APP_NAME.app"
+    STAGING="/Applications/.$APP_NAME.app.new"
+    OLD_APP="/Applications/DiskMap.app"
+
+    # 5.1 Copia al lado y verificación de la copia.
+    rm -rf "$STAGING"
+    cp -R "$APP" "$STAGING"
+    if ! codesign --verify --deep --strict "$STAGING"; then
+        rm -rf "$STAGING"
+        echo "La copia no supera codesign --verify; no se instala." >&2
+        exit 1
+    fi
+
+    # 5.2 Sustituir Airy.app si existe.
     if [ -e "$DEST" ]; then
-        read -r -p "Ya existe $DEST. ¿Reemplazarla? [s/N] " answer
-        case "$answer" in
-            [sS]|[sS][iíIÍ]) ;;
-            *) echo "Instalación cancelada."; exit 0 ;;
-        esac
-        # Nunca se cierra la app sin preguntar: podría estar limpiando algo.
-        if pgrep -f "$DEST/Contents/MacOS/$APP_NAME" >/dev/null 2>&1; then
-            read -r -p "$APP_NAME está abierta. ¿Cerrarla para instalar la nueva? [s/N] " quit_answer
-            case "$quit_answer" in
-                [sS]|[sS][iíIÍ]) pkill -f "$DEST/Contents/MacOS/$APP_NAME" 2>/dev/null || true; sleep 1 ;;
-                *) echo "Instalación cancelada: cierra $APP_NAME y vuelve a ejecutar el script." >&2; exit 1 ;;
-            esac
+        if ! confirm "Ya existe $DEST. ¿Reemplazarla?"; then
+            rm -rf "$STAGING"
+            echo "Instalación cancelada."
+            exit 0
         fi
+        # Nunca se cierra la app sin preguntar: podría estar limpiando algo.
+        quit_if_running "local.airy.Airy" "$APP_NAME" "$DEST/Contents/MacOS/$APP_NAME" || { rm -rf "$STAGING"; exit 1; }
         rm -rf "$DEST"
     fi
-    cp -R "$APP" "$DEST"
+    mv "$STAGING" "$DEST"
     echo "✓ Instalada en $DEST"
+
+    # 5.3 Solo si lo anterior fue bien: la DiskMap.app antigua va a la Papelera (nunca se borra).
+    if [ -e "$OLD_APP" ]; then
+        quit_if_running "local.diskmap.DiskMap" "DiskMap" "$OLD_APP/Contents/MacOS/DiskMap" || exit 1
+        mv "$OLD_APP" "$HOME/.Trash/DiskMap $(date +%Y%m%d-%H%M%S).app"
+        echo "✓ DiskMap.app movida a la Papelera"
+    fi
+
+    # 5.4
+    echo "Vuelve a dar Acceso total al disco a Airy (Ajustes del Sistema › Privacidad y seguridad)."
 fi

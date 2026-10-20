@@ -202,7 +202,7 @@ public struct ProcessRunner: CommandRunning {
                                     onLine: ((String) -> Void)?) throws -> CommandOutput {
         var stdinFile: String?
         if let stdin {
-            var template = Array((NSTemporaryDirectory() + "diskmap-stdin-XXXXXX").utf8CString)
+            var template = Array((NSTemporaryDirectory() + "airy-stdin-XXXXXX").utf8CString)
             let fd = mkstemp(&template)
             guard fd >= 0 else { throw launchError(executable, errno) }
             let path = String(decoding: template.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)

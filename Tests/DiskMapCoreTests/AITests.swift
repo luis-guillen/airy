@@ -63,7 +63,7 @@ final class AIFakeRunner: CommandRunning, Sendable {
 
 // MARK: - Utilidades
 
-private func tempDir(_ label: String = "diskmap-ai") -> String {
+private func tempDir(_ label: String = "airy-ai") -> String {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(label)-\(UUID().uuidString)")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
@@ -224,7 +224,7 @@ private let streamFixture = [
         #expect(args[schema + 1].contains("doNotTouch"))
         let system = try #require(args.firstIndex(of: "--system-prompt"))
         #expect(args[system + 1].contains("Responde en español de España"))
-        // Los totales los calcula DiskMap: el resumen de Claude no los da.
+        // Los totales los calcula Airy: el resumen de Claude no los da.
         #expect(args[system + 1].contains("no des totales"))
         // El prompt va por stdin, no como argumento; nunca dentro de un directorio del usuario.
         #expect(call.stdin?.contains("~/.cache/uv") == true)
@@ -598,9 +598,9 @@ private let streamFixture = [
         _ = try await FakeRunner().run("/bin/cat", [], stdin: nil, workingDirectory: nil, timeout: 1)
     }
 
-    // MARK: Pruebas reales (DISKMAP_REAL=1)
+    // MARK: Pruebas reales (AIRY_REAL=1)
 
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DISKMAP_REAL"] == "1"))
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AIRY_REAL"] == "1"))
     func realClaudeReport() async throws {
         let runner = ProcessRunner()
         let path = try #require(await ClaudeLocator.locate(override: nil, runner: runner))
@@ -618,7 +618,7 @@ private let streamFixture = [
         #expect(!report.recommendations.contains { $0.path.contains("Documents") && $0.verdict == .safe })
     }
 
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DISKMAP_REAL"] == "1"))
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["AIRY_REAL"] == "1"))
     func realClaudeChat() async throws {
         let runner = ProcessRunner()
         let path = try #require(await ClaudeLocator.locate(override: nil, runner: runner))

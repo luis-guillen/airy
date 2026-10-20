@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "DiskMap",
+    name: "Airy",
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "DiskMapCore", targets: ["DiskMapCore"]),
-        .executable(name: "DiskMap", targets: ["DiskMap"]),
+        .executable(name: "Airy", targets: ["Airy"]),
     ],
     targets: [
         .target(
@@ -15,9 +15,9 @@ let package = Package(
             resources: [.process("Resources/catalog.json")]
         ),
         .executableTarget(
-            name: "DiskMap",
+            name: "Airy",
             dependencies: ["DiskMapCore"],
-            path: "Sources/DiskMap"
+            path: "Sources/Airy"
         ),
         .testTarget(
             name: "DiskMapCoreTests",

@@ -168,7 +168,7 @@ public struct Catalog: Sendable {
         Catalog(entries: try JSONDecoder().decode(File.self, from: data).entries)
     }
 
-    static let bundleName = "DiskMap_DiskMapCore.bundle"
+    static let bundleName = "Airy_DiskMapCore.bundle"
 
     private final class BundleToken {}
 

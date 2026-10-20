@@ -141,7 +141,7 @@ struct CleanupRow: View {
                 .truncationMode(.middle)
         }
         if isInfo {
-            Label("Solo informativo: DiskMap no lo borra.", systemImage: "eye")
+            Label("Solo informativo: Airy no lo borra.", systemImage: "eye")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
         }

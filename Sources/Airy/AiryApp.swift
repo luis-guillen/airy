@@ -3,12 +3,12 @@ import SwiftUI
 import DiskMapCore
 
 @main
-struct DiskMapApp: App {
+struct AiryApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @ViewState private var model = AppModel()
 
     var body: some Scene {
-        WindowGroup("DiskMap") {
+        WindowGroup("Airy") {
             RootView()
                 .environment(model)
                 #if DEBUG

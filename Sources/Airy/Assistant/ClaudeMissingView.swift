@@ -66,7 +66,7 @@ struct ClaudeMissingView: View {
 
     private var sentence: String {
         if let chosen {
-            return "El ejecutable elegido (\(Format.tildePath(chosen))) no responde como Claude Code; elige otro o deja que DiskMap lo busque."
+            return "El ejecutable elegido (\(Format.tildePath(chosen))) no responde como Claude Code; elige otro o deja que Airy lo busque."
         }
         return "El asistente usa Claude Code instalado en este Mac y no lo encuentro; si lo tienes en otro sitio, elígelo."
     }

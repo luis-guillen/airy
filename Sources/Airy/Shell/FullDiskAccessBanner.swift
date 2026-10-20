@@ -20,7 +20,7 @@ struct FullDiskAccessBanner: View {
                 .frame(width: 38, height: 38)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("DiskMap no puede ver todo el disco")
+                    Text("Airy no puede ver todo el disco")
                         .font(.headline)
                     Text(detail)
                         .font(.callout)
@@ -48,7 +48,7 @@ struct FullDiskAccessBanner: View {
     }
 
     private var detail: String {
-        let base = "Activa DiskMap en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco para incluir Mail, Safari y los datos protegidos de las apps."
+        let base = "Activa Airy en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco para incluir Mail, Safari y los datos protegidos de las apps."
         let count = model.inaccessibleCount
         guard count > 0 else { return base }
         let folders = count == 1 ? "1 carpeta" : "\(Theme.count(count)) carpetas"
