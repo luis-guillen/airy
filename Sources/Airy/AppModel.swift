@@ -641,7 +641,9 @@ final class AppModel {
 
     /// Ejecuta una limpieza del catálogo (con revalidación completa) y refresca los contadores.
     /// La interfaz es la que confirma antes de llamar aquí.
-    func perform(_ item: CleanupItem, context: OperationContext = .user()) async -> CleanupOutcome {
+    /// `refreshesCleanup: false` para tandas: quien llama refresca la detección una sola vez al final.
+    func perform(_ item: CleanupItem, context: OperationContext = .user(),
+                 refreshesCleanup: Bool = true) async -> CleanupOutcome {
         if let refusal = settingsRefusal() { return refusal }
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
         let outcome = await executor.execute(item, context: context)
@@ -651,7 +653,7 @@ final class AppModel {
         }
         await refreshCounters()
         await refreshVolumes()
-        refreshCleanup()
+        if refreshesCleanup { refreshCleanup() }
         reportAuditFailure()
         return outcome
     }

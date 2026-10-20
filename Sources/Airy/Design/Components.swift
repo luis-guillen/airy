@@ -14,6 +14,7 @@ struct GlassCard<Content: View>: View {
     var radius: CGFloat = Theme.cardRadius
     var material: Material = .regularMaterial
     @ViewBuilder var content: Content
+    @Environment(\.airyQuietShadows) private var quietShadows
 
     var body: some View {
         content
@@ -22,7 +23,8 @@ struct GlassCard<Content: View>: View {
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .fill(material)
-                    .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+                    .shadow(color: .black.opacity(quietShadows ? 0 : 0.10), radius: quietShadows ? 0 : 14,
+                            y: quietShadows ? 0 : 6)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)

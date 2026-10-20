@@ -15,6 +15,10 @@ private struct AiryTransientMotionKey: EnvironmentKey {
     static let defaultValue: MotionMode = .reduced
 }
 
+private struct AiryQuietShadowsKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     var airyAmbientMotion: MotionMode {
         get { self[AiryAmbientMotionKey.self] }
@@ -24,6 +28,12 @@ extension EnvironmentValues {
     var airyTransientMotion: MotionMode {
         get { self[AiryTransientMotionKey.self] }
         set { self[AiryTransientMotionKey.self] = newValue }
+    }
+    /// Sin sombras difusas (p. ej. durante una tanda de Limpieza): nada que volver a desenfocar
+    /// en cada fotograma mientras la lista se colapsa.
+    var airyQuietShadows: Bool {
+        get { self[AiryQuietShadowsKey.self] }
+        set { self[AiryQuietShadowsKey.self] = newValue }
     }
 }
 
