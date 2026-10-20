@@ -19,6 +19,9 @@ struct ConfirmSheet: View {
             if let warning = request.warning, !warningAccepted {
                 warningStep(warning)
                     .transition(.opacity.combined(with: .offset(x: -12)))
+            } else if isUninstallerKind {
+                UninstallConfirmContent(request: request)
+                    .transition(.opacity.combined(with: .offset(x: 12)))
             } else {
                 confirmation
                     .transition(.opacity.combined(with: .offset(x: 12)))
@@ -165,6 +168,8 @@ struct ConfirmSheet: View {
             }
         case .emptyTrash:
             if let refusal = model.destructiveRefusal { reasons["trash"] = refusal }
+        case .uninstall, .orphans, .brokenLinks:
+            break  // `UninstallConfirmContent` decide lo bloqueado.
         }
         blockReasons = reasons
     }
@@ -172,8 +177,8 @@ struct ConfirmSheet: View {
     /// `true` solo si todo va a la Papelera (recuperable): ni vaciarla ni comandos oficiales.
     private var returnConfirms: Bool {
         switch request.kind {
-        case .emptyTrash: return false
-        case .trashPaths: return true
+        case .emptyTrash, .uninstall, .brokenLinks: return false
+        case .trashPaths, .orphans: return true
         case .items(let items):
             return items.allSatisfy { if case .trash = liveMethod($0) { true } else { false } }
         }
@@ -191,6 +196,13 @@ struct ConfirmSheet: View {
     }
 
     private var isEmptyTrash: Bool { if case .emptyTrash = request.kind { true } else { false } }
+
+    private var isUninstallerKind: Bool {
+        switch request.kind {
+        case .uninstall, .orphans, .brokenLinks: true
+        case .items, .emptyTrash, .trashPaths: false
+        }
+    }
 
     private var items: [CleanupItem] {
         if case .items(let items) = request.kind { return items }
@@ -230,6 +242,7 @@ struct ConfirmSheet: View {
             return paths.count == 1 ? "¿Mover «\(title)» a la Papelera?" : "¿Mover \(Theme.count(paths.count)) elementos a la Papelera?"
         case .items(let items):
             return items.count == 1 ? "¿Limpiar «\(items[0].title)»?" : "¿Limpiar \(Theme.count(items.count)) elementos?"
+        case .uninstall, .orphans, .brokenLinks: return ""
         }
     }
 
@@ -254,6 +267,7 @@ struct ConfirmSheet: View {
             return upperBound
                 ? "Hasta \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
                 : "Unos \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
+        case .uninstall, .orphans, .brokenLinks: return ""
         }
     }
 
@@ -290,6 +304,7 @@ struct ConfirmSheet: View {
                                   location: CleanupBoard.locationSummary(item),
                                   blockedReason: blockReasons?[item.id])
             }
+        case .uninstall, .orphans, .brokenLinks: return []
         }
     }
 
@@ -350,6 +365,7 @@ struct ConfirmSheet: View {
                                   text: "Se hacen de uno en uno; antes de cada uno se vuelve a comprobar que sigue siendo seguro."))
             }
             return notes
+        case .uninstall, .orphans, .brokenLinks: return []
         }
     }
 
@@ -358,6 +374,7 @@ struct ConfirmSheet: View {
         case .emptyTrash(let bytes): return bytes == nil ? "Vaciar con Finder" : "Vaciar Papelera"
         case .trashPaths: return "Mover a la Papelera"
         case .items(let items): return items.count == 1 ? "Limpiar" : "Limpiar \(Theme.count(items.count))"
+        case .uninstall, .orphans, .brokenLinks: return ""
         }
     }
 

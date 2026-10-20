@@ -792,8 +792,118 @@ final class AppModel {
         let log = operationLog
         return catalog.map {
             CleanupExecutor(runner: runner, probes: probes, store: store, catalog: $0,
-                            settings: { settings.load() }, log: log)
+                            settings: { settings.load() }, log: log, appRoots: Self.uninstallAppRoots)
         }
+    }
+
+    // MARK: Desinstalador
+
+    /// Raíces donde un `.app` se puede desinstalar: exactamente `productionAppRoots(home:)`; solo en DEBUG,
+    /// `AIRY_APP_ROOTS` (rutas separadas por `:`) las sustituye, y también las del inventario.
+    static var uninstallAppRoots: [String] {
+        #if DEBUG
+        if let roots = debugAppRoots { return roots }
+        #endif
+        return ProtectionWaiver.productionAppRoots(home: NSHomeDirectory())
+    }
+
+    #if DEBUG
+    static var debugAppRoots: [String]? {
+        guard let raw = ProcessInfo.processInfo.environment["AIRY_APP_ROOTS"] else { return nil }
+        let roots = raw.split(separator: ":").map(String.init).filter { !$0.isEmpty }
+        return roots.isEmpty ? nil : roots
+    }
+    #endif
+
+    private var inventoryRoots: [String] {
+        #if DEBUG
+        if let roots = Self.debugAppRoots { return roots }
+        #endif
+        return AppInventory.standardRoots(home: NSHomeDirectory())
+    }
+
+    /// Lecturas del inventario y de los restos (`brew info`, `pkgutil`, `mdfind`). Con `AIRY_APP_ROOTS`
+    /// (DEBUG) no se ejecuta ninguna orden real.
+    private var appsRunner: any CommandRunning {
+        #if DEBUG
+        if Self.debugAppRoots != nil { return OfflineRunner() }
+        #endif
+        return runner
+    }
+
+    private func uninstallGate() -> PathGate {
+        let home = NSHomeDirectory()
+        return PathGate(home: home, catalog: catalog,
+                        userProtected: ProtectList(patterns: settings.protectedPaths, home: home))
+    }
+
+    /// Casks de Homebrew instalados y apps de las raíces del inventario, fuera del hilo principal.
+    func inventorySnapshot() async -> AppInventorySnapshot {
+        let runner = appsRunner, roots = inventoryRoots
+        return await Task.detached(priority: .utility) {
+            let casks = await HomebrewCasks.installed(runner: runner) ?? [:]
+            return await AppInventory(roots: roots, casks: casks).snapshot()
+        }.value
+    }
+
+    func uninstallPlan(for app: AppRecord, inventory: AppInventorySnapshot) async -> UninstallPlan {
+        let finder = LeftoverFinder(home: NSHomeDirectory(), gate: uninstallGate(), runner: appsRunner,
+                                    appRoots: Self.uninstallAppRoots)
+        return await Task.detached(priority: .utility) { await finder.plan(for: app, inventory: inventory) }.value
+    }
+
+    private func orphanFinder() -> OrphanFinder {
+        OrphanFinder(home: NSHomeDirectory(), gate: uninstallGate(), lookup: SpotlightLookup(runner: appsRunner))
+    }
+
+    func orphanScan(inventory: AppInventorySnapshot) async -> OrphanScan {
+        let finder = orphanFinder()
+        return await Task.detached(priority: .utility) { await finder.scan(inventory: inventory) }.value
+    }
+
+    func brokenLinks() async -> [BrokenLink] {
+        await Task.detached(priority: .utility) { BrokenLinks.find() }.value
+    }
+
+    /// Desinstala una app por el embudo del ejecutor. La interfaz es la que confirma antes de llamar aquí.
+    func uninstall(_ request: UninstallRequest, context: OperationContext = .user()) async -> UninstallReport {
+        if let refusal = settingsRefusal() { return UninstallReport(outcome: refusal) }
+        guard let executor else { return UninstallReport(outcome: .failed("No se pudo cargar el catálogo de limpiezas.")) }
+        let report = await executor.uninstall(request, context: context)
+        let moved = [request.plan.app.path] + request.plan.leftovers
+            .filter { request.selected.contains($0.id) && $0.kind != .receipt && $0.kind != .systemLocation }
+            .map(\.path)
+        switch report.outcome {
+        case .freed, .movedToTrash, .failed: await updateTree(afterTouching: moved)
+        case .blocked: break
+        }
+        await refreshCounters()
+        await refreshVolumes()
+        refreshCleanup()
+        reportAuditFailure()
+        return report
+    }
+
+    /// Con un inventario nuevo, solo los grupos que siguen siendo huérfanos van a la Papelera.
+    func trashOrphans(_ groups: [OrphanGroup], context: OperationContext = .user()) async -> CleanupOutcome {
+        if let refusal = settingsRefusal() { return refusal }
+        let inventory = await inventorySnapshot()
+        let finder = orphanFinder()
+        let confirmable = await Task.detached(priority: .userInitiated) {
+            await finder.confirmable(groups, inventory: inventory)
+        }.value
+        guard !confirmable.isEmpty else {
+            return .blocked(reason: "Ya no parecen restos huérfanos (o no se pudo comprobar); no se mueve nada.")
+        }
+        return await trash(paths: confirmable.flatMap(\.paths), title: "Restos huérfanos", context: context)
+    }
+
+    func removeBrokenLinks(_ links: [BrokenLink], context: OperationContext = .user()) async -> CleanupOutcome {
+        if let refusal = settingsRefusal() { return refusal }
+        guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
+        let outcome = await executor.removeBrokenLinks(links, context: context)
+        reportAuditFailure()
+        return outcome
     }
 
     /// Papelera y total liberado, leídos fuera del hilo principal.
@@ -864,3 +974,13 @@ final class AppModel {
         }
     }
 }
+
+#if DEBUG
+/// Con `AIRY_APP_ROOTS`: ninguna orden real para leer apps (ni `brew`, ni `pkgutil`, ni `mdfind`).
+private struct OfflineRunner: CommandRunning {
+    func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
+        throw CommandError.launchFailed(executable: executable, message: "desactivado con AIRY_APP_ROOTS")
+    }
+    func resolve(_ executable: String) async -> String? { nil }
+}
+#endif
