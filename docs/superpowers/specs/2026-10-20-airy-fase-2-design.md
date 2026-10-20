@@ -42,7 +42,10 @@ Propuesta de Claude aceptada por el usuario ("muchas animaciones con la marca"):
 - **Siempre:** brisa muy suave de fondo; botones que se mecen ligeramente al pasar el ratón.
 - **Límites:** respetar "Reducir movimiento" de macOS (sustituir por fundidos); 60–120 fps; **cero CPU en reposo** (la brisa de fondo se pausa cuando la ventana no está visible o activa, como ya hace el mapa).
 
-### 2.3 Perfil de usuario ("¿Cómo usas tu Mac?")
+### 2.3 Perfil de usuario ("¿Cómo usas tu Mac?") — RETIRADO
+
+> **Decisión del usuario (20-10-2026):** se quita la pregunta del perfil ("es un poco evidente"). No hay pregunta al arrancar ni perfil en Ajustes; lo que se sugiere y preselecciona depende solo del riesgo y del modo (Agresivo/Prudente). El texto de abajo queda como histórico.
+
 
 - Pregunta en el **primer arranque** (y editable en Ajustes), selección múltiple: **Programo**, **Diseño, foto o vídeo**, **Uso IA en local**, **Juego**, **Música y audio**, **Uso básico**.
 - El perfil cambia **qué sugiere Airy y en qué orden** (qué entradas del catálogo se muestran destacadas, cuáles se preseleccionan, textos de explicación), p. ej.:
