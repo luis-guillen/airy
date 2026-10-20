@@ -95,7 +95,7 @@ struct CleanupView: View {
         }
         .overlay(alignment: .bottom) {
             if !selected.isEmpty {
-                SelectionBar(items: selected) { selection = [] }
+                CleanupSelectionBar(items: selected) { selection = [] }
                     .padding(.bottom, 18)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if showsBatchPill {
@@ -287,7 +287,7 @@ private struct GroupSection: View {
 
 // MARK: - Barra de selección
 
-private struct SelectionBar: View {
+private struct CleanupSelectionBar: View {
     @Environment(CleanupFlow.self) private var flow
     let items: [CleanupItem]
     var onClear: () -> Void
