@@ -93,7 +93,7 @@ struct Volume: Identifiable, Hashable, Sendable {
 
 /// Aviso no bloqueante que la interfaz muestra como banner descartable.
 struct Notice: Identifiable, Equatable {
-    enum Kind: String { case scan, save, history, catalog }
+    enum Kind: String { case scan, save, history, catalog, migration }
     let kind: Kind
     let message: String
     var id: String { kind.rawValue }
@@ -165,16 +165,10 @@ final class AppModel {
     private var touchedPaths: [String: Date] = [:]
 
     init() {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        var directory = support.appendingPathComponent("Airy", isDirectory: true)
-        #if DEBUG
-        // Solo para revisar la interfaz: datos en otra carpeta (p. ej. primer arranque sin índice).
-        if let override = ProcessInfo.processInfo.environment["AIRY_SUPPORT_DIR"] {
-            directory = URL(fileURLWithPath: override, isDirectory: true)
-        }
-        #endif
-        appDirectory = directory
+        let paths = AppPaths.standard()
+        appDirectory = paths.support
+        var migrationFailure: String?
+        if case .failed(let reason) = DataMigration.migrateIfNeeded(paths) { migrationFailure = reason }
         store = IndexStore(directory: appDirectory)
         do {
             catalog = try Catalog.bundled()
@@ -184,6 +178,9 @@ final class AppModel {
             catalogError = "No se pudo cargar el catálogo de limpiezas (\(error)). La sección Limpieza no está disponible."
         }
         if let catalogError { notices.append(Notice(kind: .catalog, message: catalogError)) }
+        if let migrationFailure {
+            notices.append(Notice(kind: .migration, message: "No se pudieron copiar los datos de \(AppPaths.legacyFolderName) (\(migrationFailure)). Siguen en su carpeta; Airy lo intentará otra vez al abrirse."))
+        }
         observeSystem()
         refreshSystemState()
     }
