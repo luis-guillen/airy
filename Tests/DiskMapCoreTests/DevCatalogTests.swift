@@ -145,7 +145,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
             #expect(v.risk == .safe, "\(id): \(v.risk)")
             #expect(v.preselected, "\(id)")
         }
-        for id in ["docker-containers"] {
+        for id in ["docker-containers", "old-project-artifacts"] {
             let v = try verdict(id)
             #expect(v.risk == .yourCall && v.preselected, "\(id)")
         }

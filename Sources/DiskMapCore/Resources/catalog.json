@@ -1340,6 +1340,88 @@
       "reviewHint": "Bórralos desde Xcode › Window › Organizer: ahí ves cuáles ya subiste."
     },
     {
+      "id": "old-project-artifacts",
+      "title": "Carpeta regenerable de un proyecto viejo",
+      "explanation": "Dependencias y resultados de compilación (node_modules, .venv, target, .next, build) de un proyecto en el que no has cambiado ningún archivo en más de 3 meses. Tu código no se toca: solo esta carpeta, que el proyecto vuelve a crear con su comando de instalación o de compilación. Va a la Papelera.",
+      "whoCreatesIt": "Tus herramientas de desarrollo (npm, pip, uv, Cargo, Next.js…)",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "preselectInAggressive": true,
+      "shortReason": "Está en un proyecto que no tocas hace más de 3 meses; se rehace con su comando.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "projectArtifacts",
+        "names": [
+          "node_modules",
+          ".venv",
+          "target",
+          ".next",
+          "build"
+        ],
+        "cachedirTag": false
+      }
+    },
+    {
+      "id": "old-project-build-leftovers",
+      "title": "Resto de compilación de un proyecto viejo",
+      "explanation": "Entornos, cachés y resultados de compilación de otras herramientas (Python, CocoaPods, Gradle, Flutter, Swift, .NET, Composer…) en un proyecto que no tocas hace más de 3 meses. Se vuelven a crear, pero algunos tardan en rehacerse; por eso Airy no los marca de entrada. Va a la Papelera.",
+      "whoCreatesIt": "Tus herramientas de desarrollo",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Está en un proyecto que no tocas hace más de 3 meses; se rehace con su herramienta, aunque puede tardar.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "projectArtifacts",
+        "names": [
+          "venv",
+          "dist",
+          "Pods",
+          ".gradle",
+          ".dart_tool",
+          ".build",
+          ".turbo",
+          ".angular",
+          ".svelte-kit",
+          ".astro",
+          ".nuxt",
+          ".output",
+          ".parcel-cache",
+          ".tox",
+          ".nox",
+          "__pycache__",
+          ".pytest_cache",
+          ".mypy_cache",
+          ".ruff_cache",
+          ".zig-cache",
+          "zig-out",
+          ".cxx",
+          ".expo",
+          ".terragrunt-cache",
+          "DerivedData",
+          "obj",
+          "bin",
+          "vendor"
+        ],
+        "cachedirTag": true
+      }
+    },
+    {
       "id": "user-logs",
       "title": "Registros de apps",
       "explanation": "Archivos de registro donde las apps anotan lo que hacen, útiles solo para diagnosticar fallos. Las apps los crean de nuevo cuando los necesitan.",
