@@ -85,7 +85,9 @@ public struct MCPToolRegistry: Sendable {
     }
 
     /// Herramientas de acción, siempre tras el embudo de seguridad (Task 13).
-    static func actionTools() -> [any MCPTool] { [] }
+    static func actionTools() -> [any MCPTool] {
+        [RunSafeCleanupTool(), RunSafeCleanupAllTool(), ProposeCleanupTool(), ShowInAppTool(), RescanTool()]
+    }
 }
 
 /// Validación de argumentos contra el subconjunto de JSON Schema que usan las herramientas de Airy:
