@@ -107,6 +107,32 @@ Nace de una sesión de limpieza manual (20-10-2026) en la que se recuperaron ~60
 - Animaciones: muelles (`spring`) para zoom y selección, entradas escalonadas, transiciones con `matchedGeometryEffect` entre secciones, números que cuentan hacia arriba, barra/anillo de progreso vivo durante el análisis, celebración sobria al liberar espacio.
 - **Icono propio** estilo macOS (squircle), con el motivo de bloques del treemap en colores vivos y profundidad; generado como `.icns` en todos los tamaños.
 
+## 7b. Servidor MCP para agentes externos (añadido 2026-10-20, fase 1)
+
+**Por qué:** el usuario y mucha gente ya trabajan con agentes (Claude Code, la app de Claude, Codex, opencode y otras CLIs). En vez de depender solo del chat interno, DiskMap expone un **servidor MCP** para que cualquiera de esos agentes pueda consultar el disco y limpiar lo seguro. El chat interno **se mantiene** (decisión del usuario).
+
+**Qué es:** un segundo ejecutable dentro del paquete, `DiskMap.app/Contents/MacOS/diskmap-mcp`, que habla MCP por stdio (JSON-RPC 2.0). Lo lanza el cliente del agente. Funciona aunque la app esté cerrada: lee el índice guardado (`~/Library/Application Support/DiskMap`), el catálogo y usa el mismo `CleanupScanner`/`CleanupExecutor` con todas sus comprobaciones.
+
+**Herramientas (tools)** — nombres en inglés por convención MCP, textos de respuesta en español:
+- `get_disk_summary`: total, libre, analizado, reparto por tipos, fecha del último análisis, si hay Acceso total al disco.
+- `list_largest(path?, limit?)`: hijos más grandes de una carpeta del índice, con tipo, tamaño, fecha y riesgo.
+- `explain_path(path)`: qué es (catálogo o diccionario de carpetas conocidas), riesgo efectivo y si se regenera.
+- `list_cleanup_items`: los elementos de Limpieza con id, tamaño, riesgo, método, bloqueos y "lo usa".
+- `run_safe_cleanup(item_id)`: ejecuta **solo** elementos con riesgo efectivo **Borrar sin riesgo**, no bloqueados (apps abiertas, "lo usa"), vía `CleanupExecutor` (Papelera o comando oficial). Cualquier otro riesgo ⇒ error explicativo, nada se ejecuta.
+- `propose_cleanup(item_id | path, reason)`: para lo "Depende de ti": abre DiskMap (URL `diskmap://propose?...`) con la hoja de confirmación ya preparada; el usuario decide. El agente recibe "propuesta enviada; pendiente de confirmación del usuario".
+- `show_in_app(path)`: abre DiskMap y hace zoom en el mapa a esa carpeta (`diskmap://show?path=`).
+- `rescan`: pide a DiskMap que reanalice (`diskmap://rescan`); devuelve al terminar o indica que la app debe estar abierta.
+- "No tocar" nunca tiene herramienta de acción. No hay herramienta que acepte comandos o rutas arbitrarias para borrar.
+
+**Ajustes y visibilidad en la app** — en la sección Asistente, pestaña **"Conectar agente"**:
+- Estado del servidor y ruta del ejecutable.
+- Instrucciones listas para copiar (botón copiar) para Claude Code (`claude mcp add diskmap -- <ruta>`), Codex (`~/.codex/config.toml`), opencode (`opencode.json`) y configuración JSON genérica (`mcpServers`), más "Añadir a Claude Code" en un clic si `claude` está instalado.
+- Interruptor **"Permitir que los agentes ejecuten limpiezas seguras"** (activado por defecto, decisión del usuario). Si está apagado, `run_safe_cleanup` responde que el usuario lo ha desactivado.
+- **Registro de actividad** de los agentes: cada llamada de acción (quién/qué/cuánto/resultado) aparece en la app y en el historial de limpiezas, marcado "por un agente".
+- Ajustes compartidos con el servidor en `~/Library/Application Support/DiskMap/agents.json`.
+
+**Anti-objetivos añadidos:** el MCP nunca envía contenido de archivos (solo metadatos, como la IA); nunca ejecuta nada que no sea "Borrar sin riesgo" sin el clic del usuario en la app; el interruptor apagado bloquea toda acción.
+
 ## 8. Lo que se deja al constructor
 
 - Algoritmo exacto de escaneo (p. ej. `getattrlistbulk`/`fts` en paralelo) y cómo contar hard links y archivos dispersos.
