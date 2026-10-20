@@ -1524,6 +1524,449 @@
         ]
       },
       "mustBeClosed": []
+    },
+    {
+      "id": "device-firmware",
+      "title": "Firmware de iPhone y iPad",
+      "explanation": "Archivos .ipsw con el sistema que Finder o Apple Configurator descargaron para actualizar o restaurar un iPhone o un iPad. Ocupan varios GB cada uno. Van a la Papelera.",
+      "whoCreatesIt": "Finder y Apple Configurator (Apple)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "other",
+      "paths": [
+        "~/Library/iTunes/*Software Updates/*.ipsw",
+        "~/Library/Group Containers/K36BKF7T3D.group.com.apple.configurator/Library/Caches/Firmware/*.ipsw"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "El Mac lo vuelve a descargar si actualizas el iPhone o el iPad.",
+      "perMatch": true
+    },
+    {
+      "id": "claude-code-old-versions",
+      "title": "Versiones antiguas de Claude Code",
+      "explanation": "Claude Code guarda una carpeta por cada versión que instala y no borra las anteriores. Se conservan la versión activa y la anterior; el resto va a la Papelera.",
+      "whoCreatesIt": "Claude Code (Anthropic)",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "code",
+      "paths": [
+        "~/.local/share/claude/versions/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se conservan la versión activa y la anterior.",
+      "profiles": [
+        "developer",
+        "localAI"
+      ],
+      "retention": {
+        "keepNewest": 2,
+        "activeLink": "~/.local/bin/claude"
+      }
+    },
+    {
+      "id": "cursor-agent-old-versions",
+      "title": "Versiones antiguas de Cursor Agent",
+      "explanation": "Cursor Agent guarda una carpeta por cada versión que instala y no borra las anteriores. Se conservan la versión activa y la anterior; el resto va a la Papelera.",
+      "whoCreatesIt": "Cursor",
+      "regenerates": true,
+      "risk": "safe",
+      "kind": "code",
+      "paths": [
+        "~/.local/share/cursor-agent/versions/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se conservan la versión activa y la anterior.",
+      "profiles": [
+        "developer"
+      ],
+      "retention": {
+        "keepNewest": 2,
+        "activeLink": "~/.local/bin/cursor-agent"
+      }
+    },
+    {
+      "id": "lmstudio-models",
+      "title": "Modelos de LM Studio",
+      "explanation": "Modelos de IA que has descargado con LM Studio para usarlos en tu Mac. Cada modelo ocupa varios GB y se muestra por separado. Cierra LM Studio antes de limpiar. Van a la Papelera.",
+      "whoCreatesIt": "LM Studio",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "aiModels",
+      "paths": [
+        "~/.lmstudio/models/*/*",
+        "~/.cache/lm-studio/models/*/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [
+        "ai.elementlabs.lmstudio"
+      ],
+      "shortReason": "Tendrías que volver a descargar el modelo.",
+      "profiles": [
+        "localAI"
+      ],
+      "perMatch": true
+    },
+    {
+      "id": "safari-compact",
+      "title": "Compactar el historial de Safari",
+      "explanation": "La base del historial de Safari acumula espacio libre que no devuelve al disco. Compactarla lo recupera sin borrar tu historial. Solo se ofrece con Safari cerrado y si se puede recuperar al menos 10 MB.",
+      "whoCreatesIt": "Safari (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [
+        "~/Library/Safari/History.db"
+      ],
+      "cleanup": {
+        "type": "command",
+        "executable": "sqlite3",
+        "arguments": [
+          "{target}",
+          "VACUUM;"
+        ],
+        "sizeProbe": [
+          "-readonly",
+          "{target}",
+          "PRAGMA page_size; PRAGMA freelist_count;"
+        ]
+      },
+      "mustBeClosed": [
+        "com.apple.Safari"
+      ],
+      "processNames": [
+        "Safari"
+      ],
+      "shortReason": "Compacta el historial; solo con Safari cerrado.",
+      "profiles": [
+        "basic"
+      ],
+      "partialCleanup": true,
+      "minimumBytes": 10000000
+    },
+    {
+      "id": "quarantine-history",
+      "title": "Historial de descargas de macOS",
+      "explanation": "Lista de las apps y archivos que has descargado, con su origen, que macOS guarda para el aviso «descargado de Internet». Va a la Papelera y macOS la vuelve a crear vacía.",
+      "whoCreatesIt": "macOS (Apple)",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [
+        "~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Borra el historial de lo que has descargado; macOS lo vuelve a crear vacío."
+    },
+    {
+      "id": "installers",
+      "title": "Instaladores descargados",
+      "explanation": "Instaladores (.dmg, .pkg, .mpkg, .iso, .xip) y archivos .zip con un instalador dentro, en Descargas, Escritorio y Documentos. Ya instalaste la app, así que normalmente sobran. Van a la Papelera.",
+      "whoCreatesIt": "Tú, al descargar apps",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "other",
+      "paths": [],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Si lo borras, tendrás que volver a descargarlo para reinstalar.",
+      "profiles": [
+        "basic"
+      ],
+      "discovery": {
+        "type": "installers"
+      }
+    },
+    {
+      "id": "old-downloads",
+      "title": "Descargas antiguas y grandes",
+      "explanation": "Archivos y carpetas de Descargas de más de 50 MB que no has tocado en 6 meses. Revisa la lista: pueden ser documentos que quieras conservar. Van a la Papelera.",
+      "whoCreatesIt": "Tú, al descargar",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "other",
+      "paths": [
+        "~/Downloads/*"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Hace más de 6 meses que no los tocas; revisa que no los necesites.",
+      "profiles": [
+        "basic"
+      ],
+      "perMatch": true,
+      "except": [
+        ".DS_Store",
+        ".localized"
+      ],
+      "staleAfterDays": 180,
+      "minimumBytes": 50000000
+    },
+    {
+      "id": "system-diagnostic-reports",
+      "title": "Informes de fallos del sistema",
+      "explanation": "Informes que macOS escribe cuando una app falla. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+      "whoCreatesIt": "macOS (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [
+        "/Library/Logs/DiagnosticReports"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
+      "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+    },
+    {
+      "id": "system-logs",
+      "title": "Registros del sistema",
+      "explanation": "Registros que macOS y los servicios del sistema escriben. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+      "whoCreatesIt": "macOS (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [
+        "/private/var/log"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
+      "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+    },
+    {
+      "id": "system-caches",
+      "title": "Cachés del sistema",
+      "explanation": "Cachés compartidas por todos los usuarios del Mac. Están fuera de tu carpeta, así que Airy solo te las muestra.",
+      "whoCreatesIt": "macOS y tus apps",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [
+        "/Library/Caches"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
+      "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+    },
+    {
+      "id": "macos-installers",
+      "title": "Instaladores de macOS",
+      "explanation": "Instaladores completos de macOS («Install macOS…») que quedan en Aplicaciones tras actualizar. Ocupan unos 13 GB cada uno; Airy solo te los muestra.",
+      "whoCreatesIt": "Apple",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "apps",
+      "paths": [
+        "/Applications/Install macOS*.app"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Ocupa varios GB y sobra una vez actualizado el Mac.",
+      "reviewHint": "Arrástralo a la Papelera desde Aplicaciones si ya actualizaste."
+    },
+    {
+      "id": "chrome-old-frameworks",
+      "title": "Versiones antiguas de Google Chrome",
+      "explanation": "Google Chrome deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+      "whoCreatesIt": "Google Chrome",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "apps",
+      "paths": [
+        "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/*"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+      "except": [
+        "Current"
+      ],
+      "retention": {
+        "keepNewest": 1,
+        "activeLink": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/Current"
+      },
+      "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+    },
+    {
+      "id": "brave-old-frameworks",
+      "title": "Versiones antiguas de Brave Browser",
+      "explanation": "Brave Browser deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+      "whoCreatesIt": "Brave",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "apps",
+      "paths": [
+        "/Applications/Brave Browser.app/Contents/Frameworks/Brave Browser Framework.framework/Versions/*"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+      "except": [
+        "Current"
+      ],
+      "retention": {
+        "keepNewest": 1,
+        "activeLink": "/Applications/Brave Browser.app/Contents/Frameworks/Brave Browser Framework.framework/Versions/Current"
+      },
+      "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+    },
+    {
+      "id": "edge-old-frameworks",
+      "title": "Versiones antiguas de Microsoft Edge",
+      "explanation": "Microsoft Edge deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+      "whoCreatesIt": "Microsoft",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "apps",
+      "paths": [
+        "/Applications/Microsoft Edge.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/*"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+      "except": [
+        "Current"
+      ],
+      "retention": {
+        "keepNewest": 1,
+        "activeLink": "/Applications/Microsoft Edge.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/Current"
+      },
+      "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+    },
+    {
+      "id": "ios-backups",
+      "title": "Copias de seguridad de iPhone y iPad",
+      "explanation": "Copias de tus dispositivos que Finder guarda en el Mac. Pueden ser tu única copia, así que Airy solo te las muestra.",
+      "whoCreatesIt": "Finder (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "other",
+      "paths": [
+        "~/Library/Application Support/MobileSync/Backup"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Pueden ser la única copia de tu iPhone o iPad.",
+      "reviewHint": "Gestiónalas desde Finder › tu iPhone › Gestionar copias."
+    },
+    {
+      "id": "android-emulators",
+      "title": "Emuladores de Android",
+      "explanation": "Dispositivos virtuales de Android Studio con sus datos. Airy solo te los muestra.",
+      "whoCreatesIt": "Android Studio",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "containers",
+      "paths": [
+        "~/.android/avd"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Cada emulador guarda sus propias apps y datos.",
+      "profiles": [
+        "developer"
+      ],
+      "reviewHint": "Bórralos desde Android Studio › Device Manager."
+    },
+    {
+      "id": "agent-worktrees",
+      "title": "Copias de trabajo de agentes",
+      "explanation": "Carpetas de trabajo (git worktrees) que Codex y Claude Code crean para cada tarea. Pueden tener cambios sin guardar, así que Airy solo te las muestra.",
+      "whoCreatesIt": "Codex y Claude Code",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [
+        "~/.codex/worktrees",
+        "~/.claude/worktrees"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Pueden tener cambios sin subir.",
+      "profiles": [
+        "developer"
+      ],
+      "reviewHint": "Quítalos con git worktree remove desde su repositorio."
+    },
+    {
+      "id": "time-machine-in-progress",
+      "title": "Copias de Time Machine sin terminar",
+      "explanation": "Copias de Time Machine que se interrumpieron y no se completaron. Airy solo te las muestra.",
+      "whoCreatesIt": "Time Machine (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [
+        "/Volumes/*/Backups.backupdb/*/*.inProgress"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Es una copia que no terminó; Time Machine decide qué hacer con ella.",
+      "reviewHint": "Es una copia de Time Machine que no terminó; revísala desde Time Machine."
+    },
+    {
+      "id": "music-sound-libraries",
+      "title": "Bibliotecas de sonidos de Logic y GarageBand",
+      "explanation": "Instrumentos, bucles y sonidos que descargan GarageBand y Logic Pro. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+      "whoCreatesIt": "GarageBand y Logic Pro (Apple)",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "other",
+      "paths": [
+        "/Library/Application Support/GarageBand",
+        "/Library/Application Support/Logic",
+        "/Library/Audio/Apple Loops"
+      ],
+      "cleanup": {
+        "type": "info"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Se pueden volver a descargar desde la app, pero tardan.",
+      "profiles": [
+        "music"
+      ],
+      "reviewHint": "Gestiónalas desde Logic Pro o GarageBand › Biblioteca de sonidos: así se pueden volver a descargar."
     }
   ]
 }
