@@ -103,6 +103,10 @@ public struct CleanupScanner: Sendable {
         var candidates: [Candidate] = []
         // Una ruta, un elemento: la primera ficha del catálogo que la reclama se la queda.
         var claimed = Set<String>()
+        // Todas las fichas informativas comparten un solo plazo de medida (`measureBudget`): lo que no cabe se
+        // queda en «Tamaño desconocido».
+        let clock = ContinuousClock()
+        var reviewDeadline: ContinuousClock.Instant?
         for entry in catalog.entries {
             for var target in await CleanupTargets.source(for: entry).discover(entry, context: context) {
                 let original = target.paths
@@ -117,10 +121,19 @@ public struct CleanupScanner: Sendable {
                 }
                 var bytes = target.bytes
                 if bytes == nil {
-                    bytes = measure(target.paths, scan: scan)
+                    var budget = measureBudget
+                    var isReview = false
+                    if case .info = entry.cleanup {
+                        isReview = true
+                        let deadline = reviewDeadline ?? clock.now.advanced(by: measureBudget)
+                        reviewDeadline = deadline
+                        budget = max(.zero, clock.now.duration(to: deadline))
+                    }
+                    bytes = measure(target.paths, scan: scan, budget: budget)
                     if bytes == nil {
                         target.sizeNote = target.sizeNote ?? "Tamaño desconocido"
-                        target.blockedReason = target.blockedReason ?? "No se pudo medir a tiempo."
+                        // Sin acción no hay nada que bloquear: la ficha solo informa.
+                        if !isReview { target.blockedReason = target.blockedReason ?? "No se pudo medir a tiempo." }
                     }
                 }
                 let size = bytes ?? 0
@@ -188,13 +201,14 @@ public struct CleanupScanner: Sendable {
 
     /// Suma del índice o, si una ruta no está en él, de `TreeWalk` con `measureBudget`. Una ruta que ya no
     /// existe cuenta 0; `nil` si alguna no se pudo medir a tiempo.
-    private func measure(_ paths: [String], scan: FileNode?) -> Int64? {
+    private func measure(_ paths: [String], scan: FileNode?, budget: Duration? = nil) -> Int64? {
+        let budget = budget ?? measureBudget
         var total: Int64 = 0
         for path in paths {
             if let scan, let node = Self.node(at: path, in: scan) { total += node.allocatedSize; continue }
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
-            if let summary = TreeWalk.summarize(path, budget: measureBudget) {
+            if let summary = TreeWalk.summarize(path, budget: budget) {
                 total += summary.bytes
             } else if (info.st_mode & S_IFMT) == S_IFDIR, !Self.canOpen(path) {
                 // Carpeta que no se puede leer (TCC, permisos): como en la fase 1, solo su propia entrada.
