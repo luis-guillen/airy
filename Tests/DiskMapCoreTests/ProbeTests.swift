@@ -61,4 +61,77 @@ import Testing
         let boot = try #require(CPUProbe.bootTime())
         #expect(boot < Date())
     }
+
+    // MARK: - Procesos
+
+    @Test func parsesSpanishDecimalsAndSpaces() {
+        let out = """
+          603    1    88  41,4 117504 Ss   WindowServer
+        83479 83371  501   0,0      0 Z+   <defunct>
+          900    1   501  12.5   2048 S    Google Chrome Helper (Renderer)
+        basura
+        """
+        let p = ProcessProbe.parsePS(out)
+        #expect(p.count == 3)
+        #expect(p[0].cpuPercent == 41.4 && p[0].rssBytes == 117504 * 1024 && p[0].uid == 88)
+        #expect(p[1].isZombie && p[1].ppid == 83371)
+        #expect(p[2].name == "Google Chrome Helper (Renderer)" && p[2].cpuPercent == 12.5)
+    }
+
+    @Test func psFailureMeansNoSystemList() async {
+        let key = (["/bin/ps"] + ProcessProbe.psArguments).joined(separator: " ")
+        let failed = FakeRunner(outputs: [key: CommandOutput(status: 1, stdout: "  1 0 0 0,0 10 Ss launchd\n", stderr: "")])
+        #expect(await ProcessProbe.systemProcesses(runner: failed) == nil)
+        let empty = FakeRunner(outputs: [key: CommandOutput(status: 0, stdout: "  \n", stderr: "")])
+        #expect(await ProcessProbe.systemProcesses(runner: empty) == nil)
+        let ok = FakeRunner(outputs: [key: CommandOutput(status: 0, stdout: "  1 0 0 0,0 10 Ss launchd\n", stderr: "")])
+        #expect(await ProcessProbe.systemProcesses(runner: ok)?.first?.name == "launchd")
+    }
+
+    @Test func psUsesFixedArguments() async {
+        let runner = FakeRunner()
+        _ = await ProcessProbe.systemProcesses(runner: runner)
+        #expect(runner.calls.count == 1)
+        #expect(runner.calls.first?.executable == "/bin/ps")
+        #expect(runner.calls.first?.arguments == ProcessProbe.psArguments)
+        #expect(runner.calls.first?.timeout == 3)
+    }
+
+    @Test func ownProcessesIncludeSelfWithFootprint() {
+        let me = ProcessProbe.ownProcesses().first { $0.pid == ProcessInfo.processInfo.processIdentifier }
+        #expect(me != nil && me!.footprint > 0 && me!.uid == getuid())
+    }
+
+    @Test func ownProcessesNeverIncludeOtherUsers() {
+        let all = ProcessProbe.ownProcesses()
+        #expect(!all.isEmpty)
+        #expect(all.allSatisfy { $0.uid == getuid() })
+    }
+
+    @Test func ownCPUTimeAdvances() {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        func mine() -> UInt64? { ProcessProbe.ownProcesses().first { $0.pid == pid }?.cpuTimeNs }
+        guard let before = mine() else { Issue.record("no se ve a sí mismo"); return }
+        let deadline = Date().addingTimeInterval(2)
+        var sink = 0.0
+        var after = before
+        while Date() < deadline, after < before + 100_000_000 {
+            for i in 0..<200_000 { sink += Double(i).squareRoot() }
+            after = mine() ?? after
+        }
+        #expect(sink > 0)
+        #expect(after >= before + 100_000_000)
+    }
+
+    @Test func activationPolicyMapping() {
+        #expect(ProcessProbe.policy(.regular) == .regular)
+        #expect(ProcessProbe.policy(.accessory) == .accessory)
+        #expect(ProcessProbe.policy(.prohibited) == .prohibited)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil)) func runningAppsHaveNamesAndPolicies() {
+        let apps = ProcessProbe.runningApps()
+        // Sin sesión gráfica la lista puede venir vacía; con sesión, todas traen nombre.
+        #expect(apps.allSatisfy { !$0.name.isEmpty && $0.pid > 0 })
+    }
 }
