@@ -10,7 +10,7 @@ import Foundation
 /// Puerta común: interruptor de agentes y ajustes legibles, leídos en cada llamada.
 public enum AgentGate {
     static let agentsOff =
-        "Has desactivado en Airy que los agentes ejecuten acciones (Asistente › Conectar agente)."
+        "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes)."
     static let unreadable = "Airy no puede leer sus ajustes; no se ejecuta nada hasta que los revises en la app."
 
     /// `nil` si un agente puede actuar ahora; si no, el motivo para el usuario.
