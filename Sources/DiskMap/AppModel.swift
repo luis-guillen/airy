@@ -119,6 +119,10 @@ final class AppModel {
     var scanError: String?
     /// Problemas que no impiden usar la app pero cambian lo que significan los números.
     var notices: [Notice] = []
+    /// Pregunta que el mapa ("Explicar con IA") deja para el asistente; la consume la Tarea 11.
+    var pendingAssistantQuestion: String?
+    /// Sube cada vez que el árbol mostrado cambia en sitio (p. ej. algo enviado a la Papelera).
+    private(set) var treeRevision = 0
 
     var volumes: [Volume] = [.startupFallback]
     var selectedVolume: URL = URL(fileURLWithPath: "/") {
@@ -343,6 +347,49 @@ final class AppModel {
         await refreshVolumes()
         refreshCleanup()
         return outcome
+    }
+
+    /// Envía rutas elegidas en el mapa a la Papelera con todas las comprobaciones de
+    /// `CleanupExecutor.trashPaths`, las quita del árbol mostrado y refresca como `perform`.
+    /// La interfaz es la que confirma antes de llamar aquí.
+    func trash(paths: [String], title: String) async -> CleanupOutcome {
+        guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
+        let outcome = await executor.trashPaths(paths, title: title)
+        // Lo que ya no está en su sitio sale del mapa (también si se movió solo una parte).
+        var removed = false
+        for path in paths {
+            var info = stat()
+            guard lstat(path, &info) != 0, let node = node(atPath: path) else { continue }
+            node.removeFromParent()
+            removed = true
+        }
+        if removed { treeRevision += 1 }
+        await refreshCounters()
+        await refreshVolumes()
+        refreshCleanup()
+        return outcome
+    }
+
+    /// Nodo del análisis mostrado para una ruta absoluta, bajando por nombre desde la raíz.
+    func node(atPath path: String) -> FileNode? {
+        guard let root = scan?.root else { return nil }
+        let rootPath = root.path
+        var rest: Substring
+        if rootPath == "/" {
+            rest = Substring(path)
+        } else if path == rootPath || path.hasPrefix(rootPath + "/") {
+            rest = path.dropFirst(rootPath.count)
+        } else {
+            return nil
+        }
+        var cursor = root
+        for name in rest.split(separator: "/") {
+            guard let next = cursor.children.first(where: { $0.name == name && $0.aggregatedCount == 0 }) else {
+                return nil
+            }
+            cursor = next
+        }
+        return cursor === root ? nil : cursor
     }
 
     /// Vacía la Papelera sin preguntar: la interfaz debe confirmarlo antes.

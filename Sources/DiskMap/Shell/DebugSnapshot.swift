@@ -13,8 +13,11 @@ import AppKit
 @MainActor
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
+    /// Reloj común de capturas y guiones de depuración (p. ej. `DISKMAP_MAP_SCRIPT`).
+    nonisolated(unsafe) static private(set) var start = Date()
 
     static func configure(_ model: AppModel) {
+        start = Date()
         switch environment["DISKMAP_APPEARANCE"] {
         case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
         case "light": NSApp.appearance = NSAppearance(named: .aqua)
@@ -30,7 +33,7 @@ enum DebugSnapshot {
         for time in times {
             DispatchQueue.main.asyncAfter(deadline: .now() + time) {
                 capture(to: URL(fileURLWithPath: directory)
-                    .appendingPathComponent("\(prefix)-\(Int(time))s.png"))
+                    .appendingPathComponent("\(prefix)-\(time == time.rounded() ? String(Int(time)) : String(time))s.png"))
             }
         }
     }
@@ -41,11 +44,18 @@ enum DebugSnapshot {
     private typealias CreateImage = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
 
     static func capture(to url: URL) {
+        let began = Date()
+        defer {
+            FileHandle.standardError.write(Data(String(format: "[snap] %@ a %.2f s (%.0f ms)\n", url.lastPathComponent,
+                began.timeIntervalSince(start), Date().timeIntervalSince(began) * 1000).utf8))
+        }
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
         if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") {
             let create = unsafeBitCast(symbol, to: CreateImage.self)
             // .optionIncludingWindow = 1 << 3; .boundsIgnoreFraming = 1 << 0, .bestResolution = 1 << 3
-            if let image = create(.null, 1 << 3, UInt32(window.windowNumber), (1 << 0) | (1 << 3))?
+            // Con DISKMAP_SNAPSHOT_MENUS=1 entran también las ventanas por encima (menús de la app).
+            let listOption: UInt32 = environment["DISKMAP_SNAPSHOT_MENUS"] == "1" ? (1 << 1) | (1 << 3) : 1 << 3
+            if let image = create(.null, listOption, UInt32(window.windowNumber), (1 << 0) | (1 << 3))?
                 .takeRetainedValue() {
                 let rep = NSBitmapImageRep(cgImage: image)
                 try? rep.representation(using: .png, properties: [:])?.write(to: url)

@@ -102,4 +102,23 @@ public final class FileNode: @unchecked Sendable, Identifiable {
               let index = kindBytes.firstIndex(of: maxBytes) else { return kind }
         return ContentKind.allCases[index]
     }
+
+    /// Lo saca del árbol (p. ej. tras enviarlo a la Papelera) y descuenta su tamaño, su desglose
+    /// por tipo y sus descendientes de todos los antepasados. Sin padre no hace nada.
+    /// Como el resto del árbol, solo debe llamarse desde el hilo dueño (el principal).
+    public func removeFromParent() {
+        guard let parent else { return }
+        parent.children.removeAll { $0 === self }
+        self.parent = nil
+        let removedDescendants = descendantCount + 1
+        var cursor: FileNode? = parent
+        while let node = cursor {
+            node.allocatedSize = max(node.allocatedSize - allocatedSize, 0)
+            for index in node.kindBytes.indices where index < kindBytes.count {
+                node.kindBytes[index] = max(node.kindBytes[index] - kindBytes[index], 0)
+            }
+            node.descendantCount = max(node.descendantCount - removedDescendants, 0)
+            cursor = node.parent
+        }
+    }
 }
