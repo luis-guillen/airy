@@ -111,7 +111,8 @@ public enum WindMotion {
         return LeafPose(
             x: target.x + remaining * (sx * c - sy * s),
             y: target.y + remaining * (sx * s + sy * c),
-            rotation: theta,
+            // Cada hoja da su propio número de vueltas (±1,5) además del giro de la espiral.
+            rotation: theta + remaining * 3 * Double.pi * (2 * noise(index, 11) - 1),
             scale: 1 - 0.4 * remaining,
             opacity: min(1, p / 0.25))
     }

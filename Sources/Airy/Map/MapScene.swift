@@ -212,6 +212,15 @@ struct MapTransition: Sendable {
     }
 }
 
+/// Una tesela que se deshace en hojas tras mandarla a la Papelera. `rect` en coordenadas del
+/// lienzo; `start` en `CACurrentMediaTime()`. Dura `WindMotion.dissolveDuration`.
+struct MapLeafBurst: Sendable, Equatable {
+    let rect: CGRect
+    let start: Double
+
+    func isAlive(at time: Double) -> Bool { time < start + WindMotion.dissolveDuration }
+}
+
 // MARK: - Escena
 
 /// Estado del mapa animado: el layout del nivel visible, la transición en curso, la tesela
@@ -226,6 +235,8 @@ final class MapScene {
     /// Sube cada vez que termina un zoom: la vista vuelve a mirar qué hay bajo el puntero.
     private(set) var settledCount = 0
     private(set) var dim = Fade<ContentKind>()
+    /// Teselas que se están deshaciendo en hojas; `finishAnimating` quita las terminadas.
+    private(set) var bursts: [MapLeafBurst] = []
 
     @ObservationIgnored private(set) var canvasSize: CGSize = .zero
     /// Marco del lienzo en la ventana (coordenadas de SwiftUI); solo lo usa el guion de depuración.
@@ -417,6 +428,14 @@ final class MapScene {
         keepAnimating(fadeEnd: dim.start + Fade<ContentKind>.duration)
     }
 
+    /// La tesela de `rect` (coordenadas del lienzo) se deshace en hojas. Solo pinta: quien llama ya
+    /// sabe que se borró y que hay movimiento transitorio.
+    func burst(rect: CGRect) {
+        let start = CACurrentMediaTime()
+        bursts.append(MapLeafBurst(rect: rect, start: start))
+        keepAnimating(fadeEnd: start + WindMotion.dissolveDuration)
+    }
+
     /// Tesela bajo el punto en el layout asentado (durante un zoom, ninguna).
     func tile(at point: CGPoint) -> MapTile? {
         guard !isZooming, !awaitingLayout, let layout else { return nil }
@@ -538,6 +557,8 @@ final class MapScene {
             settledCount += 1
         }
         if let transition, CACurrentMediaTime() >= transition.end { self.transition = nil }
+        let now = CACurrentMediaTime()
+        if bursts.contains(where: { !$0.isAlive(at: now) }) { bursts.removeAll { !$0.isAlive(at: now) } }
         isAnimating = false
         #if DEBUG
         FPSMeter.shared.end()

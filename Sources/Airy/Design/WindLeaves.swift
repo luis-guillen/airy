@@ -7,7 +7,8 @@ import DiskMapCore
 ///   movimiento» no se dibujan.
 /// Las transitorias van en un único `Canvas` con un reloj que se pausa:
 /// - `.launch(start:)`: llegan en espiral y forman el logo centrado en la vista (transitorio).
-/// - `.burst(start:rect:)`: un rectángulo de la vista se deshace en hojas (transitorio).
+/// - `.burst(start:rect:)`: un rectángulo de la vista se deshace en hojas (transitorio). Con
+///   «Reducir movimiento», las hojas no vuelan: aparecen quietas en el rectángulo y se funden.
 /// Las transitorias no dibujan nada pasado su final; quien las muestra las retira (como `ParticleBurst`).
 /// Vista hoja: solo valores de entrada, nada observable.
 struct WindLeaves: View {
@@ -33,13 +34,17 @@ struct WindLeaves: View {
     }
 
     private var paused: Bool {
-        if case .orbit = mode { return ambientMotion != .running }
-        return transientMotion != .running
+        switch mode {
+        case .orbit: return ambientMotion != .running
+        case .launch: return transientMotion != .running
+        // Con «Reducir movimiento» el fundido también necesita reloj (acotado: quien la muestra la retira).
+        case .burst: return transientMotion == .paused
+        }
     }
 
     var body: some View {
         let dark = colorScheme == .dark
-        let colors: [Color] = dark ? [.white, Theme.Airy.leafSky] : [Theme.Airy.accent, Theme.Airy.sky]
+        let colors = Self.colors(dark: dark)
         Group {
             switch mode {
             case .orbit(let radius):
@@ -62,7 +67,8 @@ struct WindLeaves: View {
                         #if DEBUG
                         FPSMeter.shared.tick()
                         #endif
-                        Self.draw(&canvas, size: size, mode: mode, count: count, date: context.date, colors: colors)
+                        Self.draw(&canvas, size: size, mode: mode, count: count, date: context.date, colors: colors,
+                                  reduced: transientMotion == .reduced)
                     }
                 }
             }
@@ -75,7 +81,7 @@ struct WindLeaves: View {
     private static let orbitEpoch = Date(timeIntervalSinceReferenceDate: 0)
 
     private static func draw(_ canvas: inout GraphicsContext, size: CGSize, mode: Mode, count: Int,
-                             date: Date, colors: [Color]) {
+                             date: Date, colors: [Color], reduced: Bool = false) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         var leafScale: CGFloat = 1
         let poses: [LeafPose]
@@ -103,18 +109,105 @@ struct WindLeaves: View {
         case .burst(let start, let rect):
             let progress = date.timeIntervalSince(start) / WindMotion.dissolveDuration
             guard progress < 1 else { return }
-            poses = (0..<count).map { WindMotion.dissolveLeaf(index: $0, count: count, progress: progress, in: rect) }
+            poses = reduced
+                ? Self.stillLeaves(count: count, in: rect, opacity: 1 - max(progress, 0))
+                : (0..<count).map { WindMotion.dissolveLeaf(index: $0, count: count, progress: progress, in: rect) }
         }
+        paint(&canvas, poses: poses, leafScale: leafScale, colors: colors)
+    }
 
-        let leaf = Path(AiryLogoGeometry.leafPath(length: 11, width: 5))
+    /// Hojas quietas donde empieza `dissolveLeaf`, todas con la misma opacidad (solo fundido).
+    static func stillLeaves(count: Int, in rect: CGRect, opacity: Double) -> [LeafPose] {
+        (0..<count).map { index in
+            var pose = WindMotion.dissolveLeaf(index: index, count: count, progress: 0, in: rect)
+            pose.opacity = min(max(opacity, 0), 1)
+            return pose
+        }
+    }
+
+    private nonisolated static let leafPath = Path(AiryLogoGeometry.leafPath(length: 11, width: 5))
+
+    /// Pinta hojas en sus poses (puntos del lienzo), alternando `colors`. Lo comparten el borrado de
+    /// filas (`LeafAwayEffect`) y las ráfagas del mapa (`MapRenderer`).
+    nonisolated static func paint(_ canvas: inout GraphicsContext, poses: [LeafPose], leafScale: CGFloat = 1,
+                      colors: [Color]) {
+        guard !colors.isEmpty else { return }
         for (index, pose) in poses.enumerated() where pose.opacity > 0 {
             let scale = leafScale * CGFloat(pose.scale)
             let transform = CGAffineTransform(translationX: pose.x, y: pose.y)
                 .rotated(by: pose.rotation)
                 .scaledBy(x: scale, y: scale)
-            canvas.fill(leaf.applying(transform),
+            canvas.fill(leafPath.applying(transform),
                         with: .color(colors[index % colors.count].opacity(pose.opacity)))
         }
+    }
+
+    /// Colores de las hojas según el aspecto: blancas y celestes en oscuro, azules en claro.
+    static func colors(dark: Bool) -> [Color] {
+        dark ? [.white, Theme.Airy.leafSky] : [Theme.Airy.accent, Theme.Airy.sky]
+    }
+}
+
+// MARK: - Salir volando
+
+extension AnyTransition {
+    /// La vista se va con el viento: sale hacia la derecha girando y deshaciéndose en hojas.
+    /// Entra con un fundido. Sirve para «borrar una fila» y para la fila de una app que se cierra.
+    static var leafAway: AnyTransition {
+        .asymmetric(insertion: .opacity,
+                    removal: .modifier(active: LeafAwayEffect(progress: 1), identity: LeafAwayEffect(progress: 0)))
+    }
+}
+
+/// Un paso de `.leafAway`. Sin reloj: lo redibuja la propia interpolación de `progress`.
+/// Sin movimiento transitorio (`airyTransientMotion != .running`), solo un fundido.
+struct LeafAwayEffect: ViewModifier, Animatable {
+    var progress: Double
+
+    nonisolated var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    @Environment(\.airyTransientMotion) private var motion
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// Margen del lienzo de hojas alrededor de la vista: vuelan hasta 240 pt a la derecha y algo hacia arriba.
+    private static let spill = EdgeInsets(top: 40, leading: 0, bottom: 12, trailing: 260)
+
+    func body(content: Content) -> some View {
+        let running = motion == .running
+        let p = min(max(progress, 0), 1)
+        let away = WindMotion.leafAwayTransform(progress: running ? p : 0)
+        content
+            .scaleEffect(away.scale)
+            .rotationEffect(.degrees(away.rotationDegrees))
+            .offset(x: away.dx, y: away.dy)
+            .opacity(running ? away.opacity : 1 - p)
+            .overlay(alignment: .topLeading) {
+                // En reposo (p = 0) no hay lienzo: las filas visibles no cargan con él.
+                if running, p > 0 {
+                    leaves(progress: p)
+                }
+            }
+    }
+
+    private func leaves(progress p: Double) -> some View {
+        let colors = WindLeaves.colors(dark: colorScheme == .dark)
+        let spill = Self.spill
+        return GeometryReader { proxy in
+            let rect = CGRect(x: spill.leading, y: spill.top, width: proxy.size.width, height: proxy.size.height)
+            Canvas { canvas, _ in
+                let count = WindMotion.leafCount(for: rect)
+                let poses = (0..<count).map { WindMotion.dissolveLeaf(index: $0, count: count, progress: p, in: rect) }
+                WindLeaves.paint(&canvas, poses: poses, colors: colors)
+            }
+            .frame(width: proxy.size.width + spill.leading + spill.trailing,
+                   height: proxy.size.height + spill.top + spill.bottom)
+            .offset(x: -spill.leading, y: -spill.top)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
