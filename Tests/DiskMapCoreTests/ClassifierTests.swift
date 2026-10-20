@@ -236,8 +236,10 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
             #expect(e.aggressiveRisk == nil)
             #expect(e.preselectInAggressive == false)
             #expect(e.profiles.isEmpty)
-            #expect(e.processNames.isEmpty)
         }
+        // Los nombres de proceso de la tarea 6 se rellenan solo en las fichas con herramienta propia.
+        #expect(catalog.entries.first { $0.id == "pip" }?.processNames == ["pip", "pip3"])
+        #expect(catalog.entries.first { $0.id == "docker-volumes" }?.processNames == [])
         let json = """
         {"entries":[{"id":"x","title":"X","explanation":"","whoCreatesIt":"","regenerates":true,"risk":"yourCall",
         "kind":"caches","paths":["~/x"],"cleanup":{"type":"trash"},"aggressiveRisk":"safe",

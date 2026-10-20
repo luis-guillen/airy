@@ -35,14 +35,22 @@ public struct ReferenceChecker: Sendable {
 
     /// Una sola pasada para varias cadenas. La clave es la cadena; el valor, los ficheros que la contienen.
     public func references(toAny needles: [String], timeout: TimeInterval) async -> [String: [String]] {
+        await referencesChecked(toAny: needles, timeout: timeout).found
+    }
+
+    /// Como `references(toAny:)`, y `complete == false` si se agotó el tiempo o se canceló antes de recorrer todo.
+    public func referencesChecked(
+        toAny needles: [String], timeout: TimeInterval
+    ) async -> (found: [String: [String]], complete: Bool) {
         let patterns = Array(Set(needles.filter { !$0.isEmpty }))
-        guard !patterns.isEmpty else { return [:] }
+        guard !patterns.isEmpty else { return ([:], true) }
         let encoded = patterns.map { Data($0.utf8) }
         let deadline = Date().addingTimeInterval(timeout)
         var found: [String: [String]] = [:]
+        var complete = true
         var stack = roots.reversed().map { $0 }
         while let path = stack.popLast() {
-            if Date() >= deadline || Task.isCancelled { break }
+            if Date() >= deadline || Task.isCancelled { complete = false; break }
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
             switch info.st_mode & S_IFMT {
@@ -61,6 +69,6 @@ public struct ReferenceChecker: Sendable {
                 continue // enlaces simbólicos y especiales: nunca se siguen ni se leen
             }
         }
-        return found
+        return (found, complete)
     }
 }
