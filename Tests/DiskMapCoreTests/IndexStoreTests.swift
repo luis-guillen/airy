@@ -93,12 +93,24 @@ import Testing
         }
         let root = FileNode(name: "/", isDirectory: true, children: dirs, descendantCount: 200_000)
         let clock = ContinuousClock()
+        let result = ScanResult(root: root, inaccessible: [], duration: 1)
         let t0 = clock.now
-        try store.saveScan(ScanResult(root: root, inaccessible: [], duration: 1))
+        try store.saveScan(result)
         let t1 = clock.now
         let loaded = try #require(try store.loadScan())
         let t2 = clock.now
         print("IndexStore 200k nodes: save \(t1 - t0), load \(t2 - t1)")
+        // Desglose por fases.
+        let c0 = clock.now
+        let flat = IndexStore.flatten(result)
+        let c1 = clock.now
+        let data = IndexStore.serialize(flat)
+        let c2 = clock.now
+        let parsed = try #require(IndexStore.parse(data))
+        let c3 = clock.now
+        _ = try #require(IndexStore.rebuild(parsed))
+        let c4 = clock.now
+        print("IndexStore phases: flatten \(c1 - c0), serialize \(c2 - c1), parse \(c3 - c2), rebuild \(c4 - c3), bytes \(data.count)")
         #expect(loaded.root.children.count == 200)
         #expect(loaded.root.children[199].children.count == 1000)
     }
