@@ -841,6 +841,16 @@
         }
       }
     },
+    "Airy won’t delete this whole folder, but you can clean what’s inside. Click to open it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no borrará la carpeta entera, pero sí puedes limpiar lo que hay dentro. Haz clic para entrar."
+          }
+        }
+      }
+    },
     "Airy won’t scan the folders you choose." : {
       "localizations" : {
         "es" : {
@@ -4047,6 +4057,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Protegido por ti"
+          }
+        }
+      }
+    },
+    "Protected folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpeta protegida"
           }
         }
       }

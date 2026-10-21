@@ -5,6 +5,9 @@ All notable changes to Airy are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Folders Airy protects only as a whole (`/Users`, your home, `~/Library`, `~/Documents`…) no longer show the red “Don't delete”: the Map card and the rows show a blue “Protected folder” and say that what's inside can still be cleaned. Locations sealed with their contents (`/System`, Mail, keychains, browser profiles…) keep “Don't delete” and say that nothing inside is touched either. `explain_path` gains `protection_scope` (`folder_only` / `folder_and_contents`) and `protection_scope_note`. Display only: what is protected doesn't change.
+
 ## [0.3.0] - 2026-10-21
 
 ### Added
