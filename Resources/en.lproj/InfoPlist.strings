@@ -1,0 +1,2 @@
+/* Shown when macOS asks for permission to control Finder (Apple Events). */
+"NSAppleEventsUsageDescription" = "Airy uses Finder to empty the Trash.";
