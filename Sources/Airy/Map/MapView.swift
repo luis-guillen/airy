@@ -34,6 +34,15 @@ struct MapView: View {
             if let current = model.navigation.current {
                 KindLegend(node: current) { scene.setDim($0) }
             }
+
+            // Pie del mapa: si el análisis no pudo leerlo todo, se dice (y los tamaños llevan «+»).
+            if model.scan != nil, case .partial = model.scanCompleteness {
+                Label(model.scanCompleteness.label + " · los tamaños con «+» pueden ser mayores",
+                      systemImage: "exclamationmark.circle")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
         .padding(.horizontal, Theme.contentPadding)
         .padding(.top, 34)
@@ -145,7 +154,8 @@ struct MapView: View {
         guard tile?.id != tracker.details?.id else { return }
         if let tile {
             tracker.details = TileDetails(tile: tile, parent: model.navigation.current, catalog: model.catalog,
-                                          classify: model.classify(path:))
+                                          classify: model.classify(path:),
+                                          isPartial: model.partialIndex.isPartial)
             if tile.isZoomable, let node = tile.node { scene.prefetch(node) }
         } else {
             tracker.details = nil
@@ -424,7 +434,8 @@ enum MapDebugScript {
                 if let tile = pick(false) {
                     tracker.location = CGPoint(x: tile.rect.midX - 20, y: tile.rect.midY - 30)
                     tracker.details = TileDetails(tile: tile, parent: model.navigation.current, catalog: model.catalog,
-                                          classify: model.classify(path:))
+                                          classify: model.classify(path:),
+                                          isPartial: model.partialIndex.isPartial)
                     scene.setHover(tile.id)
                 }
             case "unhover":
