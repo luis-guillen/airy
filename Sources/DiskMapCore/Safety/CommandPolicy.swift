@@ -38,7 +38,8 @@ public enum CommandPolicy {
                 } else {
                     value = nil
                 }
-                guard let value else { continue }
+                // La plantilla del catálogo (`-p {target}`) se vuelve a comprobar ya sustituida.
+                guard let value, value != CleanupMethod.targetPlaceholder else { continue }
                 let parent = (value as NSString).deletingLastPathComponent
                 if !value.hasPrefix("/") || value.contains("/..") || value.hasSuffix("/")
                     || (parent as NSString).lastPathComponent != "envs" {
