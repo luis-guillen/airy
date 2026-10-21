@@ -66,7 +66,7 @@ public struct InstallerSource: CleanupTargetSource {
     private func regularFiles(in root: String) -> [(path: String, modified: Date)] {
         var files: [(path: String, modified: Date)] = []
         func scan(_ folder: String, depth: Int) {
-            guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder) else { return }
+            guard DiskScope.allowsWalk(folder), let names = try? FileManager.default.contentsOfDirectory(atPath: folder) else { return }
             for name in names.sorted() {
                 let path = folder + "/" + name
                 var info = stat()
