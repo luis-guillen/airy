@@ -1,67 +1,67 @@
-# DiskMap Fase 1 — Plan de implementación
+# DiskMap Phase 1 — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** App nativa de macOS "DiskMap" con Mapa (treemap animado), Limpieza (catálogo + borrado seguro) y Asistente IA (informe + chat vía Claude Code), empaquetada como `.app` con icono propio.
+**Goal:** Native macOS app "DiskMap" with Map (animated treemap), Cleanup (catalog + safe deletion) and AI Assistant (report + chat via Claude Code), packaged as an `.app` with its own icon.
 
-**Architecture:** Paquete SwiftPM con una librería `DiskMapCore` sin UI (escáner, catálogo, clasificación de riesgo, treemap, limpieza, IA, persistencia), totalmente probada con Swift Testing, y un ejecutable `DiskMap` en SwiftUI que solo presenta y anima. Todo efecto externo (procesos, apps abiertas, sistema de archivos de la Papelera) pasa por protocolos para poder probarse con dobles.
+**Architecture:** SwiftPM package with a UI-free `DiskMapCore` library (scanner, catalog, risk classification, treemap, cleanup, AI, persistence), fully tested with Swift Testing, and a SwiftUI `DiskMap` executable that only presents and animates. Every external effect (processes, open apps, the Trash file system) goes through protocols so it can be tested with doubles.
 
-**Tech Stack:** Swift 6.4 (Command Line Tools, sin Xcode), SwiftPM, SwiftUI + AppKit, Swift Testing (`import Testing`), `Canvas` para el treemap, Claude Code CLI 2.1.x.
+**Tech Stack:** Swift 6.4 (Command Line Tools, no Xcode), SwiftPM, SwiftUI + AppKit, Swift Testing (`import Testing`), `Canvas` for the treemap, Claude Code CLI 2.1.x.
 
 **Spec:** `docs/superpowers/specs/2026-10-20-diskmap-design.md`
 
 ## Global Constraints
 
-- Interfaz 100 % en **español de España**; tamaños con `ByteCountFormatter` `.file` y locale `es_ES` ("1,5 GB").
-- Compilar solo con `swift build` / `swift test`; nada de Xcode. `swift-tools-version: 6.4`, plataforma mínima `.macOS(.v15)`.
-- Archivos y carpetas → **Papelera** (`FileManager.trashItem`), nunca borrado definitivo, salvo el botón "Vaciar Papelera" pulsado por el usuario.
-- Cachés de herramientas → **su comando oficial**; nunca borrar a mano sus carpetas.
-- Confirmación antes de cualquier borrado, mostrando qué y cuánto.
-- Lo enviado a la Papelera **no** cuenta como liberado hasta vaciarla ("En la Papelera: X GB").
-- Tamaños = **espacio asignado** (`st_blocks * 512`), hard links contados una vez, sin seguir enlaces simbólicos.
-- A la IA solo van rutas, tamaños, fechas, tipos y fichas del catálogo; **nunca contenido de archivos**. Claude se invoca con `--tools ""`.
-- La IA solo puede proponer acciones del catálogo cerrado (`trash(path)`, `runCatalogCommand(id)`); si IA y catálogo discrepan, **gana el riesgo más estricto**.
-- Nunca "sin riesgo": archivos personales (`~/Documents`, `~/Desktop`, `~/Pictures`, `~/Movies`, `~/Music`, `~/Downloads`, `~/orca`, `~/Projects`), volúmenes de Docker (siempre "No tocar"), runtimes en uso (`codex-primary-runtime`), `/System`.
-- No limpiar la caché de una app abierta; pedir cerrarla.
-- Animaciones: muelle de zoom `.spring(response: 0.45, dampingFraction: 0.82)`; entrada escalonada 12 ms por bloque, máximo 0,6 s total; objetivo 120 fps.
-- Paleta por tipo (oscuro/claro iguales en tono): vídeo `#FF375F`, imágenes `#FF9F0A`, apps `#BF5AF2`, código `#0A84FF`, cachés `#30D158`, modelos IA `#64D2FF`, contenedores/VM `#5E5CE6`, documentos `#FFD60A`, sistema `#8E8E93`, otros `#AC8E68`.
-- Fase 2 (Desinstalador, Grandes y viejos, Duplicados, Tipos de archivo) aparece en la barra lateral **deshabilitada con la etiqueta "Próximamente"** (decisión del constructor ya tomada aquí).
-- Bundle ID `local.diskmap.DiskMap`; datos en `~/Library/Application Support/DiskMap`.
+- Interface 100 % in **Spanish (Spain)**; sizes with `ByteCountFormatter` `.file` and locale `es_ES` ("1,5 GB").
+- Build only with `swift build` / `swift test`; no Xcode. `swift-tools-version: 6.4`, minimum platform `.macOS(.v15)`.
+- Files and folders → **Trash** (`FileManager.trashItem`), never permanent deletion, except for the "Vaciar Papelera" (Empty Trash) button pressed by the user.
+- Tool caches → **their official command**; never delete their folders by hand.
+- Confirmation before any deletion, showing what and how much.
+- What is sent to the Trash does **not** count as freed until it is emptied ("En la Papelera: X GB" (In the Trash: X GB)).
+- Sizes = **allocated space** (`st_blocks * 512`), hard links counted once, symbolic links not followed.
+- Only paths, sizes, dates, types and catalog records go to the AI; **never file contents**. Claude is invoked with `--tools ""`.
+- The AI can only propose actions from the closed catalog (`trash(path)`, `runCatalogCommand(id)`); if the AI and the catalog disagree, **the stricter risk wins**.
+- Never "safe": personal files (`~/Documents`, `~/Desktop`, `~/Pictures`, `~/Movies`, `~/Music`, `~/Downloads`, `~/orca`, `~/Projects`), Docker volumes (always "No tocar" (Don't touch)), runtimes in use (`codex-primary-runtime`), `/System`.
+- Do not clean the cache of an open app; ask to close it.
+- Animations: zoom spring `.spring(response: 0.45, dampingFraction: 0.82)`; staggered entrance 12 ms per block, 0.6 s total maximum; target 120 fps.
+- Palette by type (dark/light equal in hue): video `#FF375F`, images `#FF9F0A`, apps `#BF5AF2`, code `#0A84FF`, caches `#30D158`, AI models `#64D2FF`, containers/VM `#5E5CE6`, documents `#FFD60A`, system `#8E8E93`, other `#AC8E68`.
+- Phase 2 (Uninstaller, Large & old, Duplicates, File types) appears in the sidebar **disabled with the label "Próximamente" (Coming soon)** (builder decision already made here).
+- Bundle ID `local.diskmap.DiskMap`; data in `~/Library/Application Support/DiskMap`.
 
 ## Review Focus
 
-1. **Firmlinks y enlaces:** analizar `/` en APFS no debe contar dos veces `/Users` (también visible como `/System/Volumes/Data/Users`) ni seguir enlaces simbólicos en bucle → total ≈ espacio usado que reporta el volumen. Test en Task 2 (`skipsSymlinkLoops`, `excludesSystemVolumesPrefix`).
-2. **Rutas con espacios, tildes y ñ** (`Application Support`, `Música`, `diseño`) en comandos y en prompts → siempre `Process` con array de argumentos, nunca cadena de shell; JSON bien escapado. Test en Task 6 (`commandArgumentsAreNotShellInterpolated`) y Task 7 (`contextKeepsUnicodePaths`).
-3. **Claude ausente, lento o con JSON inválido** → el resto de la app funciona; el asistente muestra un estado claro y un botón "Reintentar"; tiempo máximo 120 s. Test en Task 7 (`reportFailsGracefullyOnInvalidJSON`, `reportTimesOut`).
-4. **Archivos que desaparecen o sin permiso a mitad del análisis** → se omiten, se cuentan como inaccesibles y el análisis termina. Test en Task 2 (`unreadableDirectoryIsReportedNotFatal`).
-5. **Carpetas con decenas de miles de archivos pequeños** (`node_modules`, `.git`) → el mapa agrupa lo diminuto en "Otros (N elementos)" y sigue fluido; la RAM del índice se mantiene acotada. Test en Task 2 (`prunesSmallChildrenIntoAggregate`) y Task 4 (`groupsTinyEntriesIntoOthers`).
+1. **Firmlinks and links:** analyzing `/` on APFS must not count `/Users` twice (also visible as `/System/Volumes/Data/Users`) nor follow looping symbolic links → total ≈ used space reported by the volume. Test in Task 2 (`skipsSymlinkLoops`, `excludesSystemVolumesPrefix`).
+2. **Paths with spaces, accents and ñ** (`Application Support`, `Música`, `diseño`) in commands and in prompts → always `Process` with an argument array, never a shell string; well-escaped JSON. Test in Task 6 (`commandArgumentsAreNotShellInterpolated`) and Task 7 (`contextKeepsUnicodePaths`).
+3. **Claude absent, slow or with invalid JSON** → the rest of the app works; the assistant shows a clear state and a "Reintentar" (Retry) button; maximum time 120 s. Test in Task 7 (`reportFailsGracefullyOnInvalidJSON`, `reportTimesOut`).
+4. **Files that disappear or lack permission mid-analysis** → they are skipped, counted as inaccessible and the analysis finishes. Test in Task 2 (`unreadableDirectoryIsReportedNotFatal`).
+5. **Folders with tens of thousands of small files** (`node_modules`, `.git`) → the map groups the tiny ones into "Otros (N elementos)" (Other (N items)) and stays smooth; the index's RAM stays bounded. Test in Task 2 (`prunesSmallChildrenIntoAggregate`) and Task 4 (`groupsTinyEntriesIntoOthers`).
 
 ---
 
-## Estructura de archivos
+## File structure
 
 ```
 DiskMap/
   Package.swift
   Sources/DiskMapCore/
-    Model/FileNode.swift            nodo del árbol + ContentKind + Risk
-    Model/Formatting.swift          formato de bytes y fechas en español
-    Scan/DiskScanner.swift          escáner paralelo
-    Scan/FileKindClassifier.swift   tipo por extensión/ruta
-    Catalog/Catalog.swift           modelo y carga del catálogo
-    Catalog/RiskPolicy.swift        reglas de riesgo y "el más estricto gana"
-    Layout/Treemap.swift            squarified + agrupación "Otros"
-    Persistence/IndexStore.swift    índice del último análisis + historial
-    System/CommandRunner.swift      ejecutar procesos, PATH de login
-    System/SystemProbes.swift       apps abiertas, Acceso total al disco, snapshots, Papelera
-    Cleanup/CleanupScanner.swift    detecta elementos de limpieza
-    Cleanup/CleanupExecutor.swift   ejecuta limpiezas
-    Cleanup/ReferenceChecker.swift  "¿lo usa otro proyecto?"
+    Model/FileNode.swift            tree node + ContentKind + Risk
+    Model/Formatting.swift          byte and date formatting in Spanish
+    Scan/DiskScanner.swift          parallel scanner
+    Scan/FileKindClassifier.swift   type by extension/path
+    Catalog/Catalog.swift           catalog model and loading
+    Catalog/RiskPolicy.swift        risk rules and "the strictest wins"
+    Layout/Treemap.swift            squarified + "Otros" grouping
+    Persistence/IndexStore.swift    last-analysis index + history
+    System/CommandRunner.swift      run processes, login PATH
+    System/SystemProbes.swift       open apps, Full Disk Access, snapshots, Trash
+    Cleanup/CleanupScanner.swift    detects cleanup items
+    Cleanup/CleanupExecutor.swift   runs cleanups
+    Cleanup/ReferenceChecker.swift  "is another project using it?"
     AI/ClaudeLocator.swift
     AI/AIContextBuilder.swift
-    AI/AIAssistant.swift            informe + chat
+    AI/AIAssistant.swift            report + chat
   Sources/DiskMapCore/Resources/catalog.json
-  Sources/DiskMap/                  app SwiftUI (Task 8–11)
+  Sources/DiskMap/                  SwiftUI app (Task 8–11)
   Tests/DiskMapCoreTests/...
   scripts/make-icon.swift
   scripts/build-app.sh
@@ -70,32 +70,32 @@ DiskMap/
 
 ---
 
-### Task 1: Paquete, modelo y formato
+### Task 1: Package, model and formatting
 
 **Files:**
-- Create: `Package.swift`, `Sources/DiskMapCore/Model/FileNode.swift`, `Sources/DiskMapCore/Model/Formatting.swift`, `Sources/DiskMap/DiskMapApp.swift` (ventana vacía "DiskMap"), `Tests/DiskMapCoreTests/ModelTests.swift`
+- Create: `Package.swift`, `Sources/DiskMapCore/Model/FileNode.swift`, `Sources/DiskMapCore/Model/Formatting.swift`, `Sources/DiskMap/DiskMapApp.swift` (empty window "DiskMap"), `Tests/DiskMapCoreTests/ModelTests.swift`
 
 **Interfaces:**
 - Produces:
-  - `public enum ContentKind: String, Codable, CaseIterable, Sendable { case video, images, apps, code, caches, aiModels, containers, documents, system, other }` con `public var title: String` ("Vídeo", "Imágenes", "Apps", "Código y proyectos", "Cachés", "Modelos de IA", "Contenedores y VM", "Documentos", "Sistema", "Otros").
-  - `public enum Risk: Int, Codable, Comparable, Sendable { case safe = 0, yourCall = 1, doNotTouch = 2 }` con `title` ("Borrar sin riesgo", "Depende de ti", "No tocar") y `public static func strictest(_ a: Risk, _ b: Risk) -> Risk`.
-  - `public final class FileNode: @unchecked Sendable, Identifiable` con `id: Int`, `name: String`, `weak parent`, `children: [FileNode]`, `isDirectory: Bool`, `allocatedSize: Int64`, `lastModified: Date?`, `kind: ContentKind`, `kindBytes: [Int64]` (10 posiciones, índice = `ContentKind.allCases`), `descendantCount: Int`, `aggregatedCount: Int` (>0 si el nodo es el agregado "Otros"), `var path: String` (calculada subiendo por `parent`), `var dominantKind: ContentKind`.
+  - `public enum ContentKind: String, Codable, CaseIterable, Sendable { case video, images, apps, code, caches, aiModels, containers, documents, system, other }` with `public var title: String` ("Vídeo" (Video), "Imágenes" (Images), "Apps", "Código y proyectos" (Code and projects), "Cachés" (Caches), "Modelos de IA" (AI models), "Contenedores y VM" (Containers and VMs), "Documentos" (Documents), "Sistema" (System), "Otros" (Other)).
+  - `public enum Risk: Int, Codable, Comparable, Sendable { case safe = 0, yourCall = 1, doNotTouch = 2 }` with `title` ("Borrar sin riesgo" (Safe to delete), "Depende de ti" (Up to you), "No tocar") and `public static func strictest(_ a: Risk, _ b: Risk) -> Risk`.
+  - `public final class FileNode: @unchecked Sendable, Identifiable` with `id: Int`, `name: String`, `weak parent`, `children: [FileNode]`, `isDirectory: Bool`, `allocatedSize: Int64`, `lastModified: Date?`, `kind: ContentKind`, `kindBytes: [Int64]` (10 positions, index = `ContentKind.allCases`), `descendantCount: Int`, `aggregatedCount: Int` (>0 if the node is the "Otros" aggregate), `var path: String` (computed by walking up through `parent`), `var dominantKind: ContentKind`.
   - `public enum Format { static func bytes(_: Int64) -> String; static func relativeDate(_: Date?) -> String }`.
 
-- [ ] **Step 1: Crear `Package.swift`** con productos: librería `DiskMapCore` (recurso `catalog.json` con `.process`), ejecutable `DiskMap` (depende de `DiskMapCore`), test `DiskMapCoreTests`.
-- [ ] **Step 2: Tests que fallan** en `ModelTests.swift`:
+- [ ] **Step 1: Create `Package.swift`** with products: library `DiskMapCore` (resource `catalog.json` with `.process`), executable `DiskMap` (depends on `DiskMapCore`), test `DiskMapCoreTests`.
+- [ ] **Step 2: Failing tests** in `ModelTests.swift`:
   - `strictestPicksHigher`: `Risk.strictest(.safe, .doNotTouch) == .doNotTouch`, `Risk.strictest(.yourCall, .safe) == .yourCall`.
-  - `pathJoinsParents`: raíz `/` → `Users` → `ana` ⇒ `path == "/Users/ana"`.
-  - `dominantKindUsesKindBytes`: `kindBytes` con vídeo 10, código 30 ⇒ `.code`.
+  - `pathJoinsParents`: root `/` → `Users` → `ana` ⇒ `path == "/Users/ana"`.
+  - `dominantKindUsesKindBytes`: `kindBytes` with video 10, code 30 ⇒ `.code`.
   - `formatsSpanishBytes`: `Format.bytes(1_500_000_000) == "1,5 GB"`.
-- [ ] **Step 3:** `swift test` → FAIL (tipos no definidos).
-- [ ] **Step 4:** Implementar los tipos.
-- [ ] **Step 5:** `swift test` → PASS; `swift build` → compila el ejecutable.
-- [ ] **Step 6:** `git add -A && git commit -m "feat: paquete y modelo base"`
+- [ ] **Step 3:** `swift test` → FAIL (undefined types).
+- [ ] **Step 4:** Implement the types.
+- [ ] **Step 5:** `swift test` → PASS; `swift build` → the executable compiles.
+- [ ] **Step 6:** `git add -A && git commit -m "feat: package and base model"`
 
 ---
 
-### Task 2: Escáner paralelo
+### Task 2: Parallel scanner
 
 **Files:**
 - Create: `Sources/DiskMapCore/Scan/DiskScanner.swift`, `Sources/DiskMapCore/Scan/FileKindClassifier.swift`, `Tests/DiskMapCoreTests/ScannerTests.swift`
@@ -103,34 +103,34 @@ DiskMap/
 **Interfaces:**
 - Consumes: `FileNode`, `ContentKind`.
 - Produces:
-  - `public struct ScanOptions: Sendable { roots: [URL]; excludedPrefixes: [String] = ["/System/Volumes", "/dev", "/Volumes", "/private/var/vm", "/.Spotlight-V100", "/.fseventsd"]; pruneThreshold: Int64 = 1_048_576 }` (si un `root` está dentro de `/Volumes`, ese prefijo no se excluye para él).
+  - `public struct ScanOptions: Sendable { roots: [URL]; excludedPrefixes: [String] = ["/System/Volumes", "/dev", "/Volumes", "/private/var/vm", "/.Spotlight-V100", "/.fseventsd"]; pruneThreshold: Int64 = 1_048_576 }` (if a `root` is inside `/Volumes`, that prefix is not excluded for it).
   - `public struct ScanProgress: Sendable { filesScanned: Int; bytesScanned: Int64; currentPath: String }`
   - `public struct ScanResult: Sendable { root: FileNode; inaccessible: [String]; duration: TimeInterval }`
-  - `public final class DiskScanner: Sendable { init(options: ScanOptions); func scan(progress: @escaping @Sendable (ScanProgress) -> Void) async throws -> ScanResult }` — cancelable con `Task.cancel()`; `progress` como máximo cada 100 ms.
+  - `public final class DiskScanner: Sendable { init(options: ScanOptions); func scan(progress: @escaping @Sendable (ScanProgress) -> Void) async throws -> ScanResult }` — cancellable with `Task.cancel()`; `progress` at most every 100 ms.
   - `public enum FileKindClassifier { static func kind(forFileNamed: String) -> ContentKind; static func kind(forDirectoryPath: String) -> ContentKind? }`
 
-Enfoque: `opendir/readdir` + `lstat` (no seguir enlaces); tamaño `st_blocks * 512`; hard links con `st_nlink > 1` deduplicados por `(st_dev, st_ino)` en un conjunto protegido por lock; recorrido con `TaskGroup` de anchura `ProcessInfo.activeProcessorCount * 2`; no cruzar a otro `st_dev` distinto del de la raíz salvo que sea otra raíz. Al cerrar cada directorio: hijos `< pruneThreshold` se funden en un hijo agregado "Otros" (`aggregatedCount = n`), conservando `kindBytes`.
+Approach: `opendir/readdir` + `lstat` (do not follow links); size `st_blocks * 512`; hard links with `st_nlink > 1` deduplicated by `(st_dev, st_ino)` in a lock-protected set; traversal with a `TaskGroup` of width `ProcessInfo.activeProcessorCount * 2`; do not cross to a `st_dev` different from the root's unless it is another root. On closing each directory: children `< pruneThreshold` are merged into an aggregate child "Otros" (`aggregatedCount = n`), preserving `kindBytes`.
 
-Clasificación por extensión: vídeo (`mp4 mov mkv avi m4v webm`), imágenes (`jpg jpeg png heic gif tiff raw cr2 psd webp`), código (`swift py js ts rs go java c cpp h json lock`), modelos IA (`gguf safetensors pt pth bin ckpt onnx mlmodel npz ort`), contenedores (`raw` dentro de `com.docker.docker`, `vmdk qcow2 img dmg iso`), documentos (`pdf doc docx xls xlsx ppt pptx key pages numbers txt md`). Por carpeta: `*.app` → apps, `node_modules`/`.git`/`.venv`/`target`/`.build` → code, `Caches`/`.cache`/`DerivedData` → caches, `huggingface`/`.ollama`/`whisper` → aiModels, `com.docker.docker` → containers, `/System` `/usr` `/private` `/Library` → system.
+Classification by extension: video (`mp4 mov mkv avi m4v webm`), images (`jpg jpeg png heic gif tiff raw cr2 psd webp`), code (`swift py js ts rs go java c cpp h json lock`), AI models (`gguf safetensors pt pth bin ckpt onnx mlmodel npz ort`), containers (`raw` inside `com.docker.docker`, `vmdk qcow2 img dmg iso`), documents (`pdf doc docx xls xlsx ppt pptx key pages numbers txt md`). By folder: `*.app` → apps, `node_modules`/`.git`/`.venv`/`target`/`.build` → code, `Caches`/`.cache`/`DerivedData` → caches, `huggingface`/`.ollama`/`whisper` → aiModels, `com.docker.docker` → containers, `/System` `/usr` `/private` `/Library` → system.
 
-- [ ] **Step 1: Tests que fallan** (cada uno crea un árbol temporal con `FileManager` en `FileManager.default.temporaryDirectory`):
-  - `sumsAllocatedSizes`: dos archivos de 3 MB ⇒ `root.allocatedSize` entre 6 MB y 6,1 MB.
-  - `countsHardLinkOnce`: archivo de 5 MB + hard link ⇒ total < 5,1 MB.
-  - `sparseFileUsesAllocatedSize`: `ftruncate` a 1 GB sin escribir ⇒ < 1 MB.
-  - `skipsSymlinkLoops`: enlace `a/loop -> ..` ⇒ el escaneo termina y no hay nodo bajo `loop`.
-  - `excludesSystemVolumesPrefix`: `excludedPrefixes` contiene la ruta de una subcarpeta ⇒ esa subcarpeta no aparece.
-  - `unreadableDirectoryIsReportedNotFatal`: subcarpeta con `chmod 000` ⇒ `inaccessible` la contiene y el resultado incluye a sus hermanas.
-  - `prunesSmallChildrenIntoAggregate`: 500 archivos de 1 KB + uno de 2 MB ⇒ 2 hijos, uno con `aggregatedCount == 500`.
+- [ ] **Step 1: Failing tests** (each creates a temporary tree with `FileManager` in `FileManager.default.temporaryDirectory`):
+  - `sumsAllocatedSizes`: two 3 MB files ⇒ `root.allocatedSize` between 6 MB and 6.1 MB.
+  - `countsHardLinkOnce`: 5 MB file + hard link ⇒ total < 5.1 MB.
+  - `sparseFileUsesAllocatedSize`: `ftruncate` to 1 GB without writing ⇒ < 1 MB.
+  - `skipsSymlinkLoops`: link `a/loop -> ..` ⇒ the scan finishes and there is no node under `loop`.
+  - `excludesSystemVolumesPrefix`: `excludedPrefixes` contains the path of a subfolder ⇒ that subfolder does not appear.
+  - `unreadableDirectoryIsReportedNotFatal`: subfolder with `chmod 000` ⇒ `inaccessible` contains it and the result includes its siblings.
+  - `prunesSmallChildrenIntoAggregate`: 500 files of 1 KB + one of 2 MB ⇒ 2 children, one with `aggregatedCount == 500`.
   - `classifiesKinds`: `kind(forFileNamed: "peli.MOV") == .video`, `kind(forDirectoryPath: "/x/Foo.app") == .apps`, `kind(forFileNamed: "m.gguf") == .aiModels`.
 - [ ] **Step 2:** `swift test --filter ScannerTests` → FAIL.
-- [ ] **Step 3:** Implementar `FileKindClassifier` y `DiskScanner`.
+- [ ] **Step 3:** Implement `FileKindClassifier` and `DiskScanner`.
 - [ ] **Step 4:** `swift test --filter ScannerTests` → PASS.
-- [ ] **Step 5: Comprobación real:** pequeño test manual desactivado por defecto (`@Test(.enabled(if: ProcessInfo.processInfo.environment["DISKMAP_REAL"] != nil))`) que escanea `~` e imprime tiempo y total. Ejecutar `DISKMAP_REAL=1 swift test --filter realHome -c release` → anota tiempo (objetivo: carpeta personal < 60 s en el M4 Pro).
-- [ ] **Step 6:** `git commit -am "feat: escáner paralelo con tamaño real"`
+- [ ] **Step 5: Real check:** a small manual test disabled by default (`@Test(.enabled(if: ProcessInfo.processInfo.environment["DISKMAP_REAL"] != nil))`) that scans `~` and prints time and total. Run `DISKMAP_REAL=1 swift test --filter realHome -c release` → note the time (target: home folder < 60 s on the M4 Pro).
+- [ ] **Step 6:** `git commit -am "feat: parallel scanner with real size"`
 
 ---
 
-### Task 3: Catálogo y política de riesgo
+### Task 3: Catalog and risk policy
 
 **Files:**
 - Create: `Sources/DiskMapCore/Catalog/Catalog.swift`, `Sources/DiskMapCore/Catalog/RiskPolicy.swift`, `Sources/DiskMapCore/Resources/catalog.json`, `Tests/DiskMapCoreTests/CatalogTests.swift`
@@ -138,29 +138,29 @@ Clasificación por extensión: vídeo (`mp4 mov mkv avi m4v webm`), imágenes (`
 **Interfaces:**
 - Produces:
   - `public struct CatalogEntry: Codable, Sendable, Identifiable { id: String; title: String; explanation: String; whoCreatesIt: String; regenerates: Bool; risk: Risk; kind: ContentKind; paths: [String]; cleanup: CleanupMethod; mustBeClosed: [String]; referenceCheck: String? }`
-    - `paths`: patrones con `~` y `*` (p. ej. `~/.cache/codex-runtimes/codex-runtime-install-*`).
+    - `paths`: patterns with `~` and `*` (e.g. `~/.cache/codex-runtimes/codex-runtime-install-*`).
     - `mustBeClosed`: bundle IDs.
-    - `referenceCheck`: cadena a buscar en proyectos, con `{name}` = nombre de la carpeta encontrada.
-  - `public enum CleanupMethod: Codable, Sendable { case trash; case command(executable: String, arguments: [String], sizeProbe: [String]?); case info }` (`info` = solo se muestra, sin acción).
+    - `referenceCheck`: string to search for in projects, with `{name}` = name of the folder found.
+  - `public enum CleanupMethod: Codable, Sendable { case trash; case command(executable: String, arguments: [String], sizeProbe: [String]?); case info }` (`info` = display only, no action).
   - `public struct Catalog: Sendable { entries: [CatalogEntry]; static func bundled() throws -> Catalog; func match(path: String, home: String) -> CatalogEntry?; func entry(id: String) -> CatalogEntry? }`
-  - `public enum RiskPolicy { static func minimumRisk(forPath: String, home: String) -> Risk; static func effectiveRisk(path: String, home: String, catalog: Risk?, ai: Risk?) -> Risk }` — `effectiveRisk` = el más estricto de los tres; sin catálogo ni IA ⇒ al menos `.yourCall`.
+  - `public enum RiskPolicy { static func minimumRisk(forPath: String, home: String) -> Risk; static func effectiveRisk(path: String, home: String, catalog: Risk?, ai: Risk?) -> Risk }` — `effectiveRisk` = the strictest of the three; with neither catalog nor AI ⇒ at least `.yourCall`.
 
-Entradas mínimas de `catalog.json` (explicaciones en español sencillo, una o dos frases):
+Minimum `catalog.json` entries (explanations in plain Spanish, one or two sentences):
 
-| id | rutas / comando | riesgo | limpieza |
+| id | paths / command | risk | cleanup |
 |---|---|---|---|
-| `docker-build-cache` | `docker builder prune -a -f`; sonda `docker system df --format {{json .}}` (fila Build Cache, Reclaimable) | safe | command |
+| `docker-build-cache` | `docker builder prune -a -f`; probe `docker system df --format {{json .}}` (Build Cache row, Reclaimable) | safe | command |
 | `docker-volumes` | `docker system df` (Local Volumes) | doNotTouch | info |
 | `docker-images` | `docker system df` (Images) | yourCall | info |
-| `homebrew` | `brew cleanup --prune=all -s`; ruta `~/Library/Caches/Homebrew` | safe | command |
+| `homebrew` | `brew cleanup --prune=all -s`; path `~/Library/Caches/Homebrew` | safe | command |
 | `pip` | `pip3 cache purge`; `~/Library/Caches/pip` | safe | command |
 | `uv` | `uv cache clean`; `~/.cache/uv` | safe | command |
-| `pnpm` | `pnpm store prune`; `~/Library/pnpm/store` y `~/Library/Caches/pnpm` | safe | command |
+| `pnpm` | `pnpm store prune`; `~/Library/pnpm/store` and `~/Library/Caches/pnpm` | safe | command |
 | `npm` | `npm cache clean --force`; `~/.npm/_cacache` | safe | command |
 | `cargo` | `~/.cargo/registry`, `~/.cargo/git` | safe | trash |
-| `conda` | `conda clean --all -y` (ejecutable `~/anaconda3/bin/conda` o `~/miniconda3/bin/conda`); `~/anaconda3/pkgs` | safe | command |
-| `huggingface-model` | `~/.cache/huggingface/hub/models--*`, `datasets--*`; referenceCheck `{name}` sin el prefijo `models--`, con `--` → `/` | yourCall | trash |
-| `ollama-models` | `~/.ollama/models` | yourCall | info (en fase 1 se explica `ollama rm <modelo>`) |
+| `conda` | `conda clean --all -y` (executable `~/anaconda3/bin/conda` or `~/miniconda3/bin/conda`); `~/anaconda3/pkgs` | safe | command |
+| `huggingface-model` | `~/.cache/huggingface/hub/models--*`, `datasets--*`; referenceCheck `{name}` without the `models--` prefix, with `--` → `/` | yourCall | trash |
+| `ollama-models` | `~/.ollama/models` | yourCall | info (in phase 1 `ollama rm <model>` is explained) |
 | `whisper-cache` | `~/.cache/whisper` | yourCall | trash |
 | `playwright` | `~/Library/Caches/ms-playwright` | safe | trash |
 | `brave-cache` | `~/Library/Caches/BraveSoftware`, `~/Library/Caches/com.brave.Browser`; mustBeClosed `com.brave.Browser` | safe | trash |
@@ -173,10 +173,10 @@ Entradas mínimas de `catalog.json` (explicaciones en español sencillo, una o d
 | `codex-stale-installs` | `~/.cache/codex-runtimes/codex-runtime-install-*` | safe | trash |
 | `codex-runtime` | `~/.cache/codex-runtimes/codex-primary-runtime` | doNotTouch | info |
 | `claude-vm` | `~/Library/Application Support/Claude/vm_bundles`; mustBeClosed `com.anthropic.claudefordesktop` | yourCall | trash |
-| `time-machine-snapshots` | sonda `tmutil listlocalsnapshots /` | yourCall | command `tmutil thinlocalsnapshots / 999999999999 4` |
+| `time-machine-snapshots` | probe `tmutil listlocalsnapshots /` | yourCall | command `tmutil thinlocalsnapshots / 999999999999 4` |
 
-- [ ] **Step 1: Tests que fallan:**
-  - `bundledCatalogLoads`: `Catalog.bundled().entries.count >= 25`, ids únicos y todas las explicaciones no vacías.
+- [ ] **Step 1: Failing tests:**
+  - `bundledCatalogLoads`: `Catalog.bundled().entries.count >= 25`, unique ids and all explanations non-empty.
   - `matchesGlob`: `match(path: home+"/.cache/codex-runtimes/codex-runtime-install-ab12", home:)?.id == "codex-stale-installs"`.
   - `primaryRuntimeIsNotStale`: `match(path: home+"/.cache/codex-runtimes/codex-primary-runtime")?.id == "codex-runtime"`.
   - `personalFoldersNeverSafe`: `effectiveRisk(path: home+"/Documents/x", catalog: .safe, ai: .safe) == .yourCall`.
@@ -184,9 +184,9 @@ Entradas mínimas de `catalog.json` (explicaciones en español sencillo, una o d
   - `systemIsDoNotTouch`: `minimumRisk(forPath: "/System/Library", home:) == .doNotTouch`.
   - `unknownDefaultsToYourCall`: `effectiveRisk(path: "/opt/x", catalog: nil, ai: nil) == .yourCall`.
 - [ ] **Step 2:** `swift test --filter CatalogTests` → FAIL.
-- [ ] **Step 3:** Implementar y escribir `catalog.json` con todas las entradas de la tabla.
+- [ ] **Step 3:** Implement and write `catalog.json` with all the entries in the table.
 - [ ] **Step 4:** `swift test --filter CatalogTests` → PASS.
-- [ ] **Step 5:** `git commit -am "feat: catálogo de rutas conocidas y política de riesgo"`
+- [ ] **Step 5:** `git commit -am "feat: catalog of known paths and risk policy"`
 
 ---
 
@@ -197,24 +197,24 @@ Entradas mínimas de `catalog.json` (explicaciones en español sencillo, una o d
 
 **Interfaces:**
 - Produces:
-  - `public struct TreemapTile: Sendable, Identifiable { id: Int; rect: CGRect; node: FileNode? ; othersCount: Int }` (`node == nil` ⇒ tesela "Otros (N elementos)").
+  - `public struct TreemapTile: Sendable, Identifiable { id: Int; rect: CGRect; node: FileNode? ; othersCount: Int }` (`node == nil` ⇒ "Otros (N elementos)" tile).
   - `public enum Treemap { static func squarify(values: [Double], in rect: CGRect) -> [CGRect]; static func tiles(for node: FileNode, in rect: CGRect, gap: CGFloat = 2, minTileArea: CGFloat = 36) -> [TreemapTile] }`
-  - `tiles` ordena hijos por tamaño, agrupa en una tesela "Otros" los que caerían por debajo de `minTileArea`, aplica `squarify` (Bruls et al.) e inserta `gap`.
+  - `tiles` sorts children by size, groups into one "Otros" tile those that would fall below `minTileArea`, applies `squarify` (Bruls et al.) and inserts `gap`.
 
-- [ ] **Step 1: Tests que fallan:**
-  - `areasAreProportional`: valores `[6,6,4,3,2,2,1]` en 600×400 ⇒ área de cada rect / área total = valor / suma (tolerancia 0,5 %).
-  - `rectsStayInsideAndDontOverlap`: 200 valores aleatorios con semilla fija ⇒ todos dentro del rect y sin intersecciones de área > 0,01.
-  - `aspectRatiosAreSquarish`: los mismos 7 valores ⇒ peor relación de aspecto < 3.
-  - `groupsTinyEntriesIntoOthers`: nodo con 1 hijo de 1 GB y 5.000 hijos de 1 KB en 800×600 ⇒ ≤ 2 teselas y una con `othersCount == 5000`.
+- [ ] **Step 1: Failing tests:**
+  - `areasAreProportional`: values `[6,6,4,3,2,2,1]` in 600×400 ⇒ area of each rect / total area = value / sum (tolerance 0.5 %).
+  - `rectsStayInsideAndDontOverlap`: 200 random values with a fixed seed ⇒ all inside the rect and with no intersections of area > 0.01.
+  - `aspectRatiosAreSquarish`: the same 7 values ⇒ worst aspect ratio < 3.
+  - `groupsTinyEntriesIntoOthers`: node with 1 child of 1 GB and 5,000 children of 1 KB in 800×600 ⇒ ≤ 2 tiles and one with `othersCount == 5000`.
   - `emptyNodeGivesNoTiles`.
 - [ ] **Step 2:** `swift test --filter TreemapTests` → FAIL.
-- [ ] **Step 3:** Implementar.
+- [ ] **Step 3:** Implement.
 - [ ] **Step 4:** `swift test --filter TreemapTests` → PASS.
-- [ ] **Step 5:** `git commit -am "feat: treemap squarified"`
+- [ ] **Step 5:** `git commit -am "feat: squarified treemap"`
 
 ---
 
-### Task 5: Persistencia del índice e historial
+### Task 5: Index persistence and history
 
 **Files:**
 - Create: `Sources/DiskMapCore/Persistence/IndexStore.swift`, `Tests/DiskMapCoreTests/IndexStoreTests.swift`
@@ -224,21 +224,21 @@ Entradas mínimas de `catalog.json` (explicaciones en español sencillo, una o d
 - Produces:
   - `public struct CleanupRecord: Codable, Sendable { date: Date; title: String; bytes: Int64; wentToTrash: Bool }`
   - `public final class IndexStore: Sendable { init(directory: URL); func saveScan(_: ScanResult) throws; func loadScan() throws -> ScanResult?; func append(_: CleanupRecord) throws; func history() throws -> [CleanupRecord]; func totalFreed() throws -> Int64 }`
-  - `totalFreed` suma solo registros con `wentToTrash == false` más los vaciados de Papelera (que se registran como `wentToTrash == false`).
+  - `totalFreed` adds up only records with `wentToTrash == false` plus the Trash emptyings (which are recorded as `wentToTrash == false`).
 
-Formato: árbol aplanado en arrays paralelos (`parentIndex`, `name`, `size`, `kind`, `kindBytes`, `mtime`, `aggregatedCount`) con `PropertyListEncoder` binario y escritura atómica en `scan.plist`; historial en `history.json`.
+Format: tree flattened into parallel arrays (`parentIndex`, `name`, `size`, `kind`, `kindBytes`, `mtime`, `aggregatedCount`) with binary `PropertyListEncoder` and atomic write to `scan.plist`; history in `history.json`.
 
-- [ ] **Step 1: Tests que fallan:**
-  - `roundTripsTree`: árbol de 3 niveles ⇒ tras guardar y cargar, rutas, tamaños y `kindBytes` iguales.
+- [ ] **Step 1: Failing tests:**
+  - `roundTripsTree`: 3-level tree ⇒ after saving and loading, paths, sizes and `kindBytes` are equal.
   - `missingIndexReturnsNil`.
-  - `corruptIndexReturnsNilAndIsRemoved`: escribir basura en `scan.plist` ⇒ `loadScan() == nil` y el archivo ya no existe.
-  - `totalFreedIgnoresTrashPending`: registros 1 GB (trash) + 2 GB (comando) ⇒ `totalFreed() == 2 GB`.
-- [ ] **Step 2:** FAIL → **Step 3:** implementar → **Step 4:** PASS.
-- [ ] **Step 5:** `git commit -am "feat: índice persistente e historial de limpiezas"`
+  - `corruptIndexReturnsNilAndIsRemoved`: write garbage to `scan.plist` ⇒ `loadScan() == nil` and the file no longer exists.
+  - `totalFreedIgnoresTrashPending`: records 1 GB (trash) + 2 GB (command) ⇒ `totalFreed() == 2 GB`.
+- [ ] **Step 2:** FAIL → **Step 3:** implement → **Step 4:** PASS.
+- [ ] **Step 5:** `git commit -am "feat: persistent index and cleanup history"`
 
 ---
 
-### Task 6: Sistema, detección y ejecución de limpieza
+### Task 6: System, detection and execution of cleanup
 
 **Files:**
 - Create: `Sources/DiskMapCore/System/CommandRunner.swift`, `Sources/DiskMapCore/System/SystemProbes.swift`, `Sources/DiskMapCore/Cleanup/CleanupScanner.swift`, `Sources/DiskMapCore/Cleanup/CleanupExecutor.swift`, `Sources/DiskMapCore/Cleanup/ReferenceChecker.swift`, `Tests/DiskMapCoreTests/CleanupTests.swift`
@@ -248,38 +248,38 @@ Formato: árbol aplanado en arrays paralelos (`parentIndex`, `name`, `size`, `ki
 - Produces:
   - `public struct CommandOutput: Sendable { status: Int32; stdout: String; stderr: String }`
   - `public protocol CommandRunning: Sendable { func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput; func resolve(_ executable: String) async -> String? }`
-  - `public struct ProcessRunner: CommandRunning`. `resolve` usa el PATH de la shell de login (`/bin/zsh -lc 'printf %s "$PATH"'`, en caché), porque las apps GUI tienen un PATH mínimo. Ejecuta `Process` con array de argumentos y mata el proceso al pasar el `timeout`.
+  - `public struct ProcessRunner: CommandRunning`. `resolve` uses the login shell's PATH (`/bin/zsh -lc 'printf %s "$PATH"'`, cached), because GUI apps have a minimal PATH. It runs `Process` with an argument array and kills the process when `timeout` passes.
   - `public protocol SystemProbing: Sendable { func runningBundleIDs() -> Set<String>; func hasFullDiskAccess() -> Bool; func trashSize() -> Int64; func emptyTrash() throws -> Int64; func localSnapshots() async -> [String] }`
-    - `hasFullDiskAccess`: se intenta listar `~/Library/Containers/com.apple.stocks` o `~/Library/Safari`; si da `EPERM`, no hay acceso.
-    - `emptyTrash`: `removeItem` de cada elemento de `~/.Trash`; si no hay permiso, recurre a AppleScript de Finder (`empty trash`).
+    - `hasFullDiskAccess`: tries to list `~/Library/Containers/com.apple.stocks` or `~/Library/Safari`; if it gives `EPERM`, there is no access.
+    - `emptyTrash`: `removeItem` of each item in `~/.Trash`; if there is no permission, falls back to Finder AppleScript (`empty trash`).
   - `public struct CleanupItem: Sendable, Identifiable { id: String; entry: CatalogEntry; paths: [String]; bytes: Int64; risk: Risk; blockedByOpenApps: [String]; usedBy: [String] }`
-  - `public struct CleanupScanner { init(catalog:, runner:, probes:, references:, home:); func findItems(scan: FileNode?) async -> [CleanupItem] }` — tamaño desde el índice si la ruta está en él, si no `lstat` recursivo de la ruta; para `command` con `sizeProbe`, se parsea su salida; omite elementos de 0 bytes; si `usedBy` no está vacío, el riesgo sube a `.doNotTouch`.
-  - `public struct ReferenceChecker: Sendable { init(roots: [String]); func references(to needle: String, timeout: TimeInterval) async -> [String] }` — busca en archivos de texto < 1 MB bajo `~/Desktop`, `~/Documents`, `~/Projects`, `~/orca` (si existen), excluyendo `node_modules .git .venv venv .build target Library`. Límite de 10 s; devuelve rutas.
+  - `public struct CleanupScanner { init(catalog:, runner:, probes:, references:, home:); func findItems(scan: FileNode?) async -> [CleanupItem] }` — size from the index if the path is in it, otherwise recursive `lstat` of the path; for `command` with `sizeProbe`, its output is parsed; omits 0-byte items; if `usedBy` is not empty, the risk goes up to `.doNotTouch`.
+  - `public struct ReferenceChecker: Sendable { init(roots: [String]); func references(to needle: String, timeout: TimeInterval) async -> [String] }` — searches text files < 1 MB under `~/Desktop`, `~/Documents`, `~/Projects`, `~/orca` (if they exist), excluding `node_modules .git .venv venv .build target Library`. 10 s limit; returns paths.
   - `public enum CleanupOutcome: Sendable { case freed(Int64), movedToTrash(Int64), blocked(reason: String), failed(String) }`
   - `public struct CleanupExecutor { init(runner:, probes:, store:); func execute(_ item: CleanupItem) async -> CleanupOutcome; func emptyTrash() async -> CleanupOutcome; func trashPaths(_ paths: [String], title: String) async -> CleanupOutcome }`
-    - Rechaza (`blocked`) si hay apps abiertas de `mustBeClosed`, si el riesgo es `.doNotTouch` o si el método es `info`.
-    - Para `command`, mide el espacio libre del volumen antes y después (`volumeAvailableCapacityForImportantUsage`) y devuelve `freed(diferencia)`.
-    - Registra un `CleanupRecord` por cada ejecución.
-    - Rutas que requieren administrador: `osascript -e 'do shell script "rm -f <ruta escapada con quoted form>" with administrator privileges'`, solo para enlaces rotos fuera de `$HOME`.
+    - Refuses (`blocked`) if there are open apps from `mustBeClosed`, if the risk is `.doNotTouch` or if the method is `info`.
+    - For `command`, measures the volume's free space before and after (`volumeAvailableCapacityForImportantUsage`) and returns `freed(difference)`.
+    - Records a `CleanupRecord` for each execution.
+    - Paths that require an administrator: `osascript -e 'do shell script "rm -f <path escaped with quoted form>" with administrator privileges'`, only for broken links outside `$HOME`.
 
-- [ ] **Step 1: Tests que fallan**, con `FakeRunner` (registra llamadas y devuelve salidas fijadas) y `FakeProbes`:
-  - `commandArgumentsAreNotShellInterpolated`: ejecutar `uv` con `FakeRunner` ⇒ llamada registrada `("/opt/homebrew/bin/uv", ["cache","clean"])`.
-  - `blocksWhenAppOpen`: entrada de Spotify con `runningBundleIDs = ["com.spotify.client"]` ⇒ `.blocked` y la carpeta sigue existiendo.
-  - `trashMovesNotDeletes`: carpeta temporal ⇒ `movedToTrash(n)` con n > 0, la ruta original ya no existe y no hay `freed`.
-  - `doNotTouchIsNeverExecuted`: elemento con `.doNotTouch` ⇒ `.blocked`, cero llamadas al runner.
+- [ ] **Step 1: Failing tests**, with `FakeRunner` (records calls and returns fixed outputs) and `FakeProbes`:
+  - `commandArgumentsAreNotShellInterpolated`: run `uv` with `FakeRunner` ⇒ recorded call `("/opt/homebrew/bin/uv", ["cache","clean"])`.
+  - `blocksWhenAppOpen`: Spotify entry with `runningBundleIDs = ["com.spotify.client"]` ⇒ `.blocked` and the folder still exists.
+  - `trashMovesNotDeletes`: temporary folder ⇒ `movedToTrash(n)` with n > 0, the original path no longer exists and there is no `freed`.
+  - `doNotTouchIsNeverExecuted`: item with `.doNotTouch` ⇒ `.blocked`, zero calls to the runner.
   - `infoMethodIsNeverExecuted`.
-  - `dockerProbeParsesReclaimable`: salida JSON de `docker system df` con Build Cache `"Reclaimable":"29.89GB"` ⇒ `bytes ≈ 29_890_000_000`.
-  - `missingToolSkipsItem`: `resolve("uv") == nil` ⇒ no aparece `uv`.
-  - `referencedModelEscalatesRisk`: `ReferenceChecker` encuentra `mlx-community/whisper-small-mlx` en un `config.toml` temporal ⇒ el elemento HF tiene `risk == .doNotTouch` y `usedBy` no vacío.
-  - `recordsHistory`: tras `execute` de un comando ⇒ `store.history().count == 1`.
+  - `dockerProbeParsesReclaimable`: JSON output of `docker system df` with Build Cache `"Reclaimable":"29.89GB"` ⇒ `bytes ≈ 29_890_000_000`.
+  - `missingToolSkipsItem`: `resolve("uv") == nil` ⇒ `uv` does not appear.
+  - `referencedModelEscalatesRisk`: `ReferenceChecker` finds `mlx-community/whisper-small-mlx` in a temporary `config.toml` ⇒ the HF item has `risk == .doNotTouch` and non-empty `usedBy`.
+  - `recordsHistory`: after `execute` of a command ⇒ `store.history().count == 1`.
 - [ ] **Step 2:** `swift test --filter CleanupTests` → FAIL.
-- [ ] **Step 3:** Implementar.
+- [ ] **Step 3:** Implement.
 - [ ] **Step 4:** `swift test --filter CleanupTests` → PASS.
-- [ ] **Step 5:** `git commit -am "feat: detección y ejecución segura de limpiezas"`
+- [ ] **Step 5:** `git commit -am "feat: safe detection and execution of cleanups"`
 
 ---
 
-### Task 7: Asistente IA (informe y chat)
+### Task 7: AI Assistant (report and chat)
 
 **Files:**
 - Create: `Sources/DiskMapCore/AI/ClaudeLocator.swift`, `Sources/DiskMapCore/AI/AIContextBuilder.swift`, `Sources/DiskMapCore/AI/AIAssistant.swift`, `Tests/DiskMapCoreTests/AITests.swift`
@@ -288,92 +288,92 @@ Formato: árbol aplanado en arrays paralelos (`parentIndex`, `name`, `size`, `ki
 - Consumes: `CommandRunning`, `FileNode`, `CleanupItem`, `Catalog`, `RiskPolicy`.
 - Produces:
   - `public enum ClaudeLocator { static func candidates(home: String) -> [String]; static func locate(override: String?, runner: CommandRunning) async -> String? }`
-    - Candidatos en orden: `override`, `~/.local/bin/claude`, `~/.claude/local/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`, `~/.npm-global/bin/claude`.
-    - Se aceptan si `--version` contiene "Claude Code" y el archivo no contiene `cmux-claude-wrapper`.
+    - Candidates in order: `override`, `~/.local/bin/claude`, `~/.claude/local/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`, `~/.npm-global/bin/claude`.
+    - They are accepted if `--version` contains "Claude Code" and the file does not contain `cmux-claude-wrapper`.
   - `public enum AIContextBuilder { static func context(scan: FileNode?, items: [CleanupItem], catalog: Catalog, home: String, maxNodes: Int = 400) -> String }`
-    - JSON con: disco (total/libre), los `maxNodes` nodos más grandes hasta profundidad 6 (ruta con `~`, bytes, tipo, último cambio, id de catálogo si coincide) y los elementos de limpieza.
-    - Solo metadatos.
+    - JSON with: disk (total/free), the `maxNodes` largest nodes down to depth 6 (path with `~`, bytes, type, last change, catalog id if it matches) and the cleanup items.
+    - Metadata only.
   - `public struct AIRecommendation: Codable, Sendable, Identifiable { id: String; path: String; verdict: Risk; reason: String; bytes: Int64; action: AIAction? }`
   - `public enum AIAction: Codable, Sendable { case trash(path: String); case runCatalogCommand(id: String) }`
   - `public struct AIReport: Codable, Sendable { summary: String; recommendations: [AIRecommendation]; reclaimableBytes: Int64 }`
   - `public enum AIError: Error { case notInstalled, timedOut, invalidResponse(String), failed(String) }`
   - `public struct AIAssistant { init(claudePath:, runner:, catalog:, home:); func report(context: String) async throws -> AIReport; func chat(history: [ChatMessage], context: String) -> AsyncThrowingStream<String, Error> }`
-  - `public struct ChatMessage: Codable, Sendable { role: Role; text: String }`, con `enum Role { user, assistant }`.
+  - `public struct ChatMessage: Codable, Sendable { role: Role; text: String }`, with `enum Role { user, assistant }`.
 
-Invocación (argumentos exactos):
+Invocation (exact arguments):
 - Base: `-p --tools "" --strict-mcp-config --disable-slash-commands --no-session-persistence --system-prompt <prompt>`.
-- Informe: base + `--output-format json --json-schema <esquema de AIReport>`; leer `structured_output` del JSON de resultado.
-- Chat: base + `--output-format stream-json --verbose --include-partial-messages`; emitir el texto de los `content_block_delta`; enviar el historial completo en cada turno.
-- Prompt por `stdin`. Timeout de 120 s.
+- Report: base + `--output-format json --json-schema <AIReport schema>`; read `structured_output` from the result JSON.
+- Chat: base + `--output-format stream-json --verbose --include-partial-messages`; emit the text of the `content_block_delta`s; send the full history on each turn.
+- Prompt via `stdin`. 120 s timeout.
 
-Prompt de sistema (español): es el asistente de DiskMap; solo ve metadatos; clasifica en `safe/yourCall/doNotTouch`; nunca recomienda borrar archivos personales, volúmenes de Docker ni nada de `/System`; las acciones solo pueden ser `trash` de una ruta presente en el contexto o `runCatalogCommand` con un id del catálogo; explica en lenguaje sencillo, como a alguien no técnico.
+System prompt (Spanish): it is DiskMap's assistant; it only sees metadata; classifies into `safe/yourCall/doNotTouch`; never recommends deleting personal files, Docker volumes or anything under `/System`; actions can only be `trash` of a path present in the context or `runCatalogCommand` with a catalog id; explains in plain language, as to a non-technical person.
 
-Post-validación del informe, siempre en código:
-- Se descartan recomendaciones cuya ruta no esté en el contexto.
-- Se descartan acciones con un id que no exista en el catálogo.
+Report post-validation, always in code:
+- Recommendations whose path is not in the context are dropped.
+- Actions with an id that does not exist in the catalog are dropped.
 - `verdict = RiskPolicy.effectiveRisk(path:, catalog:, ai: verdict)`.
-- Si `verdict != .safe`, se elimina la `action` de `trash`. Queda disponible tras confirmación explícita en la UI solo para `.yourCall`.
+- If `verdict != .safe`, the `trash` `action` is removed. It remains available after explicit confirmation in the UI only for `.yourCall`.
 
-- [ ] **Step 1: Tests que fallan** (con `FakeRunner` que devuelve JSON fijado):
-  - `locatorSkipsCmuxShim`: candidato cuyo contenido contiene `cmux-claude-wrapper` ⇒ se descarta.
-  - `invokesWithoutTools`: los argumentos de `report` contienen `"--tools"` seguido de `""` y `"--json-schema"`.
-  - `contextHasNoFileContents`: archivo temporal con texto "SECRETO" ⇒ el contexto no contiene "SECRETO" y sí contiene su ruta.
-  - `contextKeepsUnicodePaths`: carpeta `Música/diseño ñ` ⇒ aparece intacta en el JSON y este se puede parsear.
-  - `contextIsBounded`: 10.000 nodos ⇒ como máximo 400 en el contexto.
-  - `reportDropsUnknownPaths` y `reportDropsUnknownCatalogIds`.
-  - `reportCannotLowerRisk`: la IA dice `safe` para `~/Documents/a.pdf` ⇒ `yourCall` y sin acción.
-  - `reportFailsGracefullyOnInvalidJSON`: salida `"hola"` ⇒ `AIError.invalidResponse`.
-  - `reportTimesOut`: el runner lanza un timeout ⇒ `AIError.timedOut`.
-  - `chatStreamsDeltas`: tres líneas `stream-json` con deltas "Ho", "la", "!" ⇒ el stream emite esas tres cadenas.
+- [ ] **Step 1: Failing tests** (with `FakeRunner` returning fixed JSON):
+  - `locatorSkipsCmuxShim`: candidate whose content contains `cmux-claude-wrapper` ⇒ discarded.
+  - `invokesWithoutTools`: the arguments of `report` contain `"--tools"` followed by `""` and `"--json-schema"`.
+  - `contextHasNoFileContents`: temporary file with the text "SECRETO" (SECRET) ⇒ the context does not contain "SECRETO" and does contain its path.
+  - `contextKeepsUnicodePaths`: folder `Música/diseño ñ` ⇒ appears intact in the JSON and the JSON can be parsed.
+  - `contextIsBounded`: 10,000 nodes ⇒ at most 400 in the context.
+  - `reportDropsUnknownPaths` and `reportDropsUnknownCatalogIds`.
+  - `reportCannotLowerRisk`: the AI says `safe` for `~/Documents/a.pdf` ⇒ `yourCall` and no action.
+  - `reportFailsGracefullyOnInvalidJSON`: output `"hola"` ⇒ `AIError.invalidResponse`.
+  - `reportTimesOut`: the runner throws a timeout ⇒ `AIError.timedOut`.
+  - `chatStreamsDeltas`: three `stream-json` lines with deltas "Ho", "la", "!" ⇒ the stream emits those three strings.
 - [ ] **Step 2:** `swift test --filter AITests` → FAIL.
-- [ ] **Step 3:** Implementar.
+- [ ] **Step 3:** Implement.
 - [ ] **Step 4:** `swift test --filter AITests` → PASS.
-- [ ] **Step 5: Prueba real opcional:** `DISKMAP_REAL=1 swift test --filter realClaudeReport` con un contexto pequeño ⇒ devuelve un `AIReport` válido.
-- [ ] **Step 6:** `git commit -am "feat: asistente IA con informe y chat seguros"`
+- [ ] **Step 5: Optional real test:** `DISKMAP_REAL=1 swift test --filter realClaudeReport` with a small context ⇒ returns a valid `AIReport`.
+- [ ] **Step 6:** `git commit -am "feat: AI assistant with safe report and chat"`
 
 ---
 
-### Task 8: Esqueleto de la app, estado y diseño
+### Task 8: App skeleton, state and design
 
 **Files:**
-- Create: `Sources/DiskMap/DiskMapApp.swift` (sustituye la ventana vacía), `Sources/DiskMap/AppModel.swift`, `Sources/DiskMap/Design/Theme.swift`, `Sources/DiskMap/Design/Components.swift`, `Sources/DiskMap/Shell/RootView.swift`, `Sources/DiskMap/Shell/Sidebar.swift`, `Sources/DiskMap/Shell/FullDiskAccessBanner.swift`, `Sources/DiskMap/Shell/ScanProgressView.swift`, `Tests/DiskMapCoreTests/AppModelTests.swift` (el modelo de navegación vive en `DiskMapCore/UIState/MapNavigation.swift` para poder probarlo)
+- Create: `Sources/DiskMap/DiskMapApp.swift` (replaces the empty window), `Sources/DiskMap/AppModel.swift`, `Sources/DiskMap/Design/Theme.swift`, `Sources/DiskMap/Design/Components.swift`, `Sources/DiskMap/Shell/RootView.swift`, `Sources/DiskMap/Shell/Sidebar.swift`, `Sources/DiskMap/Shell/FullDiskAccessBanner.swift`, `Sources/DiskMap/Shell/ScanProgressView.swift`, `Tests/DiskMapCoreTests/AppModelTests.swift` (the navigation model lives in `DiskMapCore/UIState/MapNavigation.swift` so it can be tested)
 
 **Interfaces:**
-- Consumes: todo `DiskMapCore`.
+- Consumes: all of `DiskMapCore`.
 - Produces:
-  - `@MainActor @Observable final class AppModel` con:
-    - `section: Section` (`.map, .cleanup, .assistant`, más `.uninstaller, .largeOld, .duplicates, .types` deshabilitadas).
+  - `@MainActor @Observable final class AppModel` with:
+    - `section: Section` (`.map, .cleanup, .assistant`, plus `.uninstaller, .largeOld, .duplicates, .types` disabled).
     - `scan: ScanResult?`, `progress: ScanProgress?`, `isScanning`, `cleanupItems: [CleanupItem]`, `trashBytes: Int64`, `totalFreed: Int64`, `hasFullDiskAccess: Bool`, `navigation: MapNavigation`.
-    - `func startScan()`: carga primero el índice, luego reanaliza en segundo plano y guarda.
+    - `func startScan()`: loads the index first, then re-analyzes in the background and saves.
     - `func refreshCleanup()`, `func perform(_ item: CleanupItem) async -> CleanupOutcome`, `func emptyTrash() async`.
   - `public struct MapNavigation: Sendable { private(set) var stack: [FileNode]; var current: FileNode?; mutating func zoom(into: FileNode); mutating func zoomOut(); mutating func jump(to index: Int); var breadcrumb: [String] }`
-  - `Theme`: colores de `ContentKind` (valores de Global Constraints), `Theme.zoomSpring`, `Theme.stagger(index:)`.
-  - `Components`: `GlassCard`, `RiskBadge`, `BytesCounter` (número que cuenta hacia arriba con `contentTransition(.numericText())`), `PrimaryButton`.
+  - `Theme`: `ContentKind` colors (values from Global Constraints), `Theme.zoomSpring`, `Theme.stagger(index:)`.
+  - `Components`: `GlassCard`, `RiskBadge`, `BytesCounter` (number that counts up with `contentTransition(.numericText())`), `PrimaryButton`.
 
-Ventana:
-- `NavigationSplitView` con barra lateral `.sidebar` translúcida, `.windowStyle(.hiddenTitleBar)`, tamaño mínimo 1100×720.
-- La barra lateral muestra al pie una tarjeta del disco con:
-  - Anillo de uso que distingue "Tus archivos", "Sistema y purgable" (total − libre − analizado; libre según `volumeAvailableCapacityForImportantUsageKey`) y "Libre".
-  - "En la Papelera: X GB" y botón "Vaciar Papelera".
-  - "Liberado en total: X".
-- Encima, un selector de disco: "Macintosh HD" por defecto, más los volúmenes externos de `FileManager.mountedVolumeURLs(includingResourceValuesForKeys:options: [.skipHiddenVolumes])` que no sean de solo lectura. Al elegir uno se lanza `startScan()` con ese volumen como `root`; `AppModel.selectedVolume: URL`.
-- Banner de Acceso total al disco con botón que abre `x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`.
-- Progreso del análisis: anillo animado + contador de archivos y GB + ruta actual en monoespaciada atenuada.
+Window:
+- `NavigationSplitView` with a translucent `.sidebar`, `.windowStyle(.hiddenTitleBar)`, minimum size 1100×720.
+- At the bottom, the sidebar shows a disk card with:
+  - Usage ring distinguishing "Tus archivos" (Your files), "Sistema y purgable" (System and purgeable) (total − free − analyzed; free according to `volumeAvailableCapacityForImportantUsageKey`) and "Libre" (Free).
+  - "En la Papelera: X GB" and a "Vaciar Papelera" button.
+  - "Liberado en total: X" (Total freed: X).
+- Above it, a disk selector: "Macintosh HD" by default, plus the external volumes from `FileManager.mountedVolumeURLs(includingResourceValuesForKeys:options: [.skipHiddenVolumes])` that are not read-only. Choosing one launches `startScan()` with that volume as `root`; `AppModel.selectedVolume: URL`.
+- Full Disk Access banner with a button that opens `x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`.
+- Analysis progress: animated ring + file and GB counter + current path in dimmed monospace.
 
-- [ ] **Step 1: Tests que fallan** para `MapNavigation`:
-  - `zoomPushesAndBreadcrumb`: zoom a `Users` y luego a `ana` ⇒ `breadcrumb == ["Macintosh HD","Users","ana"]`.
+- [ ] **Step 1: Failing tests** for `MapNavigation`:
+  - `zoomPushesAndBreadcrumb`: zoom into `Users` and then `ana` ⇒ `breadcrumb == ["Macintosh HD","Users","ana"]`.
   - `zoomOutAtRootIsNoop`.
-  - `jumpTruncatesStack`: `jump(to: 0)` ⇒ `current` es la raíz.
-- [ ] **Step 2:** FAIL → **Step 3:** implementar `MapNavigation`, `AppModel`, tema, componentes y estructura de la ventana → **Step 4:** PASS.
-- [ ] **Step 5: Verificar a mano:** `swift run DiskMap`.
-  - Se abre la ventana con la barra lateral y las secciones de la fase 2 en gris con "Próximamente".
-  - Arranca el análisis con progreso animado.
-  - Captura con `screencapture -l $(osascript -e 'tell app "DiskMap" to id of window 1') shot.png` o `screencapture -x`; revisar la imagen.
-- [ ] **Step 6:** `git commit -am "feat: estructura de la app, tema y estado"`
+  - `jumpTruncatesStack`: `jump(to: 0)` ⇒ `current` is the root.
+- [ ] **Step 2:** FAIL → **Step 3:** implement `MapNavigation`, `AppModel`, theme, components and window structure → **Step 4:** PASS.
+- [ ] **Step 5: Verify by hand:** `swift run DiskMap`.
+  - The window opens with the sidebar and the phase 2 sections greyed out with "Próximamente".
+  - The analysis starts with animated progress.
+  - Capture with `screencapture -l $(osascript -e 'tell app "DiskMap" to id of window 1') shot.png` or `screencapture -x`; review the image.
+- [ ] **Step 6:** `git commit -am "feat: app structure, theme and state"`
 
 ---
 
-### Task 9: Vista Mapa
+### Task 9: Map view
 
 **Files:**
 - Create: `Sources/DiskMap/Map/MapView.swift`, `Sources/DiskMap/Map/TreemapCanvas.swift`, `Sources/DiskMap/Map/HoverCard.swift`, `Sources/DiskMap/Map/Breadcrumb.swift`, `Sources/DiskMap/Map/KindLegend.swift`
@@ -381,31 +381,31 @@ Ventana:
 **Interfaces:**
 - Consumes: `Treemap.tiles`, `MapNavigation`, `Catalog.match`, `RiskPolicy`, `Theme`, `AppModel`.
 
-Comportamiento:
-- **Dibujo:** `TreemapCanvas` dibuja con `Canvas` (+ `drawingGroup()`, que usa Metal).
-  - Cada tesela es un rect redondeado (radio 8, o 4 si mide menos de 60 pt), con degradado del color del tipo (más claro arriba a la izquierda) y borde interior de 1 pt blanco al 12 %.
-  - Texto (nombre + tamaño) solo si la tesela mide al menos 70×36.
-  - La tesela "Otros" lleva un patrón rayado gris.
-- **Entrada:** tras un análisis o un zoom, cada tesela aparece con escala 0,85→1 y opacidad 0→1, retrasada `Theme.stagger(index:)`. El orden de aparición va del centro hacia fuera.
+Behavior:
+- **Drawing:** `TreemapCanvas` draws with `Canvas` (+ `drawingGroup()`, which uses Metal).
+  - Each tile is a rounded rect (radius 8, or 4 if it measures under 60 pt), with a gradient of the type's color (lighter at the top left) and a 1 pt inner border of white at 12 %.
+  - Text (name + size) only if the tile measures at least 70×36.
+  - The "Otros" tile carries a grey striped pattern.
+- **Entrance:** after an analysis or a zoom, each tile appears with scale 0.85→1 and opacity 0→1, delayed by `Theme.stagger(index:)`. The order of appearance goes from the center outward.
 - **Zoom:**
-  - Al hacer clic, la tesela pulsada se interpola con `Theme.zoomSpring` desde su rect hasta todo el lienzo. Mientras tanto, las demás se desvanecen y se escalan respecto a ella. Después aparecen los hijos con la entrada escalonada.
-  - Para salir: Esc, Cmd+[, gesto de deslizar con dos dedos o clic en la ruta de navegación. Es la animación inversa.
-- **Al pasar el ratón:**
-  - La tesela se ilumina (brillo +8 %, sombra) y sigue al ratón una `HoverCard` de cristal con: nombre, ruta, tamaño, porcentaje del padre, último cambio, tipo, insignia de riesgo y explicación del catálogo o "Pregúntale al asistente".
-  - Clic derecho abre un menú: "Mostrar en Finder", "Explicar con IA" (abre el chat con la pregunta) y "Mover a la Papelera…" (solo si el riesgo no es `.doNotTouch`, con confirmación).
-- **Leyenda:** `KindLegend` con chips por tipo que muestran los GB del nodo actual. Al pasar el ratón por un chip, se atenúan las teselas de otros tipos.
-- **Rendimiento:** el layout se calcula fuera del hilo principal y se guarda en caché por nodo y tamaño.
+  - On click, the clicked tile is interpolated with `Theme.zoomSpring` from its rect to the whole canvas. Meanwhile, the others fade out and scale relative to it. Then the children appear with the staggered entrance.
+  - To go out: Esc, Cmd+[, two-finger swipe gesture or click on the breadcrumb. It is the inverse animation.
+- **On hover:**
+  - The tile lights up (brightness +8 %, shadow) and a glass `HoverCard` follows the mouse with: name, path, size, percentage of the parent, last change, type, risk badge and catalog explanation or "Pregúntale al asistente" (Ask the assistant).
+  - Right click opens a menu: "Mostrar en Finder" (Show in Finder), "Explicar con IA" (Explain with AI) (opens the chat with the question) and "Mover a la Papelera…" (Move to the Trash…) (only if the risk is not `.doNotTouch`, with confirmation).
+- **Legend:** `KindLegend` with chips per type showing the GB of the current node. Hovering over a chip dims the tiles of other types.
+- **Performance:** the layout is computed off the main thread and cached per node and size.
 
-- [ ] **Step 1:** Implementar las vistas.
-- [ ] **Step 2: Verificar a mano** con `swift run -c release DiskMap` sobre el disco real:
-  - Comprobar la entrada escalonada, el zoom de ida y vuelta, la ruta de navegación, la tarjeta al pasar el ratón con explicaciones y la leyenda.
-  - Hacer capturas y revisarlas.
-  - Comprobar que el zoom no da tirones: en Instruments no está disponible, así que se mide con un contador de FPS de depuración (`TimelineView(.animation)`) activable con la variable de entorno `DISKMAP_FPS=1`. Objetivo: ≥ 100 fps en el M4 Pro.
-- [ ] **Step 3:** `git commit -am "feat: mapa de bloques animado"`
+- [ ] **Step 1:** Implement the views.
+- [ ] **Step 2: Verify by hand** with `swift run -c release DiskMap` on the real disk:
+  - Check the staggered entrance, the zoom in and out, the breadcrumb, the hover card with explanations and the legend.
+  - Take screenshots and review them.
+  - Check that the zoom does not stutter: Instruments is not available, so it is measured with a debug FPS counter (`TimelineView(.animation)`) activated with the environment variable `DISKMAP_FPS=1`. Target: ≥ 100 fps on the M4 Pro.
+- [ ] **Step 3:** `git commit -am "feat: animated block map"`
 
 ---
 
-### Task 10: Vista Limpieza
+### Task 10: Cleanup view
 
 **Files:**
 - Create: `Sources/DiskMap/Cleanup/CleanupView.swift`, `Sources/DiskMap/Cleanup/CleanupRow.swift`, `Sources/DiskMap/Cleanup/ConfirmSheet.swift`, `Sources/DiskMap/Cleanup/FreedCelebration.swift`
@@ -413,26 +413,26 @@ Comportamiento:
 **Interfaces:**
 - Consumes: `AppModel.cleanupItems`, `AppModel.perform`, `AppModel.emptyTrash`, `CleanupOutcome`, `Theme`, `Components`.
 
-Comportamiento:
-- **Cabecera:** "Puedes liberar X" con `BytesCounter` (solo suma los elementos `.safe`) y botón "Limpiar todo lo seguro".
-- **Grupos:** "Borrar sin riesgo", "Depende de ti" y "No tocar", con tarjetas `GlassCard`. Cada fila lleva icono SF Symbol por tipo, título, explicación, quién lo crea, si se regenera, tamaño, insignia de riesgo, casilla de selección y aviso si está bloqueada ("Cierra Spotify para limpiar esto", con botón "Cerrar Spotify" que usa `NSRunningApplication.terminate()`) o si la usa un proyecto ("Lo usa: …").
-- Las filas `.doNotTouch` no tienen casilla.
-- **Confirmación:** antes de ejecutar se abre una hoja con la lista de lo que se hará y el método ("A la Papelera" o "Comando oficial: `docker builder prune -a -f`").
-- **Tras ejecutar:**
-  - Si se liberó espacio: celebración sobria (anillo que se llena + `BytesCounter` + partículas suaves durante 1,2 s) y la fila se colapsa con muelle.
-  - Si fue a la Papelera: se actualiza "En la Papelera".
-- **Vaciar Papelera:** desde la tarjeta de la barra lateral, con confirmación. Si después el espacio libre del volumen no sube ≥ 80 % de lo esperado y `localSnapshots()` no está vacío, se muestra un aviso explicando las instantáneas de Time Machine y ofreciendo la entrada `time-machine-snapshots`.
+Behavior:
+- **Header:** "Puedes liberar X" (You can free X) with `BytesCounter` (only adds up the `.safe` items) and a "Limpiar todo lo seguro" (Clean everything safe) button.
+- **Groups:** "Borrar sin riesgo", "Depende de ti" and "No tocar", with `GlassCard` cards. Each row carries an SF Symbol icon per type, title, explanation, who creates it, whether it regenerates, size, risk badge, selection checkbox and a notice if it is blocked ("Cierra Spotify para limpiar esto" (Close Spotify to clean this), with a "Cerrar Spotify" (Close Spotify) button that uses `NSRunningApplication.terminate()`) or if a project uses it ("Lo usa: …" (Used by: …)).
+- `.doNotTouch` rows have no checkbox.
+- **Confirmation:** before executing, a sheet opens with the list of what will be done and the method ("A la Papelera" (To the Trash) or "Comando oficial: `docker builder prune -a -f`" (Official command: …)).
+- **After executing:**
+  - If space was freed: restrained celebration (a ring that fills + `BytesCounter` + soft particles for 1.2 s) and the row collapses with a spring.
+  - If it went to the Trash: "En la Papelera" is updated.
+- **Empty Trash:** from the sidebar card, with confirmation. If afterwards the volume's free space does not rise ≥ 80 % of what was expected and `localSnapshots()` is not empty, a notice is shown explaining Time Machine snapshots and offering the `time-machine-snapshots` entry.
 
-- [ ] **Step 1:** Implementar las vistas.
-- [ ] **Step 2: Verificar a mano:**
-  - Crear la carpeta falsa `~/Library/Logs/DiskMapPrueba` con un archivo de 50 MB. Debe aparecer en "Borrar sin riesgo" (`user-logs`). Al limpiarla debe ir a la Papelera y actualizarse el contador.
-  - Abrir Spotify ⇒ su fila aparece bloqueada.
-  - Capturas.
-- [ ] **Step 3:** `git commit -am "feat: sección de limpieza con borrado seguro"`
+- [ ] **Step 1:** Implement the views.
+- [ ] **Step 2: Verify by hand:**
+  - Create the fake folder `~/Library/Logs/DiskMapPrueba` (DiskMapTest) with a 50 MB file. It must appear in "Borrar sin riesgo" (`user-logs`). On cleaning it, it must go to the Trash and the counter must update.
+  - Open Spotify ⇒ its row appears blocked.
+  - Screenshots.
+- [ ] **Step 3:** `git commit -am "feat: cleanup section with safe deletion"`
 
 ---
 
-### Task 11: Vista Asistente IA
+### Task 11: AI Assistant view
 
 **Files:**
 - Create: `Sources/DiskMap/Assistant/AssistantView.swift`, `Sources/DiskMap/Assistant/ReportView.swift`, `Sources/DiskMap/Assistant/ChatView.swift`, `Sources/DiskMap/Assistant/ClaudeMissingView.swift`
@@ -440,70 +440,70 @@ Comportamiento:
 **Interfaces:**
 - Consumes: `AIAssistant`, `AIContextBuilder`, `ClaudeLocator`, `AIReport`, `AIAction`, `AppModel`.
 
-Comportamiento:
-- **Selector:** segmentado entre "Informe" y "Chat".
-- **Informe:**
-  - Botón "Analizar con IA". Mientras trabaja se muestra un brillo animado (gradiente que recorre unas tarjetas de esqueleto).
-  - El resultado aparece con entrada escalonada en las tres columnas de riesgo. Arriba, el resumen y "Recuperable: X".
-  - Cada recomendación tiene el botón de su acción, que pasa por la misma `ConfirmSheet` y por `AppModel.perform` o `trashPaths`.
+Behavior:
+- **Selector:** segmented between "Informe" (Report) and "Chat".
+- **Report:**
+  - "Analizar con IA" (Analyze with AI) button. While it works, an animated shimmer is shown (a gradient sweeping across some skeleton cards).
+  - The result appears with a staggered entrance in the three risk columns. At the top, the summary and "Recuperable: X" (Recoverable: X).
+  - Each recommendation has the button for its action, which goes through the same `ConfirmSheet` and through `AppModel.perform` or `trashPaths`.
 - **Chat:**
-  - Burbujas estilo Mensajes. El texto entra en streaming con un cursor parpadeante.
-  - Sugerencias iniciales en chips: "¿Qué ocupa más?", "¿Qué puedo borrar sin riesgo?", "¿Qué es ~/Library/Containers?".
-  - Cuando la respuesta menciona una ruta del contexto, esta aparece como chip con botón "Ver en el mapa", que cambia a `.map` y hace zoom a esa ruta.
-- **Sin Claude:** `ClaudeMissingView` explica en una frase que hace falta Claude Code y ofrece "Elegir ejecutable…" (con `NSOpenPanel`; se guarda en `UserDefaults` como `claudePath`).
-- **Errores:** tarjeta con mensaje claro y botón "Reintentar".
+  - Messages-style bubbles. The text arrives streaming with a blinking cursor.
+  - Initial suggestions as chips: "¿Qué ocupa más?" (What takes up the most?), "¿Qué puedo borrar sin riesgo?" (What can I safely delete?), "¿Qué es ~/Library/Containers?" (What is ~/Library/Containers?).
+  - When the answer mentions a path from the context, it appears as a chip with a "Ver en el mapa" (View on the map) button, which switches to `.map` and zooms to that path.
+- **Without Claude:** `ClaudeMissingView` explains in one sentence that Claude Code is needed and offers "Elegir ejecutable…" (Choose executable…) (with `NSOpenPanel`; saved in `UserDefaults` as `claudePath`).
+- **Errors:** card with a clear message and a "Reintentar" button.
 
-- [ ] **Step 1:** Implementar las vistas.
-- [ ] **Step 2: Verificar a mano** con el disco real:
-  - Generar el informe. Comprobar que nada personal aparece como "sin riesgo" y que los volúmenes de Docker salen en "No tocar".
-  - Hacer dos preguntas en el chat.
-  - Renombrar temporalmente `claudePath` a una ruta inexistente ⇒ aparece `ClaudeMissingView`.
-  - Capturas.
-- [ ] **Step 3:** `git commit -am "feat: asistente IA con informe y chat"`
+- [ ] **Step 1:** Implement the views.
+- [ ] **Step 2: Verify by hand** with the real disk:
+  - Generate the report. Check that nothing personal appears as "safe" and that Docker volumes come out under "No tocar".
+  - Ask two questions in the chat.
+  - Temporarily rename `claudePath` to a nonexistent path ⇒ `ClaudeMissingView` appears.
+  - Screenshots.
+- [ ] **Step 3:** `git commit -am "feat: AI assistant with report and chat"`
 
 ---
 
-### Task 12: Icono, empaquetado y firma estable
+### Task 12: Icon, packaging and stable signing
 
 **Files:**
 - Create: `scripts/make-icon.swift`, `scripts/build-app.sh`, `Resources/Info.plist`
 
 **Interfaces:**
-- Consumes: el ejecutable `DiskMap` en modo release.
+- Consumes: the `DiskMap` executable in release mode.
 
-Detalles:
-- **`make-icon.swift`:** dibuja con CoreGraphics un PNG de 1024×1024.
-  - Forma: squircle de macOS (margen 100 px, radio continuo ≈ 185 px).
-  - Fondo: degradado profundo `#1C1C2E`→`#0B0B12`, con brillo especular sutil arriba.
-  - Dentro: un treemap de 6 bloques redondeados con los colores de vídeo, código, apps, modelos IA, cachés y documentos, con degradados y una sombra interior que dé profundidad.
-  - Después genera con `sips` los tamaños 16, 32, 64, 128, 256, 512 y 1024 (@1x/@2x) en `DiskMap.iconset` y ejecuta `iconutil -c icns`.
+Details:
+- **`make-icon.swift`:** draws a 1024×1024 PNG with CoreGraphics.
+  - Shape: macOS squircle (100 px margin, continuous radius ≈ 185 px).
+  - Background: deep gradient `#1C1C2E`→`#0B0B12`, with a subtle specular highlight at the top.
+  - Inside: a treemap of 6 rounded blocks with the colors of video, code, apps, AI models, caches and documents, with gradients and an inner shadow that gives depth.
+  - It then generates with `sips` the sizes 16, 32, 64, 128, 256, 512 and 1024 (@1x/@2x) in `DiskMap.iconset` and runs `iconutil -c icns`.
 - **`Info.plist`:**
-  - `CFBundleIdentifier` `local.diskmap.DiskMap`, `CFBundleName` y `CFBundleDisplayName` `DiskMap`, `CFBundleIconFile` `DiskMap`.
+  - `CFBundleIdentifier` `local.diskmap.DiskMap`, `CFBundleName` and `CFBundleDisplayName` `DiskMap`, `CFBundleIconFile` `DiskMap`.
   - `LSMinimumSystemVersion` `15.0`, `NSHighResolutionCapable` true, `LSApplicationCategoryType` `public.app-category.utilities`.
-  - `NSAppleEventsUsageDescription`: "DiskMap usa Finder para vaciar la Papelera."
+  - `NSAppleEventsUsageDescription`: "DiskMap usa Finder para vaciar la Papelera." (DiskMap uses Finder to empty the Trash.)
 - **`build-app.sh`:**
   1. `swift build -c release`.
-  2. Montar `build/DiskMap.app/Contents/{MacOS,Resources}` y copiar el binario, `Info.plist`, `DiskMap.icns` y el bundle de recursos de SwiftPM (`DiskMap_DiskMapCore.bundle`).
-  3. Firmar. Si no existe la identidad `DiskMap Local Signing` en `security find-identity -p codesigning`, se crea una sola vez: `openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=DiskMap Local Signing" -addext "extendedKeyUsage=codeSigning" -addext "keyUsage=digitalSignature"`, exportar a `.p12`, `security import … -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign` y `security add-trusted-cert -r trustRoot -p codeSign` (pide la contraseña del usuario, que debe estar avisado).
-  4. `codesign --force --deep --options runtime -s "DiskMap Local Signing" build/DiskMap.app`. Si falla, usar `codesign -s -` y mostrar el aviso "Firma ad-hoc: tendrás que volver a dar Acceso total al disco tras cada compilación".
-  5. Opción `--install`: copia a `/Applications/DiskMap.app` (pidiendo confirmación si ya existe).
+  2. Assemble `build/DiskMap.app/Contents/{MacOS,Resources}` and copy the binary, `Info.plist`, `DiskMap.icns` and SwiftPM's resource bundle (`DiskMap_DiskMapCore.bundle`).
+  3. Sign. If the identity `DiskMap Local Signing` does not exist in `security find-identity -p codesigning`, it is created only once: `openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=DiskMap Local Signing" -addext "extendedKeyUsage=codeSigning" -addext "keyUsage=digitalSignature"`, export to `.p12`, `security import … -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign` and `security add-trusted-cert -r trustRoot -p codeSign` (asks for the user's password, so the user must be warned).
+  4. `codesign --force --deep --options runtime -s "DiskMap Local Signing" build/DiskMap.app`. If it fails, use `codesign -s -` and show the notice "Firma ad-hoc: tendrás que volver a dar Acceso total al disco tras cada compilación" (Ad-hoc signature: you will have to grant Full Disk Access again after every build).
+  5. `--install` option: copies to `/Applications/DiskMap.app` (asking for confirmation if it already exists).
 
-- [ ] **Step 1:** Escribir `make-icon.swift` y ejecutarlo con `swift scripts/make-icon.swift Resources/`. Abrir `Resources/DiskMap-1024.png` con Read y revisar que se ve bien a 1024 y a 32 px.
-- [ ] **Step 2:** Escribir `Info.plist` y `build-app.sh`.
-- [ ] **Step 3:** `bash scripts/build-app.sh`. Esperado: `build/DiskMap.app` existe, `codesign -dv build/DiskMap.app` muestra `Authority=DiskMap Local Signing` y `open build/DiskMap.app` abre la app con su icono en el Dock.
-- [ ] **Step 4:** Recompilar y comprobar que la firma sigue siendo la misma identidad (el permiso de Acceso total al disco se conserva).
-- [ ] **Step 5:** `git add -A && git commit -m "feat: icono propio y empaquetado firmado"`
+- [ ] **Step 1:** Write `make-icon.swift` and run it with `swift scripts/make-icon.swift Resources/`. Open `Resources/DiskMap-1024.png` with Read and check that it looks good at 1024 and at 32 px.
+- [ ] **Step 2:** Write `Info.plist` and `build-app.sh`.
+- [ ] **Step 3:** `bash scripts/build-app.sh`. Expected: `build/DiskMap.app` exists, `codesign -dv build/DiskMap.app` shows `Authority=DiskMap Local Signing` and `open build/DiskMap.app` opens the app with its icon in the Dock.
+- [ ] **Step 4:** Rebuild and check that the signature is still the same identity (the Full Disk Access permission is preserved).
+- [ ] **Step 5:** `git add -A && git commit -m "feat: custom icon and signed packaging"`
 
 ---
 
-### Task 13: Verificación final de la fase 1
+### Task 13: Final verification of phase 1
 
-- [ ] **Step 1:** `swift test` → todo en verde (anotar el número de tests).
-- [ ] **Step 2:** Instalar con `bash scripts/build-app.sh --install` y dar Acceso total al disco a DiskMap.
-- [ ] **Step 3:** Análisis completo del disco. Anotar:
-  - Duración.
-  - RAM en reposo tras el análisis (`ps -o rss= -p $(pgrep -x DiskMap)`). Objetivo < 300 MB.
-  - Tamaño del `.app`.
-  - Total analizado frente a `df` del volumen de datos: diferencia < 5 %, explicando la diferencia (sistema/purgable).
-- [ ] **Step 4:** Repasar uno por uno los anti-objetivos del spec (§4) en la app real y dejar constancia en `docs/superpowers/plans/2026-10-20-diskmap-fase-1-verificacion.md` con capturas.
-- [ ] **Step 5:** `git add -A && git commit -m "docs: verificación de la fase 1"`
+- [ ] **Step 1:** `swift test` → everything green (note the number of tests).
+- [ ] **Step 2:** Install with `bash scripts/build-app.sh --install` and grant DiskMap Full Disk Access.
+- [ ] **Step 3:** Full disk analysis. Note:
+  - Duration.
+  - Idle RAM after the analysis (`ps -o rss= -p $(pgrep -x DiskMap)`). Target < 300 MB.
+  - Size of the `.app`.
+  - Total analyzed versus `df` of the data volume: difference < 5 %, explaining the difference (system/purgeable).
+- [ ] **Step 4:** Go through the spec's anti-goals (§4) one by one in the real app and record it in `docs/superpowers/plans/2026-10-20-diskmap-fase-1-verificacion.md` with screenshots.
+- [ ] **Step 5:** `git add -A && git commit -m "docs: phase 1 verification"`
