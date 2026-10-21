@@ -8,6 +8,8 @@ struct UninstallConfirmContent: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
     let request: CleanupFlow.ConfirmRequest
+    /// Veredicto de Homebrew por app (`UninstallRequest.id`), leído al abrir la hoja (`brew info`, solo lectura).
+    @State private var caskVerdicts: [String: CaskVerdict] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -42,6 +44,7 @@ struct UninstallConfirmContent: View {
                 }
             }
         }
+        .task { await loadCaskVerdicts() }
     }
 
     private var confirmButton: some View {
@@ -49,7 +52,7 @@ struct UninstallConfirmContent: View {
             flow.confirm(request, model: model, blocked: blocked)
         }
         .fixedSize()
-        .disabled(model.destructiveRefusal != nil || nothingToDo)
+        .disabled(model.destructiveRefusal != nil || nothingToDo || checkingHomebrew)
     }
 
     // MARK: Datos
@@ -72,16 +75,34 @@ struct UninstallConfirmContent: View {
         return Set(requests.filter { $0.plan.refusal != nil }.map(\.id))
     }
 
+    /// Mientras no se sabe si Homebrew borrará la app sin Papelera, no se confirma.
+    private var checkingHomebrew: Bool {
+        guard case .uninstall(let requests) = request.kind else { return false }
+        return requests.contains {
+            $0.plan.refusal == nil && $0.plan.app.caskToken != nil && caskVerdicts[$0.id] == nil
+        }
+    }
+
     private var nothingToDo: Bool {
         guard case .uninstall(let requests) = request.kind else { return false }
         return requests.allSatisfy { blocked.contains($0.id) }
     }
 
+    /// Homebrew borra la app sin Papelera; mientras no se sabe qué hará, se trata como irreversible.
     private var isIrreversible: Bool {
         switch request.kind {
         case .brokenLinks: true
-        case .uninstall(let requests): requests.contains { $0.plan.app.caskToken != nil }
+        case .uninstall(let requests):
+            requests.contains { $0.plan.app.caskToken != nil && caskVerdicts[$0.id]?.usesBrew != false }
         default: false
+        }
+    }
+
+    private func loadCaskVerdicts() async {
+        guard case .uninstall(let requests) = request.kind else { return }
+        for item in requests where item.plan.refusal == nil && item.plan.app.caskToken != nil {
+            if Task.isCancelled { return }
+            if let verdict = await model.caskVerdict(for: item.plan.app) { caskVerdicts[item.id] = verdict }
         }
     }
 
@@ -220,15 +241,24 @@ struct UninstallConfirmContent: View {
             } else {
                 note("power", .secondary, "Se cerrará «\(app.name)» si está abierta (podrá pedirte guardar).")
                 if let token = app.caskToken {
-                    if UninstallerStore.zapExpected(request) {
-                        note("terminal", Theme.Airy.riskInk(.yourCall),
-                             "Homebrew la desinstala con `brew uninstall --cask --zap \(token)`; lo que borra Homebrew no pasa por la Papelera.")
-                    } else {
+                    switch caskVerdicts[request.id] {
+                    case .some(.useBrew):
+                        note("exclamationmark.triangle.fill", Theme.Airy.riskInk(.doNotTouch),
+                             "La app la borra Homebrew directamente con `brew uninstall --cask \(token)`: no va a la Papelera y no se puede recuperar desde ella.")
                         note("terminal", .secondary,
-                             "Homebrew la desinstala con `brew uninstall --cask \(token)` (sin --zap: hay restos que no eliges o que Airy protege).")
+                             "Homebrew puede ejecutar los pasos de desinstalación de la propia app; Airy los ha revisado antes.")
+                    case .some(.fallback(let reason)):
+                        note("info.circle", .secondary, reason)
+                        note("trash", Theme.Airy.riskInk(.safe), "La app irá a la Papelera.")
+                    case .none:
+                        note("hourglass", .secondary, "Comprobando qué haría Homebrew con «\(app.name)»…")
                     }
                 } else {
                     note("trash", Theme.Airy.riskInk(.safe), "La app irá a la Papelera.")
+                }
+                if !chosen.filter({ $0.kind != .receipt && $0.kind != .systemLocation }).isEmpty {
+                    note("arrow.uturn.backward.circle", .secondary,
+                         "Los restos que eliges van a la Papelera (Airy los comprueba antes de moverlos).")
                 }
                 ForEach(green) { leftover in
                     line(Format.tildePath(leftover.path), detail: leftover.reason, size: leftover.bytes, risk: .safe)
@@ -254,7 +284,7 @@ struct UninstallConfirmContent: View {
                     }
                 }
                 if chosen.contains(where: { $0.kind == .receipt }) {
-                    note("lock.fill", .secondary, "Pedirá tu contraseña de administrador.")
+                    note("lock.fill", .secondary, "Pedirá tu contraseña de administrador (una vez por cada app con registros de instalación).")
                 }
             }
         }

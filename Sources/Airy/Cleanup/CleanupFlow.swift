@@ -34,6 +34,8 @@ final class CleanupFlow {
             let subtitle: String
             let reason: String
             let note: String
+            /// Botón para pasar a la confirmación (una desinstalación no es «moverlo» a la Papelera).
+            var continueTitle = "Sí, quiero moverlo…"
         }
 
         let id = UUID()

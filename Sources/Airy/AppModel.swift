@@ -453,7 +453,8 @@ final class AppModel {
                 title: URLProposalPolicy.warningTitle(),
                 subtitle: URLProposalPolicy.warningSubtitle(agent: agent, reason: reason),
                 reason: URLProposalPolicy.warningReason,
-                note: URLProposalPolicy.warningNote)
+                note: URLProposalPolicy.warningNote,
+                continueTitle: "Ver qué se desinstala…")
             flow.requestUninstall([UninstallRequest(plan: plan, selected: plan.defaultSelection)], warning: warning,
                                   proposedBy: URLProposalPolicy.claimedAgent(agent),
                                   proposedVia: OperationContext.viaUnverifiedURL)
@@ -1051,6 +1052,14 @@ final class AppModel {
 
     func brokenLinks() async -> [BrokenLink] {
         await Task.detached(priority: .utility) { BrokenLinks.find() }.value
+    }
+
+    /// Para la hoja: qué hará Airy con una app de Homebrew (`brew info`, solo lectura); `nil` si no viene de
+    /// Homebrew. El ejecutor lo vuelve a decidir al desinstalar.
+    func caskVerdict(for app: AppRecord) async -> CaskVerdict? {
+        guard app.caskToken?.isEmpty == false else { return nil }
+        guard let executor else { return .fallback(reason: CaskReview.unreadableReason) }
+        return await Task.detached(priority: .utility) { await executor.caskVerdict(for: app) }.value
     }
 
     /// Desinstala una app por el embudo del ejecutor. La interfaz es la que confirma antes de llamar aquí.

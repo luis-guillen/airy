@@ -34,12 +34,11 @@ extension CleanupExecutor {
     static let launchctlTimeout: TimeInterval = 15
     static let brewTimeout: TimeInterval = 600
     static let brewUnfinishedNote = "Homebrew no pudo terminar (quizá pidió contraseña)."
-    static let brewMissingNote = "Homebrew no está disponible; la app va a la Papelera."
     static let receiptCancelledNote = "Cancelaste la contraseña: el registro de instalación se queda."
 
     /// Desinstala una app por el embudo. Orden: todas las comprobaciones (agente, plan, dispensa, `.app`,
-    /// cerrar, `.app` otra vez, restos) y solo después, en orden: `launchctl bootout` → Homebrew → Papelera
-    /// del `.app` → restos → recibos. Cada `blocked` deja todo como estaba.
+    /// cerrar, `.app` otra vez, restos, revisión del cask) y solo después, en orden: Homebrew (sin `--zap`) →
+    /// `launchctl bootout` → Papelera del `.app` → restos → recibos. Cada `blocked` deja todo como estaba.
     public func uninstall(_ request: UninstallRequest, context: OperationContext = .user()) async -> UninstallReport {
         let app = request.plan.app
         var notes: [String] = []
@@ -120,33 +119,21 @@ extension CleanupExecutor {
             }
         }
 
-        // Homebrew: `--zap` solo si ningún resto está protegido y el usuario eligió todos los restos (zap borra
-        // los datos de la app directamente, sin Papelera).
+        // Homebrew: nunca `--zap` (los restos solo salen de la lista de Airy, ya validada, a la Papelera). Antes
+        // de usar `brew uninstall --cask`, Airy lee qué haría el cask (solo lectura); si hay algo que no puede
+        // comprobar, o no puede leerlo, la app sigue el camino normal: el `.app` a la Papelera con la dispensa.
         var brew: String?
-        if let token = app.caskToken, !token.isEmpty {
-            brew = await runner.resolve("brew")
-            if brew == nil { notes.append(Self.brewMissingNote) }
+        if let review = await reviewCask(app, gate: gateNow) {
+            brew = review.brew
+            if case .fallback(let reason) = review.verdict { notes.append(reason) }
         }
 
-        // 5. Detener los agentes de inicio seleccionados (solo los que pasaron la validación).
-        for item in toTrash where item.leftover.kind == .launchAgent {
-            guard let label = item.leftover.launchLabel, !label.isEmpty else { continue }
-            do {
-                let output = try await runner.run("/bin/launchctl", ["bootout", "gui/\(getuid())/\(label)"],
-                                                  timeout: Self.launchctlTimeout)
-                if output.status != 0 {
-                    let detail = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-                    notes.append("No se pudo detener \(label): \(detail).")
-                }
-            } catch {
-                notes.append("No se pudo detener \(label): \(error).")
-            }
-        }
-
-        // 6. Homebrew.
+        // 5. Homebrew (borra el `.app` directamente, sin Papelera, y ejecuta los pasos ya revisados del cask).
         if let brew, let token = app.caskToken {
-            let zap = zapAllowed(request, gate: gateNow)
-            let arguments = ["uninstall", "--cask"] + (zap ? ["--zap"] : []) + [token]
+            let arguments = ["uninstall", "--cask", token]
+            if let reason = CommandPolicy.refusal(executable: brew, arguments: arguments) {
+                return finish(.blocked(reason: reason))
+            }
             brewCommand = [brew] + arguments
             var measured: [String: Int64] = [:]
             for path in [app.path] + pathLeftovers.map(\.path) where exists(path) {
@@ -166,6 +153,22 @@ extension CleanupExecutor {
                 return finish(.failed("Homebrew no pudo desinstalarla: \(detail)"))
             }
             freedBytes = measured.filter { !exists($0.key) }.values.reduce(0, +)
+        }
+
+        // 6. Detener los agentes de inicio seleccionados (solo los que pasaron la validación). Después de
+        // Homebrew: si Homebrew falla, la app sigue instalada con sus agentes en marcha.
+        for item in toTrash where item.leftover.kind == .launchAgent {
+            guard let label = item.leftover.launchLabel, !label.isEmpty else { continue }
+            do {
+                let output = try await runner.run("/bin/launchctl", ["bootout", "gui/\(getuid())/\(label)"],
+                                                  timeout: Self.launchctlTimeout)
+                if output.status != 0 {
+                    let detail = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+                    notes.append("No se pudo detener \(label): \(detail).")
+                }
+            } catch {
+                notes.append("No se pudo detener \(label): \(error).")
+            }
         }
 
         // 7. El `.app` a la Papelera (si sigue ahí), comprobado otra vez justo antes.
@@ -222,15 +225,36 @@ extension CleanupExecutor {
         return finish(.freed(freedBytes))
     }
 
-    /// `--zap` solo si ninguno de los restos del plan que existen está protegido (lista dura, del usuario o
-    /// catálogo, sin dispensa) y el usuario dejó seleccionados todos los restos que se pueden seleccionar.
-    private func zapAllowed(_ request: UninstallRequest, gate: PathGate) -> Bool {
-        for leftover in request.plan.leftovers where leftover.kind != .receipt {
-            if !leftover.canSelect { return false }
-            if exists(leftover.path), gate.validate(leftover.path, waiver: nil).failure != nil { return false }
-            if !request.selected.contains(leftover.id) { return false }
+    /// Revisión del cask antes de usar Homebrew; `nil` si la app no viene de Homebrew. `brew` es la ruta de
+    /// Homebrew solo si el veredicto es `.useBrew`.
+    func reviewCask(_ app: AppRecord, gate: PathGate) async -> (verdict: CaskVerdict, brew: String?)? {
+        guard let token = app.caskToken, !token.isEmpty else { return nil }
+        let unreadable = (verdict: CaskVerdict.fallback(reason: CaskReview.unreadableReason), brew: String?.none)
+        guard CaskReview.isValidToken(token) else { return unreadable }
+        guard let brew = await runner.resolve("brew") else {
+            return (.fallback(reason: CaskReview.brewMissingReason), nil)
         }
-        return true
+        let arguments = CaskReview.infoArguments(token: token)
+        guard CommandPolicy.refusal(executable: brew, arguments: arguments) == nil else { return unreadable }
+        let output: CommandOutput
+        do {
+            output = try await runner.run(brew, arguments, timeout: CaskReview.infoTimeout)
+        } catch {
+            return unreadable
+        }
+        guard output.status == 0 else { return unreadable }
+        let verdict = CaskReview.verdict(json: output.stdout, token: token, app: app, home: home,
+                                         refusal: { gate.refusalWithoutWaiver($0) })
+        return (verdict, verdict.usesBrew ? brew : nil)
+    }
+
+    /// Para la hoja de confirmación: qué hará Airy con una app de Homebrew (`nil` si no viene de Homebrew).
+    /// El ejecutor lo vuelve a decidir al desinstalar.
+    public func caskVerdict(for app: AppRecord) async -> CaskVerdict? {
+        let load = settings()
+        guard app.caskToken?.isEmpty == false else { return nil }
+        if load.isUnreadable { return .fallback(reason: CaskReview.unreadableReason) }
+        return await reviewCask(app, gate: gate(load))?.verdict
     }
 
     // MARK: - Enlaces rotos

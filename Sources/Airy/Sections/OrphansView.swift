@@ -43,7 +43,14 @@ struct OrphansView: View {
                     onClear: { store.orphanSelection = [] }
                 ) {
                     flow.requestTrashOrphans(selected) { outcome in
-                        if case .movedToTrash = outcome { store.removeOrphans(Set(selected.map(\.id))) }
+                        // Solo desaparecen los grupos que ya no están en disco (los que dejaron de ser huérfanos
+                        // al comprobarlos otra vez siguen ahí).
+                        if case .movedToTrash = outcome {
+                            let gone = selected.filter { group in
+                                group.paths.allSatisfy { !FileManager.default.fileExists(atPath: $0) }
+                            }
+                            store.removeOrphans(Set(gone.map(\.id)))
+                        }
                     }
                 }
                 .padding(.bottom, 18)

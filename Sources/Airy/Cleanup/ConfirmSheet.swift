@@ -87,7 +87,7 @@ struct ConfirmSheet: View {
                 Button("Cancelar") { flow.cancelSheet() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
-                PrimaryButton("Sí, quiero moverlo…", systemImage: "arrow.right", style: .secondary) {
+                PrimaryButton(warning.continueTitle, systemImage: "arrow.right", style: .secondary) {
                     warningAccepted = true
                 }
                 .fixedSize()

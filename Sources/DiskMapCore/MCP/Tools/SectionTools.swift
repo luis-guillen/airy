@@ -89,7 +89,14 @@ public struct ListAppsTool: MCPTool {
         // Solo el tamaño del .app, con presupuesto de tiempo: lo que no da tiempo a medir sale como null.
         final class Sizes: Sendable { let values = Mutex<[String: Int64]>([:]) }
         let box = Sizes()
-        let paths = apps.map(\.path)
+        // Por nombre o por uso, solo se miden las filas que se devuelven (no todas las apps en cada consulta).
+        let paths: [String] = switch sort {
+        case "name": apps.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            .prefix(max(limit, 0)).map(\.path)
+        case "last_used": apps.sorted { ($0.lastUsed ?? .distantFuture) < ($1.lastUsed ?? .distantFuture) }
+            .prefix(max(limit, 0)).map(\.path)
+        default: apps.map(\.path)
+        }
         let measured = await TimeBudget.run(.seconds(20)) {
             for path in paths {
                 if Task.isCancelled { return false }

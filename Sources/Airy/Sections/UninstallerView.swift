@@ -7,8 +7,8 @@ import DiskMapCore
 struct UninstallerView: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
-    @ViewState private var store = UninstallerStore()
-    @ViewState private var started = false
+    /// Vive en `AppModel.sections`: la selección y los resultados sobreviven a los cambios de sección.
+    private var store: UninstallerStore { model.sections.uninstaller }
 
     var body: some View {
         @Bindable var store = store
@@ -49,11 +49,7 @@ struct UninstallerView: View {
         .padding(Theme.contentPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .animation(Theme.sectionSpring, value: store.openedApp)
-        .onAppear {
-            guard !started else { return }
-            started = true
-            store.refresh(model: model)
-        }
+        .onAppear { store.appear(model: model) }
         .onDisappear { store.cancel() }
     }
 
