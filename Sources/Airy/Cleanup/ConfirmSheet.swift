@@ -16,7 +16,9 @@ struct ConfirmSheet: View {
 
     var body: some View {
         Group {
-            if let warning = request.warning, !warningAccepted {
+            if isQuit {
+                QuitConfirmation(request: request)
+            } else if let warning = request.warning, !warningAccepted {
                 warningStep(warning)
                     .transition(.opacity.combined(with: .offset(x: -12)))
             } else {
@@ -30,7 +32,7 @@ struct ConfirmSheet: View {
         // Con aviso previo («Esto depende de ti», propuesta por enlace), la vista previa espera a que el
         // usuario lo acepte: abrir la hoja no consulta nada al ejecutor.
         .task(id: warningAccepted) {
-            guard request.warning == nil || warningAccepted, blockReasons == nil else { return }
+            guard !isQuit, request.warning == nil || warningAccepted, blockReasons == nil else { return }
             await loadPreview()
         }
         #if DEBUG
@@ -165,6 +167,7 @@ struct ConfirmSheet: View {
             }
         case .emptyTrash:
             if let refusal = model.destructiveRefusal { reasons["trash"] = refusal }
+        case .quitApps, .forceQuitApps: break
         }
         blockReasons = reasons
     }
@@ -172,7 +175,7 @@ struct ConfirmSheet: View {
     /// `true` solo si todo va a la Papelera (recuperable): ni vaciarla ni comandos oficiales.
     private var returnConfirms: Bool {
         switch request.kind {
-        case .emptyTrash: return false
+        case .emptyTrash, .quitApps, .forceQuitApps: return false
         case .trashPaths: return true
         case .items(let items):
             return items.allSatisfy { if case .trash = liveMethod($0) { true } else { false } }
@@ -191,6 +194,13 @@ struct ConfirmSheet: View {
     }
 
     private var isEmptyTrash: Bool { if case .emptyTrash = request.kind { true } else { false } }
+
+    private var isQuit: Bool {
+        switch request.kind {
+        case .quitApps, .forceQuitApps: true
+        default: false
+        }
+    }
 
     private var items: [CleanupItem] {
         if case .items(let items) = request.kind { return items }
@@ -230,6 +240,7 @@ struct ConfirmSheet: View {
             return paths.count == 1 ? "¿Mover «\(title)» a la Papelera?" : "¿Mover \(Theme.count(paths.count)) elementos a la Papelera?"
         case .items(let items):
             return items.count == 1 ? "¿Limpiar «\(items[0].title)»?" : "¿Limpiar \(Theme.count(items.count)) elementos?"
+        case .quitApps, .forceQuitApps: return ""
         }
     }
 
@@ -238,6 +249,7 @@ struct ConfirmSheet: View {
         case .emptyTrash(let bytes):
             return bytes.map { "Se borrarán definitivamente \(Format.bytes($0))." }
                 ?? "Airy no puede leer la Papelera, así que no sabe cuánto ocupa."
+        case .quitApps, .forceQuitApps: return ""
         case .trashPaths(let paths, _):
             let total = paths.compactMap { model.node(atPath: $0)?.allocatedSize }.reduce(0, +)
             return total > 0 ? "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla."
@@ -259,6 +271,7 @@ struct ConfirmSheet: View {
 
     private var rows: [ConfirmRow] {
         switch request.kind {
+        case .quitApps, .forceQuitApps: return []
         case .emptyTrash(let bytes):
             return [ConfirmRow(id: "trash", title: "Vaciar Papelera", symbol: "trash.fill", tint: Theme.Airy.riskInk(.doNotTouch),
                                size: bytes.map(Format.bytes) ?? "Tamaño desconocido",
@@ -310,6 +323,7 @@ struct ConfirmSheet: View {
 
     private var kindNotes: [Note] {
         switch request.kind {
+        case .quitApps, .forceQuitApps: return []
         case .emptyTrash(let bytes):
             let red = Theme.Airy.riskInk(.doNotTouch)
             if bytes == nil {
@@ -330,7 +344,10 @@ struct ConfirmSheet: View {
                 notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
                                   text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes."))
             }
-            if methods.contains(where: { if case .command = $0 { true } else { false } }) {
+            if items.allSatisfy({ $0.entry.section == .maintenance }) {
+                notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
+                                  text: "Es un ajuste reversible: la explicación dice cómo deshacerlo."))
+            } else if methods.contains(where: { if case .command = $0 { true } else { false } }) {
                 notes.append(Note(symbol: "terminal", tint: Theme.Airy.accent,
                                   text: "Los comandos oficiales liberan el espacio al momento y no se pueden deshacer."))
             }
@@ -357,7 +374,10 @@ struct ConfirmSheet: View {
         switch request.kind {
         case .emptyTrash(let bytes): return bytes == nil ? "Vaciar con Finder" : "Vaciar Papelera"
         case .trashPaths: return "Mover a la Papelera"
-        case .items(let items): return items.count == 1 ? "Limpiar" : "Limpiar \(Theme.count(items.count))"
+        case .items(let items):
+            if items.allSatisfy({ $0.entry.section == .maintenance }) { return "Aplicar" }
+            return items.count == 1 ? "Limpiar" : "Limpiar \(Theme.count(items.count))"
+        case .quitApps, .forceQuitApps: return ""
         }
     }
 
@@ -526,5 +546,116 @@ struct SnapshotsSheet: View {
         }
         .padding(24)
         .frame(width: 540)
+    }
+}
+
+// MARK: - Cerrar apps (Rendimiento)
+
+/// Las dos variantes de cierre: normal («¿Cerrar…?») y forzado («¿Forzar el cierre de…?»). Una propuesta de
+/// agente enseña su aviso arriba; nada se cierra hasta pulsar el botón.
+struct QuitConfirmation: View {
+    @Environment(AppModel.self) private var model
+    @Environment(CleanupFlow.self) private var flow
+    let request: CleanupFlow.ConfirmRequest
+
+    private var groups: [AppGroup] {
+        switch request.kind {
+        case .quitApps(let g), .forceQuitApps(let g): g
+        default: []
+        }
+    }
+
+    private var isForce: Bool { if case .forceQuitApps = request.kind { true } else { false } }
+
+    private var title: String {
+        if isForce {
+            return groups.count == 1 ? "¿Forzar el cierre de \(groups[0].name)?" : "¿Forzar el cierre de \(groups.count) apps?"
+        }
+        return groups.count == 1 ? "¿Cerrar \(groups[0].name)?" : "¿Cerrar \(groups.count) apps?"
+    }
+
+    var body: some View {
+        let apps = groups.filter { $0.kind != .looseProcess }
+        let loose = groups.filter { $0.kind == .looseProcess }
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    Circle().fill(isForce ? AnyShapeStyle(Theme.Airy.destructiveGradient) : AnyShapeStyle(Theme.brand))
+                    Image(systemName: isForce ? "xmark.octagon.fill" : "power")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 44, height: 44)
+                Text(title)
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .lineLimit(2)
+            }
+
+            if let warning = request.warning {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(warning.title, systemImage: Theme.symbol(for: .yourCall))
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                    Text(warning.subtitle).font(.callout).foregroundStyle(.secondary)
+                    Text(warning.reason).font(.callout).lineLimit(nil)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.Airy.riskFill(.yourCall).opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+
+            if !apps.isEmpty { rowBlock(apps) }
+            if !loose.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Revisa: puede que estés usándolo", systemImage: Theme.symbol(for: .yourCall))
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                    Text(QuitPolicy.looseWarning).font(.caption).foregroundStyle(.secondary).lineLimit(nil)
+                    rowBlock(loose)
+                }
+                .padding(10)
+                .background(Theme.Airy.riskFill(.yourCall).opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            Label(isForce ? "No respondió al cierre normal. Se perderá lo que no esté guardado."
+                          : "Primero se pide a cada app que se cierre; si tiene algo sin guardar, te lo preguntará.",
+                  systemImage: isForce ? "exclamationmark.triangle.fill" : "info.circle")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(nil)
+
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Cancelar") { flow.cancelSheet() }
+                    .keyboardShortcut(.cancelAction)
+                    .controlSize(.large)
+                // Forzar: rol destructivo y sin Intro.
+                PrimaryButton(isForce ? "Forzar cierre" : "Cerrar", systemImage: isForce ? "xmark.octagon" : "power",
+                              style: isForce ? .destructive : .primary) {
+                    flow.confirm(request, model: model)
+                }
+                .fixedSize()
+            }
+        }
+    }
+
+    private func rowBlock(_ groups: [AppGroup]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(groups) { group in
+                HStack {
+                    Text(group.detail.map { "\(group.name) · \($0)" } ?? group.name)
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                    Spacer()
+                    Text("\(Format.bytes(group.memory)) · \(group.pids.count == 1 ? "1 proceso" : "\(group.pids.count) procesos")")
+                        .font(.callout)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+        }
+        .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }

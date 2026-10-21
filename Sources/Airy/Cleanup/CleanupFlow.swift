@@ -16,6 +16,10 @@ final class CleanupFlow {
             case emptyTrash(Int64?)
             /// Rutas sueltas (mapa o asistente) que irán a la Papelera con `AppModel.trash(paths:title:)`.
             case trashPaths([String], title: String)
+            /// Cerrar apps de Rendimiento (cierre normal primero) por `AppModel.quit` → `QuitExecutor`.
+            case quitApps([AppGroup])
+            /// Forzar el cierre de lo que no respondió; siempre una segunda confirmación aparte.
+            case forceQuitApps([AppGroup])
         }
         /// Primer paso opcional ("Esto depende de ti" del asistente): la confirmación real llega
         /// solo tras "Sí, quiero moverlo…".
@@ -118,6 +122,18 @@ final class CleanupFlow {
                                         proposedVia: proposedVia, onConfirm: onConfirm, onOutcome: onOutcome))
     }
 
+    func requestQuit(_ groups: [AppGroup], warning: ConfirmRequest.Warning? = nil, proposedBy: String? = nil,
+                     proposedVia: String? = nil) {
+        guard !groups.isEmpty, !isBusy else { return }
+        sheet = .confirm(ConfirmRequest(kind: .quitApps(groups), warning: warning, proposedBy: proposedBy,
+                                        proposedVia: proposedVia))
+    }
+
+    func requestForceQuit(_ groups: [AppGroup]) {
+        guard !groups.isEmpty, !isBusy else { return }
+        sheet = .confirm(ConfirmRequest(kind: .forceQuitApps(groups)))
+    }
+
     func requestEmptyTrash(_ model: AppModel) {
         guard !isBusy else { return }
         sheet = .confirm(ConfirmRequest(kind: .emptyTrash(model.trashBytes)))
@@ -160,6 +176,12 @@ final class CleanupFlow {
             start(request)
             queuedIDs = [title]
             Task { await trash(paths: paths, title: title, model: model, context: context, onOutcome: request.onOutcome) }
+        case .quitApps(let groups), .forceQuitApps(let groups):
+            var force = false
+            if case .forceQuitApps = request.kind { force = true }
+            start(request)
+            queuedIDs = groups.map(\.id)
+            Task { await quit(groups, force: force, model: model, context: context) }
         }
     }
 
@@ -237,6 +259,28 @@ final class CleanupFlow {
         var summary = CleanupRunSummary()
         summary.record(id: title, title: title, outcome: outcome)
         withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
+    }
+
+    // MARK: Cerrar apps (Rendimiento)
+
+    /// De una en una; nunca encadena «Forzar» sin otra confirmación.
+    private func quit(_ groups: [AppGroup], force: Bool, model: AppModel, context: OperationContext) async {
+        let session = model.performance
+        for group in groups {
+            currentID = group.id
+            queuedIDs.removeAll { $0 == group.id }
+            session.markClosing(group.id, true)
+            let outcome = force ? await model.forceQuit(group, context: context)
+                                : await model.quit(group, context: context)
+            session.markClosing(group.id, false)
+            switch outcome {
+            case .closed: withAnimation(Theme.zoomSpring) { session.markClosed(group.id) }
+            case .didNotClose: session.markUnresponsive(group.id)
+            case .blocked(let message), .failed(let message): session.setMessage(group.id, message)
+            }
+        }
+        currentID = nil
+        queuedIDs = []
     }
 
     // MARK: Vaciar Papelera
