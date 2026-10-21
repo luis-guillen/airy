@@ -12,7 +12,7 @@
 <p align="center">
   <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-0b1b3f?logo=apple" alt="macOS 15+">
-  <img src="https://img.shields.io/badge/Swift-6.4-F05138?logo=swift&logoColor=white" alt="Swift 6.4">
+  <img src="https://img.shields.io/badge/Swift-6.3%2B-F05138?logo=swift&logoColor=white" alt="Swift 6.3+">
   <img src="https://img.shields.io/badge/SwiftUI-nativo-2f8bff" alt="SwiftUI">
   <img src="https://img.shields.io/badge/licencia-privada-lightgrey" alt="Licencia privada">
 </p>
