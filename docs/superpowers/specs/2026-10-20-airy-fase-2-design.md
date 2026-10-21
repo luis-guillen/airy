@@ -1,224 +1,224 @@
-# Airy — Diseño de la fase 2 (rebranding, Rendimiento, limpieza agresiva, MCP)
+# Airy — Phase 2 Design (rebranding, Performance, aggressive cleanup, MCP)
 
-Fecha: 2026-10-20
-Estado: listo para aprobación
-Parte de: `2026-10-20-diskmap-design.md` (el diseño de la fase 1 sigue vigente salvo donde este documento lo cambia).
+Date: 2026-10-20
+Status: ready for approval
+Part of: `2026-10-20-diskmap-design.md` (the phase 1 design remains in force except where this document changes it).
 
-## 1. Qué es y por qué
+## 1. What it is and why
 
-DiskMap pasa a llamarse **Airy** y deja de ser solo un mapa del disco: ahora **le quita peso al Mac** en todos los sentidos — espacio en disco, memoria, swap, procesos que calientan el equipo. La idea de marca es **ligereza y viento**: lo que sobra "se lo lleva el viento".
+DiskMap is renamed **Airy** and stops being just a disk map: it now **takes weight off the Mac** in every sense — disk space, memory, swap, processes that heat up the machine. The brand idea is **lightness and wind**: whatever is surplus gets "carried away by the wind".
 
-El usuario quiere tres cosas, en este orden de importancia:
-1. **El servidor MCP** (lo más importante): que Claude Code, Codex, opencode y otros agentes puedan consultar y limpiar el Mac a través de Airy.
-2. **Que la app sea clara**: que diga sin rodeos qué se puede borrar y qué no, y que lo que es seguro se pueda borrar sin miedo; que el estado del Mac (memoria, swap, temperatura) se entienda sin saber leer el Monitor de Actividad.
-3. **Limpieza agresiva** de cachés de desarrollo (Docker, Node, etc.) con sus prunes, con selección múltiple y "borrar todo", y una marca nueva con **muchas animaciones** de viento.
+The user wants three things, in this order of importance:
+1. **The MCP server** (most important): so that Claude Code, Codex, opencode and other agents can query and clean the Mac through Airy.
+2. **A clear app**: one that says plainly what can be deleted and what cannot, and where what is safe can be deleted without fear; and where the state of the Mac (memory, swap, temperature) can be understood without knowing how to read Activity Monitor.
+3. **Aggressive cleanup** of development caches (Docker, Node, etc.) with their prunes, with multiple selection and "delete all", and a new brand with **lots of** wind animations.
 
-**Éxito:** el usuario abre Airy, en un vistazo sabe si el Mac va bien o qué lo está frenando, cierra lo que pesa, borra de golpe varios GB de cachés de desarrollo sin miedo, y un agente puede hacer lo mismo por MCP. Y la app es bonita y se siente "aire".
+**Success:** the user opens Airy, knows at a glance whether the Mac is doing well or what is slowing it down, closes whatever is heavy, deletes several GB of development caches in one go without fear, and an agent can do the same through MCP. And the app is beautiful and feels "airy".
 
-## 2. Objetivos
+## 2. Goals
 
 ### 2.1 Rebranding: Airy
 
-- **Nombre:** **Airy** (elección del usuario entre Lightweight, Brisa, Airy y Lighter).
-- **Logo:** **remolino de viento con hojas** (opción C del usuario frente a "una hoja" y "tres hojas volando"). Squircle con degradado de turquesa (`#2fd0ff`) a azul índigo (`#2a3bd9`), tres arcos concéntricos de viento en blanco translúcido y hojas blancas/celestes girando. El círculo evoca un disco y un medidor.
-  - Versión simplificada para tamaños pequeños (≤ 64 px: barra de menús, listas, Finder): un solo arco grueso y una hoja (en tamaño pequeño los arcos finos se pierden). *Decisión de Claude.*
-  - En la app, el logo puede animarse (remolino girando despacio); el `.icns` es estático.
-- **Paleta:** opción B del usuario, **"azul con acentos fríos" y contraste fuerte**:
-  - La interfaz (fondos, barra lateral, botones, acentos) es azul: noche `#07112a`/`#0d2350`, azul `#2f8bff`, cielo `#5ab8ff`, texto `#f2f7ff`/secundario `#b9cdf0`.
-  - El mapa de bloques usa la **gama fría completa** (azules, turquesas, violetas, índigo) para que cada tipo de contenido se distinga.
-  - **Contraste fuerte** (petición del usuario): texto e indicadores con contraste WCAG AA como mínimo (4,5:1 en texto normal).
-  - **Colores de seguridad** fijos aunque la app sea azul: verde `#1fdc7a` (sin problema), ámbar `#ffb020` (tú decides), rojo `#ff4d5e` (no borrar). Son señales, no decoración. *Decisión de Claude.*
-  - Modo claro y oscuro (la paleta de arriba es la oscura; la clara la deriva el constructor con el mismo contraste).
-- **Cambio de identidad técnica:** nombre visible, icono, `CFBundleName`, bundle id (`local.airy.Airy`), carpeta de datos (`~/Library/Application Support/Airy`, migrando la de DiskMap al primer arranque), identidad de firma ("Airy Local Signing"), esquema de URL (`airy://`), ejecutable MCP (`airy-mcp`) y `/Applications/Airy.app` (borrando el `DiskMap.app` antiguo tras instalar). El usuario tendrá que **volver a dar Acceso total al disco una vez** (macOS lo liga a la identidad); la app lo detecta y guía, como ya hace.
+- **Name:** **Airy** (user's choice among Lightweight, Brisa, Airy and Lighter).
+- **Logo:** **wind swirl with leaves** (user's option C over "one leaf" and "three flying leaves"). Squircle with a gradient from turquoise (`#2fd0ff`) to indigo blue (`#2a3bd9`), three concentric wind arcs in translucent white and white/light-blue leaves spinning. The circle evokes a disk and a gauge.
+  - Simplified version for small sizes (≤ 64 px: menu bar, lists, Finder): a single thick arc and one leaf (at small sizes thin arcs get lost). *Claude's decision.*
+  - In the app, the logo may be animated (swirl turning slowly); the `.icns` is static.
+- **Palette:** user's option B, **"blue with cool accents" and strong contrast**:
+  - The interface (backgrounds, sidebar, buttons, accents) is blue: night `#07112a`/`#0d2350`, blue `#2f8bff`, sky `#5ab8ff`, text `#f2f7ff`/secondary `#b9cdf0`.
+  - The block map uses the **full cool range** (blues, turquoises, violets, indigo) so that each content type stands out.
+  - **Strong contrast** (user request): text and indicators with at least WCAG AA contrast (4.5:1 for normal text).
+  - Fixed **safety colors** even though the app is blue: green `#1fdc7a` (no problem), amber `#ffb020` (you decide), red `#ff4d5e` (do not delete). They are signals, not decoration. *Claude's decision.*
+  - Light and dark mode (the palette above is the dark one; the builder derives the light one with the same contrast).
+- **Technical identity change:** visible name, icon, `CFBundleName`, bundle id (`local.airy.Airy`), data folder (`~/Library/Application Support/Airy`, migrating the DiskMap one on first launch), signing identity ("Airy Local Signing"), URL scheme (`airy://`), MCP executable (`airy-mcp`) and `/Applications/Airy.app` (deleting the old `DiskMap.app` after installing). The user will have to **grant Full Disk Access again once** (macOS ties it to the identity); the app detects this and guides, as it already does.
 
-### 2.2 Animaciones de marca (viento)
+### 2.2 Brand animations (wind)
 
-Propuesta de Claude aceptada por el usuario ("muchas animaciones con la marca"):
-- **Arranque:** hojas que giran en remolino y forman el logo.
-- **Análisis:** brisa que cruza la ventana; hojas orbitando el anillo de progreso.
-- **Borrar un elemento:** el bloque o la fila se deshace en hojas que se lleva el viento; el contador de espacio liberado sube.
-- **"Borrar todo":** una ráfaga grande barre la lista de izquierda a derecha.
-- **Rendimiento:** el remolino gira más rápido cuanto más carga de CPU; con el Mac caliente, el azul tira a naranja; al cerrar una app, su fila sale volando como una hoja.
-- **Siempre:** brisa muy suave de fondo; botones que se mecen ligeramente al pasar el ratón.
-- **Límites:** respetar "Reducir movimiento" de macOS (sustituir por fundidos); 60–120 fps; **cero CPU en reposo** (la brisa de fondo se pausa cuando la ventana no está visible o activa, como ya hace el mapa).
+Claude's proposal accepted by the user ("lots of animations with the brand"):
+- **Launch:** leaves spinning in a swirl and forming the logo.
+- **Analysis:** a breeze crossing the window; leaves orbiting the progress ring.
+- **Deleting an item:** the block or row breaks apart into leaves carried off by the wind; the freed-space counter goes up.
+- **"Delete all":** a big gust sweeps the list from left to right.
+- **Performance:** the swirl spins faster the higher the CPU load; with the Mac hot, the blue shifts toward orange; when an app is closed, its row flies off like a leaf.
+- **Always:** a very soft background breeze; buttons that sway slightly on hover.
+- **Limits:** respect macOS "Reduce Motion" (replace with fades); 60–120 fps; **zero CPU at rest** (the background breeze pauses when the window is not visible or active, as the map already does).
 
-### 2.3 Perfil de usuario ("¿Cómo usas tu Mac?") — RETIRADO
+### 2.3 User profile ("How do you use your Mac?") — WITHDRAWN
 
-> **Decisión del usuario (20-10-2026):** se quita la pregunta del perfil ("es un poco evidente"). No hay pregunta al arrancar ni perfil en Ajustes; lo que se sugiere y preselecciona depende solo del riesgo y del modo (Agresivo/Prudente). El texto de abajo queda como histórico.
+> **User decision (2026-10-20):** the profile question is removed ("it's a bit obvious"). There is no question at launch nor a profile in Settings; what is suggested and preselected depends only on risk and on the mode (Aggressive/Cautious). The text below remains for the record.
 
 
-- Pregunta en el **primer arranque** (y editable en Ajustes), selección múltiple: **Programo**, **Diseño, foto o vídeo**, **Uso IA en local**, **Juego**, **Música y audio**, **Uso básico**.
-- El perfil cambia **qué sugiere Airy y en qué orden** (qué entradas del catálogo se muestran destacadas, cuáles se preseleccionan, textos de explicación), p. ej.:
-  - Programo → cachés de Docker, Node/pnpm/yarn/bun, uv/pip/conda, cargo, Xcode (DerivedData, simuladores antiguos, archivos de dispositivos), `node_modules`/`.venv`/`target` viejos.
-  - IA en local → modelos de Ollama, LM Studio, Hugging Face que no se usan hace meses.
-  - Diseño/vídeo → cachés de render y previsualizaciones (Adobe, Final Cut, DaVinci).
-  - Juego → juegos y bottles (Steam, Epic, Whisky) sin abrir hace meses.
-  - Música → librerías de sonidos de Logic/GarageBand no usadas.
-  - Uso básico → solo lo más evidente y sin riesgo (navegadores, logs, Papelera, descargas viejas como "tú decides").
-- **Regla inviolable:** el perfil **nunca** convierte en "sin problema" nada protegido (anti-objetivos de la fase 1 y §4). Solo reordena, destaca y preselecciona dentro del catálogo.
+- Question at **first launch** (and editable in Settings), multiple selection: **I code**, **Design, photo or video**, **I use local AI**, **I game**, **Music and audio**, **Basic use**.
+- The profile changes **what Airy suggests and in what order** (which catalog entries are shown prominently, which are preselected, explanation texts), e.g.:
+  - I code → Docker caches, Node/pnpm/yarn/bun, uv/pip/conda, cargo, Xcode (DerivedData, old simulators, device files), old `node_modules`/`.venv`/`target`.
+  - Local AI → Ollama, LM Studio, Hugging Face models unused for months.
+  - Design/video → render caches and previews (Adobe, Final Cut, DaVinci).
+  - Gaming → games and bottles (Steam, Epic, Whisky) not opened for months.
+  - Music → unused Logic/GarageBand sound libraries.
+  - Basic use → only the most obvious and risk-free (browsers, logs, Trash, old downloads as "you decide").
+- **Inviolable rule:** the profile **never** turns anything protected into "no problem" (phase 1 anti-goals and §4). It only reorders, highlights and preselects within the catalog.
 
-### 2.4 Claridad: qué se puede borrar y qué no
+### 2.4 Clarity: what can be deleted and what cannot
 
-Petición del usuario: "que diga claramente qué cosas se pueden borrar y qué no, y si es seguro, que se pueda sin problema".
-- Tres etiquetas de alto contraste en **toda** la app (Limpieza, Mapa, Desinstalador, Grandes y viejos, Duplicados, Asistente, MCP):
-  - 🟢 **Sin problema** — se borra sin miedo; siempre dice por qué ("se vuelve a descargar sola", "Xcode la rehace").
-  - 🟠 **Tú decides** — dice qué pierdes ("tendrías que volver a bajar 40 GB").
-  - 🔴 **No borrar** — dice por qué; **sin botón de borrar**.
-- Lista agrupada por esas tres etiquetas, verde arriba.
-- Son los mismos tres niveles de riesgo de la fase 1 ("Borrar sin riesgo / Depende de ti / No tocar"), con los nuevos textos visibles. *El constructor puede renombrar los textos internos o no.*
+User request: "make it say clearly which things can be deleted and which cannot, and if it's safe, let it be done without a problem".
+- Three high-contrast labels across **the whole** app (Cleanup, Map, Uninstaller, Large & old, Duplicates, Assistant, MCP):
+  - 🟢 **No problem** — can be deleted without fear; always says why ("it re-downloads itself", "Xcode rebuilds it").
+  - 🟠 **You decide** — says what you lose ("you'd have to download 40 GB again").
+  - 🔴 **Do not delete** — says why; **no delete button**.
+- List grouped by those three labels, green on top.
+- They are the same three risk levels as phase 1 ("Safe to delete / Up to you / Don't touch"), with the new visible texts. *The builder may rename the internal texts or not.*
 
-### 2.5 Limpieza agresiva
+### 2.5 Aggressive cleanup
 
-Petición del usuario: "que sea agresivo, hay que borrar muchas cosas de las cachés de Docker, Node y todo, y sobre todo los prunes".
-- **Modo por defecto: Agresivo.** Ajuste "Prudente" disponible que vuelve al comportamiento de la fase 1. *Decisión de Claude* (el usuario pidió agresivo; prudente queda como red).
-- **Nuevas acciones del catálogo (comandos oficiales):**
-  - Docker (si el demonio está activo): `docker builder prune -a -f`, `docker image prune -a -f` (todas las imágenes sin usar, no solo huérfanas), `docker container prune -f`, `docker network prune -f`. **Nunca** `--volumes` ni `docker volume prune`.
+User request: "make it aggressive, there are lots of things to delete from the Docker, Node and everything caches, and above all the prunes".
+- **Default mode: Aggressive.** A "Cautious" setting is available that returns to phase 1 behavior. *Claude's decision* (the user asked for aggressive; cautious stays as a safety net).
+- **New catalog actions (official commands):**
+  - Docker (if the daemon is running): `docker builder prune -a -f`, `docker image prune -a -f` (all unused images, not just dangling ones), `docker container prune -f`, `docker network prune -f`. **Never** `--volumes` nor `docker volume prune`.
   - Node: `npm cache clean --force`, `pnpm store prune`, `yarn cache clean`, `bun pm cache rm`.
-  - Python/otros (ya en fase 1, revisar que estén todos): `uv cache clean`, `pip cache purge`, `conda clean --all -y`, `brew cleanup --prune=all -s`, cargo registry/git.
-  - Xcode: `xcrun simctl delete unavailable`, DerivedData, `~/Library/Developer/Xcode/iOS DeviceSupport` antiguos, `~/Library/Developer/CoreSimulator/Caches`.
-- **Clasificación en modo agresivo:**
-  - Verde: cachés de herramientas y su caché de compilación, imágenes Docker sin usar (se vuelven a descargar o reconstruir), redes sin uso, caches de Node/Python/Rust/Homebrew, DerivedData, simuladores no disponibles.
-  - Ámbar **preseleccionado**: contenedores Docker parados (pueden guardar estado en su capa), `node_modules`/`.venv`/`target`/`.next`/`build` de proyectos sin tocar hace ≥ 3 meses (están en carpetas personales; se regeneran con `npm install` etc.). *Decisión de Claude.*
-  - Rojo siempre: volúmenes de Docker, documentos, iCloud, Mail, Mensajes, Llavero, Fotos, Calendarios, Contactos, Aplicaciones, sistema, runtimes en uso. Igual que la fase 1.
-- **Selección múltiple:** casillas por fila, "Seleccionar todo lo verde", "Seleccionar todo" (solo verde + ámbar; el rojo nunca se selecciona), y botón **"Borrar todo · X GB"**. **Una sola** hoja de confirmación con la lista completa, el total y qué es Papelera / qué es comando. Se ejecuta en secuencia con progreso por fila y resumen final (lo que funcionó, lo que falló y por qué).
-- "Hasta X GB" para los comandos que no garantizan liberar todo (como en la fase 1).
+  - Python/others (already in phase 1, check that all are present): `uv cache clean`, `pip cache purge`, `conda clean --all -y`, `brew cleanup --prune=all -s`, cargo registry/git.
+  - Xcode: `xcrun simctl delete unavailable`, DerivedData, old `~/Library/Developer/Xcode/iOS DeviceSupport`, `~/Library/Developer/CoreSimulator/Caches`.
+- **Classification in aggressive mode:**
+  - Green: tool caches and their build caches, unused Docker images (re-downloaded or rebuilt), unused networks, Node/Python/Rust/Homebrew caches, DerivedData, unavailable simulators.
+  - Amber **preselected**: stopped Docker containers (they may hold state in their layer), `node_modules`/`.venv`/`target`/`.next`/`build` of projects untouched for ≥ 3 months (they are in personal folders; they regenerate with `npm install` etc.). *Claude's decision.*
+  - Always red: Docker volumes, documents, iCloud, Mail, Messages, Keychain, Photos, Calendars, Contacts, Applications, system, runtimes in use. Same as phase 1.
+- **Multiple selection:** checkboxes per row, "Select everything green", "Select all" (only green + amber; red is never selected), and a **"Delete all · X GB"** button. **A single** confirmation sheet with the full list, the total and which items go to the Trash / which are commands. It runs in sequence with per-row progress and a final summary (what worked, what failed and why).
+- "Up to X GB" for commands that do not guarantee freeing everything (as in phase 1).
 
 
-### 2.5b Instalaciones duplicadas de desarrollo (añadido 20-10-2026, petición del usuario)
+### 2.5b Duplicate development installs (added 2026-10-20, user request)
 
-"También instalaciones duplicadas de cosas de desarrollo, dependencias y eso." Airy detecta varias versiones instaladas de la misma herramienta y propone quitar las que sobran:
-- **Lenguajes y toolchains:** Python (pyenv, conda/miniconda/anaconda, Homebrew `python@3.x`, python.org en /Library/Frameworks — este último solo informativo), entornos de conda, Node (nvm, fnm, volta, asdf, Homebrew `node@x`), Ruby (rbenv, rvm, asdf), Java/JDK (`/Library/Java/JavaVirtualMachines` solo informativo; SDKMAN, Homebrew `openjdk@x`), Rust (`rustup toolchain list`), Go (varias versiones en `~/sdk`, Homebrew `go@x`), Xcode (varias `Xcode*.app`) y simuladores.
-- **Dependencias duplicadas:** `node_modules` del mismo paquete repetidos entre proyectos (información + sugerir pnpm), varias copias de modelos de IA idénticos (ya cubierto por Duplicados), virtualenvs duplicados.
-- **Qué versión se usa:** se marca como **en uso** (rojo, no se ofrece) la versión por defecto (PATH actual, `pyenv global`, `nvm alias default`, `rustup default`, `xcode-select -p`) y cualquier versión que pida un proyecto (`.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `rust-toolchain(.toml)`, `.ruby-version`, `pom/gradle` toolchains si es fácil) dentro de las raíces de proyectos de §2.5.
-- **Riesgo:** las demás versiones son **ámbar**; en Agresivo se preseleccionan solo si llevan ≥ 3 meses sin usarse (fecha de último acceso del ejecutable o de su carpeta) y nada las pide; nunca verde. Lo que está bajo `/Library`, `/Applications` o `/System` es solo informativo salvo `Xcode*.app` (que pasa por el Desinstalador).
-- **Cómo se quita:** siempre con el comando oficial (`pyenv uninstall -f`, `conda env remove -n`, `nvm uninstall`, `fnm uninstall`, `volta uninstall`, `rbenv uninstall -f`, `rustup toolchain uninstall`, `brew uninstall` solo si `brew uses --installed` no lo necesita), o a la Papelera si la herramienta no tiene comando. Siempre por el embudo y con confirmación; el MCP solo lo lista (nunca lo ejecuta, porque es ámbar).
+"Also duplicate installs of development things, dependencies and so on." Airy detects several installed versions of the same tool and proposes removing the surplus ones:
+- **Languages and toolchains:** Python (pyenv, conda/miniconda/anaconda, Homebrew `python@3.x`, python.org in /Library/Frameworks — the latter informational only), conda environments, Node (nvm, fnm, volta, asdf, Homebrew `node@x`), Ruby (rbenv, rvm, asdf), Java/JDK (`/Library/Java/JavaVirtualMachines` informational only; SDKMAN, Homebrew `openjdk@x`), Rust (`rustup toolchain list`), Go (several versions in `~/sdk`, Homebrew `go@x`), Xcode (several `Xcode*.app`) and simulators.
+- **Duplicate dependencies:** `node_modules` of the same package repeated across projects (information + suggest pnpm), several copies of identical AI models (already covered by Duplicates), duplicate virtualenvs.
+- **Which version is in use:** the default version (current PATH, `pyenv global`, `nvm alias default`, `rustup default`, `xcode-select -p`) and any version that a project asks for (`.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `rust-toolchain(.toml)`, `.ruby-version`, `pom/gradle` toolchains if easy) within the project roots of §2.5 is marked as **in use** (red, not offered).
+- **Risk:** the other versions are **amber**; in Aggressive mode they are preselected only if they have gone ≥ 3 months unused (last-access date of the executable or its folder) and nothing asks for them; never green. Anything under `/Library`, `/Applications` or `/System` is informational only except `Xcode*.app` (which goes through the Uninstaller).
+- **How it is removed:** always with the official command (`pyenv uninstall -f`, `conda env remove -n`, `nvm uninstall`, `fnm uninstall`, `volta uninstall`, `rbenv uninstall -f`, `rustup toolchain uninstall`, `brew uninstall` only if `brew uses --installed` does not need it), or to the Trash if the tool has no command. Always through the funnel and with confirmation; the MCP only lists it (never executes it, because it is amber).
 
-### 2.6 Rendimiento (sección nueva)
+### 2.6 Performance (new section)
 
-Petición del usuario: "coges toda la información del Monitor de Actividad y lo pones de manera que el usuario lo entienda; ver si el Mac está muy caliente y poder cerrar cosas". IA opcional.
-- **Estado general** arriba, en una frase generada por **reglas fijas** (sin IA): "Tu Mac va bien", "Tu Mac va justo de memoria: Chrome y Docker se llevan el 60 %", "Tu Mac se está calentando y ha bajado la velocidad", etc.
-- **Memoria:** usada / libre / caché de archivos, **presión de memoria** (verde/amarillo/rojo, como el Monitor de Actividad) y **swap** usada, con explicación sencilla de qué es la swap y por qué crece.
-- **Temperatura:** estado térmico de macOS (normal / caliente / muy caliente / crítico) y si el sistema está **reduciendo la velocidad** para enfriarse. Sin grados en esta fase: leerlos exige interfaces privadas de Apple que pueden romperse. *Decisión de Claude.*
-- **CPU y energía:** qué apps consumen más procesador y energía ahora.
-- **"Lo que más pesa":** lista de **apps agrupadas con sus procesos** (Chrome + sus procesos auxiliares cuentan como Chrome; procesos sueltos como `node` o `python` aparecen con su comando/proyecto si se puede saber), ordenada por impacto (memoria, CPU), con una línea de qué es cada una (catálogo, como en el disco).
-- **Cerrar:** botón **Cerrar** por fila, con la confirmación habitual (ConfirmSheet). Primero cierre normal (la app puede pedir guardar); **"Forzar cierre"** solo si no responde. Selección múltiple para cerrar varias. *Decisión de Claude.*
-  - **Nunca** se ofrecen para cerrar: procesos del sistema o de otros usuarios, Finder, Dock, WindowServer, loginwindow, SystemUIServer, Control Center, el propio Airy ni su MCP. Procesos de terminal del usuario (`node`, `python`, servidores locales) sí, en ámbar ("puede que estés usándolo").
-- **Sin botón mágico de "liberar RAM"** (postura de Claude, aceptada): macOS gestiona la memoria solo y esos botones no ayudan de verdad; lo que alivia es cerrar lo que más consume, y eso es lo que ofrece Airy. Este cambio sustituye el no-objetivo de la fase 1 "no es optimizador de RAM": ahora lo es, pero solo de forma honesta.
-- **IA opcional:** botón "¿Por qué va lento?" que manda a Claude solo números y nombres de apps (nunca contenido), con la misma invocación cerrada que el Asistente.
-- **Ligereza:** las mediciones solo se hacen mientras la sección (o el MCP) las pide; refresco cada 1–2 s con la sección visible y nada en segundo plano.
+User request: "you take all the Activity Monitor information and present it in a way the user understands; see whether the Mac is very hot and be able to close things". Optional AI.
+- **Overall status** at the top, in one sentence generated by **fixed rules** (no AI): "Your Mac is doing fine", "Your Mac is tight on memory: Chrome and Docker take 60 %", "Your Mac is heating up and has slowed down", etc.
+- **Memory:** used / free / file cache, **memory pressure** (green/yellow/red, like Activity Monitor) and **swap** used, with a simple explanation of what swap is and why it grows.
+- **Temperature:** macOS thermal state (normal / hot / very hot / critical) and whether the system is **throttling** to cool down. No degrees in this phase: reading them requires private Apple interfaces that may break. *Claude's decision.*
+- **CPU and energy:** which apps consume the most processor and energy right now.
+- **"What weighs the most":** list of **apps grouped with their processes** (Chrome + its helper processes count as Chrome; stray processes such as `node` or `python` appear with their command/project if it can be determined), sorted by impact (memory, CPU), with a line saying what each one is (catalog, as on disk).
+- **Quit:** a **Quit** button per row, with the usual confirmation (ConfirmSheet). First a normal quit (the app may ask to save); **"Force quit"** only if it does not respond. Multiple selection to quit several. *Claude's decision.*
+  - **Never** offered for quitting: system processes or those of other users, Finder, Dock, WindowServer, loginwindow, SystemUIServer, Control Center, Airy itself nor its MCP. The user's terminal processes (`node`, `python`, local servers) are, in amber ("you may be using it").
+- **No magic "free RAM" button** (Claude's stance, accepted): macOS manages memory by itself and such buttons do not really help; what relieves it is closing what consumes the most, and that is what Airy offers. This change replaces the phase 1 non-goal "it is not a RAM optimizer": it now is one, but only in an honest way.
+- **Optional AI:** a "Why is it slow?" button that sends Claude only numbers and app names (never content), with the same closed invocation as the Assistant.
+- **Lightness:** measurements are only taken while the section (or the MCP) requests them; refresh every 1–2 s with the section visible and nothing in the background.
 
-### 2.7 Secciones de la fase 2 ya diseñadas
+### 2.7 Phase 2 sections already designed
 
-Se construyen tal como las describe el diseño de la fase 1 (§2, puntos 3–6): **Desinstalador**, **Grandes y viejos**, **Duplicados**, **Tipos de archivo**, con las etiquetas de §2.4, selección múltiple y las animaciones de §2.2.
+They are built as the phase 1 design describes them (§2, points 3–6): **Uninstaller**, **Large & old**, **Duplicates**, **File types**, with the labels of §2.4, multiple selection and the animations of §2.2.
 
-### 2.8 Servidor MCP (lo más importante)
+### 2.8 MCP server (most important)
 
-Aprobado por el usuario: se construye **tal como describe §7b del diseño de la fase 1**, con estos cambios:
-- Nombre del ejecutable `airy-mcp`, esquema `airy://`, ajustes en `~/Library/Application Support/Airy/agents.json`; servidor MCP registrado como `airy`.
-- **"Sin riesgo" respeta el modo** (Agresivo/Prudente) que el usuario tiene en la app: `run_safe_cleanup` solo ejecuta lo que la app marca en verde con el modo actual.
-- **Nuevas herramientas:**
-  - `run_safe_cleanup_all`: ejecuta todos los elementos verdes no bloqueados de una vez (equivale a "Borrar todo lo verde"), con el mismo interruptor.
-  - `get_performance`: memoria, presión, swap, estado térmico, top de apps por memoria/CPU (solo lectura).
-  - `propose_quit_app(app)`: abre Airy con la confirmación de cierre preparada; cerrar apps **nunca** lo hace el agente sin el clic del usuario.
-- La pestaña "Conectar agente" mantiene sus instrucciones de copia para Claude Code, Codex, opencode y JSON genérico, el interruptor y el registro de actividad.
+Approved by the user: it is built **as §7b of the phase 1 design describes**, with these changes:
+- Executable name `airy-mcp`, scheme `airy://`, settings in `~/Library/Application Support/Airy/agents.json`; MCP server registered as `airy`.
+- **"Safe" respects the mode** (Aggressive/Cautious) that the user has in the app: `run_safe_cleanup` only executes what the app marks green under the current mode.
+- **New tools:**
+  - `run_safe_cleanup_all`: executes all unblocked green items at once (equivalent to "Delete everything green"), with the same switch.
+  - `get_performance`: memory, pressure, swap, thermal state, top apps by memory/CPU (read-only).
+  - `propose_quit_app(app)`: opens Airy with the quit confirmation prepared; quitting apps is **never** done by the agent without the user's click.
+- The "Connect agent" tab keeps its copy instructions for Claude Code, Codex, opencode and generic JSON, the switch and the activity log.
 
-### 2.9 Lo que se aprende de Mole (eficacia y capacidad)
+### 2.9 What is learned from Mole (effectiveness and capability)
 
-Petición del usuario: "que sea como Mole en eficacia y capacidad". Estudio completo, de solo lectura, en `docs/superpowers/research/2026-10-20-mole-inspiracion.md`. Mole es **GPL-3.0**: se adaptan **ideas y listas de rutas**, nunca código (ni traducido línea a línea); se le cita como inspiración en "Acerca de". Se adopta (números = fila de la tabla §6 del estudio):
+User request: "make it like Mole in effectiveness and capability". Full, read-only study in `docs/superpowers/research/2026-10-20-mole-inspiracion.md`. Mole is **GPL-3.0**: **ideas and path lists** are adapted, never code (not even translated line by line); it is credited as inspiration in "About". Adopted (numbers = row of the §6 table of the study):
 
-- **Seguridad del borrado (requisitos de ingeniería):**
-  - **Embudo único** de borrado con validación de ruta: absoluta, sin `..` ni caracteres de control, enlaces simbólicos y ancestros resueltos, raíces críticas comparadas por inodo y sin distinguir mayúsculas, rechazo de `~` entero, e identidad del archivo comprobada otra vez justo antes de borrar (#1).
-  - **Guardián de proceso en tres estados** (corriendo / parado / desconocido ⇒ saltar) por familia de limpieza, y guardián de caché viva (proceso dueño o base SQLite abierta) (#2).
-  - **Lista de protecciones duras ampliada** con la de Mole (§2.15 del estudio), siempre re-aplicada encima de cualquier ajuste del usuario (#3).
-  - **Presupuestos de tiempo y fallo cerrado** en cada sondeo; **honestidad de análisis** (completo / parcial / no disponible, tamaños con "+" si parcial) (#31, #32).
-- **Control del usuario:**
-  - **"Proteger esto"**: lista blanca de rutas/patrones del usuario, respetada por la app y el MCP (#4).
-  - **Vista previa** sin borrar (también `dry_run: true` en las herramientas de acción del MCP) y **registro exportable** (JSON) con identificador de ejecución y autor (usuario o agente) (#5).
-- **Más objetivos de limpieza:**
-  - Instaladores `.dmg/.pkg/.mpkg/.iso/.xip` y `.zip` con instalador en Descargas/Escritorio/Documentos → ámbar; caché de Homebrew → verde (#7).
-  - Catálogo de artefactos de proyecto ampliado (`Pods`, `.gradle`, `.dart_tool`, `.build`, `.turbo`, `.angular`, `.svelte-kit`, `.astro`, `.tox`, `__pycache__`, `CACHEDIR.TAG`…) con guardias: repositorio anidado, claves `*-keypair.json`, archivos rastreados por Git, `bin`/`vendor` solo si son .NET/Composer (#8). Sigue la regla de "≥ 3 meses" de Airy, más prudente que Mole.
-  - Navegadores Chromium completos (todos los derivados, `Code Cache`, `GPUCache`, `ShaderCache`, Service Worker CacheStorage, versiones antiguas del framework dentro del `.app`) y heurística de caché regenerable en Application Support (#9).
-  - Xcode fino: conservar las **2** versiones más recientes de DeviceSupport, XCTestDevices, DocumentationCache, `simctl runtime delete` de runtimes huérfanos, solo con Xcode y simuladores parados (#12).
-  - Cola larga de cachés de desarrollo con comando oficial cuando existe (Go, Poetry, Ruff, mypy, Bundler, Composer, Gradle, Swift PM, Flutter, Expo, Electron, node-gyp, Prisma, Corepack, Terraform…) (#13).
-  - Cachés de apps de usuario (comunicación, creativas, medios, juegos, utilidades, oficina), ordenadas por perfil; **nunca** cachés de Mensajes ni de Mail (#14).
-  - Sistema con contraseña de administrador, en ámbar: `/Library/Logs/DiagnosticReports`, logs antiguos de `/private/var/log` y `/Library/Caches`, instaladores de macOS viejos (#15).
-  - Firmware `.ipsw` → verde (#33). Versiones antiguas de agentes de IA (Claude Code, Codex, Cursor…), conservando la activa y una anterior → verde (#30).
-  - Safari: compactar su base solo con Safari cerrado → ámbar (#23). Historial de privacidad (`QuarantineEventsV2`) → ámbar sin preselección (#24).
-  - **Solo revisar** (sin botón de borrar automático): Xcode Archives, copias de iPhone, emuladores Android, worktrees de agentes, copias de Time Machine fallidas (#11, #28).
-- **Huérfanos y desinstalador más precisos:** reglas por bundle id (inventario completo de apps o no se decide nada; 30 días sin uso; si `mdfind` falla, se asume instalada; solo Caches/Logs/Saved State; nunca Containers/Group Containers/LaunchAgents; patrones sensibles `ssh/gpg/keychain/1password…` nunca son huérfanos) (#10) y lista ampliada de ubicaciones del desinstalador, `launchctl bootout` de ayudantes, `brew uninstall --cask --zap` si vino de Homebrew, recibos `pkgutil` (#29).
-- **Rendimiento más completo:**
-  - **Diagnóstico por reglas** con causas reales: `syspolicyd`/WindowServer/Spotlight/CoreSimulator ≥ 25 % sostenido; swap > 50 % o libre < 15 %; VM de Docker > 2 GB sin contenedores; proceso desbocado; imágenes de disco montadas que cargan `syspolicyd` (#6).
-  - **Puntuación de salud** como frase + semáforo (#20).
-  - Métricas extra con APIs estables: batería (ciclos, salud), E/S de disco, red, tiempo encendido, procesos zombi, CPU por núcleos P/E (#18).
-  - **Elementos de inicio** rotos (LaunchAgents sin binario), solo informe con enlace a Ajustes del Sistema (#17).
-  - **Mantenimiento útil, en ámbar y reversible:** no crear `.DS_Store` en red/USB, quitar ajustes heredados dañinos, reparar `.plist` corruptos de apps, reindexar Spotlight solo tras diagnosticar (#21).
-- **Rechazado:** grados y ventiladores (sensores privados, #19), optimizaciones placebo —vaciar DNS, reiniciar red, `periodic`, Launch Services, `purge`, reiniciar Dock— (#22), `VACUUM` de Mail/Mensajes (#23), vaciar la Papelera solo (#25), borrar `.DS_Store` (#26), servicios de sistema huérfanos (solo informe, #27), cachés bajo `/private/var/folders` (#16), Touch ID para sudo (#34).
+- **Deletion safety (engineering requirements):**
+  - **Single deletion funnel** with path validation: absolute, no `..` or control characters, symbolic links and ancestors resolved, critical roots compared by inode and case-insensitively, rejection of bare `~`, and file identity checked again right before deleting (#1).
+  - **Three-state process guard** (running / stopped / unknown ⇒ skip) per cleanup family, and live-cache guard (owning process or open SQLite database) (#2).
+  - **Hard-protection list extended** with Mole's (§2.15 of the study), always re-applied on top of any user setting (#3).
+  - **Time budgets and fail-closed** on every probe; **analysis honesty** (complete / partial / unavailable, sizes with "+" if partial) (#31, #32).
+- **User control:**
+  - **"Protect this"**: whitelist of user paths/patterns, respected by the app and the MCP (#4).
+  - **Preview** without deleting (also `dry_run: true` in the MCP action tools) and **exportable log** (JSON) with run identifier and author (user or agent) (#5).
+- **More cleanup targets:**
+  - Installers `.dmg/.pkg/.mpkg/.iso/.xip` and `.zip` with an installer in Downloads/Desktop/Documents → amber; Homebrew cache → green (#7).
+  - Extended catalog of project artifacts (`Pods`, `.gradle`, `.dart_tool`, `.build`, `.turbo`, `.angular`, `.svelte-kit`, `.astro`, `.tox`, `__pycache__`, `CACHEDIR.TAG`…) with guards: nested repository, `*-keypair.json` keys, Git-tracked files, `bin`/`vendor` only if .NET/Composer (#8). It follows Airy's "≥ 3 months" rule, more cautious than Mole.
+  - Full Chromium browsers (all derivatives, `Code Cache`, `GPUCache`, `ShaderCache`, Service Worker CacheStorage, old framework versions inside the `.app`) and a regenerable-cache heuristic in Application Support (#9).
+  - Fine-grained Xcode: keep the **2** most recent DeviceSupport versions, XCTestDevices, DocumentationCache, `simctl runtime delete` of orphaned runtimes, only with Xcode and simulators stopped (#12).
+  - Long tail of development caches with an official command when one exists (Go, Poetry, Ruff, mypy, Bundler, Composer, Gradle, Swift PM, Flutter, Expo, Electron, node-gyp, Prisma, Corepack, Terraform…) (#13).
+  - User app caches (communication, creative, media, games, utilities, office), ordered by profile; **never** Messages or Mail caches (#14).
+  - System items needing the administrator password, in amber: `/Library/Logs/DiagnosticReports`, old logs in `/private/var/log` and `/Library/Caches`, old macOS installers (#15).
+  - `.ipsw` firmware → green (#33). Old versions of AI agents (Claude Code, Codex, Cursor…), keeping the active one and one previous → green (#30).
+  - Safari: compact its database only with Safari closed → amber (#23). Privacy history (`QuarantineEventsV2`) → amber without preselection (#24).
+  - **Review only** (no automatic delete button): Xcode Archives, iPhone backups, Android emulators, agent worktrees, failed Time Machine backups (#11, #28).
+- **More precise orphans and uninstaller:** rules by bundle id (full app inventory or nothing is decided; 30 days unused; if `mdfind` fails, assume installed; only Caches/Logs/Saved State; never Containers/Group Containers/LaunchAgents; sensitive patterns `ssh/gpg/keychain/1password…` are never orphans) (#10) and an extended list of uninstaller locations, `launchctl bootout` of helpers, `brew uninstall --cask --zap` if it came from Homebrew, `pkgutil` receipts (#29).
+- **More complete Performance:**
+  - **Rule-based diagnosis** with real causes: `syspolicyd`/WindowServer/Spotlight/CoreSimulator ≥ 25 % sustained; swap > 50 % or free < 15 %; Docker VM > 2 GB with no containers; runaway process; mounted disk images that load `syspolicyd` (#6).
+  - **Health score** as a sentence + traffic light (#20).
+  - Extra metrics with stable APIs: battery (cycles, health), disk I/O, network, uptime, zombie processes, CPU per P/E cores (#18).
+  - Broken **startup items** (LaunchAgents without a binary), report only with a link to System Settings (#17).
+  - **Useful maintenance, amber and reversible:** do not create `.DS_Store` on network/USB, remove harmful legacy settings, repair corrupt app `.plist` files, reindex Spotlight only after diagnosing (#21).
+- **Rejected:** degrees and fans (private sensors, #19), placebo optimizations —flushing DNS, restarting the network, `periodic`, Launch Services, `purge`, restarting the Dock— (#22), `VACUUM` of Mail/Messages (#23), emptying the Trash by itself (#25), deleting `.DS_Store` (#26), orphaned system services (report only, #27), caches under `/private/var/folders` (#16), Touch ID for sudo (#34).
 
-## 3. No-objetivos
+## 3. Non-goals
 
-- Sin grados de temperatura ni lectura de sensores privados (de momento).
-- Sin "liberar RAM" con `purge` ni trucos similares.
-- Sin cerrar procesos del sistema ni de otros usuarios.
-- Sin distribución en App Store; sigue siendo de uso personal.
-- Sin cuentas, nube ni telemetría.
+- No temperature degrees nor reading of private sensors (for now).
+- No "free RAM" with `purge` or similar tricks.
+- No quitting system processes or those of other users.
+- No App Store distribution; it remains for personal use.
+- No accounts, cloud or telemetry.
 
-## 4. Anti-objetivos (fracaso aunque "funcione")
+## 4. Anti-goals (failure even if it "works")
 
-Todos los de la fase 1 siguen vigentes. Además:
-- **Que el modo agresivo borre algo que no se regenera.** Agresivo solo afecta a cosas que se vuelven a descargar o reconstruir; lo personal sigue en ámbar como mínimo y lo protegido en rojo.
-- **Que el perfil o la IA bajen un riesgo.** Solo pueden subirlo; el perfil solo reordena/preselecciona.
-- **Que un agente cierre apps o borre algo ámbar/rojo** sin el clic del usuario en la app.
-- **Cerrar una app con trabajo sin guardar** sin avisar: siempre cierre normal primero.
-- **Que las animaciones hagan la app pesada:** una app que se llama Airy y consume CPU en reposo es un fracaso.
-- **Perder datos de DiskMap con el cambio de nombre:** el índice, el historial y el total liberado se migran.
-- **Verse azul plano y aburrido o con poco contraste:** el usuario pidió contraste fuerte.
+All those of phase 1 remain in force. In addition:
+- **Aggressive mode deleting something that does not regenerate.** Aggressive only affects things that are re-downloaded or rebuilt; personal items stay amber at minimum and protected ones red.
+- **The profile or the AI lowering a risk.** They can only raise it; the profile only reorders/preselects.
+- **An agent quitting apps or deleting anything amber/red** without the user's click in the app.
+- **Quitting an app with unsaved work** without warning: always a normal quit first.
+- **Animations making the app heavy:** an app called Airy that consumes CPU at rest is a failure.
+- **Losing DiskMap data with the rename:** the index, history and total freed are migrated.
+- **Looking flat, boring blue or with low contrast:** the user asked for strong contrast.
 
-## 5. Restricciones
+## 5. Constraints
 
-Las de la fase 1 (Swift 6.4, SwiftPM, solo Command Line Tools, sin Xcode, firma autofirmada local, UI en español de España, IA vía Claude Code local con solo metadatos y la invocación cerrada actual) y:
-- La rama actual `fase-1` aún no está fusionada en `master`; la fase 2 parte de ella (el constructor pregunta antes de fusionar).
-- Mediciones de rendimiento con APIs públicas (`host_statistics64`, `sysctl` para swap/presión, `ProcessInfo.thermalState`, `libproc`/`proc_pid_rusage`, `NSRunningApplication`).
+Those of phase 1 (Swift 6.4, SwiftPM, Command Line Tools only, no Xcode, local self-signed signing, UI in Spanish (Spain), AI via local Claude Code with metadata only and the current closed invocation) and:
+- The current branch `fase-1` is not yet merged into `master`; phase 2 starts from it (the builder asks before merging).
+- Performance measurements with public APIs (`host_statistics64`, `sysctl` for swap/pressure, `ProcessInfo.thermalState`, `libproc`/`proc_pid_rusage`, `NSRunningApplication`).
 
-## 6. Decisiones tomadas
+## 6. Decisions made
 
-| Decisión | Quién |
+| Decision | Who |
 |---|---|
-| Fase 2 completa + Rendimiento + rebranding, ya | Usuario |
-| MCP es lo más importante; visto bueno al diseño §7b | Usuario |
-| Rendimiento: información del Monitor de Actividad explicada + cerrar apps; IA opcional | Usuario |
-| Sin botón "liberar RAM"; cerrar lo que pesa es el alivio real | Claude, aceptado |
-| Temperatura sin grados (estado térmico) | Claude, aceptado |
-| Nombre **Airy** | Usuario |
-| Logo **remolino con hojas** (opción C, "la que se ve en grande") | Usuario |
-| Versión simplificada del logo para tamaños pequeños | Claude |
-| Paleta **azul con acentos fríos**, contraste fuerte | Usuario |
-| Colores de seguridad verde/ámbar/rojo se mantienen | Claude |
-| Perfil "¿Cómo usas tu Mac?" con selección múltiple, ajusta lo sugerido | Usuario (idea); lista de perfiles de Claude, aceptada |
-| El perfil nunca baja un riesgo | Claude |
-| Limpieza **agresiva** con prunes de Docker/Node y "Borrar todo" con selección | Usuario |
-| Agresivo por defecto, "Prudente" como opción | Claude |
-| Volúmenes de Docker siguen en rojo en agresivo | Claude (coherente con fase 1) |
-| `node_modules` viejos y contenedores parados en ámbar preseleccionado | Claude |
-| Lista de animaciones de viento | Claude, aceptada |
+| Complete phase 2 + Performance + rebranding, now | User |
+| MCP is the most important; approval of the §7b design | User |
+| Performance: explained Activity Monitor information + quitting apps; optional AI | User |
+| No "free RAM" button; closing what weighs the most is the real relief | Claude, accepted |
+| Temperature without degrees (thermal state) | Claude, accepted |
+| Name **Airy** | User |
+| **Swirl with leaves** logo (option C, "the one that looks big") | User |
+| Simplified logo version for small sizes | Claude |
+| **Blue with cool accents** palette, strong contrast | User |
+| Green/amber/red safety colors are kept | Claude |
+| "How do you use your Mac?" profile with multiple selection, adjusts what is suggested | User (idea); list of profiles by Claude, accepted |
+| The profile never lowers a risk | Claude |
+| **Aggressive** cleanup with Docker/Node prunes and "Delete all" with selection | User |
+| Aggressive by default, "Cautious" as an option | Claude |
+| Docker volumes stay red in aggressive | Claude (consistent with phase 1) |
+| Old `node_modules` and stopped containers in preselected amber | Claude |
+| List of wind animations | Claude, accepted |
 
-### Decisiones de Claude tras la revisión del constructor
+### Claude's decisions after the builder's review
 
-- **Ajustes compartidos app ↔ MCP:** modo (Agresivo/Prudente), perfil e interruptor de agentes viven en `~/Library/Application Support/Airy/settings.json` (ampliando `agents.json` o sustituyéndolo). La clasificación de riesgo efectivo (catálogo + modo + perfil + bloqueos) y el muestreo de rendimiento viven en la biblioteca común (`DiskMapCore`, renombrable), de modo que el MCP clasifica y mide igual que la app **aunque la app esté cerrada**.
-- **MCP con la app cerrada:** `get_performance` mide por su cuenta (solo lectura). `propose_cleanup`, `propose_quit_app`, `show_in_app` y `rescan` abren Airy mediante `airy://…` (LaunchServices la arranca si está cerrada) y devuelven "pendiente de confirmación del usuario" / "análisis pedido".
-- **"Borrar todo" y el ámbar:** en la app, "Borrar todo" borra **lo seleccionado**, incluido el ámbar preseleccionado; la hoja de confirmación única muestra el ámbar en un bloque aparte y destacado ("Revisa: esto no se regenera solo / puede tener estado") y quitarlo es un clic. Esa confirmación cuenta como la decisión del usuario. **El MCP nunca toca ámbar**: `run_safe_cleanup_all` = solo verde no bloqueado.
-- **Modo Prudente:** clasificación de la fase 1 y **sin** preselección de ámbar.
-- **Docker:** si el demonio no responde, las acciones de Docker aparecen bloqueadas con "Abre Docker Desktop para limpiar esto"; Airy no arranca Docker. La confirmación de `docker container prune` lista los contenedores parados por nombre.
-- **"Proyecto sin tocar ≥ 3 meses":** raíz = carpeta con `package.json`, `pyproject.toml`/`requirements.txt`, `Cargo.toml` o `.git`; señal = fecha de modificación más reciente de cualquier archivo del proyecto **excluyendo** las carpetas regenerables (`node_modules`, `.venv`, `target`, `.next`, `build`, `dist`) y `.git/objects`. Se excluyen las carpetas sincronizadas con iCloud (ya protegidas).
-- **Migración DiskMap → Airy:** al primer arranque Airy **copia** los datos de `Application Support/DiskMap` (índice, historial, total liberado, ajustes) y deja la carpeta antigua intacta. El script de empaquetado crea la identidad "Airy Local Signing", instala `/Applications/Airy.app` y, solo si eso fue bien, mueve `DiskMap.app` a la Papelera. El certificado antiguo de DiskMap no se toca.
-- **Punto de partida:** la fase 2 se construye en una rama `fase-2` creada desde `fase-1` tal como está (245 pruebas en verde, revisión final limpia). Fusionar en `master` se pregunta al usuario aparte.
-- **Perfiles:** los ejemplos de §2.3 son el **mínimo** de entradas de catálogo por perfil. El perfil afecta al orden, destacado y preselección de Limpieza y a las sugerencias del Asistente y del MCP (`list_cleanup_items` ordenado igual); **no** cambia el Mapa.
+- **Settings shared app ↔ MCP:** mode (Aggressive/Cautious), profile and agent switch live in `~/Library/Application Support/Airy/settings.json` (extending `agents.json` or replacing it). The effective risk classification (catalog + mode + profile + blocks) and the performance sampling live in the common library (`DiskMapCore`, renamable), so that the MCP classifies and measures the same as the app **even when the app is closed**.
+- **MCP with the app closed:** `get_performance` measures on its own (read-only). `propose_cleanup`, `propose_quit_app`, `show_in_app` and `rescan` open Airy through `airy://…` (LaunchServices starts it if it is closed) and return "pending user confirmation" / "analysis requested".
+- **"Delete all" and amber:** in the app, "Delete all" deletes **what is selected**, including preselected amber; the single confirmation sheet shows the amber in a separate, highlighted block ("Review: this does not regenerate by itself / may hold state") and removing it is one click. That confirmation counts as the user's decision. **The MCP never touches amber**: `run_safe_cleanup_all` = only unblocked green.
+- **Cautious mode:** phase 1 classification and **no** amber preselection.
+- **Docker:** if the daemon does not respond, the Docker actions appear blocked with "Open Docker Desktop to clean this"; Airy does not start Docker. The `docker container prune` confirmation lists the stopped containers by name.
+- **"Project untouched ≥ 3 months":** root = folder with `package.json`, `pyproject.toml`/`requirements.txt`, `Cargo.toml` or `.git`; signal = most recent modification date of any file in the project **excluding** the regenerable folders (`node_modules`, `.venv`, `target`, `.next`, `build`, `dist`) and `.git/objects`. Folders synced with iCloud (already protected) are excluded.
+- **DiskMap → Airy migration:** on first launch Airy **copies** the data from `Application Support/DiskMap` (index, history, total freed, settings) and leaves the old folder intact. The packaging script creates the "Airy Local Signing" identity, installs `/Applications/Airy.app` and, only if that went well, moves `DiskMap.app` to the Trash. The old DiskMap certificate is not touched.
+- **Starting point:** phase 2 is built on a `fase-2` branch created from `fase-1` as it is (245 tests green, clean final review). Merging into `master` is asked of the user separately.
+- **Profiles:** the examples in §2.3 are the **minimum** of catalog entries per profile. The profile affects the order, highlighting and preselection of Cleanup and the suggestions of the Assistant and the MCP (`list_cleanup_items` ordered the same way); it does **not** change the Map.
 
-## 7. Lo que se deja al constructor
+## 7. Left to the builder
 
-- Orden de construcción (recomendación: MCP primero, por ser lo más importante; luego rebranding, Limpieza agresiva + perfil, Rendimiento, y las cuatro secciones).
-- Cómo agrupar procesos por app (app responsable, cadena de padres, ruta del bundle).
-- Umbrales de las frases del estado general y de "proyecto viejo".
-- Implementación de las animaciones (Canvas/TimelineView, partículas de hojas) dentro de los límites de §2.2.
-- Paleta clara derivada y valores exactos de contraste.
-- Detalles de migración DiskMap → Airy.
-- Pruebas automáticas (al menos: clasificación agresiva/prudente, perfil que no baja riesgos, lista de procesos nunca cerrables, herramientas MCP y su rechazo de lo no verde, migración de datos).
+- Build order (recommendation: MCP first, as it is the most important; then rebranding, aggressive Cleanup + profile, Performance, and the four sections).
+- How to group processes by app (responsible app, parent chain, bundle path).
+- Thresholds of the overall-status sentences and of "old project".
+- Implementation of the animations (Canvas/TimelineView, leaf particles) within the limits of §2.2.
+- Derived light palette and exact contrast values.
+- DiskMap → Airy migration details.
+- Automated tests (at least: aggressive/cautious classification, a profile that does not lower risks, never-quittable process list, MCP tools and their rejection of anything not green, data migration).
