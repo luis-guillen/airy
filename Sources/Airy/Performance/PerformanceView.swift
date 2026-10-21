@@ -2,12 +2,12 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Rendimiento: remolino según CPU y temperatura, veredicto, memoria, temperatura, CPU, lo que más pesa,
-/// extras y mantenimiento. Mide solo mientras se ve (aparece + ventana visible).
+/// Performance: a swirl driven by CPU and temperature, verdict, memory, temperature, CPU, the heaviest apps,
+/// extras and maintenance. It only measures while visible (appeared + window visible).
 struct PerformanceView: View {
     @Environment(AppModel.self) private var model
     @ViewState private var appeared = false
-    /// nil hasta que el lector de la ventana informe (I3): no se supone visible.
+    /// nil until the window reader reports (I3): it isn't assumed visible.
     @ViewState private var windowVisible: Bool?
     @ViewState private var showsAI = false
 
@@ -16,9 +16,9 @@ struct PerformanceView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                SectionHeader(title: "Rendimiento", subtitle: subtitle) {
+                SectionHeader(title: Section.performance.title, subtitle: subtitle) {
                     if case .ready = model.assistant.claude, session.snapshot != nil {
-                        PrimaryButton("¿Por qué va lento?", systemImage: "sparkles", style: .secondary) { showsAI = true }
+                        PrimaryButton("Why Is It Slow?", systemImage: "sparkles", style: .secondary) { showsAI = true }
                             .fixedSize()
                     }
                 }
@@ -60,7 +60,7 @@ struct PerformanceView: View {
         }
     }
 
-    /// Mide solo con la sección a la vista y la ventana visible; el mantenimiento se comprueba entonces (con caché).
+    /// Measures only with the section in view and the window visible; maintenance is checked then (with a cache).
     private func updateSampling() {
         if PerformanceSamplingGate.shouldSample(appeared: appeared, windowVisible: windowVisible) {
             session.start()
@@ -71,13 +71,13 @@ struct PerformanceView: View {
     }
 
     private var subtitle: String {
-        guard let snapshot = session.snapshot else { return "Midiendo…" }
-        let cpu = snapshot.cpu.map { "Procesador al \(Int($0.total.rounded())) %" } ?? "Procesador: —"
-        return "\(cpu) · Memoria usada \(Format.bytes(snapshot.memory.used)) de \(Format.bytes(snapshot.memory.total))"
+        guard let snapshot = session.snapshot else { return String(localized: "Measuring…") }
+        let cpu = snapshot.cpu.map { String(localized: "Processor at \(Int($0.total.rounded()))%") } ?? String(localized: "Processor: —")
+        return String(localized: "\(cpu) · Memory used \(Format.bytes(snapshot.memory.used)) of \(Format.bytes(snapshot.memory.total))")
     }
 }
 
-/// Cabecera: remolino (más rápido con más CPU, más cálido con el Mac caliente), frase y semáforo.
+/// Header: swirl (faster with more CPU, warmer with a hot Mac), sentence and traffic light.
 private struct VerdictCard: View {
     @Environment(AppModel.self) private var model
 
@@ -97,7 +97,7 @@ private struct VerdictCard: View {
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(Theme.Airy.riskInk(light(verdict?.level)))
                     }
-                    Text(verdict?.sentence ?? "Midiendo tu Mac…")
+                    Text(verdict?.sentence ?? String(localized: "Measuring your Mac…"))
                         .font(.system(.title2, design: .rounded, weight: .semibold))
                         .lineLimit(nil)
                     let others = Array((verdict?.findings ?? []).dropFirst().prefix(4))
@@ -124,9 +124,9 @@ private struct VerdictCard: View {
 
     private func lightLabel(_ level: HealthLevel?) -> String {
         switch level {
-        case .poor: "Problema"
-        case .fair: "Atención"
-        case .good: "Va bien"
+        case .poor: String(localized: "Problem")
+        case .fair: String(localized: "Attention")
+        case .good: String(localized: "Doing Well")
         case nil: "—"
         }
     }
@@ -141,9 +141,9 @@ private struct BulletLabel: LabelStyle {
     }
 }
 
-/// Icono de ayuda con su texto al pasar el ratón.
+/// Help icon with its text on hover.
 struct HelpDot: View {
-    let text: String
+    let text: LocalizedStringKey
     var body: some View {
         Image(systemName: "info.circle")
             .font(.caption)
@@ -153,9 +153,9 @@ struct HelpDot: View {
     }
 }
 
-/// Avisa cuando la ventana deja de verse (tapada, minimizada, app oculta) o vuelve a verse. A diferencia de
-/// `WindowActivityReader`, no informa al entrar en la ventana (aún sin mostrar, diría «no visible»): solo en
-/// cada cambio, y la sección empieza a medir al aparecer.
+/// Reports when the window stops being visible (covered, minimized, app hidden) or becomes visible again. Unlike
+/// `WindowActivityReader`, it doesn't report on entering the window (not shown yet, it would say "not visible"): only on
+/// each change, and the section starts measuring when it appears.
 private struct VisibilityReader: NSViewRepresentable {
     var onChange: (Bool) -> Void
 
@@ -185,13 +185,13 @@ private struct VisibilityReader: NSViewRepresentable {
                 observers.append(center.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated {
                         self?.report()
-                        // Al volver, el estado de oclusión se actualiza un instante después.
+                        // On return, the occlusion state updates a moment later.
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self?.report() }
                     }
                 })
             }
-            // I3: el estado de partida también cuenta (una ventana minimizada u oculta no avisa de nada al crearse
-            // la vista). Fuera del ciclo de actualización de SwiftUI.
+            // I3: the initial state counts too (a minimized or hidden window reports nothing when the view
+            // is created). Outside SwiftUI's update cycle.
             DispatchQueue.main.async { [weak self] in self?.report() }
         }
 

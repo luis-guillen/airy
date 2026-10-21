@@ -1,8 +1,8 @@
 import SwiftUI
 import DiskMapCore
 
-/// Chat estilo Mensajes: la respuesta entra en streaming con un cursor que parpadea; las rutas
-/// del análisis que menciona aparecen como "Ver en el mapa".
+/// Messages-style chat: the answer streams in with a blinking cursor; the scan paths
+/// it mentions show up as "Show on Map".
 struct ChatView: View {
     @Environment(AppModel.self) private var model
     @ViewState private var position = ScrollPosition(edge: .bottom)
@@ -10,7 +10,8 @@ struct ChatView: View {
 
     private var session: AssistantSession { model.assistant }
 
-    static let suggestions = ["¿Qué ocupa más?", "¿Qué puedo borrar sin riesgo?", "¿Qué es ~/Library/Containers?"]
+    static let suggestions = [String(localized: "What takes up the most space?"), String(localized: "What can I safely delete?"),
+                              String(localized: "What is ~/Library/Containers?")]
 
     var body: some View {
         VStack(spacing: 12) {
@@ -31,7 +32,7 @@ struct ChatView: View {
         .onAppear { composerFocused = true }
     }
 
-    // MARK: Conversación
+    // MARK: Conversation
 
     private var transcript: some View {
         ScrollView {
@@ -48,7 +49,7 @@ struct ChatView: View {
             .padding(.horizontal, 2)
             .animation(Theme.zoomSpring, value: session.transcript.bubbles.count)
         }
-        // Ningún enlace de una respuesta abre nada fuera de la app (además, `ChatText` ya los quita).
+        // No link in an answer opens anything outside the app (besides, `ChatText` already strips them).
         .environment(\.openURL, OpenURLAction { _ in .discarded })
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
@@ -64,7 +65,7 @@ struct ChatView: View {
         }
     }
 
-    // MARK: Redactar
+    // MARK: Compose
 
     private var composer: some View {
         @Bindable var session = session
@@ -72,7 +73,7 @@ struct ChatView: View {
         let canSend = !session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !streaming
         return VStack(spacing: 6) {
             HStack(alignment: .bottom, spacing: 10) {
-                TextField("Pregunta lo que quieras sobre tu disco…", text: $session.draft, axis: .vertical)
+                TextField("Ask anything about your disk…", text: $session.draft, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(.body)
                     .lineLimit(1...5)
@@ -97,7 +98,7 @@ struct ChatView: View {
                 .buttonStyle(.plain)
                 .disabled(!streaming && !canSend)
                 .keyboardShortcut(streaming ? KeyboardShortcut(".", modifiers: .command) : nil)
-                .help(streaming ? "Detener la respuesta (⌘.)" : "Enviar")
+                .help(streaming ? "Stop the Answer (⌘.)" : "Send")
                 .animation(Theme.pressSpring, value: streaming)
                 .animation(Theme.pressSpring, value: canSend)
             }
@@ -113,14 +114,14 @@ struct ChatView: View {
             .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
             .animation(Theme.pressSpring, value: composerFocused)
 
-            Text("Claude solo ve rutas, tamaños y fechas · Usa tu Claude Code · puede tardar hasta un minuto")
+            Text("Claude only sees paths, sizes and dates · Uses your Claude Code · may take up to a minute")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
     }
 }
 
-// MARK: - Bienvenida
+// MARK: - Welcome
 
 private struct ChatWelcome: View {
     var onPick: (String) -> Void
@@ -131,9 +132,9 @@ private struct ChatWelcome: View {
             AssistantGlyph(symbol: "bubble.left.and.text.bubble.right.fill", size: 58)
                 .symbolEffect(.bounce, value: appeared)
             VStack(spacing: 6) {
-                Text("Pregunta lo que quieras sobre tu disco")
+                Text("Ask Anything About Your Disk")
                     .font(.title3.weight(.semibold))
-                Text("Claude conoce el análisis (rutas, tamaños, fechas y el catálogo de Airy), nunca el contenido de tus archivos.")
+                Text("Claude knows the scan (paths, sizes, dates and Airy’s catalog), never the contents of your files.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -179,7 +180,7 @@ private struct SuggestionChip: View {
     }
 }
 
-// MARK: - Burbujas
+// MARK: - Bubbles
 
 private struct ChatBubbleRow: View {
     @Environment(AppModel.self) private var model
@@ -229,7 +230,7 @@ private struct ChatBubbleRow: View {
         } else if !bubble.text.isEmpty {
             Group {
                 if bubble.status == .streaming {
-                    // El cursor parpadea cada medio segundo sin animar el diseño del texto.
+                    // The cursor blinks every half second without animating the text layout.
                     TimelineView(.periodic(from: .now, by: 0.5)) { context in
                         let on = Int(context.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
                         Text(Self.rendered(bubble.text))
@@ -252,7 +253,7 @@ private struct ChatBubbleRow: View {
     @ViewBuilder private var statusLine: some View {
         switch bubble.status {
         case .stopped:
-            Label("Detenido", systemImage: "stop.circle")
+            Label("Stopped", systemImage: "stop.circle")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .failed(let message):
@@ -261,7 +262,7 @@ private struct ChatBubbleRow: View {
                     .font(.callout)
                     .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 if isLast {
-                    PrimaryButton("Reintentar", systemImage: "arrow.clockwise", style: .secondary) {
+                    PrimaryButton("Try Again", systemImage: "arrow.clockwise", style: .secondary) {
                         model.assistant.retry(model: model)
                     }
                     .fixedSize()
@@ -274,11 +275,11 @@ private struct ChatBubbleRow: View {
         }
     }
 
-    /// Markdown en línea sin enlaces (ver `ChatText`).
+    /// Inline Markdown without links (see `ChatText`).
     static func rendered(_ text: String) -> AttributedString { ChatText.rendered(text) }
 }
 
-/// Burbuja con la esquina del lado del que habla un poco menos redondeada, como en Mensajes.
+/// Bubble with the speaker's corner slightly less rounded, as in Messages.
 private struct BubbleShape: Shape {
     let isUser: Bool
 
@@ -291,7 +292,7 @@ private struct BubbleShape: Shape {
     }
 }
 
-/// Tres puntos que laten mientras llega el primer trozo de la respuesta.
+/// Three dots that pulse while the first chunk of the answer arrives.
 private struct TypingDots: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.3)) { context in
@@ -307,6 +308,6 @@ private struct TypingDots: View {
                 }
             }
         }
-        .accessibilityLabel("Claude está escribiendo")
+        .accessibilityLabel("Claude is typing")
     }
 }

@@ -2,9 +2,9 @@ import Foundation
 import Observation
 import DiskMapCore
 
-/// Estado del asistente que sobrevive a los cambios de sección: Claude localizado, el informe,
-/// la conversación y las tareas en curso. Lo pesado (contexto, llamadas a Claude) va fuera del
-/// hilo principal; aquí solo se publican los resultados.
+/// Assistant state that survives section changes: the located Claude, the report,
+/// the conversation and the tasks in progress. The heavy work (context, calls to Claude) runs off the
+/// main thread; only the results are published here.
 @MainActor @Observable
 final class AssistantSession {
     enum Mode: String, CaseIterable, Identifiable {
@@ -12,9 +12,9 @@ final class AssistantSession {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .report: "Informe"
-            case .chat: "Chat"
-            case .agents: "Conectar agente"
+            case .report: String(localized: "Report")
+            case .chat: String(localized: "Chat")
+            case .agents: String(localized: "Connect Agent")
             }
         }
     }
@@ -22,7 +22,7 @@ final class AssistantSession {
     enum ClaudeStatus: Equatable {
         case unknown, searching
         case ready(String)
-        /// `chosen`: ruta elegida por el usuario que no responde como Claude Code.
+        /// `chosen`: path chosen by the user that doesn't respond like Claude Code.
         case missing(chosen: String?)
     }
 
@@ -40,10 +40,10 @@ final class AssistantSession {
     private(set) var reportDate: Date?
     private(set) var transcript = ChatTranscript()
     var draft = ""
-    /// Resultado de cada acción ejecutada desde el informe, por id de recomendación.
+    /// Result of each action run from the report, by recommendation id.
     private(set) var outcomes: [String: CleanupOutcome] = [:]
     private(set) var busyRecommendation: String?
-    /// Sube con cada informe: un resultado que llega tarde no se pega a una tarjeta del informe nuevo.
+    /// Bumps with each report: a result that arrives late doesn't stick to a card of the new report.
     @ObservationIgnored private var reportGeneration = 0
 
     @ObservationIgnored private let runner = ProcessRunner()
@@ -55,7 +55,7 @@ final class AssistantSession {
     @ObservationIgnored private let home = NSHomeDirectory()
 
     init() {
-        // Con AIRY_SUPPORT_DIR (DEBUG) no se toca el UserDefaults real.
+        // With AIRY_SUPPORT_DIR (DEBUG) the real UserDefaults isn't touched.
         if AppPaths.standard().legacySupport != nil {
             _ = DataMigration.migrateDefaults(from: UserDefaults(suiteName: AppPaths.legacyBundleID),
                                               to: .standard, keys: [Self.claudePathKey])
@@ -64,10 +64,10 @@ final class AssistantSession {
 
     var isReportLoading: Bool { if case .loading = report { true } else { false } }
 
-    /// Ruta elegida en "Elegir ejecutable…" (`UserDefaults` `claudePath`).
+    /// Path chosen in "Choose Executable…" (`UserDefaults` `claudePath`).
     var chosenPath: String? {
         #if DEBUG
-        // Solo para revisar la interfaz sin tocar los ajustes del usuario (p. ej. una ruta inexistente).
+        // Only to review the UI without touching the user's settings (e.g. a nonexistent path).
         if let override = ProcessInfo.processInfo.environment["AIRY_CLAUDE_PATH"] { return override }
         #endif
         return UserDefaults.standard.string(forKey: Self.claudePathKey).flatMap { $0.isEmpty ? nil : $0 }
@@ -79,8 +79,8 @@ final class AssistantSession {
         if claude == .unknown { locate() }
     }
 
-    /// Busca Claude Code. Si el usuario eligió un ejecutable, manda esa elección: si no responde,
-    /// se dice (en vez de usar otro sin avisar).
+    /// Looks for Claude Code. If the user chose an executable, that choice wins: if it doesn't respond,
+    /// say so (instead of silently using another one).
     func locate() {
         locateTask?.cancel()
         claude = .searching
@@ -120,10 +120,10 @@ final class AssistantSession {
         claude = .missing(chosen: chosenPath)
     }
 
-    // MARK: Contexto
+    // MARK: Context
 
-    /// Contexto para la IA. Lee el árbol vivo, así que se prepara como lector de `treeGate`
-    /// (fuera del hilo principal). Se reutiliza mientras no cambien el árbol ni la limpieza.
+    /// Context for the AI. It reads the live tree, so it is prepared as a `treeGate` reader
+    /// (off the main thread). It is reused as long as neither the tree nor the cleanup changes.
     private func context(model: AppModel) async -> (context: String, paths: [String])? {
         guard let catalog = model.catalog else { return nil }
         let root = model.scan?.root
@@ -150,9 +150,9 @@ final class AssistantSession {
         }
     }
 
-    private static let catalogMissing = "No se pudo cargar el catálogo de Airy, así que el asistente no puede validar lo que proponga Claude."
+    private static let catalogMissing = String(localized: "Couldn’t load Airy’s catalog, so the assistant can’t validate what Claude proposes.")
 
-    // MARK: Informe
+    // MARK: Report
 
     func runReport(model: AppModel) {
         guard case .ready(let path) = claude else { locate(); return }
@@ -194,9 +194,9 @@ final class AssistantSession {
         AssistantOffer.make(for: rec, items: model.cleanupItems, catalog: model.catalog, home: home)
     }
 
-    /// Las acciones del informe se confirman y ejecutan en `CleanupFlow` (la misma hoja que Limpieza,
-    /// siempre por `AppModel` y su `CleanupExecutor`); la tarjeta solo sigue su estado. Cada aviso lleva
-    /// la generación del informe en que se pidió: un resultado de un informe anterior no se pinta.
+    /// The report's actions are confirmed and run in `CleanupFlow` (the same sheet as Cleanup,
+    /// always through `AppModel` and its `CleanupExecutor`); the card only follows their state. Each notice carries
+    /// the generation of the report it was requested in: a result from an earlier report isn't drawn.
     var generation: Int { reportGeneration }
 
     func actionConfirmed(for recID: String, generation: Int) {
@@ -212,8 +212,8 @@ final class AssistantSession {
 
     // MARK: Chat
 
-    /// Pregunta desde fuera (sugerencias, "Explicar con IA"): si Claude aún se está buscando,
-    /// se envía en cuanto aparezca; si falta, se deja escrita.
+    /// A question from outside (suggestions, "Explain with AI"): if Claude is still being looked for,
+    /// it is sent as soon as it shows up; if it is missing, it is left typed in.
     func ask(_ question: String, model: AppModel) {
         switch claude {
         case .ready:
@@ -240,7 +240,7 @@ final class AssistantSession {
         stream(history, path: path, model: model)
     }
 
-    /// Detiene la respuesta: cancelar al consumidor termina el proceso de `claude`.
+    /// Stops the answer: cancelling the consumer ends the `claude` process.
     func stop() {
         chatTask?.cancel()
         chatTask = nil
@@ -272,7 +272,7 @@ final class AssistantSession {
                 #if DEBUG
                 DebugReplay.save(chat: text)
                 #endif
-                // Solo rutas que siguen en el árbol mostrado (se resuelven en el hilo principal).
+                // Only paths still in the shown tree (resolved on the main thread).
                 let routes = AssistantRoutes.mentioned(in: text, candidates: candidates, home: self.home)
                     .filter { model.node(atPath: $0) != nil }
                 self.transcript.finish(routes: routes)
@@ -289,7 +289,7 @@ final class AssistantSession {
 }
 
 extension AppModel {
-    /// "Ver en el mapa": abre el Mapa con zoom a la carpeta (o a la carpeta que contiene el archivo).
+    /// "Show on Map": opens the Map zoomed into the folder (or the folder containing the file).
     func showInMap(path: String) {
         guard let node = node(atPath: path) else { return }
         let target = node.isDirectory && node.aggregatedCount == 0 ? node : node.parent
@@ -300,8 +300,8 @@ extension AppModel {
 }
 
 #if DEBUG
-/// Solo en Debug: guarda la última respuesta real en `AIRY_SUPPORT_DIR` y, con
-/// `AIRY_ASSISTANT_REPLAY=1`, la repite sin llamar a Claude (para revisar la interfaz sin coste).
+/// Debug only: saves the last real answer to `AIRY_SUPPORT_DIR` and, with
+/// `AIRY_ASSISTANT_REPLAY=1`, replays it without calling Claude (to review the UI at no cost).
 enum DebugReplay {
     private static var directory: URL? {
         ProcessInfo.processInfo.environment["AIRY_SUPPORT_DIR"].map { URL(fileURLWithPath: $0) }

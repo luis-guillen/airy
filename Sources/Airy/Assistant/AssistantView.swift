@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Sección Asistente IA: selector Informe / Chat sobre el análisis, con Claude Code local.
+/// AI Assistant section: Report / Chat picker over the scan, with local Claude Code.
 struct AssistantView: View {
     @Environment(AppModel.self) private var model
 
@@ -9,8 +9,9 @@ struct AssistantView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            SectionHeader(title: "Asistente IA", subtitle: "Claude revisa tu análisis: rutas, tamaños y fechas, nunca el contenido") {
-                Picker("Modo", selection: Binding(get: { session.mode }, set: { session.mode = $0 })) {
+            SectionHeader(title: Section.assistant.title,
+                          subtitle: String(localized: "Claude reviews your scan: paths, sizes and dates, never the contents")) {
+                Picker("Mode", selection: Binding(get: { session.mode }, set: { session.mode = $0 })) {
                     ForEach(AssistantSession.Mode.allCases) { mode in
                         Text(mode.title).tag(mode)
                     }
@@ -25,7 +26,7 @@ struct AssistantView: View {
         }
         .padding(.horizontal, Theme.contentPadding)
         .padding(.top, 34)
-        // Durante un reanálisis la píldora de progreso ocupa el pie.
+        // During a rescan the progress pill takes the footer.
         .padding(.bottom, model.isScanning && model.scan != nil ? 76 : 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
@@ -40,7 +41,7 @@ struct AssistantView: View {
 
     @ViewBuilder private var content: some View {
         Group {
-            // «Conectar agente» no depende de Claude Code: otros agentes también pueden usar Airy.
+            // "Connect Agent" doesn't depend on Claude Code: other agents can use Airy too.
             if session.mode == .agents {
                 AgentsView()
                     .transition(.opacity)
@@ -70,7 +71,7 @@ struct AssistantView: View {
         .animation(Theme.sectionSpring, value: session.mode == .agents)
     }
 
-    /// "Explicar con IA" del mapa: pasa al chat y la envía una sola vez.
+    /// The map's "Explain with AI": switches to the chat and sends it only once.
     private func consumePendingQuestion() {
         guard let question = model.pendingAssistantQuestion else { return }
         model.pendingAssistantQuestion = nil
@@ -79,12 +80,12 @@ struct AssistantView: View {
     }
 }
 
-/// Mientras se comprueba `claude --version` (un instante).
+/// While `claude --version` is checked (an instant).
 private struct SearchingClaudeView: View {
     var body: some View {
         VStack(spacing: 12) {
             ProgressView().controlSize(.small)
-            Text("Buscando Claude Code…")
+            Text("Looking for Claude Code…")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -92,9 +93,9 @@ private struct SearchingClaudeView: View {
     }
 }
 
-// MARK: - Piezas compartidas
+// MARK: - Shared pieces
 
-/// Icono de la marca en un cuadrado redondeado (cabeceras del informe y del chat).
+/// Brand icon in a rounded square (report and chat headers).
 struct AssistantGlyph: View {
     var symbol = "sparkles"
     var size: CGFloat = 44
@@ -112,17 +113,17 @@ struct AssistantGlyph: View {
     }
 }
 
-/// Coste y tiempo, sin precios: la llamada usa la cuenta de Claude Code del usuario.
+/// Cost and time, without prices: the call uses the user's Claude Code account.
 struct CostNote: View {
     var body: some View {
-        Text("Usa tu Claude Code · puede tardar hasta un minuto")
+        Text("Uses your Claude Code · may take up to a minute")
             .font(.caption)
             .foregroundStyle(.tertiary)
     }
 }
 
-/// Barrido de brillo para el estado de carga: un degradado que recorre el contenido (enmascarado
-/// por él). La animación va acotada al desplazamiento para no arrastrar cambios de diseño.
+/// Shine sweep for the loading state: a gradient that runs across the content (masked
+/// by it). The animation is scoped to the offset so it doesn't drag layout changes along.
 struct Shimmer: ViewModifier {
     @ViewState private var phase: CGFloat = 0
     @Environment(\.colorScheme) private var colorScheme
@@ -151,7 +152,7 @@ extension View {
     func shimmering() -> some View { modifier(Shimmer()) }
 }
 
-/// Distribuye chips en filas (salta de línea cuando no caben).
+/// Lays out chips in rows (wrapping when they don't fit).
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8
@@ -198,7 +199,7 @@ struct FlowLayout: Layout {
     }
 }
 
-/// Píldora "Ver en el mapa" para una ruta.
+/// "Show on Map" pill for a path.
 struct MapRouteChip: View {
     @Environment(AppModel.self) private var model
     let path: String
@@ -215,7 +216,7 @@ struct MapRouteChip: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .foregroundStyle(.primary)
-                Text("Ver en el mapa")
+                Text("Show on Map")
                     .foregroundStyle(Theme.userFilesColor)
                     .fontWeight(.semibold)
             }
@@ -229,16 +230,16 @@ struct MapRouteChip: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(Theme.pressSpring, value: hovering)
-        .help("Abrir \(Format.tildePath(path)) en el mapa")
+        .help("Open \(Format.tildePath(path)) on the Map")
     }
 }
 
 #if DEBUG
-/// Solo en Debug: pasos programados del asistente para revisarlo sin ratón.
-/// `AIRY_ASSISTANT_SCRIPT="report@3,chat@20,ask:¿Qué ocupa más?@21,confirm:0@30,missing@40"`.
-/// Acciones: `report` (lanza el informe), `chat`, `agents`, `informe`, `ask:<pregunta>`, `stop`,
-/// `confirm:<columna>` (abre la confirmación de la primera recomendación con botón de esa columna),
-/// `second` (pasa a la segunda confirmación), `cancel`, `pending:<pregunta>` (como "Explicar con IA").
+/// Debug only: scheduled assistant steps to review it without a mouse.
+/// `AIRY_ASSISTANT_SCRIPT="report@3,chat@20,ask:What takes the most space?@21,confirm:0@30,missing@40"`.
+/// Actions: `report` (runs the report), `chat`, `agents`, `informe` (report mode), `ask:<question>`, `stop`,
+/// `confirm:<column>` (opens the confirmation of the first recommendation with a button in that column),
+/// `second` (goes to the second confirmation), `cancel`, `pending:<question>` (like "Explain with AI").
 @MainActor
 enum AssistantDebugScript {
     nonisolated(unsafe) static var didRun = false

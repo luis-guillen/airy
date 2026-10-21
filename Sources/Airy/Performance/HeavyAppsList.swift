@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// «Lo que más pesa»: apps y procesos sueltos por impacto. Solo lo que se puede cerrar lleva casilla y
-/// «Cerrar»; lo que no, su motivo. Al cerrarse, la fila sale volando como una hoja (`.leafAway`).
+/// "Heaviest Right Now": apps and loose processes by impact. Only what can be quit gets a checkbox and
+/// "Quit"; what can't, its reason. On quitting, the row flies away like a leaf (`.leafAway`).
 struct HeavyAppsList: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
@@ -15,10 +15,10 @@ struct HeavyAppsList: View {
         GlassCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Lo que más pesa").font(.headline)
+                    Text("Heaviest Right Now").font(.headline)
                     Spacer()
                     if !selected.isEmpty {
-                        PrimaryButton("Cerrar seleccionadas (\(selected.count))", systemImage: "power") {
+                        PrimaryButton("Quit Selected (\(selected.count))", systemImage: "power") {
                             flow.requestQuit(selected.map(\.group))
                         }
                         .fixedSize()
@@ -26,7 +26,7 @@ struct HeavyAppsList: View {
                     }
                 }
                 if rows.isEmpty {
-                    Text(session.snapshot == nil ? "Midiendo…" : "Nada destacable abierto.")
+                    Text(session.snapshot == nil ? "Measuring…" : "Nothing notable is open.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -91,13 +91,13 @@ private struct HeavyAppRow: View {
                     ProgressView().controlSize(.small).padding(.top, 6)
                 } else if unresponsive {
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text("No responde").font(.caption.weight(.semibold)).foregroundStyle(Theme.Airy.riskInk(.yourCall))
-                        PrimaryButton("Forzar cierre…", style: .destructive) { flow.requestForceQuit([group]) }
+                        Text("Not Responding").font(.caption.weight(.semibold)).foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                        PrimaryButton("Force Quit…", style: .destructive) { flow.requestForceQuit([group]) }
                             .fixedSize()
                             .disabled(flow.isBusy)
                     }
                 } else {
-                    PrimaryButton("Cerrar", style: .secondary) { flow.requestQuit([group]) }
+                    PrimaryButton("Quit", style: .secondary) { flow.requestQuit([group]) }
                         .fixedSize()
                         .disabled(flow.isBusy)
                         .padding(.top, 4)
@@ -108,13 +108,13 @@ private struct HeavyAppRow: View {
     }
 
     private func stats(_ group: AppGroup) -> String {
-        let cpu = group.cpuPercent.map { "CPU \(Int($0.rounded())) %" } ?? "CPU —"
-        let procs = group.pids.count == 1 ? "1 proceso" : "\(group.pids.count) procesos"
+        let cpu = group.cpuPercent.map { String(localized: "CPU \(Int($0.rounded()))%") } ?? "CPU —"
+        let procs = group.pids.count == 1 ? String(localized: "1 process") : String(localized: "\(group.pids.count) processes")
         return "\(Format.bytes(group.memory)) · \(cpu) · \(procs)"
     }
 }
 
-/// Icono de la app (de su `.app`) o uno genérico; se cachea para no leerlo en cada muestra.
+/// The app's icon (from its `.app`) or a generic one; cached so it isn't read on every sample.
 private struct AppIcon: View {
     let path: String?
     @MainActor private static var cache: [String: NSImage] = [:]

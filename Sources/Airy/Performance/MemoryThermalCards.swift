@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Memoria: usada / caché de archivos / libre, presión y swap. Sin botón de «liberar RAM».
+/// Memory: used / file cache / free, pressure and swap. No "free up RAM" button.
 struct MemoryCard: View {
     @Environment(AppModel.self) private var model
 
@@ -9,33 +9,33 @@ struct MemoryCard: View {
         let memory = model.performance.snapshot?.memory
         GlassCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Memoria").font(.headline)
+                Text("Memory").font(.headline)
                 if let memory, memory.total > 0 {
                     MemoryBar(memory: memory).frame(height: 14)
                     HStack(spacing: 14) {
-                        legend("Usada", Format.bytes(memory.used), Theme.Airy.accent)
+                        legend(String(localized: "Used"), Format.bytes(memory.used), Theme.Airy.accent)
                         HStack(spacing: 4) {
-                            legend("Caché de archivos", Format.bytes(memory.fileCache), Theme.purgeableColor)
-                            HelpDot(text: "Archivos que macOS guarda en memoria para abrirlos antes; la suelta en cuanto otra app la necesita.")
+                            legend(String(localized: "File cache"), Format.bytes(memory.fileCache), Theme.purgeableColor)
+                            HelpDot(text: "Files macOS keeps in memory to open them faster; it releases that memory as soon as another app needs it.")
                         }
-                        legend("Libre", Format.bytes(memory.free), .secondary.opacity(0.35))
+                        legend(String(localized: "Free"), Format.bytes(memory.free), .secondary.opacity(0.35))
                     }
                 } else {
                     Text("—").foregroundStyle(.secondary)
                 }
                 HStack(spacing: 6) {
-                    Text("Presión de memoria").font(.callout)
-                    HelpDot(text: "La presión de memoria dice si a macOS le cuesta encontrar memoria libre. En verde va sobrado; en ámbar empieza a comprimir y a usar el disco; en rojo, las apps irán lentas.")
+                    Text("Memory Pressure").font(.callout)
+                    HelpDot(text: "Memory pressure tells you whether macOS is struggling to find free memory. Green means plenty; amber means it’s starting to compress and use the disk; red means apps will be slow.")
                     Spacer()
                     pressurePill(memory?.pressure)
                 }
                 HStack(spacing: 6) {
-                    Text(memory.map { "Swap: \(Format.bytes($0.swapUsed)) de \(Format.bytes($0.swapTotal))" } ?? "Swap: —")
+                    Text(memory.map { String(localized: "Swap: \(Format.bytes($0.swapUsed)) of \(Format.bytes($0.swapTotal))") } ?? String(localized: "Swap: —"))
                         .font(.callout)
                         .monospacedDigit()
-                    HelpDot(text: "La swap es memoria que macOS guarda temporalmente en el disco cuando no cabe todo en la RAM. Crece cuando abres muchas cosas a la vez y no baja sola hasta que cierras apps o reinicias; un poco es normal, mucha hace que todo vaya más lento.")
+                    HelpDot(text: "Swap is memory macOS temporarily stores on the disk when everything doesn’t fit in RAM. It grows when you open many things at once and doesn’t go down by itself until you quit apps or restart; a little is normal, a lot makes everything slower.")
                 }
-                Text("Airy no tiene botón de «liberar RAM»: macOS ya gestiona la memoria y esos botones no ayudan. Lo que alivia de verdad es cerrar lo que más consume.")
+                Text("Airy has no “free up RAM” button: macOS already manages memory and those buttons don’t help. What really helps is quitting what uses the most.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(nil)
@@ -52,9 +52,9 @@ struct MemoryCard: View {
 
     @ViewBuilder private func pressurePill(_ pressure: MemoryPressure?) -> some View {
         let (text, risk): (String, Risk?) = switch pressure {
-        case .normal: ("Normal", .safe)
-        case .warning: ("Alta", .yourCall)
-        case .critical: ("Crítica", .doNotTouch)
+        case .normal: (String(localized: "Normal"), .safe)
+        case .warning: (String(localized: "High"), .yourCall)
+        case .critical: (String(localized: "Critical"), .doNotTouch)
         case nil: ("—", nil)
         }
         Text(text)
@@ -81,7 +81,7 @@ private struct MemoryBar: View {
     }
 }
 
-/// Temperatura sin grados (solo el estado de macOS) y si ha bajado la velocidad.
+/// Temperature without degrees (only macOS's state) and whether it has slowed down.
 struct ThermalCard: View {
     @Environment(AppModel.self) private var model
 
@@ -90,11 +90,11 @@ struct ThermalCard: View {
         GlassCard {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
-                    Text("Temperatura: \(thermal?.level.label ?? "—")").font(.headline)
-                    HelpDot(text: "Airy no muestra grados: leerlos exige interfaces privadas de Apple que pueden romperse.")
+                    Text("Temperature: \(thermal?.level.label ?? "—")").font(.headline)
+                    HelpDot(text: "Airy doesn’t show degrees: reading them requires private Apple interfaces that can break.")
                 }
                 if let thermal {
-                    Text(thermal.throttling ? "macOS ha bajado la velocidad para enfriarlo." : "Sin reducción de velocidad.")
+                    Text(thermal.throttling ? "macOS has slowed it down to cool it." : "No slowdown.")
                         .font(.callout)
                         .foregroundStyle(thermal.throttling ? Theme.Airy.riskInk(.yourCall) : .secondary)
                 }
@@ -103,7 +103,7 @@ struct ThermalCard: View {
     }
 }
 
-/// Procesador: total y núcleos P/E; lo que más CPU y energía usa (barras relativas, sin vatios).
+/// Processor: total and P/E cores; what uses the most CPU and energy (relative bars, no watts).
 struct CPUCard: View {
     @Environment(AppModel.self) private var model
 
@@ -112,19 +112,19 @@ struct CPUCard: View {
         let cpu = session.snapshot?.cpu
         GlassCard {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Procesador: \(cpu.map { "\(Int($0.total.rounded())) %" } ?? "—")").font(.headline)
+                Text("Processor: \(cpu.map { String(localized: "\(Int($0.total.rounded()))%") } ?? "—")").font(.headline)
                 if let cpu, cpu.performance != nil || cpu.efficiency != nil {
-                    Text("Núcleos de rendimiento \(percent(cpu.performance)) · de eficiencia \(percent(cpu.efficiency))")
+                    Text("Performance cores \(percent(cpu.performance)) · efficiency cores \(percent(cpu.efficiency))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                bars("Más procesador", session.board.topByCPU.map { ($0.id, $0.name, $0.cpuPercent ?? 0) })
-                bars("Más energía", session.board.topByEnergy.map { ($0.id, $0.name, $0.energy ?? 0) })
+                bars(String(localized: "Most Processor"), session.board.topByCPU.map { ($0.id, $0.name, $0.cpuPercent ?? 0) })
+                bars(String(localized: "Most Energy"), session.board.topByEnergy.map { ($0.id, $0.name, $0.energy ?? 0) })
             }
         }
     }
 
-    private func percent(_ value: Double?) -> String { value.map { "\(Int($0.rounded())) %" } ?? "—" }
+    private func percent(_ value: Double?) -> String { value.map { String(localized: "\(Int($0.rounded()))%") } ?? "—" }
 
     @ViewBuilder private func bars(_ title: String, _ items: [(String, String, Double)]) -> some View {
         if !items.isEmpty {

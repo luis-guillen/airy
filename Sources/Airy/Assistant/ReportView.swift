@@ -1,8 +1,8 @@
 import SwiftUI
 import DiskMapCore
 
-/// Informe: "Analizar con IA", brillo de carga sobre tarjetas de esqueleto y, al llegar, el resumen
-/// con "Recuperable" (calculado en código, no el texto de la IA) y las tres columnas de riesgo.
+/// Report: "Analyze with AI", a loading shine over skeleton cards and, when it arrives, the summary
+/// with "Reclaimable" (computed in code, not the AI's text) and the three risk columns.
 struct ReportView: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow: CleanupFlow?
@@ -49,7 +49,7 @@ struct ReportView: View {
         }
     }
 
-    // MARK: Cabecera
+    // MARK: Header
 
     @ViewBuilder private var headerCard: some View {
         GlassCard(padding: 22) {
@@ -67,16 +67,16 @@ struct ReportView: View {
             AssistantGlyph(symbol: session.isReportLoading ? "sparkle.magnifyingglass" : "sparkles", size: 50)
                 .symbolEffect(.pulse, isActive: session.isReportLoading)
             VStack(alignment: .leading, spacing: 5) {
-                Text(session.isReportLoading ? "Claude está revisando tu disco…" : "Informe de tu disco")
+                Text(session.isReportLoading ? "Claude is reviewing your disk…" : "Your Disk Report")
                     .font(.title3.weight(.semibold))
                     .contentTransition(.opacity)
-                Text("Separa lo que ocupa espacio en «Borrar sin riesgo», «Depende de ti» y «No tocar», con el porqué de cada cosa. Todo lo que proponga se comprueba antes con el catálogo de Airy.")
+                Text("Sorts what takes up space into “Safe to remove”, “Your call” and “Don't delete”, with the reason for each. Everything it proposes is checked against Airy’s catalog first.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
             VStack(alignment: .trailing, spacing: 7) {
-                PrimaryButton(session.isReportLoading ? "Analizando…" : "Analizar con IA", systemImage: "sparkles",
+                PrimaryButton(session.isReportLoading ? "Analyzing…" : "Analyze with AI", systemImage: "sparkles",
                               isBusy: session.isReportLoading) {
                     session.runReport(model: model)
                 }
@@ -91,7 +91,7 @@ struct ReportView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     AssistantGlyph(size: 26)
-                    Text("Opinión de Claude")
+                    Text("Claude’s Opinion")
                         .font(.headline)
                     if let date = session.reportDate {
                         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -111,15 +111,15 @@ struct ReportView: View {
             Divider().frame(height: 96)
 
             VStack(alignment: .trailing, spacing: 6) {
-                Text("Recuperable")
+                Text("Reclaimable")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 BytesCounter(bytes: report.reclaimableBytes,
                              font: .system(size: 30, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.Airy.riskInk(.safe))
-                    .help("Suma de lo marcado «Borrar sin riesgo» con acción, sin contar dos veces una carpeta dentro de otra. Lo calcula Airy, no el texto de Claude.")
-                PrimaryButton("Analizar de nuevo", systemImage: "arrow.clockwise", style: .secondary) {
+                    .help("The sum of items marked “Safe to remove” that have an action, without counting a folder inside another twice. Airy computes it, not Claude’s text.")
+                PrimaryButton("Analyze Again", systemImage: "arrow.clockwise", style: .secondary) {
                     session.runReport(model: model)
                 }
                 .fixedSize()
@@ -130,10 +130,10 @@ struct ReportView: View {
         }
     }
 
-    // MARK: Columnas
+    // MARK: Columns
 
     private func columnsView(_ columns: [ReportColumns.Column]) -> some View {
-        // Índice global de cada tarjeta para la entrada escalonada (12 ms por bloque, máx. 0,6 s).
+        // Global index of each card for the staggered entrance (12 ms per block, max 0.6 s).
         var offsets: [Int] = []
         var running = 0
         for column in columns {
@@ -149,8 +149,8 @@ struct ReportView: View {
         }
     }
 
-    /// Abre la confirmación única de la app (`CleanupFlow` → `ConfirmSheet`) con lo que de verdad se toca:
-    /// el elemento detectado exacto o la ruta suelta. "Depende de ti" añade antes "Esto depende de ti".
+    /// Opens the app's single confirmation (`CleanupFlow` → `ConfirmSheet`) with what is really touched:
+    /// the exact detected item or the individual path. "Your call" first adds "This is your call".
     private func requestConfirmation(_ rec: AIRecommendation, offer: AssistantActionOffer, title: String) {
         guard let flow else { return }
         let session = session
@@ -164,10 +164,10 @@ struct ReportView: View {
         case .trashPaths(let paths):
             let warning = offer.needsSecondConfirmation
                 ? CleanupFlow.ConfirmRequest.Warning(
-                    title: "Esto depende de ti",
-                    subtitle: "No es seguro borrarlo sin mirar.",
+                    title: String(localized: "This is your call"),
+                    subtitle: String(localized: "It isn’t safe to delete without looking."),
                     reason: rec.reason,
-                    note: "Revisa \(title) antes de seguir. Si lo mueves a la Papelera podrás recuperarlo mientras no la vacíes.")
+                    note: String(localized: "Check \(title) before continuing. If you move it to the Trash, you can recover it as long as you don’t empty it."))
                 : nil
             flow.requestTrash(paths: paths, title: title, warning: warning, onConfirm: onConfirm, onOutcome: onOutcome)
         }
@@ -185,18 +185,18 @@ struct ReportView: View {
                     return
                 }
             }
-        // "second" y "cancel" los atiende la propia ConfirmSheet.
+        // "second" and "cancel" are handled by ConfirmSheet itself.
         default: break
         }
     }
     #endif
 }
 
-// MARK: - Textos
+// MARK: - Texts
 
 @MainActor
 enum ReportText {
-    /// Nombre corto: ficha del catálogo para los elementos sin ruta, si no el último componente.
+    /// Short name: the catalog entry for items without a path, otherwise the last component.
     static func title(_ rec: AIRecommendation, model: AppModel) -> String {
         if !rec.path.hasPrefix("/") {
             return model.cleanupItems.first { $0.id == rec.path }?.title
@@ -207,12 +207,12 @@ enum ReportText {
     }
 
     static func subtitle(_ rec: AIRecommendation, model: AppModel) -> String {
-        guard rec.path.hasPrefix("/") else { return "Limpieza del catálogo" }
+        guard rec.path.hasPrefix("/") else { return String(localized: "Catalog cleanup") }
         return Format.tildePath(rec.path)
     }
 }
 
-// MARK: - Columna
+// MARK: - Column
 
 private struct RiskColumn: View {
     @Environment(AppModel.self) private var model
@@ -268,20 +268,21 @@ private struct RiskColumn: View {
 
     private var columnDetail: String {
         let count = column.recommendations.count
-        guard count > 0 else { return "Nada" }
-        return "\(Theme.count(count)) \(count == 1 ? "elemento" : "elementos") · \(Format.bytes(column.totalBytes))"
+        guard count > 0 else { return String(localized: "Nothing") }
+        return count == 1 ? String(localized: "1 item · \(Format.bytes(column.totalBytes))")
+                          : String(localized: "\(Theme.count(count)) items · \(Format.bytes(column.totalBytes))")
     }
 
     private var emptyText: String {
         switch column.risk {
-        case .safe: "Nada seguro que borrar"
-        case .yourCall: "Nada que decidir"
-        case .doNotTouch: "Nada delicado"
+        case .safe: String(localized: "Nothing safe to delete")
+        case .yourCall: String(localized: "Nothing to decide")
+        case .doNotTouch: String(localized: "Nothing sensitive")
         }
     }
 }
 
-// MARK: - Tarjeta de recomendación
+// MARK: - Recommendation card
 
 private struct RecommendationCard: View {
     @Environment(AppModel.self) private var model
@@ -362,7 +363,7 @@ private struct RecommendationCard: View {
                     case .offer(let actionOffer):
                         actionButton(actionOffer, title: title)
                     case .unavailable(let reason):
-                        Label(model.isRefreshingCleanup ? "Comprobando en Limpieza…" : reason,
+                        Label(model.isRefreshingCleanup ? String(localized: "Checking in Cleanup…") : reason,
                               systemImage: model.isRefreshingCleanup ? "hourglass" : "info.circle")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -373,7 +374,7 @@ private struct RecommendationCard: View {
                 }
                 Spacer(minLength: 0)
                 if routable {
-                    // Con un botón al lado, solo el icono (el texto no cabe en columnas estrechas).
+                    // With a button next to it, only the icon (the text doesn't fit in narrow columns).
                     let compact: Bool = {
                         if done { return false }
                         if case .none = offer { return false }
@@ -388,7 +389,7 @@ private struct RecommendationCard: View {
                                 .frame(width: 28, height: 28)
                                 .background(Theme.userFilesColor.opacity(0.10), in: Circle())
                         } else {
-                            Label("Ver en el mapa", systemImage: "square.grid.3x3.square")
+                            Label("Show on Map", systemImage: "square.grid.3x3.square")
                                 .font(.caption.weight(.medium))
                                 .lineLimit(1)
                         }
@@ -396,7 +397,7 @@ private struct RecommendationCard: View {
                     .buttonStyle(.borderless)
                     .foregroundStyle(Theme.userFilesColor)
                     .fixedSize()
-                    .help("Ver en el mapa")
+                    .help("Show on Map")
                 }
             }
             .padding(.top, 2)
@@ -406,13 +407,13 @@ private struct RecommendationCard: View {
     @ViewBuilder private func actionButton(_ offer: AssistantActionOffer, title: String) -> some View {
         let busy = session.busyRecommendation == rec.id
         if offer.needsSecondConfirmation {
-            PrimaryButton("Mover a la Papelera…", systemImage: "trash", style: .secondary, isBusy: busy) {
+            PrimaryButton("Move to Trash…", systemImage: "trash", style: .secondary, isBusy: busy) {
                 onAction(rec, offer, title)
             }
             .fixedSize()
             .controlSize(.small)
         } else {
-            PrimaryButton(offer.isCommand ? "Limpiar" : "A la Papelera",
+            PrimaryButton(offer.isCommand ? "Clean" : "To the Trash",
                           systemImage: offer.isCommand ? "wand.and.sparkles" : "trash", isBusy: busy) {
                 onAction(rec, offer, title)
             }
@@ -430,7 +431,7 @@ private struct RecommendationCard: View {
     }
 }
 
-/// Resultado de una acción dentro de su tarjeta.
+/// Result of an action inside its card.
 private struct OutcomeLine: View {
     let outcome: CleanupOutcome
 
@@ -448,20 +449,20 @@ private struct OutcomeLine: View {
     private var parts: (String, Color, String) {
         switch outcome {
         case .movedToTrash(let bytes):
-            ("trash.fill", Theme.Airy.riskInk(.safe), "En la Papelera (\(Format.bytes(bytes))). Se libera al vaciarla.")
+            ("trash.fill", Theme.Airy.riskInk(.safe), String(localized: "In the Trash (\(Format.bytes(bytes))). The space is freed when you empty it."))
         case .freed(let bytes):
-            ("checkmark.circle.fill", Theme.Airy.riskInk(.safe), "Liberados \(Format.bytes(bytes)).")
+            ("checkmark.circle.fill", Theme.Airy.riskInk(.safe), String(localized: "Freed \(Format.bytes(bytes))."))
         case .blocked(let reason):
-            ("hand.raised.fill", Theme.Airy.riskInk(.yourCall), "No se ha hecho: \(reason)")
+            ("hand.raised.fill", Theme.Airy.riskInk(.yourCall), String(localized: "Not done: \(reason)"))
         case .failed(let reason):
             ("exclamationmark.triangle.fill", Theme.Airy.riskInk(.doNotTouch), reason)
         }
     }
 }
 
-// MARK: - Carga
+// MARK: - Loading
 
-/// Tres columnas de tarjetas de esqueleto recorridas por un brillo.
+/// Three columns of skeleton cards swept by a shine.
 private struct SkeletonColumns: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -516,7 +517,7 @@ private struct SkeletonCard: View {
     }
 }
 
-/// Antes del primer informe: las tres columnas que va a llenar, como pista.
+/// Before the first report: the three columns it will fill, as a hint.
 private struct EmptyColumnsHint: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -542,9 +543,9 @@ private struct EmptyColumnsHint: View {
 
     private func hint(for risk: Risk) -> String {
         switch risk {
-        case .safe: "Cachés y restos que se regeneran solos. Se limpian con un toque."
-        case .yourCall: "Cosas que quizá quieras conservar. Tú decides, con doble confirmación."
-        case .doNotTouch: "Datos que no conviene tocar, como los volúmenes de Docker."
+        case .safe: String(localized: "Caches and leftovers that regenerate by themselves. Cleaned with one click.")
+        case .yourCall: String(localized: "Things you may want to keep. It’s your call, with a double confirmation.")
+        case .doNotTouch: String(localized: "Data you shouldn’t touch, like Docker volumes.")
         }
     }
 }
@@ -560,7 +561,7 @@ private struct ReportErrorCard: View {
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("No se pudo preparar el informe")
+                    Text("Couldn’t Prepare the Report")
                         .font(.headline)
                     Text(message)
                         .font(.callout)
@@ -568,7 +569,7 @@ private struct ReportErrorCard: View {
                         .textSelection(.enabled)
                 }
                 Spacer(minLength: 12)
-                PrimaryButton("Reintentar", systemImage: "arrow.clockwise") { onRetry() }
+                PrimaryButton("Try Again", systemImage: "arrow.clockwise") { onRetry() }
                     .fixedSize()
             }
         }
