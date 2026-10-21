@@ -25,6 +25,19 @@ import Testing
         #expect((attrs[.posixPermissions] as? Int) == 0o600)
     }
 
+    @Test func clearEmptiesTheLogAndKeepsItWritable() throws {
+        let file = tempDir().appendingPathComponent("ops.jsonl")
+        let log = OperationLog(file: file)
+        try log.clear()
+        try log.append(record("a")); try log.append(record("b"))
+        try log.clear()
+        #expect(try log.records().isEmpty)
+        try log.append(record("c"))
+        #expect(try log.records().map(\.title) == ["c"])
+        let attrs = try FileManager.default.attributesOfItem(atPath: file.path)
+        #expect((attrs[.posixPermissions] as? Int) == 0o600)
+    }
+
     @Test func skipsCorruptLine() throws {
         let dir = tempDir()
         let file = dir.appendingPathComponent("ops.jsonl")

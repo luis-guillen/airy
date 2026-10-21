@@ -104,6 +104,16 @@ public final class IndexStore: Sendable {
         }
     }
 
+    /// Deletes the saved index (`scan.plist`) only; the cleanup history stays. `true` if there was one.
+    @discardableResult
+    public func deleteScan() throws -> Bool {
+        try lock.withLock { _ in
+            guard FileManager.default.fileExists(atPath: scanURL.path) else { return false }
+            try FileManager.default.removeItem(at: scanURL)
+            return true
+        }
+    }
+
     /// Date of the saved scan (only reads the header). `nil` if there is no index or it is unknown.
     public func lastScanDate() throws -> Date? {
         try lock.withLock { _ in

@@ -88,7 +88,11 @@ public enum ScanSchedule {
     /// - Parameters:
     ///   - hasIndex: there is a saved index already being shown.
     ///   - indexDate: that index's date (`nil` if unknown: treated as old).
-    public static func plan(_ trigger: ScanTrigger, hasIndex: Bool, indexDate: Date?, now: Date) -> ScanPlan {
+    ///   - autoRescan: Settings › Scanning › "Rescan automatically on launch". Off, a saved index is never
+    ///     rescanned by itself (without one, Airy still scans: there would be nothing to show).
+    ///   - maxAge: minimum age of the index before an automatic rescan; `nil` is "Never".
+    public static func plan(_ trigger: ScanTrigger, hasIndex: Bool, indexDate: Date?, now: Date,
+                            autoRescan: Bool = true, maxAge: TimeInterval? = freshness) -> ScanPlan {
         switch trigger {
         case .user:
             return .scan(.normal)
@@ -97,10 +101,11 @@ public enum ScanSchedule {
         case .automatic:
             // With nothing to show, the user is waiting in front of the progress.
             guard hasIndex else { return .scan(.normal) }
+            guard autoRescan, let maxAge else { return .skip }
             guard let indexDate else { return .scan(.background) }
             let age = now.timeIntervalSince(indexDate)
             // A future date (changed clock) does not count as recent.
-            return age >= 0 && age < freshness ? .skip : .scan(.background)
+            return age >= 0 && age < maxAge ? .skip : .scan(.background)
         }
     }
 }

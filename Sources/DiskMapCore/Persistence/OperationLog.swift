@@ -151,6 +151,18 @@ public final class OperationLog: Sendable {
 
     private static func posixError() -> POSIXError { POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
 
+    /// Empties the log in place (truncated under the same lock as `append`, so a concurrent write from `airy-mcp`
+    /// lands whole, before or after). Only Airy's own file: nothing else is touched.
+    public func clear() throws {
+        guard FileManager.default.fileExists(atPath: file.path) else { return }
+        let fd = open(file.path, O_RDWR)
+        guard fd >= 0 else { throw Self.posixError() }
+        defer { close(fd) }
+        guard flock(fd, LOCK_EX) == 0 else { throw Self.posixError() }
+        defer { flock(fd, LOCK_UN) }
+        guard ftruncate(fd, 0) == 0 else { throw Self.posixError() }
+    }
+
     /// Most recent at the end; unreadable lines are skipped.
     public func records(limit: Int? = nil) throws -> [OperationRecord] {
         guard FileManager.default.fileExists(atPath: file.path) else { return [] }

@@ -32,6 +32,18 @@ import Testing
         return out
     }
 
+    @Test func deleteScanRemovesOnlyTheIndex() throws {
+        let dir = tempDir()
+        let store = IndexStore(directory: dir)
+        #expect(try store.deleteScan() == false)
+        try store.saveScan(ScanResult(root: sampleTree(), inaccessible: [], duration: 1, scannedAt: Date()))
+        try store.append(CleanupRecord(date: Date(), title: "npm", bytes: 10, wentToTrash: false))
+        #expect(try store.deleteScan() == true)
+        #expect(try store.loadScan() == nil)
+        // The cleanup history ("Total freed") stays.
+        #expect(try store.totalFreed() == 10)
+    }
+
     @Test func roundTripsTree() throws {
         let store = IndexStore(directory: tempDir())
         let root = sampleTree()
