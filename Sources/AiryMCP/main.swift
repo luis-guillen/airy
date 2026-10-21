@@ -1,10 +1,13 @@
 import DiskMapCore
 import Foundation
 
-// Servidor MCP de Airy por stdio (`Airy.app/Contents/MacOS/airy-mcp`).
-// Por stdout solo va JSON-RPC; los diagnósticos, por stderr. Termina al cerrarse la entrada.
+// Airy's stdio MCP server (`Airy.app/Contents/MacOS/airy-mcp`).
+// Only JSON-RPC goes to stdout; diagnostics go to stderr. It ends when the input is closed.
 
-// Si el cliente cierra la salida, `write` devuelve error en vez de matar el proceso.
+// The MCP always speaks English, whatever the user's language: agents work best with stable English.
+AiryLanguage.override = AiryLanguage.source
+
+// If the client closes the output, `write` returns an error instead of killing the process.
 signal(SIGPIPE, SIG_IGN)
 
 func diagnose(_ message: String) {
@@ -13,10 +16,10 @@ func diagnose(_ message: String) {
 
 let paths = AppPaths.standard()
 if case .failed(let reason) = DataMigration.migrateIfNeeded(paths) {
-    diagnose("no se pudieron copiar los datos antiguos: \(reason)")
+    diagnose("could not copy the old data: \(reason)")
 }
 
-/// Versión del Airy.app que lo contiene (`Contents/MacOS/airy-mcp` ⇒ `Contents/Info.plist`).
+/// Version of the Airy.app that contains it (`Contents/MacOS/airy-mcp` ⇒ `Contents/Info.plist`).
 func containingAppVersion() -> String? {
     guard let executable = Bundle.main.executableURL?.resolvingSymlinksInPath() else { return nil }
     let contents = executable.deletingLastPathComponent().deletingLastPathComponent()

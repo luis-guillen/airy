@@ -1,11 +1,11 @@
 import Foundation
 
-// Herramientas MCP de solo lectura. Trabajan con el índice guardado, `lstat`, el catálogo y la
-// detección de Limpieza: nunca leen el contenido de ningún archivo.
+// Read-only MCP tools. They work with the saved index, `lstat`, the catalog and the Cleanup
+// detection: they never read the contents of any file.
 
-/// Formato común de las respuestas.
+/// Common format of the responses.
 public enum MCPFormat {
-    /// `{risk, risk_label, protected_by, reasons}` a partir del veredicto del clasificador.
+    /// `{risk, risk_label, protected_by, reasons}` from the classifier's verdict.
     public static func risk(_ c: Classification) -> [String: JSONValue] {
         let riskName: String
         switch c.risk {
@@ -35,8 +35,8 @@ public enum MCPFormat {
         return .string(ISO8601DateFormatter().string(from: date))
     }
 
-    /// `~` y `~/…` se expanden; solo rutas absolutas, sin caracteres de control; `.`, `..` y `//` se resuelven
-    /// en el texto (sin tocar el disco). `nil` si no es una ruta válida.
+    /// `~` and `~/…` are expanded; absolute paths only, without control characters; `.`, `..` and `//` are resolved
+    /// in the text (without touching the disk). `nil` if it is not a valid path.
     static func normalisedPath(_ raw: String, home: String) -> String? {
         var path = raw
         if path == "~" { path = home } else if path.hasPrefix("~/") { path = home + path.dropFirst(1) }
@@ -56,14 +56,14 @@ public enum MCPFormat {
         parent == "/" ? "/" + name : parent + "/" + name
     }
 
-    /// Nodo del índice para una ruta absoluta normalizada, o `nil` si no está.
+    /// Index node for a normalized absolute path, or `nil` if it is not there.
     static func node(at path: String, in root: FileNode) -> FileNode? {
         if path == "/", root.name.isEmpty || root.name == "/" { return root }
         return CleanupScanner.node(at: path, in: root)
     }
 
     static func loadIndex(_ env: AiryEnvironment) -> (scan: ScanResult?, failure: String?) {
-        do { return (try env.index.loadScan(), nil) } catch { return (nil, "No se pudo leer el último análisis.") }
+        do { return (try env.index.loadScan(), nil) } catch { return (nil, "Could not read the last scan.") }
     }
 }
 
@@ -85,9 +85,9 @@ public struct GetDiskSummaryTool: MCPTool {
     public init() {}
     public var name: String { "get_disk_summary" }
     public var description: String {
-        "Resumen del disco: capacidad, espacio libre y purgable, bytes analizados y desglose por tipo, según el último "
-            + "análisis guardado de Airy. `scan_complete` es false si hubo carpetas sin acceso en ese análisis. "
-            + "`full_disk_access` es el permiso del proceso del agente (airy-mcp), no el de la app Airy."
+        "Disk summary: capacity, free and purgeable space, scanned bytes and breakdown by kind, according to Airy's last "
+            + "saved scan. `scan_complete` is false if some folders could not be accessed in that scan. "
+            + "`full_disk_access` is the permission of the agent's process (airy-mcp), not that of the Airy app."
     }
     public var inputSchema: JSONValue { objectSchema() }
     public var annotations: MCPToolAnnotations { readOnly }
@@ -97,7 +97,7 @@ public struct GetDiskSummaryTool: MCPTool {
         let loaded = MCPFormat.loadIndex(env)
         if let failure = loaded.failure { return .error(failure) }
         guard let scan = loaded.scan else {
-            return .ok(.object(["scan_available": .bool(false)]), summary: "Aún no hay análisis guardado. Abre Airy o usa rescan.")
+            return .ok(.object(["scan_available": .bool(false)]), summary: "There is no saved scan yet. Open Airy or use rescan.")
         }
         let capacity = env.capacity()
         let lastScan = scan.scannedAt
@@ -118,8 +118,8 @@ public struct GetDiskSummaryTool: MCPTool {
             "by_kind": .array(kinds),
             "full_disk_access": .bool(env.probes.hasFullDiskAccess()),
         ])
-        let note = scan.inaccessible.isEmpty ? "" : " (análisis incompleto: hay carpetas sin acceso)"
-        return .ok(value, summary: "Resumen del disco a partir del último análisis\(note).")
+        let note = scan.inaccessible.isEmpty ? "" : " (incomplete scan: some folders could not be accessed)"
+        return .ok(value, summary: "Disk summary from the last scan\(note).")
     }
 }
 
@@ -129,12 +129,12 @@ public struct ListLargestTool: MCPTool {
     public init() {}
     public var name: String { "list_largest" }
     public var description: String {
-        "Lista lo que más ocupa dentro de una carpeta del último análisis (por defecto la raíz del análisis), "
-            + "de mayor a menor, con el riesgo de borrar cada elemento. Solo metadatos."
+        "Lists what takes the most space inside a folder of the last scan (by default the scan root), "
+            + "largest to smallest, with the risk of deleting each item. Metadata only."
     }
     public var inputSchema: JSONValue {
         objectSchema([
-            "path": .object(["type": .string("string"), "description": .string("Ruta absoluta o con ~."), "maxLength": .number(4096)]),
+            "path": .object(["type": .string("string"), "description": .string("Absolute path or starting with ~."), "maxLength": .number(4096)]),
             "limit": .object(["type": .string("integer"), "minimum": .number(1), "maximum": .number(200)]),
         ])
     }
@@ -144,27 +144,27 @@ public struct ListLargestTool: MCPTool {
         let env = context.environment
         var limit = 20
         if let raw = arguments["limit"] {
-            guard let n = raw.intValue, (1...200).contains(n) else { return .error("limit debe ser un entero entre 1 y 200.") }
+            guard let n = raw.intValue, (1...200).contains(n) else { return .error("limit must be an integer between 1 and 200.") }
             limit = n
         }
         let loaded = MCPFormat.loadIndex(env)
         if let failure = loaded.failure { return .error(failure) }
-        guard let scan = loaded.scan else { return .error("Aún no hay análisis guardado. Abre Airy o usa rescan.") }
-        guard let classifier = env.classifier() else { return .error(env.catalogError ?? "El catálogo no está disponible.") }
+        guard let scan = loaded.scan else { return .error("There is no saved scan yet. Open Airy or use rescan.") }
+        guard let classifier = env.classifier() else { return .error(env.catalogError ?? "The catalog is not available.") }
 
         let path: String, node: FileNode
         if let raw = arguments["path"]?.stringValue {
             guard let normal = MCPFormat.normalisedPath(raw, home: env.home) else {
-                return .error("La ruta debe ser absoluta (o empezar por ~).")
+                return .error("The path must be absolute (or start with ~).")
             }
             guard let found = MCPFormat.node(at: normal, in: scan.root) else {
-                return .error("Esa carpeta no está en el último análisis.")
+                return .error("That folder is not in the last scan.")
             }
             path = normal; node = found
         } else if let root = MCPFormat.node(at: "/", in: scan.root) {
             path = "/"; node = root
         } else {
-            // El análisis no empieza en «/»: se usa su raíz.
+            // The scan does not start at "/": its root is used.
             path = scan.root.name.isEmpty ? "/" : scan.root.name; node = scan.root
         }
 
@@ -173,7 +173,7 @@ public struct ListLargestTool: MCPTool {
         let rows: [JSONValue] = children.map { child in
             if child.aggregatedCount > 0 {
                 return .object([
-                    "name": .string("Otros"), "aggregated_count": .number(Double(child.aggregatedCount)),
+                    "name": .string("Other"), "aggregated_count": .number(Double(child.aggregatedCount)),
                     "bytes": MCPFormat.number(child.allocatedSize), "path": .null,
                     "size_partial": .bool(partial.isPartial(path)),
                 ])
@@ -189,7 +189,7 @@ public struct ListLargestTool: MCPTool {
             return .object(row)
         }
         let value: JSONValue = .object(["path": .string(path), "children": .array(rows)])
-        return .ok(value, summary: "Lo más grande en \(Format.tildePath(path, home: env.home)) (\(rows.count) elementos).")
+        return .ok(value, summary: "Largest items in \(Format.tildePath(path, home: env.home)) (\(rows.count) items).")
     }
 }
 
@@ -199,8 +199,8 @@ public struct ExplainPathTool: MCPTool {
     public init() {}
     public var name: String { "explain_path" }
     public var description: String {
-        "Explica una ruta: qué es, quién la crea, si se regenera, cuánto ocupa según el último análisis y el riesgo de "
-            + "borrarla (semáforo de Airy). No lee el contenido de nada."
+        "Explains a path: what it is, who creates it, whether it regenerates, how much it takes up according to the last scan and the risk of "
+            + "deleting it (Airy's traffic light). It reads the contents of nothing."
     }
     public var inputSchema: JSONValue {
         objectSchema(["path": .object(["type": .string("string"), "minLength": .number(1), "maxLength": .number(4096)])],
@@ -212,14 +212,14 @@ public struct ExplainPathTool: MCPTool {
         let env = context.environment
         guard let raw = arguments["path"]?.stringValue,
               let path = MCPFormat.normalisedPath(raw, home: env.home) else {
-            return .error("La ruta debe ser absoluta (o empezar por ~).")
+            return .error("The path must be absolute (or start with ~).")
         }
-        guard let classifier = env.classifier() else { return .error(env.catalogError ?? "El catálogo no está disponible.") }
+        guard let classifier = env.classifier() else { return .error(env.catalogError ?? "The catalog is not available.") }
 
         let entry = env.catalog?.match(path: path, home: env.home)
         let folderText = FolderExplanations.text(for: path, home: env.home)
         let title = entry?.title ?? (path == "/" ? "/" : (path as NSString).lastPathComponent)
-        let explanation = entry?.explanation ?? folderText ?? "Esta ruta no está en el catálogo de Airy."
+        let explanation = entry?.explanation ?? folderText ?? "This path is not in Airy's catalog."
 
         var size: JSONValue = .null
         if let scan = MCPFormat.loadIndex(env).scan, let node = MCPFormat.node(at: path, in: scan.root) {
@@ -249,10 +249,10 @@ public struct ListCleanupItemsTool: MCPTool {
     public init() {}
     public var name: String { "list_cleanup_items" }
     public var description: String {
-        "Lista las limpiezas que Airy detecta ahora en este Mac, en el orden de la pantalla Limpieza, con su riesgo, "
-            + "tamaño, método y si un agente puede ejecutarla (`actionable_by_agent`: solo «Sin problema» sin bloqueo). "
-            + "Cada elemento trae `verdict` (la etiqueta), `why` (por qué) y `short_reason` (qué pierdes), y `review_only` "
-            + "marca los de «Solo revisar», que Airy no borra."
+        "Lists the cleanups Airy detects on this Mac right now, in the order of the Cleanup screen, with their risk, "
+            + "size, method and whether an agent can run them (`actionable_by_agent`: only “Safe to remove” and not blocked). "
+            + "Each item carries `verdict` (the label), `why` (the reason) and `short_reason` (what you lose), and `review_only` "
+            + "marks the “Review only” ones, which Airy does not delete."
     }
     public var inputSchema: JSONValue { objectSchema() }
     public var annotations: MCPToolAnnotations { readOnly }
@@ -260,17 +260,17 @@ public struct ListCleanupItemsTool: MCPTool {
     public func call(_ arguments: [String: JSONValue], context: MCPCallContext) async -> MCPToolResult {
         let env = context.environment
         guard let scanner = env.makeScanner(), let classifier = env.classifier() else {
-            return .error(env.catalogError ?? "El catálogo no está disponible.")
+            return .error(env.catalogError ?? "The catalog is not available.")
         }
         let loaded = MCPFormat.loadIndex(env).scan
         let board = CleanupBoard(items: await scanner.findItems(scan: loaded?.root, inaccessible: loaded?.inaccessible ?? []))
-        // Con el interruptor apagado o los ajustes ilegibles, ningún agente puede ejecutar nada.
+        // With the switch off or the settings unreadable, no agent can run anything.
         let agentsEnabled = AgentGate.refusal(env) == nil
         let rows: [JSONValue] = board.displayItems.map { item in
             var verdict = classifier.classify(entry: item.entry, paths: item.paths)
             verdict.risk = .strictest(verdict.risk, item.risk)
             verdict.protection = item.protection ?? verdict.protection
-            var shown = item // el riesgo y la protección que decide el clasificador vivo
+            var shown = item // the risk and protection decided by the live classifier
             shown.risk = verdict.risk
             shown.protection = verdict.protection
             let method: String, command: JSONValue
@@ -308,6 +308,6 @@ public struct ListCleanupItemsTool: MCPTool {
             "mode": .string(env.settings.load().effective.mode.rawValue), "agents_enabled": .bool(agentsEnabled),
             "items": .array(rows),
         ])
-        return .ok(value, summary: "\(rows.count) limpiezas detectadas.")
+        return .ok(value, summary: "\(rows.count) cleanups detected.")
     }
 }
