@@ -1,101 +1,101 @@
-# Airy 2 de 5 — Marca y animaciones · Plan de implementación
+# Airy 2 of 5 — Brand and animations · Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Airy estrena su marca de viento: icono «remolino con hojas» (con variante pequeña), paleta azul con acentos fríos y contraste AA comprobado por pruebas, colores de seguridad fijos con un `RiskBadge` de tres textos, y todas las animaciones de §2.2 (arranque, análisis, borrar, «Borrar todo», brisa de fondo, botones que se mecen y las piezas de Rendimiento) sin gastar CPU en reposo.
+**Goal:** Airy debuts its wind brand: the «remolino con hojas» (wind swirl with leaves) icon (with a small variant), a blue palette with cool accents and AA contrast verified by tests, fixed safety colors with a three-text `RiskBadge`, and all the animations of §2.2 (launch, analysis, delete, «Borrar todo» (Delete all), background breeze, swaying buttons and the Performance pieces) without spending CPU at rest.
 
-**Architecture:** Todo lo que se puede calcular sin SwiftUI vive en `DiskMapCore/Design/` y se prueba con Swift Testing: matemática de color y contraste WCAG, los tokens de la paleta, la geometría del logo y las poses deterministas de cada animación (funciones puras del tiempo o del progreso, sin estado aleatorio). La app (`Sources/Airy/Design/`) solo traduce esos números a `Color`, `Canvas` y transiciones, y un único «portero de movimiento» en `RootView` decide por entorno si cada animación corre, se pausa (ventana oculta o app inactiva ⇒ ningún reloj vivo) o se reduce a fundidos («Reducir movimiento»). El icono `.icns` sale del mismo script de CoreGraphics de siempre, con la geometría copiada de la librería y una huella que una prueba compara.
+**Architecture:** Everything that can be computed without SwiftUI lives in `DiskMapCore/Design/` and is tested with Swift Testing: color math and WCAG contrast, the palette tokens, the logo geometry and the deterministic poses of each animation (pure functions of time or progress, with no random state). The app (`Sources/Airy/Design/`) only translates those numbers into `Color`, `Canvas` and transitions, and a single «motion gatekeeper» (portero de movimiento) in `RootView` decides through the environment whether each animation runs, pauses (hidden window or inactive app ⇒ no live clock) or is reduced to fades («Reducir movimiento» (Reduce Motion)). The `.icns` icon comes from the same CoreGraphics script as always, with the geometry copied from the library and a fingerprint that a test compares.
 
-**Tech Stack:** Swift 6.4 (solo Command Line Tools), SwiftPM, SwiftUI + AppKit (`Canvas`, `TimelineView`, `keyframeAnimator`, `AnyTransition.modifier`), CoreGraphics/ImageIO (`scripts/make-icon.swift`), `sips`/`iconutil`, Swift Testing.
+**Tech Stack:** Swift 6.4 (Command Line Tools only), SwiftPM, SwiftUI + AppKit (`Canvas`, `TimelineView`, `keyframeAnimator`, `AnyTransition.modifier`), CoreGraphics/ImageIO (`scripts/make-icon.swift`), `sips`/`iconutil`, Swift Testing.
 
-**Spec:** `docs/superpowers/specs/2026-10-20-airy-fase-2-design.md` §2.1 (logo, paleta, contraste, colores de seguridad), §2.2 (animaciones y sus límites), §4 («que las animaciones hagan la app pesada», «verse azul plano y aburrido o con poco contraste»), §7 («paleta clara derivada y valores exactos de contraste», «implementación de las animaciones»). Interfaces del plan 1 que se consumen: `docs/superpowers/plans/2026-10-20-airy-1-identidad-seguridad-mcp.md` (`Risk.label`, identidad `Airy`, `Resources/Airy.icns`).
+**Spec:** `docs/superpowers/specs/2026-10-20-airy-fase-2-design.md` §2.1 (logo, palette, contrast, safety colors), §2.2 (animations and their limits), §4 («que las animaciones hagan la app pesada» (animations making the app heavy), «verse azul plano y aburrido o con poco contraste» (looking flat, boring blue or with low contrast)), §7 («paleta clara derivada y valores exactos de contraste» (derived light palette and exact contrast values), «implementación de las animaciones» (implementation of the animations)). Plan 1 interfaces consumed: `docs/superpowers/plans/2026-10-20-airy-1-identidad-seguridad-mcp.md` (`Risk.label`, `Airy` identity, `Resources/Airy.icns`).
 
-**Fuera de este plan:** agrupar Limpieza por las tres etiquetas, textos de «por qué» y botón «Borrar todo» (plan 3: consume `RiskBadge`, `.leafAway`, `CleanupFlow.gust`); sección Rendimiento (plan 4: consume `WindSwirl`, `.leafAway`, `Theme.Airy.swirlTint`); Desinstalador, Grandes y viejos, Duplicados, Tipos de archivo (plan 5).
+**Out of this plan:** grouping Cleanup by the three labels, «why» texts and the «Borrar todo» button (plan 3: consumes `RiskBadge`, `.leafAway`, `CleanupFlow.gust`); Performance section (plan 4: consumes `WindSwirl`, `.leafAway`, `Theme.Airy.swirlTint`); Uninstaller, Large & old, Duplicates, File types (plan 5).
 
 ## Global Constraints
 
-- Swift 6.4, SwiftPM, solo Command Line Tools (sin Xcode); `swift build` / `swift test`; plataforma `.macOS(.v15)`; el test target conserva las `unsafeFlags` del plugin de Swift Testing de Package.swift. El test target solo depende de `DiskMapCore`: todo lo que se prueba vive allí.
-- Vistas SwiftUI con el alias `@ViewState` (no `@State`), nunca `.fixedSize(horizontal:false,vertical:true)` en `Text` multilínea. **Sin macros de SwiftUI** (`@State`, `@Entry`, `#Preview`): con Command Line Tools no compilan; las claves de entorno se escriben con `EnvironmentKey` a mano. Seguir los patrones existentes (`Theme`, `PrimaryButton`, `SectionHeader`, `GlassCard`).
-- Interfaz en **español de España**.
-- Paleta oscura (spec, literal): noche `#07112a`/`#0d2350`, azul `#2f8bff`, cielo `#5ab8ff`, texto `#f2f7ff`/secundario `#b9cdf0`. Logo: degradado `#2fd0ff` → `#2a3bd9`, tres arcos concéntricos de viento en blanco translúcido, hojas blancas/celestes. Variante ≤ 64 px: un solo arco grueso y una hoja.
-- **Colores de seguridad fijos** (spec, literal): verde `#1fdc7a` (sin problema), ámbar `#ffb020` (tú decides), rojo `#ff4d5e` (no borrar). Son señales, no decoración: no se usan para adornar.
-- **Contraste fuerte:** todo texto e indicador con contraste WCAG AA ≥ 4,5:1 en oscuro y en claro (comprobado por `AiryPaletteTests`).
-- El mapa de bloques usa la **gama fría** (azules, turquesas, violetas, índigo), con cada tipo distinguible (ΔE76 ≥ 20 entre cualquier par).
-- Animaciones: «Reducir movimiento» ⇒ solo fundidos; 60–120 fps; **cero CPU en reposo**: ningún `TimelineView` sin pausar ni animación `repeatForever` viva con la ventana oculta, minimizada, tapada o la app inactiva (patrón del mapa: `TimelineView(.animation(minimumInterval: nil, paused: …))` y relojes que solo existen mientras dura el efecto).
-- Toda acción destructiva sigue pasando por `ConfirmSheet` → `AppModel` → `CleanupExecutor`; las animaciones solo **reaccionan** a resultados, nunca disparan borrados. Sin atajos DEBUG que actúen sin confirmación (los nuevos `AIRY_*` de depuración solo ocultan la ventana, saltan el arranque o enseñan una galería).
-- Capturas DEBUG solo de las ventanas de la propia app; para parar la app, matar **solo el PID propio** (nunca `pkill -x`); cada verificación manual usa su propio `AIRY_SUPPORT_DIR` temporal. Nunca `scripts/build-app.sh --install`, nunca escribir en `/Applications`, nunca tocar el Llavero.
-- En pruebas y verificación nunca se ejecutan limpiezas reales ni se vacía la Papelera real.
-- Commits terminan con `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Swift 6.4, SwiftPM, Command Line Tools only (no Xcode); `swift build` / `swift test`; platform `.macOS(.v15)`; the test target keeps the `unsafeFlags` of the Swift Testing plugin from Package.swift. The test target only depends on `DiskMapCore`: everything that is tested lives there.
+- SwiftUI views with the `@ViewState` alias (not `@State`), never `.fixedSize(horizontal:false,vertical:true)` on multiline `Text`. **No SwiftUI macros** (`@State`, `@Entry`, `#Preview`): they do not compile with Command Line Tools; environment keys are written by hand with `EnvironmentKey`. Follow the existing patterns (`Theme`, `PrimaryButton`, `SectionHeader`, `GlassCard`).
+- Interface in **Spanish (Spain)**.
+- Dark palette (spec, literal): night `#07112a`/`#0d2350`, blue `#2f8bff`, sky `#5ab8ff`, text `#f2f7ff`/secondary `#b9cdf0`. Logo: gradient `#2fd0ff` → `#2a3bd9`, three concentric wind arcs in translucent white, white/light-blue leaves. Variant ≤ 64 px: a single thick arc and one leaf.
+- **Fixed safety colors** (spec, literal): green `#1fdc7a` (no problem), amber `#ffb020` (you decide), red `#ff4d5e` (do not delete). They are signals, not decoration: they are not used to adorn.
+- **Strong contrast:** all text and indicators with WCAG AA contrast ≥ 4.5:1 in dark and in light (verified by `AiryPaletteTests`).
+- The block map uses the **cool range** (blues, turquoises, violets, indigo), with each type distinguishable (ΔE76 ≥ 20 between any pair).
+- Animations: «Reducir movimiento» ⇒ fades only; 60–120 fps; **zero CPU at rest**: no unpaused `TimelineView` nor live `repeatForever` animation with the window hidden, minimized, covered or the app inactive (the map's pattern: `TimelineView(.animation(minimumInterval: nil, paused: …))` and clocks that only exist while the effect lasts).
+- Every destructive action still goes through `ConfirmSheet` → `AppModel` → `CleanupExecutor`; the animations only **react** to results, they never trigger deletions. No DEBUG shortcuts that act without confirmation (the new `AIRY_*` debug variables only hide the window, skip the launch or show a gallery).
+- DEBUG screenshots only of the app's own windows; to stop the app, kill **only its own PID** (never `pkill -x`); each manual verification uses its own temporary `AIRY_SUPPORT_DIR`. Never `scripts/build-app.sh --install`, never write to `/Applications`, never touch the Keychain.
+- In tests and verification, real cleanups are never run and the real Trash is never emptied.
+- Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
 
-1. **Ventana minimizada, tapada, en otro Escritorio o app en segundo plano a mitad de una animación** → todos los relojes ambientales se paran (0 % CPU) y al volver siguen sin salto. Test en Task 4 (`ambientPausesWhenHiddenOrInactive`, `swirlPhaseDoesNotJumpAfterPause`) y verificación de CPU en Task 5.
-2. **«Reducir movimiento» activado (antes o durante)** → nada se desplaza ni gira; el arranque es un fundido corto que no tapa la app más de 0,7 s. Test en Task 4 (`reduceMotionWinsOverRunning`, `launchTimelineIsShortWithReduceMotion`) y captura con `AIRY_REDUCE_MOTION=1` en Task 6.
-3. **Modo claro** (la paleta derivada que no viene en la spec) → cada par de texto cumple AA igual que en oscuro, incluidas las etiquetas de riesgo. Test en Task 1 (`everyTextPairMeetsAA` con `.light`).
-4. **«Borrar todo» con cientos de filas o bloques diminutos** → la ráfaga dura como mucho 1,2 s y las hojas por fila no se disparan; un rectángulo de 0×0 no produce `NaN`. Test en Task 4 (`gustDurationIsCappedForHugeLists`, `leafCountIsClamped`, `dissolveHandlesDegenerateRect`).
-5. **Carga de CPU o estado térmico fuera de rango** (lo que pasará el plan 4: `NaN`, negativa, > 1) → la velocidad del remolino y el tinte se acotan, nunca se congela ni gira a lo loco. Test en Task 4 (`swirlSpeedClampsGarbage`) y Task 1 (`swirlTintWarmsWithHeat`).
+1. **Window minimized, covered, on another Desktop or app in the background mid-animation** → all ambient clocks stop (0 % CPU) and on return continue without a jump. Test in Task 4 (`ambientPausesWhenHiddenOrInactive`, `swirlPhaseDoesNotJumpAfterPause`) and CPU verification in Task 5.
+2. **«Reducir movimiento» enabled (before or during)** → nothing moves or spins; the launch is a short fade that does not cover the app for more than 0.7 s. Test in Task 4 (`reduceMotionWinsOverRunning`, `launchTimelineIsShortWithReduceMotion`) and screenshot with `AIRY_REDUCE_MOTION=1` in Task 6.
+3. **Light mode** (the derived palette that is not in the spec) → every text pair meets AA just as in dark, including the risk labels. Test in Task 1 (`everyTextPairMeetsAA` with `.light`).
+4. **«Borrar todo» with hundreds of rows or tiny blocks** → the gust lasts at most 1.2 s and the per-row leaves do not fire; a 0×0 rectangle does not produce `NaN`. Test in Task 4 (`gustDurationIsCappedForHugeLists`, `leafCountIsClamped`, `dissolveHandlesDegenerateRect`).
+5. **CPU load or thermal state out of range** (what plan 4 will pass: `NaN`, negative, > 1) → the swirl's speed and tint are clamped, it never freezes nor spins wildly. Test in Task 4 (`swirlSpeedClampsGarbage`) and Task 1 (`swirlTintWarmsWithHeat`).
 
 ---
 
-## Interfaces públicas que consumen los planes 3–5
+## Public interfaces consumed by plans 3–5
 
-Nombres fijos (definidos aquí; los planes 3–5 los usan tal cual):
+Fixed names (defined here; plans 3–5 use them as they are):
 
-| Nombre | Dónde | Qué es |
+| Name | Where | What it is |
 |---|---|---|
-| `Theme.Airy` | `Sources/Airy/Design/Theme.swift` | Paleta: `background`, `backgroundRaised`, `text`, `textSecondary`, `accent`, `sky`, `onAccent`, `leafSky` (`Color`, dinámicos claro/oscuro), `accentGradient`, `destructiveGradient`, `logoGradient` (`LinearGradient`), `riskFill(_ risk: Risk) -> Color`, `riskInk(_ risk: Risk) -> Color`, `swirlTint(_ thermal: ProcessInfo.ThermalState) -> Color` |
-| `RiskBadge(risk:compact:reason:)` | `Sources/Airy/Design/Components.swift` | Etiqueta «Sin problema» / «Tú decides» / «No borrar» (`Risk.label`) con símbolo, tinta AA y `reason` opcional en la ayuda y en VoiceOver |
-| `AiryLogo(size:animated:)` | `Sources/Airy/Design/AiryLogo.swift` | Logo vectorial; variante pequeña automática ≤ 64 px |
-| `BreezeBackground(intensity:)` | `Sources/Airy/Design/BreezeBackground.swift` | Fondo de brisa; `BreezeIntensity.ambient` / `.scan` |
-| `WindLeaves(mode:count:)` | `Sources/Airy/Design/WindLeaves.swift` | Hojas: `.orbit(radius:)`, `.launch(start:)`, `.burst(start:rect:)` |
-| `AnyTransition.leafAway` | `Sources/Airy/Design/WindLeaves.swift` | Fila que sale volando como una hoja y se deshace en hojas (borrar en Limpieza; cerrar app en Rendimiento) |
-| `WindSwirl(speed:tint:)` | `Sources/Airy/Design/WindSwirl.swift` | Remolino; `speed` en vueltas/s (usar `WindMotion.swirlRevolutionsPerSecond(cpuLoad:)`), `tint` (usar `Theme.Airy.swirlTint(_:)`) |
-| `GustSweep(start:)`, `.gustSway(index:start:)` | `Sources/Airy/Design/GustSweep.swift` | Ráfaga que barre una lista de izquierda a derecha |
-| `.hoverSway(_ hovering: Bool)` | `Sources/Airy/Design/Motion.swift` | Balanceo breve al pasar el ratón |
-| `EnvironmentValues.airyAmbientMotion` / `.airyTransientMotion` (`MotionMode`) | `Sources/Airy/Design/Motion.swift` | Portero de movimiento; toda vista animada nueva lo lee |
-| `CleanupFlow.gust: CleanupFlow.Gust?`, `CleanupFlow.batchFreed: Int64` | `Sources/Airy/Cleanup/CleanupFlow.swift` | La ráfaga se dispara sola en toda tanda confirmada de ≥ 2 elementos; `batchFreed` sube con cada fila |
-| `AiryPalette`, `ColorMath`, `AiryLogoGeometry`, `WindMotion`, `AnimationGate`, `MotionMode`, `BreezeIntensity` | `Sources/DiskMapCore/Design/` | Núcleo puro y probado |
+| `Theme.Airy` | `Sources/Airy/Design/Theme.swift` | Palette: `background`, `backgroundRaised`, `text`, `textSecondary`, `accent`, `sky`, `onAccent`, `leafSky` (`Color`, dynamic light/dark), `accentGradient`, `destructiveGradient`, `logoGradient` (`LinearGradient`), `riskFill(_ risk: Risk) -> Color`, `riskInk(_ risk: Risk) -> Color`, `swirlTint(_ thermal: ProcessInfo.ThermalState) -> Color` |
+| `RiskBadge(risk:compact:reason:)` | `Sources/Airy/Design/Components.swift` | Label «Sin problema» / «Tú decides» / «No borrar» (No problem / You decide / Do not delete) (`Risk.label`) with symbol, AA ink and optional `reason` in the help text and in VoiceOver |
+| `AiryLogo(size:animated:)` | `Sources/Airy/Design/AiryLogo.swift` | Vector logo; automatic small variant ≤ 64 px |
+| `BreezeBackground(intensity:)` | `Sources/Airy/Design/BreezeBackground.swift` | Breeze background; `BreezeIntensity.ambient` / `.scan` |
+| `WindLeaves(mode:count:)` | `Sources/Airy/Design/WindLeaves.swift` | Leaves: `.orbit(radius:)`, `.launch(start:)`, `.burst(start:rect:)` |
+| `AnyTransition.leafAway` | `Sources/Airy/Design/WindLeaves.swift` | A row that flies off like a leaf and breaks apart into leaves (delete in Cleanup; quit app in Performance) |
+| `WindSwirl(speed:tint:)` | `Sources/Airy/Design/WindSwirl.swift` | Swirl; `speed` in revolutions/s (use `WindMotion.swirlRevolutionsPerSecond(cpuLoad:)`), `tint` (use `Theme.Airy.swirlTint(_:)`) |
+| `GustSweep(start:)`, `.gustSway(index:start:)` | `Sources/Airy/Design/GustSweep.swift` | A gust that sweeps a list from left to right |
+| `.hoverSway(_ hovering: Bool)` | `Sources/Airy/Design/Motion.swift` | Brief sway on hover |
+| `EnvironmentValues.airyAmbientMotion` / `.airyTransientMotion` (`MotionMode`) | `Sources/Airy/Design/Motion.swift` | Motion gatekeeper; every new animated view reads it |
+| `CleanupFlow.gust: CleanupFlow.Gust?`, `CleanupFlow.batchFreed: Int64` | `Sources/Airy/Cleanup/CleanupFlow.swift` | The gust fires by itself on every confirmed batch of ≥ 2 items; `batchFreed` goes up with each row |
+| `AiryPalette`, `ColorMath`, `AiryLogoGeometry`, `WindMotion`, `AnimationGate`, `MotionMode`, `BreezeIntensity` | `Sources/DiskMapCore/Design/` | Pure, tested core |
 
 ---
 
-## Estructura de archivos
+## File structure
 
 ```
-Sources/DiskMapCore/Design/                                   (nuevo)
-  ColorMath.swift          luminancia WCAG, contraste, mezcla sRGB, ΔE76, tono
-  AiryPalette.swift        tokens oscuro/claro, seguridad, tipos del mapa, comprobaciones de contraste
-  AiryLogoGeometry.swift   arcos y hojas del logo (rejilla 1024), variante, objetivos del arranque, huella
-  WindMotion.swift         poses deterministas: arranque, órbita, deshacerse, salir volando, ráfaga,
-                           brisa, remolino, balanceo; MotionMode/AnimationGate; BreezeIntensity
+Sources/DiskMapCore/Design/                                   (new)
+  ColorMath.swift          WCAG luminance, contrast, sRGB mixing, ΔE76, hue
+  AiryPalette.swift        dark/light tokens, safety, map types, contrast checks
+  AiryLogoGeometry.swift   logo arcs and leaves (1024 grid), variant, launch targets, fingerprint
+  WindMotion.swift         deterministic poses: launch, orbit, break apart, fly off, gust,
+                           breeze, swirl, sway; MotionMode/AnimationGate; BreezeIntensity
 Tests/DiskMapCoreTests/
-  AiryPaletteTests.swift, AiryLogoGeometryTests.swift, WindMotionTests.swift   (nuevos)
-scripts/make-icon.swift    remolino con hojas; variante pequeña para ≤ 64 px
-Resources/Airy.icns, Resources/Airy-1024.png                  (regenerados)
+  AiryPaletteTests.swift, AiryLogoGeometryTests.swift, WindMotionTests.swift   (new)
+scripts/make-icon.swift    swirl with leaves; small variant for ≤ 64 px
+Resources/Airy.icns, Resources/Airy-1024.png                  (regenerated)
 Sources/Airy/Design/
-  Theme.swift              + Theme.Airy; tipos, riesgo y marca pasan a la paleta nueva
-  Components.swift         RiskBadge nuevo, PrimaryButton con tinta AA y balanceo
-  AiryLogo.swift           logo vectorial (sustituye a AppGlyph)                     (nuevo)
-  Motion.swift             claves de entorno, lector de actividad de ventana, hoverSway (nuevo)
-  BreezeBackground.swift   brisa de fondo                                            (nuevo)
-  WindLeaves.swift         hojas en Canvas + AnyTransition.leafAway                  (nuevo)
-  WindSwirl.swift          remolino de Rendimiento                                   (nuevo)
-  GustSweep.swift          ráfaga de «Borrar todo»                                   (nuevo)
-  MotionGallery.swift      galería solo DEBUG (AIRY_MOTION_GALLERY=1)                (nuevo)
+  Theme.swift              + Theme.Airy; types, risk and brand move to the new palette
+  Components.swift         new RiskBadge, PrimaryButton with AA ink and sway
+  AiryLogo.swift           vector logo (replaces AppGlyph)                          (new)
+  Motion.swift             environment keys, window activity reader, hoverSway (new)
+  BreezeBackground.swift   background breeze                                         (new)
+  WindLeaves.swift         leaves in Canvas + AnyTransition.leafAway                 (new)
+  WindSwirl.swift          Performance swirl                                         (new)
+  GustSweep.swift          «Borrar todo» gust                                       (new)
+  MotionGallery.swift      DEBUG-only gallery (AIRY_MOTION_GALLERY=1)                (new)
 Sources/Airy/Shell/
-  LaunchSwirl.swift        arranque: las hojas forman el logo                        (nuevo)
-  RootView.swift           portero de movimiento, fondo, tinte, jerarquía de texto, arranque
-  Sidebar.swift            AiryLogo, fondo elevado
-  ScanProgressView.swift   brisa de análisis + hojas en órbita
+  LaunchSwirl.swift        launch: the leaves form the logo                          (new)
+  RootView.swift           motion gatekeeper, background, tint, text hierarchy, launch
+  Sidebar.swift            AiryLogo, raised background
+  ScanProgressView.swift   analysis breeze + orbiting leaves
   DebugSnapshot.swift      AIRY_HIDE_AT, AIRY_UNHIDE_AT, AIRY_REDUCE_MOTION, AIRY_SKIP_LAUNCH
-Sources/Airy/Map/          TreemapCanvas.swift (paleta de teselas), MapScene.swift + MapView.swift (bloque en hojas)
-Sources/Airy/Cleanup/      CleanupFlow.swift (gust, batchFreed), CleanupView.swift (leafAway, ráfaga, contador),
-                           FreedCelebration.swift, ConfirmSheet.swift (colores)
-Sources/Airy/Shell/FullDiskAccessBanner.swift (colores)
+Sources/Airy/Map/          TreemapCanvas.swift (tile palette), MapScene.swift + MapView.swift (block into leaves)
+Sources/Airy/Cleanup/      CleanupFlow.swift (gust, batchFreed), CleanupView.swift (leafAway, gust, counter),
+                           FreedCelebration.swift, ConfirmSheet.swift (colors)
+Sources/Airy/Shell/FullDiskAccessBanner.swift (colors)
 ```
 
 ---
 
-### Task 1: Paleta y contraste en el núcleo
+### Task 1: Palette and contrast in the core
 
 **Files:**
 - Create: `Sources/DiskMapCore/Design/ColorMath.swift`, `Sources/DiskMapCore/Design/AiryPalette.swift`
@@ -108,11 +108,11 @@ Sources/Airy/Shell/FullDiskAccessBanner.swift (colores)
   - `public enum AiryAppearance: Sendable, CaseIterable { case dark, light }`
   - `public struct AiryTokens: Sendable, Equatable { background, backgroundRaised, text, textSecondary, accent, sky, accentFill, onAccent, safeInk, yourCallInk, doNotTouchInk: UInt32 }`
   - `public struct ContrastCheck: Sendable { name: String; foreground: UInt32; background: UInt32; minimum: Double }`
-  - `public enum AiryPalette` con: `logoTop`, `logoBottom`, `leafSky`, `heat`, `destructiveTop`, `destructiveBottom`, `safe`, `yourCall`, `doNotTouch`, `others` (`UInt32`); `tokens(_:) -> AiryTokens`; `riskFill(_: Risk) -> UInt32`; `riskInk(_: Risk, _: AiryAppearance) -> UInt32`; `kind(_: ContentKind) -> UInt32`; `tileStops(_ base: UInt32) -> [UInt32]`; `tileInk(_ base: UInt32) -> UInt32`; `swirlTint(heat: Double) -> UInt32`; `contrastChecks(_: AiryAppearance) -> [ContrastCheck]`; `static let badgeTintOpacity = 0.14`.
+  - `public enum AiryPalette` with: `logoTop`, `logoBottom`, `leafSky`, `heat`, `destructiveTop`, `destructiveBottom`, `safe`, `yourCall`, `doNotTouch`, `others` (`UInt32`); `tokens(_:) -> AiryTokens`; `riskFill(_: Risk) -> UInt32`; `riskInk(_: Risk, _: AiryAppearance) -> UInt32`; `kind(_: ContentKind) -> UInt32`; `tileStops(_ base: UInt32) -> [UInt32]`; `tileInk(_ base: UInt32) -> UInt32`; `swirlTint(heat: Double) -> UInt32`; `contrastChecks(_: AiryAppearance) -> [ContrastCheck]`; `static let badgeTintOpacity = 0.14`.
 
-Valores (los de la spec, literales; los demás, derivados y comprobados por las pruebas de abajo):
+Values (those from the spec, literal; the rest, derived and verified by the tests below):
 
-| Token | Oscuro | Claro |
+| Token | Dark | Light |
 |---|---|---|
 | background | `0x07112a` | `0xf3f7ff` |
 | backgroundRaised | `0x0d2350` | `0xffffff` |
@@ -120,15 +120,15 @@ Valores (los de la spec, literales; los demás, derivados y comprobados por las 
 | textSecondary | `0xb9cdf0` | `0x34486e` |
 | accent | `0x2f8bff` | `0x1a63d6` |
 | sky | `0x5ab8ff` | `0x0a6fb0` |
-| accentFill (fondo de botón) | `0x1d5fd6` | `0x1d5fd6` |
+| accentFill (button background) | `0x1d5fd6` | `0x1d5fd6` |
 | onAccent | `0xffffff` | `0xffffff` |
 | safeInk / yourCallInk / doNotTouchInk | `0x1fdc7a` / `0xffb020` / `0xff8590` | `0x0a7a3f` / `0x8a5300` / `0xc0182f` |
 
-Constantes: `logoTop 0x2fd0ff`, `logoBottom 0x2a3bd9`, `leafSky 0xbfe9ff`, `heat 0xff8a3d`, `destructiveTop 0xd12a40`, `destructiveBottom 0xb81f33`, `safe 0x1fdc7a`, `yourCall 0xffb020`, `doNotTouch 0xff4d5e`, `others 0x5a6380`.
+Constants: `logoTop 0x2fd0ff`, `logoBottom 0x2a3bd9`, `leafSky 0xbfe9ff`, `heat 0xff8a3d`, `destructiveTop 0xd12a40`, `destructiveBottom 0xb81f33`, `safe 0x1fdc7a`, `yourCall 0xffb020`, `doNotTouch 0xff4d5e`, `others 0x5a6380`.
 
-Tipos del mapa (`kind(_:)`): video `0xa77bff`, images `0xe58cf5`, apps `0x4b4ee8`, code `0x2f8bff`, caches `0x18c7a6`, aiModels `0x5fe0ff`, containers `0x0f6a8c`, documents `0xc2d3ff`, system `0x605a80`, other `0x8d96a6`.
+Map types (`kind(_:)`): video `0xa77bff`, images `0xe58cf5`, apps `0x4b4ee8`, code `0x2f8bff`, caches `0x18c7a6`, aiModels `0x5fe0ff`, containers `0x0f6a8c`, documents `0xc2d3ff`, system `0x605a80`, other `0x8d96a6`.
 
-Reglas: `mix` interpola cada canal sRGB (0–255) y redondea; `tileStops(b) = [mix(b, 0xffffff, 0.10), b, mix(b, 0x000000, 0.10)]`; `tileInk(b)` = `0xffffff` o `0x07112a`, el de mayor contraste con `b`; `swirlTint(heat:)` = `mix(0x2f8bff, heat, h)` con `h` acotado a 0…1 y `NaN` ⇒ 0; `contrastChecks(a)` devuelve exactamente 18 pares, todos con `minimum = 4.5`: text, textSecondary, accent y sky sobre background y sobre backgroundRaised (8); onAccent sobre accentFill y sobre `logoBottom` (2); onAccent sobre `destructiveTop` y `destructiveBottom` (2); cada `riskInk` sobre `mix(background, riskFill, 0.14)` y sobre `mix(backgroundRaised, riskFill, 0.14)` (6). Los nombres son legibles en español («texto/fondo», «No borrar/elevado»…) para que el mensaje de la prueba diga qué par falla.
+Rules: `mix` interpolates each sRGB channel (0–255) and rounds; `tileStops(b) = [mix(b, 0xffffff, 0.10), b, mix(b, 0x000000, 0.10)]`; `tileInk(b)` = `0xffffff` or `0x07112a`, whichever has the higher contrast with `b`; `swirlTint(heat:)` = `mix(0x2f8bff, heat, h)` with `h` clamped to 0…1 and `NaN` ⇒ 0; `contrastChecks(a)` returns exactly 18 pairs, all with `minimum = 4.5`: text, textSecondary, accent and sky over background and over backgroundRaised (8); onAccent over accentFill and over `logoBottom` (2); onAccent over `destructiveTop` and `destructiveBottom` (2); each `riskInk` over `mix(background, riskFill, 0.14)` and over `mix(backgroundRaised, riskFill, 0.14)` (6). The names are readable in Spanish («texto/fondo» (text/background), «No borrar/elevado» (Do not delete/raised)…) so that the test message says which pair fails.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -173,7 +173,7 @@ struct AiryPaletteTests {
             let ink = AiryPalette.tileInk(base)
             #expect(ink == 0xffffff || ink == 0x07112a)
             for stop in AiryPalette.tileStops(base) {
-                #expect(ColorMath.contrastRatio(ink, stop) >= 4.5, "tesela \(String(base, radix: 16))")
+                #expect(ColorMath.contrastRatio(ink, stop) >= 4.5, "tile \(String(base, radix: 16))")
             }
         }
     }
@@ -211,52 +211,52 @@ Expected: FAIL to compile («cannot find 'ColorMath' in scope»).
 
 - [ ] **Step 3: Implement `ColorMath` and `AiryPalette`**
 
-Luminancia WCAG 2.x (canal/255, `≤ 0.04045 ? c/12.92 : ((c+0.055)/1.055)^2.4`, pesos 0,2126/0,7152/0,0722); contraste `(L1+0.05)/(L2+0.05)` con el mayor arriba; ΔE76 = distancia euclídea en CIELAB D65; tono HSV en grados 0…360. Comentario de cabecera: los valores salen de la spec §2.1 y los derivados (modo claro, tintas de riesgo, botón) se eligieron para pasar `AiryPaletteTests`; quien cambie un color corre las pruebas.
+WCAG 2.x luminance (channel/255, `≤ 0.04045 ? c/12.92 : ((c+0.055)/1.055)^2.4`, weights 0.2126/0.7152/0.0722); contrast `(L1+0.05)/(L2+0.05)` with the larger on top; ΔE76 = Euclidean distance in CIELAB D65; HSV hue in degrees 0…360. Header comment: the values come from spec §2.1 and the derived ones (light mode, risk inks, button) were chosen to pass `AiryPaletteTests`; whoever changes a color runs the tests.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `swift test --filter AiryPaletteTests`
-Expected: PASS (los 8 tests; `everyTextPairMeetsAA` en sus dos argumentos).
+Expected: PASS (the 8 tests; `everyTextPairMeetsAA` in both of its arguments).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add Sources/DiskMapCore/Design/ColorMath.swift Sources/DiskMapCore/Design/AiryPalette.swift Tests/DiskMapCoreTests/AiryPaletteTests.swift
-git commit -m "feat: paleta Airy con contraste AA comprobado
+git commit -m "feat: Airy palette with verified AA contrast
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 2: Geometría del logo e icono «remolino con hojas»
+### Task 2: Logo geometry and «remolino con hojas» icon
 
 **Files:**
 - Create: `Sources/DiskMapCore/Design/AiryLogoGeometry.swift`
-- Modify: `scripts/make-icon.swift` (dibujo completo, tabla de tamaños), `Resources/Airy.icns`, `Resources/Airy-1024.png` (regenerados)
+- Modify: `scripts/make-icon.swift` (complete drawing, size table), `Resources/Airy.icns`, `Resources/Airy-1024.png` (regenerated)
 - Test: `Tests/DiskMapCoreTests/AiryLogoGeometryTests.swift`
 
 **Interfaces:**
 - Consumes: `AiryPalette.logoTop/logoBottom/leafSky` (Task 1).
 - Produces:
-  - `public enum AiryLogoGeometry` con `enum Variant { case full, small }`, `struct Arc: Sendable, Equatable { radius, lineWidth, startDegrees, sweepDegrees, opacity: Double }`, `struct Leaf: Sendable, Equatable { radius, angleDegrees, length, width: Double; tint: UInt32 }`.
-  - `static let grid = 1024.0`, `static let squircleInset = 100.0`, `static let squircleRadius = 185.0`, `static let center = 512.0`, `static let unit = 412.0` (mitad del squircle: 1 unidad normalizada).
+  - `public enum AiryLogoGeometry` with `enum Variant { case full, small }`, `struct Arc: Sendable, Equatable { radius, lineWidth, startDegrees, sweepDegrees, opacity: Double }`, `struct Leaf: Sendable, Equatable { radius, angleDegrees, length, width: Double; tint: UInt32 }`.
+  - `static let grid = 1024.0`, `static let squircleInset = 100.0`, `static let squircleRadius = 185.0`, `static let center = 512.0`, `static let unit = 412.0` (half the squircle: 1 normalized unit).
   - `static func arcs(_: Variant) -> [Arc]`, `static func leaves(_: Variant) -> [Leaf]`, `static func variant(forPixelSize: Double) -> Variant` (≤ 64 ⇒ `.small`).
-  - `static func leafPath(length: Double, width: Double) -> CGPath` — centrada en el origen a lo largo de +x: `move(-L/2, 0)`, curva cuadrática a `(L/2, 0)` con control `(0, -W)`, vuelta a `(-L/2, 0)` con control `(0, 0.6·W)`.
-  - `static func leafCenter(_: Leaf) -> CGPoint` y `leafRotationDegrees(_: Leaf) = angle + 90` (tangente, sentido horario con y hacia abajo); en coordenadas de la rejilla.
-  - `static func launchTargets(count: Int) -> [CGPoint]` — en unidades normalizadas (centro 0, `(rejilla − 512)/412`, y hacia abajo): primero los centros de `leaves(.full)`, luego puntos repartidos por igual a lo largo de `arcs(.full)`.
-  - `static var fingerprint: String` — `"airy-logo-v1|"` + cada arco y hoja con sus números (formato libre pero estable).
+  - `static func leafPath(length: Double, width: Double) -> CGPath` — centered at the origin along +x: `move(-L/2, 0)`, quadratic curve to `(L/2, 0)` with control `(0, -W)`, return to `(-L/2, 0)` with control `(0, 0.6·W)`.
+  - `static func leafCenter(_: Leaf) -> CGPoint` and `leafRotationDegrees(_: Leaf) = angle + 90` (tangent, clockwise with y pointing down); in grid coordinates.
+  - `static func launchTargets(count: Int) -> [CGPoint]` — in normalized units (center 0, `(grid − 512)/412`, y pointing down): first the centers of `leaves(.full)`, then points distributed equally along `arcs(.full)`.
+  - `static var fingerprint: String` — `"airy-logo-v1|"` + each arc and leaf with its numbers (free but stable format).
 
-Geometría (rejilla 1024, ángulos en grados, 0 = +x, y hacia abajo):
+Geometry (1024 grid, angles in degrees, 0 = +x, y pointing down):
 
-| Variante | Arcos (radio, grosor, inicio, barrido, opacidad) | Hojas (radio, ángulo, largo, ancho, tinte) |
+| Variant | Arcs (radius, thickness, start, sweep, opacity) | Leaves (radius, angle, length, width, tint) |
 |---|---|---|
 | `.full` | (300, 34, −20, 250, 0.90) · (220, 30, 70, 250, 0.70) · (140, 26, 160, 250, 0.50) | (300, 230, 132, 62, `0xFFFFFF`) · (220, 320, 112, 52, `0xBFE9FF`) · (140, 50, 92, 44, `0xFFFFFF`) |
 | `.small` | (230, 86, −30, 270, 0.95) | (230, 240, 230, 110, `0xFFFFFF`) |
 
-Cada hoja está en el extremo final de su arco (inicio + barrido), como si el viento la soltara.
+Each leaf is at the end of its arc (start + sweep), as if the wind had released it.
 
-Icono (`scripts/make-icon.swift`): se conserva el squircle continuo, la sombra, el brillo especular y el filo de luz del script actual; el fondo pasa a un degradado lineal `0x2fd0ff` (arriba-izquierda) → `0x2a3bd9` (abajo-derecha) y el treemap se sustituye por los arcos (trazo blanco con la opacidad de la tabla, extremos redondeados) y las hojas (relleno con su tinte, sombra suave `alpha 0.25`). La geometría se copia de la tabla de arriba con un comentario `// logo-geometry: <AiryLogoGeometry.fingerprint>` (el texto exacto de la huella). Tamaños: `px ≤ 64` (16, 16@2x, 32, 32@2x) se dibujan a su tamaño con `.small` y alineados a píxel; 128…512 con `sips` desde el maestro; 1024 = maestro. `AIRY_ICON_PREVIEW` sigue escribiendo `preview-16/32/64.png`.
+Icon (`scripts/make-icon.swift`): the continuous squircle, the shadow, the specular highlight and the light edge of the current script are kept; the background becomes a linear gradient `0x2fd0ff` (top-left) → `0x2a3bd9` (bottom-right) and the treemap is replaced by the arcs (white stroke with the opacity from the table, rounded ends) and the leaves (filled with their tint, soft shadow `alpha 0.25`). The geometry is copied from the table above with a comment `// logo-geometry: <AiryLogoGeometry.fingerprint>` (the exact fingerprint text). Sizes: `px ≤ 64` (16, 16@2x, 32, 32@2x) are drawn at their size with `.small` and pixel-aligned; 128…512 with `sips` from the master; 1024 = master. `AIRY_ICON_PREVIEW` keeps writing `preview-16/32/64.png`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -345,7 +345,7 @@ Expected: 7 PASS, `iconScriptCarriesTheGeometryFingerprint` FAIL.
 
 - [ ] **Step 5: Rewrite the drawing in `scripts/make-icon.swift` and add the fingerprint comment**
 
-Copia el texto exacto de `AiryLogoGeometry.fingerprint` (p. ej. con un `print` temporal en una prueba, que luego se quita). Cambia la cabecera del script (ya no hay treemap) y el umbral de la variante pequeña de `px <= 32` a `px <= 64`.
+Copy the exact text of `AiryLogoGeometry.fingerprint` (e.g. with a temporary `print` in a test, which is then removed). Change the script header (there is no treemap anymore) and the small-variant threshold from `px <= 32` to `px <= 64`.
 
 - [ ] **Step 6: Regenerate and inspect the icon**
 
@@ -355,7 +355,7 @@ swift scripts/make-icon.swift Resources/
 T=$(mktemp -d) && AIRY_ICON_PREVIEW=1 swift scripts/make-icon.swift "$T" && ls "$T"
 iconutil -c iconset Resources/Airy.icns -o "$T/check.iconset" && ls "$T/check.iconset" | wc -l
 ```
-Expected: «Icono generado: …», `preview-16.png preview-32.png preview-64.png Airy-1024.png Airy.icns`, y `10`. Abre `Resources/Airy-1024.png` y las tres vistas previas con la herramienta de lectura de imágenes: en grande, squircle turquesa→índigo con tres arcos y tres hojas; a 16/32/64, un arco grueso y una hoja legibles, sin manchas.
+Expected: «Icono generado: …» (Icon generated: …), `preview-16.png preview-32.png preview-64.png Airy-1024.png Airy.icns`, and `10`. Open `Resources/Airy-1024.png` and the three previews with the image reading tool: large, a turquoise→indigo squircle with three arcs and three leaves; at 16/32/64, a thick arc and a leaf that are legible, without smudges.
 
 - [ ] **Step 7: Run the whole geometry suite**
 
@@ -366,50 +366,50 @@ Expected: PASS (8).
 
 ```bash
 git add Sources/DiskMapCore/Design/AiryLogoGeometry.swift Tests/DiskMapCoreTests/AiryLogoGeometryTests.swift scripts/make-icon.swift Resources/Airy.icns Resources/Airy-1024.png
-git commit -m "feat: icono remolino con hojas y variante para tamaños pequeños
+git commit -m "feat: swirl-with-leaves icon and variant for small sizes
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 3: `Theme.Airy`, la paleta en toda la app, `RiskBadge` y `AiryLogo`
+### Task 3: `Theme.Airy`, the palette across the app, `RiskBadge` and `AiryLogo`
 
 **Files:**
-- Modify: `Sources/Airy/Design/Theme.swift`, `Sources/Airy/Design/Components.swift`, `Sources/Airy/Map/TreemapCanvas.swift:41-66` (`TilePalette`), `Sources/Airy/Shell/RootView.swift` (`DetailBackground`, tinte y jerarquía de texto), `Sources/Airy/Shell/Sidebar.swift:56-95` (marca y `AppGlyph`), `Sources/Airy/Shell/ScanProgressView.swift` (`ScanRing`), `Sources/Airy/Cleanup/FreedCelebration.swift`, `Sources/Airy/Cleanup/CleanupView.swift:160-175` (`HeroCard`), `Sources/Airy/Cleanup/ConfirmSheet.swift:170-178`, `Sources/Airy/Shell/FullDiskAccessBanner.swift:14`
+- Modify: `Sources/Airy/Design/Theme.swift`, `Sources/Airy/Design/Components.swift`, `Sources/Airy/Map/TreemapCanvas.swift:41-66` (`TilePalette`), `Sources/Airy/Shell/RootView.swift` (`DetailBackground`, tint and text hierarchy), `Sources/Airy/Shell/Sidebar.swift:56-95` (brand and `AppGlyph`), `Sources/Airy/Shell/ScanProgressView.swift` (`ScanRing`), `Sources/Airy/Cleanup/FreedCelebration.swift`, `Sources/Airy/Cleanup/CleanupView.swift:160-175` (`HeroCard`), `Sources/Airy/Cleanup/ConfirmSheet.swift:170-178`, `Sources/Airy/Shell/FullDiskAccessBanner.swift:14`
 - Create: `Sources/Airy/Design/AiryLogo.swift`
 
 **Interfaces:**
 - Consumes: `AiryPalette`, `AiryTokens`, `AiryAppearance` (Task 1); `AiryLogoGeometry` (Task 2); `Risk.label` (plan 1).
 - Produces:
-  - `extension Theme { enum Airy }` con los miembros de la tabla de interfaces. Los `Color` dinámicos se hacen con `Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? oscuro : claro })` a partir de `AiryPalette.tokens(.dark/.light)`. `accentGradient = [accentFill, logoBottom]`, `destructiveGradient = [destructiveTop, destructiveBottom]`, `logoGradient = [logoTop, logoBottom]` (`topLeading → bottomTrailing`). `riskFill` = color fijo de seguridad; `riskInk` = dinámico con `AiryPalette.riskInk`; `swirlTint(_:) = Color(hex: AiryPalette.swirlTint(heat: WindMotion.heat(for:)))` (añádelo en la Task 4 junto a `WindMotion`; aquí solo `riskFill`/`riskInk` y los tokens).
-  - `Theme.color(for: ContentKind)` → `Color(hex: AiryPalette.kind(kind))`; `Theme.color(for: Risk)` → `Theme.Airy.riskFill(risk)` (iconos, puntos, anillos); `Theme.brand` → `Theme.Airy.accentGradient`; `Theme.userFiles` → `Theme.Airy.logoGradient`; `Theme.userFilesColor` → `Theme.Airy.accent`; `Theme.systemColor` → `Color(hex: AiryPalette.kind(.system))`; `Theme.purgeableColor` → `Color(hex: 0x9fb3d9)`.
-  - `struct RiskBadge: View { init(risk: Risk, compact: Bool = false, reason: String? = nil) }` — texto `risk.label`, símbolo `Theme.symbol(for:)`, primer plano `Theme.Airy.riskInk(risk)`, fondo `riskFill.opacity(AiryPalette.badgeTintOpacity)`, borde `riskFill.opacity(0.35)`, `.help(reason ?? risk.label)`, `accessibilityLabel` = `risk.label` + («. » + reason si hay). Las tres llamadas existentes (`CleanupRow`, `ConfirmSheet`, `HoverCard`) pasan a mostrar los textos nuevos sin más cambios: es intencionado (el plan 3 agrupa y explica).
-  - `struct AiryLogo: View { init(size: CGFloat, animated: Bool = false) }` — squircle continuo (`RoundedRectangle(cornerRadius: size * 185/824, style: .continuous)`) con `logoGradient`, arcos y hojas de `AiryLogoGeometry` escalados a `size/824` desde el squircle; variante por `variant(forPixelSize: size * displayScale)` (`@Environment(\.displayScale)`). `animated` se ignora en esta tarea (lo enciende la Task 5). Sustituye a `AppGlyph` (se borra).
+  - `extension Theme { enum Airy }` with the members of the interfaces table. The dynamic `Color`s are made with `Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light })` from `AiryPalette.tokens(.dark/.light)`. `accentGradient = [accentFill, logoBottom]`, `destructiveGradient = [destructiveTop, destructiveBottom]`, `logoGradient = [logoTop, logoBottom]` (`topLeading → bottomTrailing`). `riskFill` = fixed safety color; `riskInk` = dynamic with `AiryPalette.riskInk`; `swirlTint(_:) = Color(hex: AiryPalette.swirlTint(heat: WindMotion.heat(for:)))` (add it in Task 4 along with `WindMotion`; here only `riskFill`/`riskInk` and the tokens).
+  - `Theme.color(for: ContentKind)` → `Color(hex: AiryPalette.kind(kind))`; `Theme.color(for: Risk)` → `Theme.Airy.riskFill(risk)` (icons, dots, rings); `Theme.brand` → `Theme.Airy.accentGradient`; `Theme.userFiles` → `Theme.Airy.logoGradient`; `Theme.userFilesColor` → `Theme.Airy.accent`; `Theme.systemColor` → `Color(hex: AiryPalette.kind(.system))`; `Theme.purgeableColor` → `Color(hex: 0x9fb3d9)`.
+  - `struct RiskBadge: View { init(risk: Risk, compact: Bool = false, reason: String? = nil) }` — text `risk.label`, symbol `Theme.symbol(for:)`, foreground `Theme.Airy.riskInk(risk)`, background `riskFill.opacity(AiryPalette.badgeTintOpacity)`, border `riskFill.opacity(0.35)`, `.help(reason ?? risk.label)`, `accessibilityLabel` = `risk.label` + («. » + reason if there is one). The three existing calls (`CleanupRow`, `ConfirmSheet`, `HoverCard`) now show the new texts with no further changes: this is intentional (plan 3 groups and explains).
+  - `struct AiryLogo: View { init(size: CGFloat, animated: Bool = false) }` — continuous squircle (`RoundedRectangle(cornerRadius: size * 185/824, style: .continuous)`) with `logoGradient`, arcs and leaves from `AiryLogoGeometry` scaled by `size/824` from the squircle; variant by `variant(forPixelSize: size * displayScale)` (`@Environment(\.displayScale)`). `animated` is ignored in this task (Task 5 turns it on). Replaces `AppGlyph` (deleted).
 
-Reglas de aplicación:
-- `TilePalette`: degradado = `tileStops(base)`, texto **y** texto secundario = `tileInk(base)` a opacidad 1 (el tamaño se distingue por el peso de la fuente, no por transparencia); «Otros» usa `AiryPalette.others`.
-- `RootView`: `.tint(Theme.Airy.accent)` y `.foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)` en la raíz y otra vez en el `Group` de la hoja (así `.secondary`/`.tertiary` heredan tonos AA); `DetailBackground` pinta `Theme.Airy.background` con los dos halos radiales en `accent`/`logoBottom` (opacidad 0.10/0.08 oscuro, 0.06/0.04 claro). La Task 5 lo sustituye por `BreezeBackground`.
-- `Sidebar`: `.scrollContentBackground(.hidden)` y fondo `Theme.Airy.backgroundRaised`; marca con `AiryLogo(size: 26)`.
-- Texto con color de riesgo (no iconos): `Theme.Airy.riskInk(_:)` en lugar de `Theme.color(for: Risk)` — revisa con `grep -rn "foregroundStyle(Theme.color(for: \." Sources/Airy` y cambia los que tiñen un `Text`.
-- `PrimaryButton`: `.destructive` usa `destructiveGradient`; `ConfirmSheet:174` igual; `FullDiskAccessBanner` usa `riskFill(.yourCall)`; `FreedCelebration` anillo `[riskFill(.safe), sky]` y partículas `[safe, sky, accent, leafSky, logoTop]`; `HeroCard` igual que el anillo; `ScanRing` usa `logoGradient`.
+Application rules:
+- `TilePalette`: gradient = `tileStops(base)`, text **and** secondary text = `tileInk(base)` at opacity 1 (size is distinguished by font weight, not by transparency); «Otros» (Other) uses `AiryPalette.others`.
+- `RootView`: `.tint(Theme.Airy.accent)` and `.foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)` at the root and again in the sheet's `Group` (so `.secondary`/`.tertiary` inherit AA tones); `DetailBackground` paints `Theme.Airy.background` with the two radial halos in `accent`/`logoBottom` (opacity 0.10/0.08 dark, 0.06/0.04 light). Task 5 replaces it with `BreezeBackground`.
+- `Sidebar`: `.scrollContentBackground(.hidden)` and background `Theme.Airy.backgroundRaised`; brand with `AiryLogo(size: 26)`.
+- Text with a risk color (not icons): `Theme.Airy.riskInk(_:)` instead of `Theme.color(for: Risk)` — review with `grep -rn "foregroundStyle(Theme.color(for: \." Sources/Airy` and change the ones that tint a `Text`.
+- `PrimaryButton`: `.destructive` uses `destructiveGradient`; `ConfirmSheet:174` the same; `FullDiskAccessBanner` uses `riskFill(.yourCall)`; `FreedCelebration` ring `[riskFill(.safe), sky]` and particles `[safe, sky, accent, leafSky, logoTop]`; `HeroCard` same as the ring; `ScanRing` uses `logoGradient`.
 
 - [ ] **Step 1: Implement `Theme.Airy`, the mappings and `RiskBadge`**
 
 - [ ] **Step 2: Implement `AiryLogo` and replace `AppGlyph`**
 
 Run: `grep -rn "AppGlyph" Sources/Airy`
-Expected: sin resultados.
+Expected: no results.
 
 - [ ] **Step 3: Apply the palette rules above to the listed files**
 
 Run: `grep -rn "Color(hex: 0x" Sources/Airy | grep -v Design/Theme.swift`
-Expected: sin resultados (todo color pasa por `Theme`/`AiryPalette`).
+Expected: no results (every color goes through `Theme`/`AiryPalette`).
 
 - [ ] **Step 4: Build and run the full test suite**
 
 Run: `swift build && swift test`
-Expected: `Build complete!` y todas las pruebas en verde.
+Expected: `Build complete!` and all tests green.
 
 - [ ] **Step 5: Snapshot both appearances and inspect them**
 
@@ -422,44 +422,44 @@ for A in dark light; do for S in map cleanup; do
   sleep 10; kill $PID; ls $T
 done; done
 ```
-Expected: un PNG por combinación. Ábrelos: fondo noche `#07112a` (oscuro) / `#f3f7ff` (claro), barra lateral elevada, logo nuevo de 26 pt, teselas en gama fría con rótulos legibles, etiquetas «Sin problema / Tú decides / No borrar» en Limpieza, botones azules con texto blanco.
+Expected: one PNG per combination. Open them: night background `#07112a` (dark) / `#f3f7ff` (light), raised sidebar, new 26 pt logo, tiles in the cool range with legible labels, labels «Sin problema / Tú decides / No borrar» in Cleanup, blue buttons with white text.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add Sources/Airy
-git commit -m "feat: paleta azul de alto contraste, RiskBadge y logo vectorial
+git commit -m "feat: high-contrast blue palette, RiskBadge and vector logo
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 4: Movimiento determinista en el núcleo
+### Task 4: Deterministic motion in the core
 
 **Files:**
 - Create: `Sources/DiskMapCore/Design/WindMotion.swift`
-- Modify: `Sources/Airy/Design/Theme.swift` (añadir `Theme.Airy.swirlTint(_:)`)
+- Modify: `Sources/Airy/Design/Theme.swift` (add `Theme.Airy.swirlTint(_:)`)
 - Test: `Tests/DiskMapCoreTests/WindMotionTests.swift`
 
 **Interfaces:**
 - Consumes: `AiryLogoGeometry.launchTargets(count:)` (Task 2), `SpringCurve` (`Layout/MapGeometry.swift`).
-- Produces (todo `public`, `Sendable`; coordenadas en puntos salvo donde se diga «normalizadas»):
+- Produces (all `public`, `Sendable`; coordinates in points except where it says «normalized»):
   - `struct LeafPose: Equatable { x, y, rotation /* rad */, scale, opacity: Double }`
   - `enum MotionMode: Equatable { case running, paused, reduced }`
-  - `enum AnimationGate { static func ambient(windowVisible: Bool, appActive: Bool, reduceMotion: Bool) -> MotionMode; static func transient(windowVisible: Bool, reduceMotion: Bool) -> MotionMode }` — ambiente: oculta o inactiva ⇒ `.paused`; si no, «Reducir movimiento» ⇒ `.reduced`; si no, `.running`. Transitorio (borrar, ráfaga, arranque): oculta ⇒ `.paused` (se salta al estado final); «Reducir movimiento» ⇒ `.reduced` (fundido); si no, `.running` (aunque la app esté inactiva: el usuario acaba de confirmar).
+  - `enum AnimationGate { static func ambient(windowVisible: Bool, appActive: Bool, reduceMotion: Bool) -> MotionMode; static func transient(windowVisible: Bool, reduceMotion: Bool) -> MotionMode }` — ambient: hidden or inactive ⇒ `.paused`; otherwise «Reducir movimiento» ⇒ `.reduced`; otherwise `.running`. Transient (delete, gust, launch): hidden ⇒ `.paused` (jumps to the final state); «Reducir movimiento» ⇒ `.reduced` (fade); otherwise `.running` (even if the app is inactive: the user has just confirmed).
   - `enum BreezeIntensity { case ambient, scan }`, `struct BreezeStreak: Equatable { yFraction, lengthFraction, thickness, opacity, period /* s */, phase /* 0…1 */: Double }`
-  - `enum WindMotion` con:
-    - `static func noise(_ index: Int, _ salt: Int) -> Double` — en [0, 1), determinista (mezcla tipo splitmix64 como `ParticleBurst.random`, que puede pasar a usar esta).
-    - Arranque: `static let launchLeafCount = 18`; `static func launchTimeline(_ mode: MotionMode) -> (gather: Double, hold: Double, fade: Double)` — `.running` (1.4, 0.25, 0.35), `.reduced` (0.25, 0.2, 0.25), `.paused` (0, 0, 0); `static func launchLeaf(index: Int, count: Int, progress: Double) -> LeafPose` en coordenadas normalizadas: sale de un radio 2,4…3,2, gira en espiral (≈ 1,1 vueltas extra) y llega con salida suave al objetivo `launchTargets(count:)[index]`; opacidad 0 → 1 en el primer 25 %; `progress ≥ 1` ⇒ exactamente el objetivo, opacidad 1, escala 1.
-    - Órbita: `static let orbitAngularSpeed = 0.9` (rad/s); `static func orbitLeaf(index: Int, count: Int, time: Double, radius: Double) -> LeafPose` alrededor de (0, 0), radio con vaivén ±6 %, ángulo base repartido por igual.
-    - Deshacerse en hojas: `static let dissolveDuration = 0.75`; `static func leafCount(for rect: CGRect) -> Int` = `clamp(Int(área/1800), 6, 24)` (0 si el área no es finita); `static func dissolveLeaf(index: Int, count: Int, progress: Double, in rect: CGRect) -> LeafPose` — nace dentro de `rect`, se va a la derecha (Δx 80…240 con salida suave) y sube un poco con aleteo, opacidad sube hasta el 15 % y baja a 0 en 1, escala 1 → 0,6.
-    - Salir volando: `static func leafAwayTransform(progress: Double) -> (dx: Double, dy: Double, rotationDegrees: Double, scale: Double, opacity: Double)` = (220·p², −24·p, 6·p, 1 − 0,12·p, 1 − p), `p` acotado.
-    - Ráfaga: `static let gustRowDelay = 0.04`, `gustRowDuration = 0.55`, `gustMaxDuration = 1.2`, `gustBandDuration = 0.9`; `static func gustDuration(rowCount: Int) -> Double` = 0 si no hay filas, si no `min((n−1)·0,04, 0,65) + 0,55`; `static func gustRowOffset(row: Int, rowCount: Int, elapsed: Double) -> Double` = `14·sin(π·q)` con `q` el progreso propio de la fila (retraso `min(row·0,04, 0,65)`), 0 antes y después.
-    - Brisa: `static func breezeStreaks(_ intensity: BreezeIntensity) -> [BreezeStreak]` — `.ambient`: 3 trazos, opacidad ≤ 0,06, periodo 18…26 s; `.scan`: 6 trazos, opacidad 0,08…0,14, periodo 4…6 s; valores con `noise`.
-    - Remolino: `static func swirlRevolutionsPerSecond(cpuLoad: Double) -> Double` = `0,06 + 0,84·clamp(load, 0, 1)` (`NaN` ⇒ 0,06); `static func heat(for state: ProcessInfo.ThermalState) -> Double` = nominal 0, fair 0,35, serious 0,7, critical 1 (desconocido ⇒ 0).
-    - `struct SwirlPhase { var angle: Double; mutating func advance(to time: Double, revolutionsPerSecond: Double) -> Double }` — integra el ángulo (rad, módulo 2π) para que un cambio de velocidad no dé saltos; el primer `advance` solo fija la hora; `dt` se acota a 1/15 s (tras una pausa no salta).
-    - Balanceo: `static let swayKeyframes: [(degrees: Double, time: Double)] = [(1.6, 0.12), (-1.1, 0.26), (0.5, 0.42), (0, 0.6)]`.
+  - `enum WindMotion` with:
+    - `static func noise(_ index: Int, _ salt: Int) -> Double` — in [0, 1), deterministic (splitmix64-style mixing like `ParticleBurst.random`, which may switch to using this one).
+    - Launch: `static let launchLeafCount = 18`; `static func launchTimeline(_ mode: MotionMode) -> (gather: Double, hold: Double, fade: Double)` — `.running` (1.4, 0.25, 0.35), `.reduced` (0.25, 0.2, 0.25), `.paused` (0, 0, 0); `static func launchLeaf(index: Int, count: Int, progress: Double) -> LeafPose` in normalized coordinates: it starts from a radius of 2.4…3.2, spirals (≈ 1.1 extra turns) and arrives with an ease-out at the target `launchTargets(count:)[index]`; opacity 0 → 1 in the first 25 %; `progress ≥ 1` ⇒ exactly the target, opacity 1, scale 1.
+    - Orbit: `static let orbitAngularSpeed = 0.9` (rad/s); `static func orbitLeaf(index: Int, count: Int, time: Double, radius: Double) -> LeafPose` around (0, 0), radius with ±6 % sway, base angle equally distributed.
+    - Breaking apart into leaves: `static let dissolveDuration = 0.75`; `static func leafCount(for rect: CGRect) -> Int` = `clamp(Int(area/1800), 6, 24)` (0 if the area is not finite); `static func dissolveLeaf(index: Int, count: Int, progress: Double, in rect: CGRect) -> LeafPose` — born inside `rect`, goes to the right (Δx 80…240 with ease-out) and rises a bit with fluttering, opacity rises up to 15 % and falls to 0 at 1, scale 1 → 0.6.
+    - Flying off: `static func leafAwayTransform(progress: Double) -> (dx: Double, dy: Double, rotationDegrees: Double, scale: Double, opacity: Double)` = (220·p², −24·p, 6·p, 1 − 0.12·p, 1 − p), `p` clamped.
+    - Gust: `static let gustRowDelay = 0.04`, `gustRowDuration = 0.55`, `gustMaxDuration = 1.2`, `gustBandDuration = 0.9`; `static func gustDuration(rowCount: Int) -> Double` = 0 if there are no rows, otherwise `min((n−1)·0.04, 0.65) + 0.55`; `static func gustRowOffset(row: Int, rowCount: Int, elapsed: Double) -> Double` = `14·sin(π·q)` with `q` the row's own progress (delay `min(row·0.04, 0.65)`), 0 before and after.
+    - Breeze: `static func breezeStreaks(_ intensity: BreezeIntensity) -> [BreezeStreak]` — `.ambient`: 3 streaks, opacity ≤ 0.06, period 18…26 s; `.scan`: 6 streaks, opacity 0.08…0.14, period 4…6 s; values with `noise`.
+    - Swirl: `static func swirlRevolutionsPerSecond(cpuLoad: Double) -> Double` = `0.06 + 0.84·clamp(load, 0, 1)` (`NaN` ⇒ 0.06); `static func heat(for state: ProcessInfo.ThermalState) -> Double` = nominal 0, fair 0.35, serious 0.7, critical 1 (unknown ⇒ 0).
+    - `struct SwirlPhase { var angle: Double; mutating func advance(to time: Double, revolutionsPerSecond: Double) -> Double }` — integrates the angle (rad, modulo 2π) so that a speed change does not cause jumps; the first `advance` only sets the time; `dt` is clamped to 1/15 s (after a pause it does not jump).
+    - Sway: `static let swayKeyframes: [(degrees: Double, time: Double)] = [(1.6, 0.12), (-1.1, 0.26), (0.5, 0.42), (0, 0.6)]`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -503,7 +503,7 @@ struct WindMotionTests {
             #expect(abs(end.x - targets[i].x) < 1e-9 && abs(end.y - targets[i].y) < 1e-9)
             #expect(end.opacity == 1 && end.scale == 1)
             #expect(WindMotion.launchLeaf(index: i, count: n, progress: 0.4)
-                    == WindMotion.launchLeaf(index: i, count: n, progress: 0.4))   // determinista
+                    == WindMotion.launchLeaf(index: i, count: n, progress: 0.4))   // deterministic
         }
     }
 
@@ -598,7 +598,7 @@ struct WindMotionTests {
         var phase = SwirlPhase()
         _ = phase.advance(to: 0, revolutionsPerSecond: 0.9)
         let before = phase.advance(to: 0.016, revolutionsPerSecond: 0.9)
-        let after = phase.advance(to: 120, revolutionsPerSecond: 0.9)   // dos minutos en pausa
+        let after = phase.advance(to: 120, revolutionsPerSecond: 0.9)   // two minutes paused
         #expect(abs(after - before) <= 2 * .pi * 0.9 / 15 + 1e-9)
     }
 
@@ -621,36 +621,36 @@ Expected: FAIL to compile («cannot find 'AnimationGate' in scope»).
 - [ ] **Step 4: Run tests to verify they pass, then the whole suite**
 
 Run: `swift test --filter WindMotionTests && swift test`
-Expected: PASS (17 en `WindMotionTests`) y todo el resto en verde.
+Expected: PASS (17 in `WindMotionTests`) and everything else green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add Sources/DiskMapCore/Design/WindMotion.swift Tests/DiskMapCoreTests/WindMotionTests.swift Sources/Airy/Design/Theme.swift
-git commit -m "feat: poses deterministas de las animaciones de viento y portero de movimiento
+git commit -m "feat: deterministic wind animation poses and motion gatekeeper
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 5: Portero de movimiento, brisa de fondo, hojas, logo animado y botones que se mecen
+### Task 5: Motion gatekeeper, background breeze, leaves, animated logo and swaying buttons
 
 **Files:**
 - Create: `Sources/Airy/Design/Motion.swift`, `Sources/Airy/Design/BreezeBackground.swift`, `Sources/Airy/Design/WindLeaves.swift`
-- Modify: `Sources/Airy/Shell/RootView.swift` (inyección del portero; `DetailBackground` → `BreezeBackground(intensity: .ambient)`), `Sources/Airy/Design/AiryLogo.swift` (`animated`), `Sources/Airy/Design/Components.swift` (`PrimaryButtonBody` con `.hoverSway`), `Sources/Airy/Shell/Sidebar.swift` (`AiryLogo(size: 26, animated: true)`), `Sources/Airy/Shell/DebugSnapshot.swift`
+- Modify: `Sources/Airy/Shell/RootView.swift` (gatekeeper injection; `DetailBackground` → `BreezeBackground(intensity: .ambient)`), `Sources/Airy/Design/AiryLogo.swift` (`animated`), `Sources/Airy/Design/Components.swift` (`PrimaryButtonBody` with `.hoverSway`), `Sources/Airy/Shell/Sidebar.swift` (`AiryLogo(size: 26, animated: true)`), `Sources/Airy/Shell/DebugSnapshot.swift`
 
 **Interfaces:**
 - Consumes: `AnimationGate`, `MotionMode`, `BreezeIntensity`, `WindMotion.*` (Task 4); `Theme.Airy` (Task 3); `FPSMeter` (`Map/TreemapCanvas.swift`, DEBUG).
 - Produces:
-  - `EnvironmentValues.airyAmbientMotion: MotionMode` (por defecto `.paused`) y `.airyTransientMotion: MotionMode` (por defecto `.reduced`), con `EnvironmentKey` a mano. Por defecto «parado»: una vista que no recibe el portero (p. ej. una hoja nueva que olvidó inyectarlo) no gasta CPU.
-  - `struct WindowActivityReader: NSViewRepresentable { var onChange: (_ visible: Bool, _ active: Bool) -> Void }` — toma `view.window` en `viewDidMoveToWindow` y escucha `NSWindow.didChangeOcclusionStateNotification`, `didMiniaturizeNotification`, `didDeminiaturizeNotification` (de esa ventana) y `NSApplication.didBecomeActiveNotification`, `didResignActiveNotification`, `didHideNotification`, `didUnhideNotification`; visible = `occlusionState.contains(.visible) && !isMiniaturized && !NSApp.isHidden`; activo = `NSApp.isActive`.
-  - `RootView` guarda `windowVisible`/`appActive` en `@ViewState`, lee `accessibilityReduceMotion` (en DEBUG, `AIRY_REDUCE_MOTION=1` lo fuerza a `true`) e inyecta ambos modos en el contenido **y** en el `Group` de la hoja. En DEBUG con `AIRY_FPS=1`, cada cambio de modo ambiente escribe `[motion] ambiente: running|paused|reduced` con `FPSMeter.log`.
-  - `struct BreezeBackground: View { init(intensity: BreezeIntensity = .ambient) }` — `Theme.Airy.background` + halos de Task 3 + los trazos de `WindMotion.breezeStreaks(intensity)`: cápsulas con degradado horizontal transparente → `Theme.Airy.sky.opacity(streak.opacity)` → transparente (sin `.blur`, sin `Canvas`), que cruzan de izquierda a derecha con `.linear(duration: period).repeatForever(autoreverses: false)` animado por el servidor de render (como `ScanRing`), arrancando en `phase`. Con `airyAmbientMotion != .running` se dibuja una vista **distinta** y estática (trazos quietos en su `phase`): así la animación infinita desaparece de verdad. `.allowsHitTesting(false)`, `.ignoresSafeArea()`.
-  - `struct WindLeaves: View { enum Mode: Equatable { case orbit(radius: CGFloat); case launch(start: Date); case burst(start: Date, rect: CGRect) }; init(mode: Mode, count: Int = 7) }` — un solo `Canvas(rendersAsynchronously: true)` dentro de `TimelineView(.animation(minimumInterval: nil, paused: …))`; dibuja cada hoja con `Path(AiryLogoGeometry.leafPath(length: 11, width: 5))` (×1,6 en `.launch`) transformada por la pose, alternando blanco y `Theme.Airy.leafSky` (en modo claro, `Theme.Airy.accent` y `sky` para que se vean). `.orbit` usa `orbitLeaf` alrededor del centro de la vista y se pausa con `airyAmbientMotion != .running`; `.launch` y `.burst` usan `launchLeaf`/`dissolveLeaf` con el progreso `(fecha − start)/duración`, se pausan con `airyTransientMotion != .running` y no dibujan nada pasado su final (quien las muestra las retira, como `ParticleBurst`). En DEBUG llama a `FPSMeter.shared.tick()` por fotograma. Vista hoja: solo valores de entrada, nada observable.
-  - `AiryLogo(animated: true)`: los arcos giran despacio (una vuelta cada 20 s) con `repeatForever` del servidor de render solo si `airyAmbientMotion == .running`; si no, vista estática.
-  - `extension View { func hoverSway(_ hovering: Bool) -> some View }` — al pasar a `true`, `keyframeAnimator(initialValue: 0.0, trigger: contador)` con `WindMotion.swayKeyframes` sobre `.rotationEffect(.degrees(_), anchor: .bottom)`; con `airyTransientMotion != .running` no hace nada.
-  - DEBUG en `DebugSnapshot.configure`: `AIRY_HIDE_AT=<s>` llama a `NSApp.hide(nil)` a esos segundos y `AIRY_UNHIDE_AT=<s>` a `NSApp.unhide(nil)` (solo la propia app).
+  - `EnvironmentValues.airyAmbientMotion: MotionMode` (default `.paused`) and `.airyTransientMotion: MotionMode` (default `.reduced`), with hand-written `EnvironmentKey`. Default "stopped": a view that does not receive the gatekeeper (e.g. a new sheet that forgot to inject it) does not spend CPU.
+  - `struct WindowActivityReader: NSViewRepresentable { var onChange: (_ visible: Bool, _ active: Bool) -> Void }` — takes `view.window` in `viewDidMoveToWindow` and listens to `NSWindow.didChangeOcclusionStateNotification`, `didMiniaturizeNotification`, `didDeminiaturizeNotification` (of that window) and `NSApplication.didBecomeActiveNotification`, `didResignActiveNotification`, `didHideNotification`, `didUnhideNotification`; visible = `occlusionState.contains(.visible) && !isMiniaturized && !NSApp.isHidden`; active = `NSApp.isActive`.
+  - `RootView` stores `windowVisible`/`appActive` in `@ViewState`, reads `accessibilityReduceMotion` (in DEBUG, `AIRY_REDUCE_MOTION=1` forces it to `true`) and injects both modes into the content **and** into the sheet's `Group`. In DEBUG with `AIRY_FPS=1`, every ambient mode change writes `[motion] ambiente: running|paused|reduced` (ambiente = ambient) with `FPSMeter.log`.
+  - `struct BreezeBackground: View { init(intensity: BreezeIntensity = .ambient) }` — `Theme.Airy.background` + Task 3 halos + the streaks of `WindMotion.breezeStreaks(intensity)`: capsules with a horizontal gradient transparent → `Theme.Airy.sky.opacity(streak.opacity)` → transparent (no `.blur`, no `Canvas`), crossing from left to right with `.linear(duration: period).repeatForever(autoreverses: false)` animated by the render server (like `ScanRing`), starting at `phase`. With `airyAmbientMotion != .running` a **different**, static view is drawn (streaks still at their `phase`): that way the infinite animation really disappears. `.allowsHitTesting(false)`, `.ignoresSafeArea()`.
+  - `struct WindLeaves: View { enum Mode: Equatable { case orbit(radius: CGFloat); case launch(start: Date); case burst(start: Date, rect: CGRect) }; init(mode: Mode, count: Int = 7) }` — a single `Canvas(rendersAsynchronously: true)` inside `TimelineView(.animation(minimumInterval: nil, paused: …))`; it draws each leaf with `Path(AiryLogoGeometry.leafPath(length: 11, width: 5))` (×1.6 in `.launch`) transformed by the pose, alternating white and `Theme.Airy.leafSky` (in light mode, `Theme.Airy.accent` and `sky` so they are visible). `.orbit` uses `orbitLeaf` around the view's center and pauses with `airyAmbientMotion != .running`; `.launch` and `.burst` use `launchLeaf`/`dissolveLeaf` with progress `(date − start)/duration`, pause with `airyTransientMotion != .running` and draw nothing past their end (whoever shows them removes them, like `ParticleBurst`). In DEBUG it calls `FPSMeter.shared.tick()` per frame. Leaf view: input values only, nothing observable.
+  - `AiryLogo(animated: true)`: the arcs turn slowly (one turn every 20 s) with the render server's `repeatForever` only if `airyAmbientMotion == .running`; otherwise a static view.
+  - `extension View { func hoverSway(_ hovering: Bool) -> some View }` — on switching to `true`, `keyframeAnimator(initialValue: 0.0, trigger: counter)` with `WindMotion.swayKeyframes` on `.rotationEffect(.degrees(_), anchor: .bottom)`; with `airyTransientMotion != .running` it does nothing.
+  - DEBUG in `DebugSnapshot.configure`: `AIRY_HIDE_AT=<s>` calls `NSApp.hide(nil)` at those seconds and `AIRY_UNHIDE_AT=<s>` calls `NSApp.unhide(nil)` (the app itself only).
 
 - [ ] **Step 1: Implement `Motion.swift` (keys, reader, `hoverSway`) and wire `RootView`**
 
@@ -661,7 +661,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 4: Build and run the suite**
 
 Run: `swift build && swift test`
-Expected: `Build complete!`, todo en verde.
+Expected: `Build complete!`, all green.
 
 - [ ] **Step 5: Verify zero CPU when hidden and low CPU when idle-visible**
 
@@ -669,36 +669,36 @@ Run:
 ```bash
 D=$(mktemp -d); AIRY_SUPPORT_DIR=$D AIRY_FPS=1 AIRY_SKIP_LAUNCH=1 AIRY_HIDE_AT=60 AIRY_UNHIDE_AT=90 \
   .build/debug/Airy 2> "$D/log.txt" & PID=$!
-sleep 50; ps -o %cpu= -p $PID     # análisis terminado, ventana activa y quieta
-sleep 25; ps -o %cpu= -p $PID     # oculta desde el segundo 60
-sleep 20; ps -o %cpu= -p $PID     # visible otra vez
+sleep 50; ps -o %cpu= -p $PID     # analysis finished, window active and still
+sleep 25; ps -o %cpu= -p $PID     # hidden since second 60
+sleep 20; ps -o %cpu= -p $PID     # visible again
 kill $PID; grep "\[motion\]" "$D/log.txt"
 ```
-Expected: visible y quieta ≤ 3 %; oculta ≤ 0,3 % (cero en la práctica); al volver, de nuevo ≤ 3 %; el registro muestra `ambiente: running`, `ambiente: paused` y otra vez `ambiente: running`. Si el análisis aún no terminó a los 50 s, alarga la primera espera (el análisis no cuenta como reposo). `AIRY_SKIP_LAUNCH` aún no existe hasta la Task 6: hasta entonces se ignora.
+Expected: visible and still ≤ 3 %; hidden ≤ 0.3 % (zero in practice); on return, again ≤ 3 %; the log shows `ambiente: running`, `ambiente: paused` and `ambiente: running` again. If the analysis has not finished by 50 s, lengthen the first wait (the analysis does not count as rest). `AIRY_SKIP_LAUNCH` does not exist until Task 6: until then it is ignored.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add Sources/Airy
-git commit -m "feat: brisa de fondo, hojas y balanceo con pausa total fuera de la vista
+git commit -m "feat: background breeze, leaves and sway with full pause when out of view
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 6: Arranque (las hojas forman el logo) y análisis (brisa y hojas en órbita)
+### Task 6: Launch (the leaves form the logo) and analysis (breeze and orbiting leaves)
 
 **Files:**
 - Create: `Sources/Airy/Shell/LaunchSwirl.swift`
-- Modify: `Sources/Airy/Shell/RootView.swift` (capa de arranque), `Sources/Airy/Shell/ScanProgressView.swift` (`hero`), `Sources/Airy/Shell/DebugSnapshot.swift` (`AIRY_SKIP_LAUNCH`)
+- Modify: `Sources/Airy/Shell/RootView.swift` (launch layer), `Sources/Airy/Shell/ScanProgressView.swift` (`hero`), `Sources/Airy/Shell/DebugSnapshot.swift` (`AIRY_SKIP_LAUNCH`)
 
 **Interfaces:**
 - Consumes: `WindLeaves(.launch)`, `WindLeaves(.orbit)`, `BreezeBackground(.scan)`, `AiryLogo` (Task 5); `WindMotion.launchTimeline(_:)`, `launchLeafCount` (Task 4).
 - Produces:
-  - `struct LaunchSwirl: View { var onDone: () -> Void }` — capa opaca `Theme.Airy.background` a pantalla completa; en el centro, `WindLeaves(mode: .launch(start:), count: WindMotion.launchLeafCount)` en un cuadro de 240 pt (unidad normalizada = 120 pt) y `AiryLogo(size: 120)` que aparece con fundido en el último 35 % de `gather`; después `hold` y la capa entera se funde en `fade`; un clic la cierra al momento. Con el modo transitorio `.reduced`: solo el logo con fundido de entrada/salida (tiempos de `launchTimeline(.reduced)`); con `.paused`: `onDone()` inmediato. Termina con `DispatchQueue.main.asyncAfter` (no `Task.sleep`, ver el porqué en `MapScene.scheduleStop`).
-  - `RootView`: muestra `LaunchSwirl` una sola vez por proceso (`static var hasPlayed`), por encima de todo; el análisis arranca a la vez (`.task { model.startScan() }` no espera). En DEBUG se salta si `AIRY_SKIP_LAUNCH=1` o si hay alguna variable `AIRY_*_SCRIPT` (los guiones de depuración existentes no deben cambiar sus tiempos).
-  - `ScanProgressView.hero`: `BreezeBackground(intensity: .scan)` detrás del contenido del héroe (solo mientras se muestra el héroe) y `WindLeaves(mode: .orbit(radius: 98), count: 7)` en un cuadro de 240 pt centrado en el `ScanRing` de 168 pt. La píldora `.compact` no cambia.
+  - `struct LaunchSwirl: View { var onDone: () -> Void }` — full-screen opaque `Theme.Airy.background` layer; in the center, `WindLeaves(mode: .launch(start:), count: WindMotion.launchLeafCount)` in a 240 pt box (normalized unit = 120 pt) and `AiryLogo(size: 120)` fading in during the last 35 % of `gather`; then `hold` and the whole layer fades out over `fade`; a click closes it immediately. With the transient mode `.reduced`: only the logo with a fade in/out (timings from `launchTimeline(.reduced)`); with `.paused`: immediate `onDone()`. It ends with `DispatchQueue.main.asyncAfter` (not `Task.sleep`, see why in `MapScene.scheduleStop`).
+  - `RootView`: shows `LaunchSwirl` only once per process (`static var hasPlayed`), above everything; the analysis starts at the same time (`.task { model.startScan() }` does not wait). In DEBUG it is skipped if `AIRY_SKIP_LAUNCH=1` or if any `AIRY_*_SCRIPT` variable is set (the existing debug scripts must not change their timings).
+  - `ScanProgressView.hero`: `BreezeBackground(intensity: .scan)` behind the hero content (only while the hero is shown) and `WindLeaves(mode: .orbit(radius: 98), count: 7)` in a 240 pt box centered on the 168 pt `ScanRing`. The `.compact` pill does not change.
 
 - [ ] **Step 1: Implement `LaunchSwirl` and the `RootView` layer with the DEBUG skip**
 
@@ -707,7 +707,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 3: Build and run the suite**
 
 Run: `swift build && swift test`
-Expected: `Build complete!`, todo en verde.
+Expected: `Build complete!`, all green.
 
 - [ ] **Step 4: Capture the launch and the scan, normal and reduced**
 
@@ -719,37 +719,37 @@ for R in 0 1; do T=$(mktemp -d); D=$(mktemp -d)
   sleep 7; kill $PID; ls $T; grep "\[fps\]" $D/log | tail -3
 done
 ```
-Expected (`rm0`): a 0,4 s hojas en espiral; a 1,0 s casi formando el remolino; a 1,6 s logo completo; a 2,4 s la app con el análisis (brisa y hojas alrededor del anillo); con `AIRY_FPS=1`, las líneas `[fps]` de las animaciones ≥ 60 fps. (`rm1`): a 0,4 s solo el logo fundiéndose, a 1,0 s ya la app, nada girando ni hojas en órbita. Abre los PNG para comprobarlo.
+Expected (`rm0`): at 0.4 s leaves spiraling; at 1.0 s almost forming the swirl; at 1.6 s the complete logo; at 2.4 s the app with the analysis (breeze and leaves around the ring); with `AIRY_FPS=1`, the `[fps]` lines of the animations ≥ 60 fps. (`rm1`): at 0.4 s only the logo fading in, at 1.0 s already the app, nothing spinning nor orbiting leaves. Open the PNGs to check.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add Sources/Airy
-git commit -m "feat: arranque con hojas que forman el logo y brisa durante el análisis
+git commit -m "feat: launch with leaves forming the logo and breeze during analysis
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 7: Borrar se lleva el viento: filas y bloques en hojas, contador que sube y ráfaga de tanda
+### Task 7: Deleting is carried away by the wind: rows and blocks into leaves, counter that goes up and batch gust
 
 **Files:**
 - Create: `Sources/Airy/Design/GustSweep.swift`
-- Modify: `Sources/Airy/Design/WindLeaves.swift` (`AnyTransition.leafAway`), `Sources/Airy/Cleanup/CleanupFlow.swift` (`gust`, `batchFreed`), `Sources/Airy/Cleanup/CleanupView.swift` (`GroupSection` y capa de ráfaga y contador), `Sources/Airy/Map/MapScene.swift` (ráfagas de hojas), `Sources/Airy/Map/TreemapCanvas.swift` (`MapRenderer.draw`), `Sources/Airy/Map/MapView.swift` (`TrashCandidate`, `requestTrash`)
+- Modify: `Sources/Airy/Design/WindLeaves.swift` (`AnyTransition.leafAway`), `Sources/Airy/Cleanup/CleanupFlow.swift` (`gust`, `batchFreed`), `Sources/Airy/Cleanup/CleanupView.swift` (`GroupSection` and gust and counter layer), `Sources/Airy/Map/MapScene.swift` (leaf bursts), `Sources/Airy/Map/TreemapCanvas.swift` (`MapRenderer.draw`), `Sources/Airy/Map/MapView.swift` (`TrashCandidate`, `requestTrash`)
 
 **Interfaces:**
 - Consumes: `WindMotion.leafAwayTransform`, `dissolveLeaf`, `leafCount(for:)`, `dissolveDuration`, `gustRowOffset`, `gustDuration`, `gustBandDuration` (Task 4); `WindLeaves`, `airyTransientMotion` (Task 5).
 - Produces:
-  - `extension AnyTransition { static var leafAway: AnyTransition }` = `.asymmetric(insertion: .opacity, removal: .modifier(active: LeafAwayEffect(progress: 1), identity: LeafAwayEffect(progress: 0)))`. `LeafAwayEffect: ViewModifier, Animatable` (`animatableData = progress`): aplica `leafAwayTransform(progress:)` al contenido (`offset`, `rotationEffect`, `scaleEffect`, `opacity`) y superpone un `Canvas` **sin reloj** (lo redibuja la propia interpolación de `progress`) con `leafCount(for:)` hojas de `dissolveLeaf` en el tamaño del contenido (`GeometryReader` en el `overlay`). Lee `airyTransientMotion`: distinto de `.running` ⇒ solo `opacity(1 − progress)`. Sirve igual para «borrar una fila» y para «la fila de una app cerrada sale volando» (plan 4).
-  - `CleanupFlow.Gust: Equatable { let id: UUID; let start: Date; let order: [String] }` y `private(set) var gust: Gust?` — se fija en `confirm(_:model:)` para `.items` con ≥ 2 elementos (`order` = ids en el orden de ejecución) y se borra a los `WindMotion.gustDuration(rowCount:) + 0.1` s con `DispatchQueue.main.asyncAfter`. El «Borrar todo» del plan 3 llama a `requestClean` y obtiene la ráfaga sin más.
-  - `CleanupFlow.batchFreed: Int64` (`private(set)`) — 0 al empezar cada tanda `.items`; suma los bytes de cada `.freed`/`.movedToTrash`.
-  - `struct GustSweep: View { let start: Date }` — banda vertical ancha (≈ 40 % del ancho) con degradado transparente → `Theme.Airy.sky.opacity(0.18)` → transparente y unas pocas hojas, que cruza de izquierda a derecha en `gustBandDuration`; `TimelineView(.animation(paused: airyTransientMotion != .running))`; no dibuja nada pasado su final.
-  - `extension View { func gustSway(index: Int?, start: Date?) -> some View }` — si ambos existen y el modo transitorio es `.running`, `offset(x: gustRowOffset(row: index, rowCount:, elapsed:))` dentro de un `TimelineView` que solo existe hasta `gustDuration`; si no, nada.
-  - `MapScene.burst(rect: CGRect)` — añade `MapLeafBurst(rect:, start: CACurrentMediaTime())` a `private(set) var bursts: [MapLeafBurst]` y llama a `keepAnimating(fadeEnd: start + WindMotion.dissolveDuration)`; `finishAnimating` quita las terminadas. `MapFrame` gana `bursts`; `MapRenderer.draw` pinta, después de las teselas, las hojas de cada ráfaga viva con `dissolveLeaf` (color: la tinta clara de la tesela, `leafSky`).
-  - `TrashCandidate` gana `rect: CGRect?` (rectángulo en el lienzo de la tesela cuyo menú se abrió: `scene.layout?.tile(id: details.id)?.rect`); en `requestTrash`, con `.movedToTrash` o `.freed` y `airyTransientMotion == .running`, se llama a `scene.burst(rect:)` antes de mostrar el aviso.
+  - `extension AnyTransition { static var leafAway: AnyTransition }` = `.asymmetric(insertion: .opacity, removal: .modifier(active: LeafAwayEffect(progress: 1), identity: LeafAwayEffect(progress: 0)))`. `LeafAwayEffect: ViewModifier, Animatable` (`animatableData = progress`): applies `leafAwayTransform(progress:)` to the content (`offset`, `rotationEffect`, `scaleEffect`, `opacity`) and overlays a **clockless** `Canvas` (redrawn by `progress`'s own interpolation) with `leafCount(for:)` leaves from `dissolveLeaf` at the content's size (`GeometryReader` in the `overlay`). Reads `airyTransientMotion`: anything other than `.running` ⇒ only `opacity(1 − progress)`. It serves equally for «delete a row» and for «the row of a closed app flies off» (plan 4).
+  - `CleanupFlow.Gust: Equatable { let id: UUID; let start: Date; let order: [String] }` and `private(set) var gust: Gust?` — set in `confirm(_:model:)` for `.items` with ≥ 2 elements (`order` = ids in execution order) and cleared after `WindMotion.gustDuration(rowCount:) + 0.1` s with `DispatchQueue.main.asyncAfter`. Plan 3's «Borrar todo» calls `requestClean` and gets the gust with nothing else.
+  - `CleanupFlow.batchFreed: Int64` (`private(set)`) — 0 at the start of each `.items` batch; adds the bytes of each `.freed`/`.movedToTrash`.
+  - `struct GustSweep: View { let start: Date }` — wide vertical band (≈ 40 % of the width) with a gradient transparent → `Theme.Airy.sky.opacity(0.18)` → transparent and a few leaves, crossing from left to right in `gustBandDuration`; `TimelineView(.animation(paused: airyTransientMotion != .running))`; draws nothing past its end.
+  - `extension View { func gustSway(index: Int?, start: Date?) -> some View }` — if both exist and the transient mode is `.running`, `offset(x: gustRowOffset(row: index, rowCount:, elapsed:))` inside a `TimelineView` that only exists until `gustDuration`; otherwise nothing.
+  - `MapScene.burst(rect: CGRect)` — adds `MapLeafBurst(rect:, start: CACurrentMediaTime())` to `private(set) var bursts: [MapLeafBurst]` and calls `keepAnimating(fadeEnd: start + WindMotion.dissolveDuration)`; `finishAnimating` removes the finished ones. `MapFrame` gains `bursts`; `MapRenderer.draw` paints, after the tiles, the leaves of each live burst with `dissolveLeaf` (color: the tile's light ink, `leafSky`).
+  - `TrashCandidate` gains `rect: CGRect?` (rectangle in the canvas of the tile whose menu was opened: `scene.layout?.tile(id: details.id)?.rect`); in `requestTrash`, with `.movedToTrash` or `.freed` and `airyTransientMotion == .running`, `scene.burst(rect:)` is called before showing the notice.
 
-Cableado en Limpieza: en `GroupSection`, la transición de salida de cada fila pasa de `.opacity.combined(with: .scale(...))` a `.leafAway` y cada fila recibe `.gustSway(index: order.firstIndex(of: item.id), start: flow.gust?.start)`; `CleanupView` superpone `GustSweep(start:)` sobre la lista mientras `flow.gust` existe (`.allowsHitTesting(false)`) y, abajo, mientras `flow.isRunning && flow.batchFreed > 0`, una píldora `leaf.fill` + `BytesCounter(bytes: flow.batchFreed, countsUpOnAppear: false)` + «liberados» que sube con cada fila (`BytesCounter` ya rueda las cifras). El muelle que colapsa la fila (`hiddenIDs` con `Theme.zoomSpring`) no cambia.
+Cleanup wiring: in `GroupSection`, each row's exit transition changes from `.opacity.combined(with: .scale(...))` to `.leafAway` and each row receives `.gustSway(index: order.firstIndex(of: item.id), start: flow.gust?.start)`; `CleanupView` overlays `GustSweep(start:)` on the list while `flow.gust` exists (`.allowsHitTesting(false)`) and, at the bottom, while `flow.isRunning && flow.batchFreed > 0`, a pill `leaf.fill` + `BytesCounter(bytes: flow.batchFreed, countsUpOnAppear: false)` + «liberados» (freed) that goes up with each row (`BytesCounter` already rolls the digits). The spring that collapses the row (`hiddenIDs` with `Theme.zoomSpring`) does not change.
 
 - [ ] **Step 1: Implement `.leafAway` and switch the cleanup rows to it**
 
@@ -760,37 +760,37 @@ Cableado en Limpieza: en `GroupSection`, la transición de salida de cada fila p
 - [ ] **Step 4: Build and run the suite**
 
 Run: `swift build && swift test`
-Expected: `Build complete!`, todo en verde.
+Expected: `Build complete!`, all green.
 
 - [ ] **Step 5: Watch it with the DEBUG gallery's fake rows (no real cleanup)**
 
-La verificación visual de esta tarea se hace en la Task 8 (galería con filas falsas que se borran sin tocar el disco). Aquí basta con comprobar que no quedan relojes vivos tras una ráfaga:
+The visual verification of this task is done in Task 8 (gallery with fake rows that are deleted without touching the disk). Here it is enough to check that no live clocks remain after a gust:
 
 Run: `grep -n "repeatForever\|TimelineView" Sources/Airy/Design/*.swift Sources/Airy/Shell/LaunchSwirl.swift`
-Expected: cada aparición está detrás de un `paused:` o dentro de una vista que solo existe mientras dura su efecto o mientras el modo es `.running` (revísalas una a una).
+Expected: every occurrence is behind a `paused:` or inside a view that only exists while its effect lasts or while the mode is `.running` (review them one by one).
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add Sources/Airy
-git commit -m "feat: filas y bloques que se lleva el viento, contador liberado y ráfaga de tanda
+git commit -m "feat: rows and blocks carried off by the wind, freed counter and batch gust
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 8: `WindSwirl` para Rendimiento y galería de movimiento (DEBUG)
+### Task 8: `WindSwirl` for Performance and motion gallery (DEBUG)
 
 **Files:**
 - Create: `Sources/Airy/Design/WindSwirl.swift`, `Sources/Airy/Design/MotionGallery.swift`
-- Modify: `Sources/Airy/Shell/RootView.swift` (galería en DEBUG), `Sources/Airy/Shell/DebugSnapshot.swift` (documentar las variables nuevas en su comentario)
+- Modify: `Sources/Airy/Shell/RootView.swift` (gallery in DEBUG), `Sources/Airy/Shell/DebugSnapshot.swift` (document the new variables in its comment)
 
 **Interfaces:**
 - Consumes: `SwirlPhase`, `WindMotion.swirlRevolutionsPerSecond`, `WindMotion.heat(for:)` (Task 4); `Theme.Airy.swirlTint(_:)`; `.leafAway`, `GustSweep`, `gustSway`, `WindLeaves`, `RiskBadge`, `AiryLogo` (Tasks 3–7).
 - Produces:
-  - `struct WindSwirl: View { init(speed: Double, tint: Color) }` — `speed` en vueltas por segundo; tres arcos concéntricos (`AiryLogoGeometry.arcs(.full)`, trazo `tint` con la opacidad de cada arco) y las tres hojas, girando con el ángulo de un `SwirlPhase` guardado en una clase no observable en `@ViewState` (se avanza dentro del `Canvas` con la fecha del `TimelineView`). `TimelineView(.animation(minimumInterval: nil, paused: airyAmbientMotion != .running))`; con `.reduced`, estático y el tinte cambia con fundido de 0,3 s. Un cambio de `speed` nunca da saltos (lo garantiza `SwirlPhase`). Uso previsto por el plan 4: `WindSwirl(speed: WindMotion.swirlRevolutionsPerSecond(cpuLoad: carga), tint: Theme.Airy.swirlTint(ProcessInfo.processInfo.thermalState))`.
-  - `MotionGallery` (solo `#if DEBUG`, con `AIRY_MOTION_GALLERY=1` sustituye al contenido de la sección): cuatro `WindSwirl` (carga 0 / 0,5 / 1 con estado nominal, y carga 1 con `.serious`), cinco `RiskBadge` (los tres riesgos, uno compacto, uno con `reason`), `AiryLogo` a 16, 26, 64 y 128 pt, y una lista de 6 filas falsas (solo texto en memoria) con un botón «Simular borrado» que activa `GustSweep`/`gustSway` y luego las quita de una en una cada 0,25 s con `.leafAway`, mientras una píldora con `BytesCounter` sube. No llama a `CleanupFlow`, `AppModel` ni a nada que toque el disco. Con `AIRY_GALLERY_AUTOPLAY=<s>` el botón se pulsa solo a esos segundos (para capturas).
+  - `struct WindSwirl: View { init(speed: Double, tint: Color) }` — `speed` in revolutions per second; three concentric arcs (`AiryLogoGeometry.arcs(.full)`, `tint` stroke with each arc's opacity) and the three leaves, rotating with the angle of a `SwirlPhase` stored in a non-observable class in `@ViewState` (advanced inside the `Canvas` with the `TimelineView`'s date). `TimelineView(.animation(minimumInterval: nil, paused: airyAmbientMotion != .running))`; with `.reduced`, static and the tint changes with a 0.3 s fade. A change of `speed` never causes jumps (guaranteed by `SwirlPhase`). Intended use by plan 4: `WindSwirl(speed: WindMotion.swirlRevolutionsPerSecond(cpuLoad: load), tint: Theme.Airy.swirlTint(ProcessInfo.processInfo.thermalState))`.
+  - `MotionGallery` (`#if DEBUG` only, with `AIRY_MOTION_GALLERY=1` it replaces the section's content): four `WindSwirl` (load 0 / 0.5 / 1 with nominal state, and load 1 with `.serious`), five `RiskBadge` (the three risks, one compact, one with `reason`), `AiryLogo` at 16, 26, 64 and 128 pt, and a list of 6 fake rows (in-memory text only) with a «Simular borrado» (Simulate deletion) button that activates `GustSweep`/`gustSway` and then removes them one at a time every 0.25 s with `.leafAway`, while a pill with `BytesCounter` goes up. It does not call `CleanupFlow`, `AppModel` or anything that touches the disk. With `AIRY_GALLERY_AUTOPLAY=<s>` the button presses itself at those seconds (for screenshots).
 
 - [ ] **Step 1: Implement `WindSwirl`**
 
@@ -799,7 +799,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 3: Build and run the suite**
 
 Run: `swift build && swift test`
-Expected: `Build complete!`, todo en verde.
+Expected: `Build complete!`, all green.
 
 - [ ] **Step 4: Capture the gallery mid-gust and with reduced motion**
 
@@ -812,18 +812,18 @@ for R in 0 1; do T=$(mktemp -d); D=$(mktemp -d)
   sleep 7; kill $PID; ls $T; grep "\[fps\]" $D/log | tail -3
 done
 ```
-Expected (`g0`): a 2,5 s cuatro remolinos (el último anaranjado), etiquetas «Sin problema / Tú decides / No borrar» legibles, logos con la variante pequeña a 16/26 pt; a 3,3 s la banda de ráfaga cruzando y las filas desplazadas; a 3,9 s filas saliendo en hojas y la píldora contando; a 5,5 s lista vacía. `[fps]` ≥ 60. (`g1`): nada se desplaza, las filas desaparecen con fundido, remolinos quietos.
+Expected (`g0`): at 2.5 s four swirls (the last one orange), «Sin problema / Tú decides / No borrar» labels legible, logos with the small variant at 16/26 pt; at 3.3 s the gust band crossing and the rows displaced; at 3.9 s rows leaving as leaves and the pill counting; at 5.5 s empty list. `[fps]` ≥ 60. (`g1`): nothing moves, rows disappear with a fade, swirls still.
 
 - [ ] **Step 5: Final checks for the whole plan**
 
 Run: `swift test && swift build -c release && git status --short`
-Expected: todas las pruebas en verde (incluidas `AiryPaletteTests`, `AiryLogoGeometryTests`, `WindMotionTests`), `Build complete!` en release y ningún archivo sin seguimiento inesperado. Repite el paso 5 de la Task 5 (CPU oculta ≤ 0,3 %) ahora con todas las animaciones montadas.
+Expected: all tests green (including `AiryPaletteTests`, `AiryLogoGeometryTests`, `WindMotionTests`), `Build complete!` in release and no unexpected untracked files. Repeat step 5 of Task 5 (hidden CPU ≤ 0.3 %) now with all the animations mounted.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add Sources/Airy
-git commit -m "feat: remolino de Rendimiento y galería de movimiento para depurar
+git commit -m "feat: Performance swirl and motion gallery for debugging
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
