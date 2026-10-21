@@ -18,7 +18,7 @@ jobs:
     env:
       AIRY_XCODE_TOOLCHAIN: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Toolchain
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
