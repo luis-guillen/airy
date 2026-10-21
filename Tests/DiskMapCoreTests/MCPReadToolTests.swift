@@ -317,6 +317,19 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         #expect(byId["alpha"]?["actionable_by_agent"]?.boolValue == true)
     }
 
+    @Test func agentSwitchOffMeansNothingIsActionable() async throws {
+        let f = try cleanupFixture()
+        var on = await f.call(ListCleanupItemsTool())
+        #expect(on.structured?["agents_enabled"]?.boolValue == true)
+        var settings = AirySettings()
+        settings.agentsEnabled = false
+        try f.env.settings.save(settings)
+        on = await f.call(ListCleanupItemsTool())
+        #expect(on.structured?["agents_enabled"]?.boolValue == false)
+        guard case .array(let items)? = on.structured?["items"] else { Issue.record("items"); return }
+        #expect(!items.isEmpty && items.allSatisfy { $0["actionable_by_agent"]?.boolValue == false })
+    }
+
     @Test func outputsNeverContainFileContents() async throws {
         let f = try cleanupFixture()
         let secret = f.home + "/Library/Caches/alpha/data.bin"

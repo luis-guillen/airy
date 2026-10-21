@@ -236,6 +236,15 @@ private func pyenvHome() -> String {
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-n", "base", "-y"]) != nil)
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["remove", "--all", "-y"]) != nil)
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["clean", "--all", "-y"]) == nil)
+        // Por ruta, solo `…/envs/<nombre>` (M3).
+        for prefix in ["/Users/x/miniconda3", "/Users/x/miniconda3/envs/../", "relative/envs/a", "/Users/x/envs/a/"] {
+            #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-p", prefix, "-y"]) != nil,
+                    "\(prefix)")
+        }
+        #expect(CommandPolicy.refusal(executable: "conda", arguments: ["remove", "--prefix=/Users/x/miniconda3"]) != nil)
+        #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-p"]) != nil)
+        #expect(CommandPolicy.refusal(executable: "conda",
+                                      arguments: ["env", "remove", "-p", "/Users/x/miniconda3/envs/old", "-y"]) == nil)
     }
 
     @Test func agentCanOnlyList() async throws {

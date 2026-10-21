@@ -59,7 +59,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         ]
         for (relative, reason) in expected { #expect(r.defaults[h + "/" + relative] == reason, "\(relative)") }
         #expect(r.defaults.count == expected.count)
-        #expect(r.noPreselect.isEmpty)
+        #expect(r.noPreselect == [.java]) // Java nunca se preselecciona (M7)
     }
 
     @Test func pathResolutionMarksInUse() async {
@@ -90,7 +90,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         #expect(r.requested[h + "/.nvm/versions/node/v20.1.0"] == nil)
         #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "La pide ~/Projects/mono/web (.python-version).")
         #expect(r.requested[h + "/.pyenv/versions/3.12.1"] == nil)
-        #expect(r.projectsComplete && r.noPreselect.isEmpty)
+        #expect(r.projectsComplete && r.noPreselect == [.node]) // nvm sin alias por defecto (M7)
     }
 
     @Test func pinMatchingIsComponentWise() {
@@ -133,6 +133,15 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         #expect(r.noPreselect.contains(.node))
         #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "Es la versión por defecto de nvm."])
         #expect(r.requested.isEmpty)
+    }
+
+    @Test func nvmWithoutDefaultAliasIsConservative() async {
+        let base = toolchainTempDir()
+        let h = base + "/home"
+        for d in [".nvm/versions/node/v18.17.0", ".nvm/versions/node/v20.1.0"] { tcMakeDir(h + "/" + d) }
+        let r = await report(base)
+        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "Es la versión por defecto de nvm."])
+        #expect(r.noPreselect.contains(.node))
     }
 
     @Test func condaEnvironmentYmlRequestsEnv() async {

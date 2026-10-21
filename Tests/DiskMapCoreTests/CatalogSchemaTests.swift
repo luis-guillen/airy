@@ -525,3 +525,35 @@ private func replaceWithLink(_ path: String, to destination: String) {
         for (manager, entry) in entries where trash.contains(manager) { #expect(entry.cleanup == .trash, "\(entry.id)") }
     }
 }
+
+/// M5: la excepción de catálogo dentro de la carpeta de una app sensible solo vale para cachés. Cualquier ficha
+/// futura con algo como `Google/Chrome/*/History` rompe esta prueba.
+@Suite struct SensitiveAppCatalogPatternTests {
+    /// Nombres sin «cache» que también son regenerables (informes de fallos enviados, imágenes de VM descargadas).
+    static let allowedLastComponents: Set<String> = ["completed", "vm_bundles"]
+
+    /// `Cache`, `Code Cache`, `GPUCache`, `Dawn*Cache`, `CacheStorage`, `ScriptCache`, `CachedData`,
+    /// `component_crx_cache`, `Media Cache Files`…; nunca `History`, `Cookies`, `Login Data`, `Default`.
+    static func isCacheName(_ name: String) -> Bool {
+        allowedLastComponents.contains(name) || name.lowercased().contains("cache")
+    }
+
+    @Test func patternsUnderSensitiveAppFoldersEndInACacheName() throws {
+        let catalog = try Catalog.bundled()
+        var offenders: [String] = []
+        for entry in catalog.entries where entry.cleanup != .info {
+            for pattern in entry.paths where pattern.hasPrefix("~/") {
+                let relative = String(pattern.dropFirst(2))
+                for root in HardProtections.appDataRoots where relative.hasPrefix(root + "/") {
+                    let rest = relative.dropFirst(root.count + 1).split(separator: "/").map(String.init)
+                    guard let folder = rest.first, rest.count > 1,
+                          HardProtections.sensitiveAppName(folder) != nil else { continue }
+                    let last = rest.last!
+                    if !Self.isCacheName(last) { offenders.append("\(entry.id): \(pattern)") }
+                }
+            }
+        }
+        #expect(offenders.isEmpty, "\(offenders)")
+    }
+}
+
