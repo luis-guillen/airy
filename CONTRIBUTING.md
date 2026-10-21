@@ -1,10 +1,44 @@
-# Cómo contribuir
+# Contributing to Airy
 
-1. Crea una rama desde `main`: `feat/…`, `fix/…` o `docs/…`.
-2. Mantén las reglas de seguridad del [README](README.md#seguridad-cómo-decide-airy-qué-se-puede-borrar).
-   Toda acción destructiva pasa por `ConfirmSheet → AppModel → CleanupExecutor`.
-3. Añade pruebas en `Tests/DiskMapCoreTests`. Usa carpetas temporales y procesos falsos, nunca el disco
-   real.
-4. Antes de abrir el PR, ejecuta `swift build` y `swift test --no-parallel`.
-5. Usa mensajes de commit al estilo [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/)
-   (`feat:`, `fix:`, `perf:`, `docs:`…) y actualiza `CHANGELOG.md` en «Unreleased».
+Thanks for helping! Issues and PRs are welcome in **English or Spanish**.
+
+## Getting started
+
+```bash
+git clone https://github.com/luis-guillen/airy.git && cd airy
+swift build
+swift test --no-parallel
+AIRY_SUPPORT_DIR=$(mktemp -d) AIRY_SCAN_ROOTS=$HOME/Downloads .build/debug/Airy   # safe dev run
+```
+
+You need macOS 15+ and the Xcode Command Line Tools (Swift 6.3+).
+
+## Ground rules (safety first)
+
+1. Every destructive action must go through `ConfirmSheet → AppModel → CleanupExecutor` (quitting apps
+   goes through `QuitExecutor`). No shortcuts, not even in DEBUG.
+2. Never weaken `HardProtections` or `CommandPolicy`. New cleanup targets go into `catalog.json` with the
+   lowest risk that is honest.
+3. AI and MCP can only *raise* risk. They never receive file contents.
+4. Tests use temporary folders and fakes. They never touch the real disk, never run real cleanup
+   commands and never quit real apps.
+5. Keep Airy light: no work at rest, and animations must pause when the window isn't visible.
+
+## Workflow
+
+1. Open an issue for anything non-trivial, so we can agree on the approach first.
+2. Branch from `main`: `feat/…`, `fix/…`, `docs/…`.
+3. Add or update tests in `Tests/DiskMapCoreTests`.
+4. Run `swift build` and `swift test --no-parallel`.
+5. Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `perf:`…) and
+   add a line to `CHANGELOG.md` under **Unreleased**.
+6. Open the PR; CI must be green.
+
+## Translations
+
+The UI is currently Spanish-only. Help moving strings to String Catalogs (`.xcstrings`) and adding
+English is very welcome; open an issue first.
+
+## License
+
+By contributing, you agree that your contributions are licensed under the [GPL-3.0-or-later](LICENSE).

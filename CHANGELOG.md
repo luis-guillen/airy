@@ -5,6 +5,9 @@ y las versiones, [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Cambiado
+- Airy es ahora software libre bajo **GPL-3.0-or-later**. README en inglés y español, código de conducta, política de seguridad y guía de contribución.
+
 ## [0.2.0] - 2026-10-21
 
 ### Añadido

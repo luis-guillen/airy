@@ -1,25 +1,30 @@
-name: Fallo
-description: Algo no funciona como debería
+name: Bug report / Fallo
+description: Something doesn't work as expected
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: "⚠️ Security issues (anything that could delete protected data) → use **Security → Report a vulnerability**, not this form."
   - type: textarea
     id: what
     attributes:
-      label: Qué pasa
-      description: Qué hiciste, qué esperabas y qué ocurrió.
+      label: What happened / Qué pasa
+      description: What you did, what you expected, what happened.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Pasos para reproducirlo
+      label: Steps to reproduce / Pasos
   - type: input
     id: version
     attributes:
-      label: Versión de Airy y de macOS
-      placeholder: "Airy 0.2.0 · macOS 15.x"
+      label: Airy and macOS version
+      placeholder: "Airy 0.2.0 · macOS 15.x · Apple Silicon"
+    validations:
+      required: true
   - type: textarea
     id: logs
     attributes:
-      label: Registro o informe de cierre
+      label: Logs or crash report
       render: text

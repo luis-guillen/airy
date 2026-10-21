@@ -55,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Panel estándar con el crédito a Mole (GPL-3.0): se adaptan ideas y listas de rutas, no código.
     @MainActor static func showAbout() {
         let credits = NSAttributedString(
-            string: "Airy adapta ideas y listas de rutas de Mole (github.com/tw93/Mole, GPL-3.0). No incluye código de Mole.",
+            string: "Software libre bajo GPL-3.0 · github.com/luis-guillen/airy\nAiry adapta ideas y listas de rutas de Mole (github.com/tw93/Mole, GPL-3.0). No incluye código de Mole.",
             attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
                          .foregroundColor: NSColor.secondaryLabelColor])
         NSApplication.shared.orderFrontStandardAboutPanel(options: [.applicationName: "Airy", .credits: credits])

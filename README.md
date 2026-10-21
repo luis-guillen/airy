@@ -1,116 +1,132 @@
 <p align="center">
-  <img src="Resources/Airy-1024.png" width="128" height="128" alt="Icono de Airy">
+  <img src="Resources/Airy-1024.png" width="128" height="128" alt="Airy icon">
 </p>
 
 <h1 align="center">Airy</h1>
 
 <p align="center">
-  <b>Entiende y libera el espacio de tu Mac sin miedo a borrar lo que no debes.</b><br>
-  Mapa del disco, limpieza segura, rendimiento y un servidor MCP para tus agentes de IA.
+  <b>See what fills your Mac, and free space without deleting anything you shouldn't.</b><br>
+  Disk map, safe cleanup, performance and an MCP server for AI agents. Native SwiftUI.
 </p>
 
 <p align="center">
-  <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/luis-guillen/airy/actions/workflows/ci.yml"><img src="https://github.com/luis-guillen/airy/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/luis-guillen/airy/releases/latest"><img src="https://img.shields.io/github/v/release/luis-guillen/airy?color=2f8bff" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-0b1b3f?logo=apple" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Swift-6.3%2B-F05138?logo=swift&logoColor=white" alt="Swift 6.3+">
-  <img src="https://img.shields.io/badge/SwiftUI-nativo-2f8bff" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/licencia-privada-lightgrey" alt="Licencia privada">
+</p>
+
+<p align="center">
+  <a href="README.es.md">Leer en español</a>
 </p>
 
 ---
 
-## Índice
+> [!NOTE]
+> The app's interface is in **Spanish** for now. Translations are welcome; see [Contributing](CONTRIBUTING.md).
 
-- [Qué es](#qué-es)
-- [Funciones](#funciones)
-- [Seguridad: cómo decide Airy qué se puede borrar](#seguridad-cómo-decide-airy-qué-se-puede-borrar)
-- [Instalación](#instalación)
-- [Conectar un agente de IA (MCP)](#conectar-un-agente-de-ia-mcp)
-- [Compilar desde el código](#compilar-desde-el-código)
-- [Arquitectura](#arquitectura)
-- [Pruebas](#pruebas)
-- [Publicar una versión](#publicar-una-versión)
-- [Privacidad](#privacidad)
-- [Créditos](#créditos)
-- [Licencia](#licencia)
+## Contents
 
-## Qué es
+- [Why Airy](#why-airy)
+- [Features](#features)
+- [Safety model](#safety-model)
+- [Install](#install)
+- [Connect an AI agent (MCP)](#connect-an-ai-agent-mcp)
+- [Build from source](#build-from-source)
+- [Architecture](#architecture)
+- [Testing](#testing)
+- [Releasing](#releasing)
+- [Privacy](#privacy)
+- [Contributing](#contributing)
+- [Credits](#credits)
+- [License](#license)
 
-Airy es una app nativa de macOS, hecha con SwiftUI, que analiza el disco y muestra qué ocupa espacio en
-un mapa interactivo. Separa lo que se puede borrar sin problema de lo que conviene revisar y de lo que
-nunca se toca. Todo se decide en local, y cada borrado pasa por una confirmación.
+## Why Airy
 
-También incluye `airy-mcp`, un servidor [MCP](https://modelcontextprotocol.io) por stdio. Con él,
-Claude Code, Codex u otros agentes pueden consultar el disco y proponer limpiezas. Los agentes nunca
-actúan por su cuenta sobre nada que no sea seguro.
+Most cleaners either do too little or delete too much. Airy scans your disk and shows it as an
+interactive treemap. Every item it can remove gets one of three labels:
 
-## Funciones
+- **Sin problema** (safe): regenerates on its own.
+- **Tú decides** (your call): it's yours to decide.
+- **No borrar** (never): Airy won't touch it.
 
-| Sección | Qué hace |
+Every decision is made locally, from a closed catalog, behind hard protections. Nothing is deleted
+without your confirmation.
+
+It also ships `airy-mcp`, a stdio [MCP](https://modelcontextprotocol.io) server, so Claude Code, Codex or
+any MCP client can inspect your disk and *propose* cleanups. Agents never act on anything that isn't
+safe.
+
+## Features
+
+| Section | What it does |
 |---|---|
-| **Mapa** | Mapa del disco (treemap) con zoom, categorías por color, tamaños reales en disco y análisis incremental guardado en un índice. |
-| **Limpieza** | Cachés, registros y artefactos de desarrollo (`node_modules`, DerivedData, Docker…), además de versiones duplicadas de pyenv, conda, rustup y Homebrew. Cada elemento lleva una etiqueta: **Sin problema**, **Tú decides** o **No borrar**. Modos Agresivo y Prudente, selección múltiple y «Borrar todo». |
-| **Rendimiento** | Memoria, CPU, temperatura y batería, y las apps que más consumen. Permite cerrar apps con confirmación y aplicar mantenimiento reversible. «¿Por qué va lento?» lo explica con IA, que es opcional. |
-| **Asistente IA** | Informe y chat sobre tu disco con Claude. Solo se envían metadatos, nunca el contenido de los archivos. |
-| **Desinstalador** | Desinstala apps junto con sus restos: Homebrew, cuando es seguro, y si no, la Papelera. También encuentra restos huérfanos de apps ya borradas y enlaces rotos. |
-| **Grandes y viejos** | Archivos grandes que no abres desde hace tiempo, con filtros. |
-| **Duplicados** | Copias idénticas, comprobadas byte a byte. La copia que se conserva nunca se marca. |
-| **Tipos de archivo** | Espacio ocupado por cada tipo de archivo (vídeo, fotos, código…), con acceso a los archivos. |
+| **Map** | Zoomable disk treemap with color categories, real allocated sizes and an incremental saved index. |
+| **Cleanup** | Caches, logs and developer artifacts (`node_modules`, DerivedData, Docker…). Duplicate toolchain versions: pyenv, conda, rustup, Homebrew. Aggressive and Careful modes, multi-select and «Borrar todo» (delete all) with a single confirmation. |
+| **Performance** | Memory, CPU, thermal state and battery, plus the heaviest apps. Quit apps with confirmation, run reversible maintenance, and get an optional AI answer to «¿Por qué va lento?» (why is it slow?). |
+| **AI assistant** | Report and chat about your disk through Claude. Metadata only, never file contents. |
+| **Uninstaller** | Removes apps and their leftovers. Uses Homebrew only when its uninstall steps are verifiably safe, otherwise the Trash. Also finds orphaned leftovers and broken symlinks. |
+| **Large & old** | Big files you haven't opened in a while, with filters. |
+| **Duplicates** | Byte-identical copies, verified again before trashing. The copy you keep is never selected. |
+| **File types** | Space per kind (video, photos, code…) with drill-down to the files. |
 
-Las animaciones de viento se detienen cuando la ventana no se ve, respetan «Reducir movimiento» y van
-con la frecuencia de fotogramas limitada. En reposo, Airy no usa CPU.
+The wind animations pause when the window isn't visible, respect *Reduce Motion* and are frame-rate
+capped. Airy uses no CPU at rest.
 
-## Seguridad: cómo decide Airy qué se puede borrar
+## Safety model
 
-Airy aplica varias capas de protección, que se ejecutan en este orden. Ninguna capa posterior puede
-rebajar el riesgo que ha fijado una anterior:
+Protection is layered, and the layers run in this order. No later layer can lower the risk set by an
+earlier one.
 
-1. **Protecciones duras.** Hay ubicaciones que nunca se marcan ni se mueven a la Papelera:
-   - carpetas personales;
-   - del sistema: `/System`, `/Library`, `/usr`, `/Applications`, `/opt/homebrew`;
-   - datos personales: iCloud Drive, Mail, Mensajes, Llaveros, Fotos y Contactos;
-   - volúmenes de Docker;
-   - claves SSH y GPG;
-   - datos de los perfiles de navegador: Safari, Chrome, Brave, Firefox, Arc, Opera, Edge, Vivaldi y Chromium;
-   - datos de Signal, de los gestores de contraseñas y de las apps sensibles.
+1. **Hard protections.** These are never selected and never trashed:
+   - personal folders;
+   - system locations: `/System`, `/Library`, `/usr`, `/Applications`, `/opt/homebrew`;
+   - personal data: iCloud Drive, Mail, Messages, Keychains, Photos and Contacts;
+   - Docker volumes;
+   - SSH and GPG keys;
+   - browser profile data: Safari, Chrome, Brave, Firefox, Arc, Opera, Edge, Vivaldi and Chromium;
+   - data of Signal, password managers and other sensitive apps.
 
-   Las cachés de esas apps sí se pueden limpiar, pero solo las rutas exactas que declara el catálogo.
-2. **Catálogo cerrado.** Cada elemento que se puede limpiar es una ficha de `catalog.json` con sus rutas,
-   su riesgo y su comando oficial, si lo tiene. `CommandPolicy` vuelve a validar cada comando justo antes
-   de ejecutarlo. Por ejemplo, prohíbe `docker volume prune`, `--volumes` y `brew --zap`.
-3. **En uso.** No se toca nada que esté abierto, que pertenezca a un proceso en marcha o que pida un
-   proyecto. Si Airy no puede comprobarlo a tiempo, no lo toca.
-4. **Embudo único.** Toda acción destructiva pasa por `ConfirmSheet → AppModel → CleanupExecutor`.
-   Cerrar apps sigue un camino propio que también confirma: `QuitExecutor`. Lo que se borra va a la
-   Papelera siempre que es posible. Cada operación queda registrada.
-5. **Agentes con límites.**
-   - Por MCP solo se puede ejecutar lo que está en verde en el modo actual.
-   - Lo ámbar y lo rojo solo se pueden *proponer*, nunca ejecutar.
-   - Los agentes nunca cierran apps, nunca desinstalan y nunca vacían la Papelera.
-   - Si el interruptor de agentes está apagado, o la configuración no se puede leer, se bloquean todas
-     las acciones, incluido `dry_run`.
+   Caches inside those apps stay cleanable, but only at the exact paths the catalog declares.
+2. **Closed catalog.** Every cleanable item is an entry in `catalog.json` with its paths, risk and
+   official command, if it has one. `CommandPolicy` checks each command again right before it runs. It
+   forbids, among others, `docker volume prune`, `--volumes` and `brew --zap`.
+3. **In use.** Nothing open, owned by a running process or required by a project is touched. If Airy
+   can't verify this in time, it leaves the item alone.
+4. **Single funnel.** Every destructive action goes through `ConfirmSheet → AppModel → CleanupExecutor`.
+   Quitting apps has its own confirmed path, `QuitExecutor`. Items go to the Trash whenever possible, and
+   every operation is logged.
+5. **Agents are bounded.**
+   - Over MCP, agents can run only what is green in the current mode.
+   - Amber and red items can only be *proposed*, never run.
+   - Agents never quit apps, never uninstall and never empty the Trash.
+   - If the agent switch is off, or the settings can't be read, every action is blocked, `dry_run`
+     included.
 
-## Instalación
+Found a way around any of this? See [SECURITY.md](SECURITY.md).
 
-### Desde una release
+## Install
 
-1. Descarga `Airy-<versión>.zip` de [Releases](../../releases) y descomprímelo.
-2. Mueve **Airy.app** a `/Aplicaciones`.
-3. La app está firmada con una identidad local y no está notarizada. La primera vez, haz clic derecho
-   → **Abrir** o ejecuta:
+### From a release
+
+1. Download `Airy-<version>.zip` from [Releases](https://github.com/luis-guillen/airy/releases) and unzip it.
+2. Move **Airy.app** to `/Applications`.
+3. The app is signed with a local identity and isn't notarized. The first time, right-click → **Open**,
+   or run:
    ```bash
    xattr -dr com.apple.quarantine /Applications/Airy.app
    ```
-4. Ve a **Ajustes del Sistema → Privacidad y seguridad → Acceso total al disco** y activa Airy. Sin ese
-   permiso, el análisis será parcial.
+4. Turn on Airy in **System Settings → Privacy & Security → Full Disk Access**. Without it, the scan is
+   partial.
 
-Requisitos: macOS 15 o posterior y Apple Silicon. Las releases son `arm64`; en Intel, compílala desde
-el código.
+Requirements: macOS 15 or later on Apple Silicon. Release builds are `arm64`; on Intel, build from
+source.
 
-## Conectar un agente de IA (MCP)
+## Connect an AI agent (MCP)
 
-El servidor va dentro de la app, en `Airy.app/Contents/MacOS/airy-mcp`. La sección **Asistente IA →
-Conectar agente** genera la configuración y puede exportarla. A mano:
+The server is bundled inside the app at `Airy.app/Contents/MacOS/airy-mcp`. **Asistente IA → Conectar
+agente** generates and exports the config. To set it up by hand:
 
 ```bash
 # Claude Code
@@ -125,96 +141,101 @@ claude mcp add -s user airy -- /Applications/Airy.app/Contents/MacOS/airy-mcp
 }
 ```
 
-Herramientas disponibles:
+Tools:
 
-- **Consulta:** `get_disk_summary`, `list_largest`, `explain_path`, `list_cleanup_items`,
+- **Read:** `get_disk_summary`, `list_largest`, `explain_path`, `list_cleanup_items`,
   `get_performance`, `list_apps`, `explain_app`, `list_orphans`, `list_large_old`, `list_duplicates`,
   `scan_status`.
-- **Acción:** `run_safe_cleanup`, `run_safe_cleanup_all` (solo lo verde y con `dry_run`), `propose_cleanup`,
-  `propose_quit_app`, `propose_uninstall`, `show_in_app`.
+- **Act:** `run_safe_cleanup`, `run_safe_cleanup_all` (green only, supports `dry_run`),
+  `propose_cleanup`, `propose_quit_app`, `propose_uninstall`, `show_in_app`.
 
-Las propuestas abren Airy con una URL `airy://…`. Siempre decides tú.
+Proposals open Airy through an `airy://…` URL. You always confirm.
 
-## Compilar desde el código
+## Build from source
 
-Basta con las Command Line Tools de Xcode. Xcode completo no es necesario.
+The Xcode Command Line Tools are enough; full Xcode isn't required.
 
 ```bash
-git clone <este repositorio> && cd <carpeta>
-swift build                       # depuración
-swift test --no-parallel          # 944 pruebas
-bash scripts/build-app.sh         # build/Airy.app firmada
-bash scripts/build-app.sh --install   # y la instala en /Applications
+git clone https://github.com/luis-guillen/airy.git && cd airy
+swift build                           # debug
+swift test --no-parallel              # ~950 tests
+bash scripts/build-app.sh             # signed build/Airy.app
+bash scripts/build-app.sh --install   # also installs into /Applications
 ```
 
-`build-app.sh` crea una única vez la identidad de firma local **«Airy Local Signing»** en el llavero de
-inicio de sesión. Así macOS mantiene el permiso de Acceso total al disco entre compilaciones.
+`build-app.sh` creates a local signing identity, **"Airy Local Signing"**, in your login keychain once.
+Because every build is signed with it, macOS keeps the Full Disk Access grant across rebuilds.
 
-Variables solo para DEBUG, útiles para desarrollar sin tocar el disco real:
+DEBUG-only environment variables let you develop without touching your real disk:
 
-| Variable | Efecto |
+| Variable | Effect |
 |---|---|
-| `AIRY_SUPPORT_DIR` | Carpeta de datos alternativa: índice, ajustes y registro. |
-| `AIRY_SCAN_ROOTS` | Analiza solo estas carpetas, separadas por `:`. |
-| `AIRY_APP_ROOTS` | Carpetas de apps falsas para el Desinstalador. |
-| `AIRY_REDUCE_MOTION` | Fuerza «Reducir movimiento». |
-| `AIRY_MOTION_GALLERY` | Galería de animaciones. |
+| `AIRY_SUPPORT_DIR` | Alternative data folder for the index, settings and log. |
+| `AIRY_SCAN_ROOTS` | Scan only these folders, separated by `:`. |
+| `AIRY_APP_ROOTS` | Fake app folders for the Uninstaller. |
+| `AIRY_REDUCE_MOTION` | Force *Reduce Motion*. |
+| `AIRY_MOTION_GALLERY` | Animation gallery. |
 
-## Arquitectura
+## Architecture
 
 ```
 Sources/
-├── DiskMapCore/      Lógica sin interfaz (se prueba aquí)
-│   ├── Scan/         Escáner concurrente con límite de hilos e índice incremental
-│   ├── Catalog/      Catálogo de limpieza (Resources/catalog.json)
-│   ├── Cleanup/      Detección, CleanupExecutor y fuentes (toolchains, Docker, cachés de apps…)
-│   ├── Safety/       HardProtections, CommandPolicy, ProcessGuard, presupuestos de tiempo
-│   ├── Performance/  Sondas de procesos, memoria, temperatura y batería
-│   ├── Apps/         Inventario de apps, Homebrew, recibos y restos huérfanos
-│   ├── Sections/     Grandes y viejos, duplicados y tipos de archivo
-│   ├── AI/           Llamada cerrada a Claude CLI, solo con metadatos
-│   └── MCP/          Protocolo y herramientas del servidor
-├── Airy/             App SwiftUI (secciones, diseño y animaciones)
-└── AiryMCP/          Ejecutable airy-mcp (stdio)
+├── DiskMapCore/      UI-free logic (this is what the tests cover)
+│   ├── Scan/         Concurrent scanner with a bounded worker pool and incremental index
+│   ├── Catalog/      Cleanup catalog (Resources/catalog.json)
+│   ├── Cleanup/      Detection sources, CleanupExecutor, toolchains, Docker, app caches…
+│   ├── Safety/       HardProtections, CommandPolicy, ProcessGuard, time budgets
+│   ├── Performance/  Process, memory, thermal and battery probes
+│   ├── Apps/         App inventory, Homebrew casks, receipts, orphans
+│   ├── Sections/     Large & old, duplicates, file types
+│   ├── AI/           Locked-down Claude CLI invocation (metadata only)
+│   └── MCP/          Protocol and server tools
+├── Airy/             SwiftUI app (sections, design system, wind animations)
+└── AiryMCP/          airy-mcp executable (stdio)
 Tests/DiskMapCoreTests/   Swift Testing
-docs/superpowers/         Especificaciones y planes de diseño
+docs/superpowers/         Design specs and implementation plans (Spanish)
 ```
 
-## Pruebas
+## Testing
 
 ```bash
 swift test --no-parallel
 ```
 
-Las pruebas usan carpetas temporales y procesos falsos. Nunca borran archivos reales ni ejecutan
-limpiezas de verdad. Algunas miden tiempos, así que conviene ejecutarlas en serie (`--no-parallel`)
-para que no fallen cuando la máquina va cargada.
+Tests use temporary folders and fake processes. They never delete real files or run real cleanups.
+Some tests check timing, so run them serially (`--no-parallel`) to avoid flakes on a busy machine. CI
+runs on every push and pull request.
 
-## Publicar una versión
+## Releasing
 
 ```bash
-bash scripts/release.sh 0.2.0
+bash scripts/release.sh 0.3.0
 ```
 
-El script:
+The script:
 
-1. sube la versión en `Info.plist`;
-2. pasa las pruebas;
-3. compila y firma;
-4. empaqueta `Airy-<versión>.zip` con su `SHA256`;
-5. crea la etiqueta `v<versión>` y la release en GitHub con las notas del `CHANGELOG.md`.
+1. bumps the version in `Info.plist`;
+2. runs the tests;
+3. builds and signs the app;
+4. packages `Airy-<version>.zip` with its SHA-256;
+5. tags `v<version>` and publishes a GitHub release with the notes from `CHANGELOG.md`.
 
-## Privacidad
+## Privacy
 
-- Airy no tiene telemetría y no se conecta a ningún servidor propio.
-- La IA es opcional. Usa tu Claude CLI con herramientas desactivadas, sin MCP y sin guardar sesión, y
-  solo recibe metadatos: rutas, tamaños y nombres de procesos. Nunca recibe el contenido de los archivos.
+- Airy has no telemetry and talks to no server of its own.
+- AI is opt-in. It uses your own Claude CLI with tools disabled, no MCP and no saved session, and it
+  only receives metadata: paths, sizes and process names. It never receives file contents.
 
-## Créditos
+## Contributing
 
-Airy adapta ideas y listas de rutas de [Mole](https://github.com/tw93/Mole) (GPL-3.0), sin incluir su
-código. El crédito aparece también en **Acerca de Airy**.
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and our
+[Code of Conduct](CODE_OF_CONDUCT.md). Bug reports and ideas can be written in English or Spanish.
 
-## Licencia
+## Credits
 
-Software privado. © 2026 luis-guillen. Todos los derechos reservados. Consulta [LICENSE](LICENSE).
+Airy adapts ideas and path lists from [Mole](https://github.com/tw93/Mole) (GPL-3.0). It contains no Mole
+code. The credit also appears in **About Airy**.
+
+## License
+
+[GPL-3.0-or-later](LICENSE) © 2026 Luis Guillén and Airy contributors.
