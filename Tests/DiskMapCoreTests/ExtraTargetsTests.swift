@@ -29,7 +29,7 @@ private final class SlowRunner: CommandRunning, Sendable {
 }
 
 private func tempDir() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-extra-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-extra")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

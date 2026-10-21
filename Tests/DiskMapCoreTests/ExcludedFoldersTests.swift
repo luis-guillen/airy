@@ -12,8 +12,7 @@ import Testing
         var path: String { url.path }
 
         init() throws {
-            url = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
-                .appendingPathComponent("AiryExcludedTests-\(UUID().uuidString)")
+            url = URL(fileURLWithPath: TestTemp.directory("AiryExcludedTests")).resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         }
 

@@ -41,7 +41,7 @@ private func classifier(
 }
 
 private func makeTempDir() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-classifier-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-classifier")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

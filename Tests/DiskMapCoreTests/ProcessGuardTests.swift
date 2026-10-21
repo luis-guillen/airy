@@ -29,7 +29,7 @@ private func process(_ name: String, path: String? = nil, pid: Int32 = 100) -> R
 }
 
 private func tempDir() -> String {
-    let path = FileManager.default.temporaryDirectory.appendingPathComponent("airy-guard-\(UUID().uuidString)").path
+    let path = TestTemp.url("airy-guard").path
     try! FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
     return path
 }
@@ -151,7 +151,7 @@ private func tempDir() -> String {
 
 @Suite struct RunningAppsTests {
     private func fakeApp(_ name: String, id: String) throws -> String {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("airy-apps-\(UUID().uuidString)")
+        let root = TestTemp.url("airy-apps")
         let contents = root.appendingPathComponent("\(name).app/Contents", isDirectory: true)
         try FileManager.default.createDirectory(at: contents.appendingPathComponent("MacOS"), withIntermediateDirectories: true)
         let plist = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": id], format: .xml, options: 0)

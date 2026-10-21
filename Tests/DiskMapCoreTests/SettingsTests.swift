@@ -6,8 +6,7 @@ import Testing
     let h = "/Users/test"
 
     func tempFile() -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("airy-settings-\(UUID().uuidString)", isDirectory: true)
+        TestTemp.url("airy-settings")
             .appendingPathComponent("settings.json")
     }
 

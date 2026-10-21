@@ -50,7 +50,7 @@ private func makeFixture(
     entries: [CatalogEntry], running: Set<String> = [], opener: RecordingOpener = RecordingOpener(),
     onRun: (@Sendable (FakeRunner.Call) -> Void)? = nil
 ) -> ActionFixture {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("airy-action-\(UUID().uuidString)")
+    let root = TestTemp.url("airy-action")
     let home = root.appendingPathComponent("home", isDirectory: true).path
     try! FileManager.default.createDirectory(atPath: home, withIntermediateDirectories: true)
     let paths = AppPaths(support: root.appendingPathComponent("support", isDirectory: true), legacySupport: nil)

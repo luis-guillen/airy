@@ -10,7 +10,7 @@ private let day: TimeInterval = 86_400
 
 /// Temporary home folder (real path, without the `/var` → `/private/var` link).
 private func tempHome() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-proj-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-proj")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return CleanupTargets.realPath(url.path)!
 }

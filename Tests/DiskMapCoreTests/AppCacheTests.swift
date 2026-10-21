@@ -9,7 +9,7 @@ private final class NoListing: ProcessListing, Sendable {
 }
 
 private func tempHome() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-appcache-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-appcache")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

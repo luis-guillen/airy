@@ -64,7 +64,7 @@ final class AIFakeRunner: CommandRunning, Sendable {
 // MARK: - Utilities
 
 private func tempDir(_ label: String = "airy-ai") -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(label)-\(UUID().uuidString)")
+    let url = TestTemp.url("\(label)")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }
@@ -231,7 +231,7 @@ private let streamFixture = [
         #expect(!args.contains { $0.contains("~/.cache/uv") })
         #expect(call.timeout == 120)
         let cwd = try #require(call.workingDirectory)
-        #expect(cwd.hasPrefix(FileManager.default.temporaryDirectory.path) || cwd.hasPrefix("/private/var") || cwd.hasPrefix("/var"))
+        #expect(cwd.hasPrefix(NSTemporaryDirectory()) || cwd.hasPrefix("/private/var") || cwd.hasPrefix("/var"))
         #expect(!FileManager.default.fileExists(atPath: cwd))  // deleted at the end
     }
 

@@ -4,8 +4,7 @@ import Testing
 
 @Suite struct IndexStoreTests {
     private func tempDir() -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("airy-store-\(UUID().uuidString)/nested")
+        TestTemp.url("airy-store").appendingPathComponent("nested")
     }
 
     private func sampleTree() -> FileNode {

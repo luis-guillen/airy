@@ -9,7 +9,7 @@ private let day: TimeInterval = 86_400
 
 /// Temporary folder (real path, without the `/var` → `/private/var` link).
 private func tempDir(_ label: String) -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-\(label)-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-\(label)")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return CleanupTargets.realPath(url.path)!
 }
@@ -281,7 +281,7 @@ private func staleNodeApp(_ home: String) -> String {
 
     @Test func diskScopeContainsItsRootsAndReachesTheirAncestors() {
         // Path with a link (`/var` → `/private/var`): both forms are valid.
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-roots-\(UUID().uuidString)")
+        let url = TestTemp.url("airy-roots")
         try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         let linked = url.path
         let real = CleanupTargets.realPath(linked)!

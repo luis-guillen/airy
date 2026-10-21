@@ -22,7 +22,7 @@ final class FakeLookup: BundleIDLookup, Sendable {
 }
 
 private func tempDir(_ label: String) -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(label)-\(UUID().uuidString)")
+    let url = TestTemp.url("\(label)")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

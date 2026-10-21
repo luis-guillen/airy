@@ -12,8 +12,7 @@ import Synchronization
         var path: String { url.path }
 
         init() throws {
-            url = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
-                .appendingPathComponent("DiskMapScannerTests-\(UUID().uuidString)")
+            url = URL(fileURLWithPath: TestTemp.directory("DiskMapScannerTests")).resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         }
 

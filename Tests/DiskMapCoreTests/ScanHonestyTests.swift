@@ -37,7 +37,7 @@ private final class NoListing: ProcessListing, Sendable {
     }
 
     @Test func cleanupItemFromPartialIndexIsMarked() async throws {
-        let home = FileManager.default.temporaryDirectory.appendingPathComponent("airy-honest-\(UUID().uuidString)").path
+        let home = TestTemp.url("airy-honest").path
         for name in ["a", "b"] {
             try FileManager.default.createDirectory(atPath: home + "/Library/Caches/\(name)", withIntermediateDirectories: true)
             try Data(repeating: 1, count: 20_000).write(to: URL(fileURLWithPath: home + "/Library/Caches/\(name)/f"))

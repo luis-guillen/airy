@@ -35,7 +35,7 @@ private func samplePaths(_ entry: CatalogEntry) -> [String] {
 }
 
 private func tempHome() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-dev-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-dev")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

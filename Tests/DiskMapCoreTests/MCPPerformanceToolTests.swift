@@ -62,7 +62,7 @@ private struct PerfFixture {
 }
 
 private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()) -> PerfFixture {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("airy-perf-\(UUID().uuidString)")
+    let root = TestTemp.url("airy-perf")
     let home = root.appendingPathComponent("home", isDirectory: true).path
     try! FileManager.default.createDirectory(atPath: home, withIntermediateDirectories: true)
     let paths = AppPaths(support: root.appendingPathComponent("support", isDirectory: true), legacySupport: nil)

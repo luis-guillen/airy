@@ -8,7 +8,7 @@ private struct FakeAppUsage: AppUsageReading {
 }
 
 private func makeTempDir() throws -> String {
-    let dir = NSTemporaryDirectory() + "airy-inventory-" + UUID().uuidString
+    let dir = TestTemp.path("airy-inventory")
     try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
     return dir
 }
@@ -102,7 +102,7 @@ private func makeApp(_ path: String, id: String? = "com.example.foo", name: Stri
 }
 
 @Test func missingRootIsFine() async throws {
-    let root = NSTemporaryDirectory() + "airy-inventory-missing-" + UUID().uuidString
+    let root = TestTemp.path("airy-inventory-missing")
     let snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
     #expect(snapshot.complete)
     #expect(snapshot.problems.isEmpty)
