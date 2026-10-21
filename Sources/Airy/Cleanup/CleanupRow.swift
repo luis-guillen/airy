@@ -34,6 +34,14 @@ struct CleanupRow: View {
                         .font(.headline)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                    if item.highlighted {
+                        Text("Para ti")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Theme.Airy.accent)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Theme.Airy.accent.opacity(0.12), in: Capsule())
+                    }
                     Spacer(minLength: 8)
                     Text(CleanupBoard.sizeText(item))
                         .font(.system(.title3, design: .rounded, weight: .semibold))
@@ -41,10 +49,26 @@ struct CleanupRow: View {
                         .foregroundStyle(item.risk == .doNotTouch ? .secondary : .primary)
                 }
 
+                // Por qué tiene esta etiqueta: en el color del riesgo si hay que pensarlo (ámbar o rojo).
+                Text(why)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(item.risk == .safe ? AnyShapeStyle(.secondary)
+                                                        : AnyShapeStyle(Theme.Airy.riskInk(item.risk)))
+                    .lineLimit(nil)
+                    .frame(maxWidth: 640, alignment: .leading)
+
                 Text(item.entry.explanation)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 640, alignment: .leading)
+
+                if !item.details.isEmpty {
+                    Text(detailsText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
 
                 metadata
 
@@ -104,12 +128,17 @@ struct CleanupRow: View {
                      text: item.entry.regenerates ? "Se regenera" : "No se regenera")
             MethodChip(method: liveMethod)
             Spacer(minLength: 6)
-            RiskBadge(risk: item.risk)
+            RiskBadge(risk: item.risk, reason: why)
         }
     }
 
     @ViewBuilder private var notices: some View {
-        let blocked = blockedApps
+        if isCurrent {
+            Text("Limpiando…").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+        } else if isQueued {
+            Text("En cola").font(.caption.weight(.medium)).foregroundStyle(.tertiary)
+        }
+        let blocked = item.risk == .doNotTouch ? [] : blockedApps
         if !blocked.isEmpty {
             let names = blocked.map(CleanupFlow.appName)
             HStack(spacing: 10) {
@@ -170,6 +199,15 @@ struct CleanupRow: View {
         if let fake = flow.debugBlocked[item.id] { return fake }
         #endif
         return item.blockedByOpenApps
+    }
+
+    private var why: String { RiskExplanation.why(item) }
+
+    /// Los tres primeros detalles y «y N más».
+    private var detailsText: String {
+        let shown = item.details.prefix(3).joined(separator: ", ")
+        let rest = item.details.count - 3
+        return rest > 0 ? "\(shown) y \(rest) más" : shown
     }
 
     /// Dónde está (mismo texto que la confirmación).

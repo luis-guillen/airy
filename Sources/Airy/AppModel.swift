@@ -112,7 +112,13 @@ final class AppModel {
     // MARK: Estado publicado
 
     var section: Section = .map
-    var scan: ScanResult?
+    var scan: ScanResult? {
+        didSet { partialIndex = PartialScanIndex(inaccessible: scan?.inaccessible ?? []) }
+    }
+    /// Qué rutas del último análisis tienen algo ilegible dentro (su tamaño lleva «+»). Se ordena una vez por análisis.
+    @ObservationIgnored private(set) var partialIndex = PartialScanIndex(inaccessible: [])
+    /// Lo que dicen el Mapa y su pie: completo, parcial (N carpetas ilegibles) o sin análisis.
+    var scanCompleteness: ScanCompleteness { .of(scan) }
     var progress: ScanProgress?
     var isScanning = false
     var cleanupItems: [CleanupItem] = []
@@ -604,6 +610,7 @@ final class AppModel {
         let generation = cleanupGeneration
         isRefreshingCleanup = true
         let root = scan?.root
+        let inaccessible = scan?.inaccessible ?? []
         let classifier = classifier
         let scanner = catalog.map {
             CleanupScanner(catalog: $0, runner: runner, probes: probes, references: ReferenceChecker(),
@@ -617,7 +624,7 @@ final class AppModel {
             // Lee el árbol vivo: lector cancelable de `treeGate` (un cambio la cancela y la espera).
             guard let gate = self?.treeGate else { return }
             let job = gate.read(cancellable: true) {
-                await scanner?.findItems(scan: root) ?? []
+                await scanner?.findItems(scan: root, inaccessible: inaccessible) ?? []
             }
             // La tarea suelta no hereda la cancelación: se le pasa a mano.
             let items = await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
