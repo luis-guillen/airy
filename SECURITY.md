@@ -1,17 +1,34 @@
-# Seguridad
+# Security Policy
 
-Airy borra archivos, así que un fallo de seguridad puede costar datos. Si encuentras algo que permita
-borrar o mover a la Papelera una ruta protegida, saltarse la confirmación o hacer que un agente MCP
-ejecute más de lo permitido, **no abras un issue público**. Escribe directamente al propietario del
-repositorio.
+Airy deletes files, so a security bug can cost someone their data. Please report privately; **don't
+open a public issue**.
 
-Incluye:
-- versión de Airy y de macOS;
-- pasos para reproducirlo (sin datos personales);
-- qué esperabas que pasara y qué pasó.
+## How to report
 
-## Modelo de amenazas
+Use **[Report a vulnerability](https://github.com/luis-guillen/airy/security/advisories/new)**, GitHub's
+private vulnerability reporting. Include:
 
-- **Fuera del alcance:** un usuario con permisos de administrador que decide borrar algo él mismo.
-- **Dentro del alcance:** cualquier camino por el que Airy, sus fuentes de detección, el catálogo, la IA
-  o un agente MCP marquen como seguro, o ejecuten, algo que las protecciones duras prohíben.
+- the Airy and macOS versions;
+- steps to reproduce, without personal data;
+- what you expected to happen and what actually happened.
+
+You'll get an answer within 7 days. Fixes ship in a patch release, with credit to you if you want it.
+
+## Supported versions
+
+| Version | Supported |
+|---|---|
+| Latest release | ✅ |
+| Older releases | ❌ |
+
+## Scope
+
+**In scope:** any path by which Airy, its detection sources, the catalog, the AI or an MCP agent could
+do one of these:
+
+- mark as safe, move to the Trash or delete something the hard protections forbid;
+- skip the confirmation step;
+- run a command outside the closed catalog;
+- send file contents anywhere.
+
+**Out of scope:** a user who deliberately confirms deleting their own files.

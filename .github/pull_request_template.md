@@ -1,10 +1,11 @@
-## Qué cambia
+## What changes
 
-## Cómo se ha probado
+## How it was tested
 - [ ] `swift build`
 - [ ] `swift test --no-parallel`
-- [ ] Probado en la app (si toca la interfaz)
+- [ ] Tried in the app (if UI)
 
-## Seguridad
-- [ ] No debilita protecciones duras ni el embudo de confirmación
-- [ ] Sin contenido de archivos hacia IA/MCP
+## Safety checklist
+- [ ] Doesn't weaken hard protections, `CommandPolicy` or the confirmation funnel
+- [ ] No file contents sent to AI/MCP
+- [ ] `CHANGELOG.md` updated under Unreleased
