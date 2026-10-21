@@ -157,6 +157,9 @@ extension Risk {
     }
 }
 
+/// Sección de la app a la que pertenece una ficha: Limpieza (por defecto) o Mantenimiento (Rendimiento).
+public enum CatalogSection: String, Codable, Sendable { case cleanup, maintenance }
+
 public struct CatalogEntry: Codable, Sendable, Identifiable {
     public var id: String
     public var title: String
@@ -202,6 +205,8 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
     public var discovery: DiscoveryKind?
     /// Fichas informativas: qué hacer tú, en español.
     public var reviewHint: String?
+    /// `.maintenance`: solo la ve `MaintenanceScanner` (Limpieza, `Catalog.match` y el MCP la ignoran).
+    public var section: CatalogSection
 
     public init(
         id: String, title: String, explanation: String, whoCreatesIt: String, regenerates: Bool,
@@ -210,7 +215,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         aggressiveRisk: Risk? = nil, preselectInAggressive: Bool = false, profiles: [UsageProfile] = [],
         processNames: [String] = [], shortReason: String? = nil, perMatch: Bool = false, except: [String] = [],
         staleAfterDays: Int? = nil, minimumBytes: Int64? = nil, retention: RetentionRule? = nil,
-        discovery: DiscoveryKind? = nil, reviewHint: String? = nil
+        discovery: DiscoveryKind? = nil, reviewHint: String? = nil, section: CatalogSection = .cleanup
     ) {
         self.id = id; self.title = title; self.explanation = explanation
         self.whoCreatesIt = whoCreatesIt; self.regenerates = regenerates; self.risk = risk
@@ -221,7 +226,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         self.profiles = profiles; self.processNames = processNames
         self.shortReason = shortReason; self.perMatch = perMatch; self.except = except
         self.staleAfterDays = staleAfterDays; self.minimumBytes = minimumBytes; self.retention = retention
-        self.discovery = discovery; self.reviewHint = reviewHint
+        self.discovery = discovery; self.reviewHint = reviewHint; self.section = section
     }
 
     /// Cadena de búsqueda para una carpeta concreta (p. ej. `models--a--b` ⇒ `a/b`).
@@ -241,6 +246,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         case mustBeClosed, referenceCheck, partialCleanup
         case aggressiveRisk, preselectInAggressive, profiles, processNames
         case shortReason, perMatch, except, staleAfterDays, minimumBytes, retention, discovery, reviewHint
+        case section
     }
 
     public init(from decoder: Decoder) throws {
@@ -288,6 +294,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         retention = try c.decodeIfPresent(RetentionRule.self, forKey: .retention)
         discovery = try c.decodeIfPresent(DiscoveryKind.self, forKey: .discovery)
         reviewHint = try c.decodeIfPresent(String.self, forKey: .reviewHint)
+        section = try c.decodeIfPresent(CatalogSection.self, forKey: .section) ?? .cleanup
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -316,6 +323,7 @@ public struct CatalogEntry: Codable, Sendable, Identifiable {
         try c.encodeIfPresent(retention, forKey: .retention)
         try c.encodeIfPresent(discovery, forKey: .discovery)
         try c.encodeIfPresent(reviewHint, forKey: .reviewHint)
+        if section == .maintenance { try c.encode(section, forKey: .section) }
     }
 }
 
@@ -384,7 +392,7 @@ public struct Catalog: Sendable {
     public func match(path: String, home: String) -> CatalogEntry? {
         let pathParts = Self.components(RiskPolicy.canonical(path))
         var best: (entry: CatalogEntry, score: Int)?
-        for entry in entries {
+        for entry in entries where entry.section != .maintenance {
             for pattern in entry.paths {
                 let expanded = RiskPolicy.canonical(Self.expand(pattern, home: home))
                 let patParts = Self.components(expanded)

@@ -3113,6 +3113,181 @@
       "discovery": {
         "type": "appSupportCaches"
       }
+    },
+    {
+      "id": "maintenance-dsstore-network",
+      "title": "No crear archivos .DS_Store en discos de red",
+      "explanation": "Evita que Finder deje archivos ocultos .DS_Store en carpetas compartidas. Se deshace con: defaults delete com.apple.desktopservices DSDontWriteNetworkStores.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "defaults",
+        "arguments": [
+          "write",
+          "com.apple.desktopservices",
+          "DSDontWriteNetworkStores",
+          "-bool",
+          "true"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "Solo cambia un ajuste de Finder; se deshace con una orden.",
+      "section": "maintenance"
+    },
+    {
+      "id": "maintenance-dsstore-usb",
+      "title": "No crear archivos .DS_Store en discos USB",
+      "explanation": "Evita que Finder deje archivos ocultos .DS_Store en memorias y discos externos. Se deshace con: defaults delete com.apple.desktopservices DSDontWriteUSBStores.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "defaults",
+        "arguments": [
+          "write",
+          "com.apple.desktopservices",
+          "DSDontWriteUSBStores",
+          "-bool",
+          "true"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "Solo cambia un ajuste de Finder; se deshace con una orden.",
+      "section": "maintenance"
+    },
+    {
+      "id": "maintenance-legacy-appnap",
+      "title": "Quitar el ajuste antiguo que desactiva App Nap",
+      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo deja que macOS duerma las apps que no ves. Se deshace con: defaults write -g NSAppSleepDisabled -bool true.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "defaults",
+        "arguments": [
+          "delete",
+          "-g",
+          "NSAppSleepDisabled"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
+      "section": "maintenance"
+    },
+    {
+      "id": "maintenance-legacy-skipverify",
+      "title": "Volver a comprobar las imágenes de disco",
+      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes .dmg al abrirlas. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify -bool true.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "defaults",
+        "arguments": [
+          "delete",
+          "com.apple.frameworks.diskimages",
+          "skip-verify"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
+      "section": "maintenance"
+    },
+    {
+      "id": "maintenance-legacy-skipverify-locked",
+      "title": "Volver a comprobar las imágenes de disco bloqueadas",
+      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes de disco bloqueadas. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify-locked -bool true.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "defaults",
+        "arguments": [
+          "delete",
+          "com.apple.frameworks.diskimages",
+          "skip-verify-locked"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
+      "section": "maintenance"
+    },
+    {
+      "id": "maintenance-legacy-skipverify-remote",
+      "title": "Volver a comprobar las imágenes de disco remotas",
+      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes de disco descargadas o en red. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify-remote -bool true.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "defaults",
+        "arguments": [
+          "delete",
+          "com.apple.frameworks.diskimages",
+          "skip-verify-remote"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
+      "section": "maintenance"
+    },
+    {
+      "id": "maintenance-corrupt-plist",
+      "title": "Preferencias dañadas",
+      "explanation": "Este archivo de ajustes de una app está dañado y puede impedir que arranque. Va a la Papelera y la app crea uno nuevo; si algo falla, sácalo de la Papelera.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [
+        "~/Library/Preferences/*.plist"
+      ],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "La app pierde sus ajustes guardados, pero el archivo queda en la Papelera.",
+      "section": "maintenance"
+    },
+    {
+      "id": "maintenance-spotlight-reindex",
+      "title": "Reindexar Spotlight",
+      "explanation": "Spotlight tarda en buscar. Reindexar lo rehace desde cero: pedirá la contraseña de administrador y durante 1–2 horas el Mac irá algo más cargado.",
+      "whoCreatesIt": "macOS",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "system",
+      "paths": [],
+      "cleanup": {
+        "type": "command",
+        "executable": "osascript",
+        "arguments": [
+          "-e",
+          "do shell script \"/usr/bin/mdutil -E /\" with administrator privileges"
+        ]
+      },
+      "mustBeClosed": [],
+      "shortReason": "No se pierde nada, pero las búsquedas irán incompletas hasta que termine.",
+      "section": "maintenance"
     }
   ]
 }

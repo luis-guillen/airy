@@ -136,13 +136,16 @@ public enum PerformanceDiagnosis {
         }
 
         // R8: procesos propios desbocados.
-        for p in last.raw.processes.sorted(by: { $0.pid < $1.pid }) where !p.isZombie {
+        // Airy (y su airy-mcp) nunca se señala a sí misma.
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        for p in last.raw.processes.sorted(by: { $0.pid < $1.pid })
+        where !p.isZombie && p.pid != ownPID && !QuitPolicy.isAiry(p) {
             let age = last.date.timeIntervalSince(p.startTime)
             guard age >= runawayAge else { continue }
             let lifetimeCPU = Double(p.cpuTimeNs) / 1_000_000_000 / age * 100
             guard lifetimeCPU >= runawayCPU else { continue }
             findings.append(Finding(id: "runaway:\(p.pid)", level: .fair,
-                                    sentence: "\(p.name) lleva \(Int(age / 3600)) h usando mucho procesador sin parar."))
+                                    sentence: "\(AppGrouper.friendlyName(p, catalog: nil)) lleva \(Int(age / 3600)) h usando mucho procesador sin parar."))
         }
 
         // Familias del sistema (solo con lista de `ps` en las dos últimas).
@@ -190,7 +193,12 @@ public enum PerformanceDiagnosis {
     }
 
     private static func memorySentence(_ snapshot: PerformanceSnapshot) -> String {
-        let top = snapshot.groups.filter { $0.memory > 0 }.sorted { $0.memory > $1.memory }.prefix(2)
+        // Airy nunca se señala a sí misma.
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let top = snapshot.groups.filter {
+            $0.memory > 0 && !$0.pids.contains(ownPID)
+                && !(["airy", "airy-mcp"].contains($0.name.lowercased()) || ($0.bundlePath ?? "").hasSuffix("/Airy.app"))
+        }.sorted { $0.memory > $1.memory }.prefix(2)
         let used = snapshot.memory.used
         guard !top.isEmpty, used > 0 else { return "Tu Mac va justo de memoria." }
         let share = Int((Double(top.reduce(Int64(0)) { $0 + $1.memory }) / Double(used) * 100).rounded())

@@ -315,6 +315,25 @@ public struct AIAssistant: Sendable {
 
         Responde como Asistente al último mensaje del Usuario. No uses Markdown complejo.
         """
+        return streamResponse(arguments: arguments, prompt: prompt)
+    }
+
+    // MARK: Rendimiento
+
+    static let performanceSystemPrompt = """
+    Eres el asistente de Airy, una app de macOS. Solo ves números de memoria, procesador y temperatura y los nombres de las apps abiertas, nunca archivos ni contenido. Explica en español de España, en pocas frases sencillas, por qué este Mac puede ir lento y qué apps convendría cerrar. No recomiendes «liberar RAM», `purge` ni cerrar procesos del sistema, y no puedes hacer nada tú mismo: el usuario cierra las apps desde Rendimiento.
+    """
+
+    /// «¿Por qué va lento?»: misma invocación cerrada que el chat; `context` = `PerformanceAIContext.build`.
+    public func explainSlowness(context: String) -> AsyncThrowingStream<String, Error> {
+        let arguments = arguments(systemPrompt: Self.performanceSystemPrompt)
+            + ["--output-format", "stream-json", "--verbose", "--include-partial-messages"]
+        let prompt = "Estado del Mac (JSON, solo números y nombres de apps):\n\(context)\n\n¿Por qué puede ir lento y qué haría?"
+        return streamResponse(arguments: arguments, prompt: prompt)
+    }
+
+    /// Texto de una respuesta en `stream-json` según llega, en un directorio vacío.
+    private func streamResponse(arguments: [String], prompt: String) -> AsyncThrowingStream<String, Error> {
         let runner = runner
         let claudePath = claudePath
         return AsyncThrowingStream { continuation in
