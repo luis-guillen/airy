@@ -13,6 +13,8 @@ struct ConfirmSheet: View {
     @ViewState private var previews: [String: CleanupPreview]?
     /// Filas que no se harán (id de elemento, ruta suelta o "trash") con su motivo.
     @ViewState private var blockReasons: [String: String]?
+    /// Filas quitadas con un clic («Quitar»): no se borran y salen del total.
+    @ViewState private var removed: Set<String> = []
 
     var body: some View {
         Group {
@@ -67,14 +69,14 @@ struct ConfirmSheet: View {
             Text("«\(warning.reason)»")
                 .font(.callout)
                 .foregroundStyle(.primary.opacity(0.85))
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(nil)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.Airy.riskFill(.yourCall).opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             Text(warning.note)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(nil)
             HStack(spacing: 10) {
                 Spacer()
                 Button("Cancelar") { flow.cancelSheet() }
@@ -94,20 +96,26 @@ struct ConfirmSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             header
 
-            Group {
-                // Hasta cuatro filas caben sin desplazamiento; con más, lista de alto fijo.
-                if rows.count <= 4 {
-                    rowList
+            if isItems {
+                // Hasta cuatro filas caben sin desplazamiento; con más, alto fijo.
+                if rows.count + reviewRows.count <= 4 {
+                    itemBlocks
                 } else {
-                    ScrollView { rowList }
+                    ScrollView { itemBlocks }
                         .scrollBounceBehavior(.basedOnSize)
-                        .frame(height: 300)
+                        .frame(height: 340)
                 }
-            }
-            .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.primary.opacity(0.07), lineWidth: 0.75)
+            } else {
+                Group {
+                    if rows.count <= 4 {
+                        rowList
+                    } else {
+                        ScrollView { rowList }
+                            .scrollBounceBehavior(.basedOnSize)
+                            .frame(height: 300)
+                    }
+                }
+                .modifier(RowBox())
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -140,11 +148,11 @@ struct ConfirmSheet: View {
 
     private var confirmButton: some View {
         PrimaryButton(confirmTitle, systemImage: confirmSymbol, style: isEmptyTrash ? .destructive : .primary) {
-            flow.confirm(request, model: model, blocked: Set((blockReasons ?? [:]).keys))
+            flow.confirm(request, model: model, blocked: Set((blockReasons ?? [:]).keys), excluding: excluded)
         }
         .fixedSize()
-        // Hasta tener la vista previa no se confirma; si todo está bloqueado, no hay nada que hacer.
-        .disabled(blockReasons == nil || rows.allSatisfy { blockReasons?[$0.id] != nil })
+        // Hasta tener la vista previa no se confirma; si todo está bloqueado o quitado, no hay nada que hacer.
+        .disabled(blockReasons == nil || (rows + reviewRows).allSatisfy { blockReasons?[$0.id] != nil })
     }
 
     // MARK: Vista previa
@@ -174,8 +182,8 @@ struct ConfirmSheet: View {
         switch request.kind {
         case .emptyTrash: return false
         case .trashPaths: return true
-        case .items(let items):
-            return items.allSatisfy { if case .trash = liveMethod($0) { true } else { false } }
+        case .items:
+            return keptItems.allSatisfy { if case .trash = liveMethod($0) { true } else { false } }
         }
     }
 
@@ -185,9 +193,70 @@ struct ConfirmSheet: View {
         VStack(spacing: 0) {
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 if index > 0 { Divider().opacity(0.5).padding(.leading, 52) }
-                ConfirmRowView(row: row)
+                ConfirmRowView(row: row, onRemove: isItems ? { remove([row.id]) } : nil)
             }
         }
+    }
+
+    /// Lista verde y, aparte, el bloque ámbar resaltado (cada fila con su «por qué»).
+    private var itemBlocks: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !rows.isEmpty { rowList.modifier(RowBox()) }
+            if !reviewRows.isEmpty {
+                let amber = Theme.color(for: .yourCall)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: Theme.symbol(for: .yourCall))
+                            .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                        Text(CleanupBoard.reviewBlockTitle)
+                            .font(.callout.weight(.semibold))
+                            .lineLimit(nil)
+                        Spacer(minLength: 8)
+                        Button("Quitar todo lo ámbar") { remove(reviewRows.map(\.id)) }
+                            .buttonStyle(.plain)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
+                    ForEach(Array(reviewRows.enumerated()), id: \.element.id) { index, row in
+                        if index > 0 { Divider().opacity(0.5).padding(.leading, 52) }
+                        ConfirmRowView(row: row, onRemove: { remove([row.id]) })
+                    }
+                }
+                .background(amber.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(amber.opacity(0.6), lineWidth: 1)
+                }
+            }
+            if rows.isEmpty && reviewRows.isEmpty {
+                Text("Has quitado todo: no queda nada que borrar.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+            }
+        }
+    }
+
+    private func remove(_ ids: [String]) {
+        withAnimation(Theme.pressSpring) { removed.formUnion(ids) }
+    }
+
+    private var isItems: Bool { if case .items = request.kind { true } else { false } }
+
+    /// Verde y ámbar que siguen en la hoja (lo quitado y lo que no se puede marcar no entran).
+    private var sections: (regular: [CleanupItem], review: [CleanupItem]) {
+        CleanupBoard.confirmSections(items, excluding: removed)
+    }
+
+    private var keptItems: [CleanupItem] { let s = sections; return s.regular + s.review }
+
+    /// Lo que no se ejecuta: lo quitado y lo que la hoja no enseña (rojo, protegido o bloqueado).
+    private var excluded: Set<String> {
+        let kept = Set(keptItems.map(\.id))
+        return Set(items.map(\.id).filter { !kept.contains($0) })
     }
 
     private var isEmptyTrash: Bool { if case .emptyTrash = request.kind { true } else { false } }
@@ -228,8 +297,9 @@ struct ConfirmSheet: View {
         case .emptyTrash: return "¿Vaciar la Papelera?"
         case .trashPaths(let paths, let title):
             return paths.count == 1 ? "¿Mover «\(title)» a la Papelera?" : "¿Mover \(Theme.count(paths.count)) elementos a la Papelera?"
-        case .items(let items):
-            return items.count == 1 ? "¿Limpiar «\(items[0].title)»?" : "¿Limpiar \(Theme.count(items.count)) elementos?"
+        case .items:
+            let count = keptItems.count
+            return count == 1 ? "¿Borrar 1 elemento?" : "¿Borrar \(Theme.count(count)) elementos?"
         }
     }
 
@@ -242,7 +312,9 @@ struct ConfirmSheet: View {
             let total = paths.compactMap { model.node(atPath: $0)?.allocatedSize }.reduce(0, +)
             return total > 0 ? "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla."
                              : "Irá a la Papelera. Se libera al vaciarla."
-        case .items(let items):
+        case .items:
+            let items = keptItems
+            guard !items.isEmpty else { return "No queda nada que borrar." }
             // Con limpiezas parciales (p. ej. `pnpm store prune`) la cifra es solo un máximo: "hasta X".
             let (total, upperBound) = CleanupBoard.total(items)
             let trash = items.filter { if case .trash = liveMethod($0) { true } else { false } }
@@ -271,8 +343,17 @@ struct ConfirmSheet: View {
                            method: .text(blockReasons == nil ? "A la Papelera" : "Irá a la Papelera"),
                            location: Format.tildePath(path), blockedReason: blockReasons?[path])
             }
-        case .items(let items):
-            return items.map { item in
+        case .items:
+            return sections.regular.map(itemRow)
+        }
+    }
+
+    /// El bloque ámbar de la hoja (vacío para el resto de peticiones).
+    private var reviewRows: [ConfirmRow] {
+        isItems ? sections.review.map(itemRow) : []
+    }
+
+    private func itemRow(_ item: CleanupItem) -> ConfirmRow {
                 let method = liveMethod(item)
                 let size = item.id == TrashFollowUp.snapshotEntryID
                     ? (item.bytes > 0 ? "≈ \(Format.bytes(item.bytes))" : "Tamaño desconocido")
@@ -288,9 +369,17 @@ struct ConfirmSheet: View {
                                       ?? .text(CleanupBoard.methodDescription(method)),
                                   // Dónde: imprescindible cuando una ficha abarca muchas carpetas (p. ej. ~/Library/Logs/*).
                                   location: CleanupBoard.locationSummary(item),
-                                  blockedReason: blockReasons?[item.id])
-            }
-        }
+                                  blockedReason: blockReasons?[item.id],
+                                  why: item.risk == .yourCall ? RiskExplanation.why(item) : nil,
+                                  detail: Self.detailLine(item))
+    }
+
+    /// «Contenedores parados: a, b y c» (Docker); para el resto, nada.
+    static func detailLine(_ item: CleanupItem) -> String? {
+        guard item.entry.id == "docker-containers", !item.details.isEmpty else { return nil }
+        let names = item.details
+        let list = names.count > 1 ? names.dropLast().joined(separator: ", ") + " y " + names.last! : names[0]
+        return "Contenedores parados: \(list)"
     }
 
     private struct Note { let symbol: String; let tint: Color; let text: String }
@@ -323,7 +412,8 @@ struct ConfirmSheet: View {
         case .trashPaths:
             return [Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
                          text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes.")]
-        case .items(let items):
+        case .items:
+            let items = keptItems
             var notes: [Note] = []
             let methods = items.map(liveMethod)
             if methods.contains(where: { if case .trash = $0 { true } else { false } }) {
@@ -338,13 +428,6 @@ struct ConfirmSheet: View {
                 notes.append(Note(symbol: "chart.bar.xaxis", tint: .secondary,
                                   text: "«Hasta»: ese comando solo quita lo que ya no se usa, así que puede liberar menos."))
             }
-            let yourCall = items.filter { $0.risk == .yourCall }
-            if !yourCall.isEmpty {
-                notes.append(Note(symbol: Theme.symbol(for: .yourCall), tint: Theme.Airy.riskInk(.yourCall),
-                                  text: yourCall.count == 1 && items.count == 1
-                                      ? "«Depende de ti»: \(yourCall[0].entry.explanation)"
-                                      : CleanupBoard.yourCallNote(count: yourCall.count)))
-            }
             if items.count > 1 {
                 notes.append(Note(symbol: "list.number", tint: .secondary,
                                   text: "Se hacen de uno en uno; antes de cada uno se vuelve a comprobar que sigue siendo seguro."))
@@ -357,7 +440,9 @@ struct ConfirmSheet: View {
         switch request.kind {
         case .emptyTrash(let bytes): return bytes == nil ? "Vaciar con Finder" : "Vaciar Papelera"
         case .trashPaths: return "Mover a la Papelera"
-        case .items(let items): return items.count == 1 ? "Limpiar" : "Limpiar \(Theme.count(items.count))"
+        case .items:
+            let (bytes, upperBound) = CleanupBoard.total(keptItems)
+            return "Borrar \(Theme.count(keptItems.count)) · " + CleanupBoard.amountText(bytes, upperBound: upperBound)
         }
     }
 
@@ -377,10 +462,28 @@ struct ConfirmRow: Identifiable {
     var location: String?
     /// La vista previa dice que no se hará (y por qué): la fila sale tachada.
     var blockedReason: String?
+    /// Por qué es ámbar (solo en el bloque ámbar).
+    var why: String?
+    /// Línea extra, p. ej. «Contenedores parados: a, b y c».
+    var detail: String?
+}
+
+/// Caja de la lista de filas de la hoja.
+private struct RowBox: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(.primary.opacity(0.07), lineWidth: 0.75)
+            }
+    }
 }
 
 private struct ConfirmRowView: View {
     let row: ConfirmRow
+    /// «Quitar» (un clic): la fila sale de la hoja y del total.
+    var onRemove: (() -> Void)? = nil
 
     private func isWillRun(_ method: ConfirmRow.Method) -> Bool {
         if case .willRun = method { true } else { false }
@@ -408,8 +511,27 @@ private struct ConfirmRowView: View {
                         .font(.callout.weight(.semibold))
                         .strikethrough(row.blockedReason != nil)
                         .monospacedDigit()
+                    if let onRemove {
+                        Button("Quitar", action: onRemove)
+                            .buttonStyle(.plain)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.Airy.accent)
+                            .help("No borrar esto")
+                    }
                 }
                 .foregroundStyle(row.blockedReason == nil ? .primary : .secondary)
+                if let why = row.why {
+                    Text(why)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                        .lineLimit(nil)
+                }
+                if let detail = row.detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
                 if let reason = row.blockedReason {
                     Label(reason, systemImage: "nosign")
                         .font(.caption.weight(.medium))
