@@ -11,11 +11,11 @@ public struct BrokenLink: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Enlaces simbólicos rotos de `/usr/local/bin` (herramientas desinstaladas que dejaron su enlace).
+/// Broken symbolic links in `/usr/local/bin` (uninstalled tools that left their link behind).
 public enum BrokenLinks {
     public static let directory = "/usr/local/bin"
 
-    /// lstat S_IFLNK, readlink, stat == ENOENT ⇒ roto (otros errores ⇒ no se lista); needsAdmin = access(dir, W_OK) != 0.
+    /// lstat S_IFLNK, readlink, stat == ENOENT ⇒ broken (other errors ⇒ not listed); needsAdmin = access(dir, W_OK) != 0.
     public static func find(in directory: String = BrokenLinks.directory) -> [BrokenLink] {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory) else { return [] }
         let needsAdmin = access(directory, W_OK) != 0
@@ -47,7 +47,7 @@ public enum BrokenLinks {
         return commandPrefix + [directory] + commandFilter + middle + commandSuffix
     }
 
-    /// \ * ? [ ] precedidos de \
+    /// \ * ? [ ] preceded by \
     static func globEscaped(_ name: String) -> String {
         var result = ""
         for character in name {
@@ -68,8 +68,8 @@ public enum BrokenLinks {
         return result
     }
 
-    /// `true` solo si `command` es exactamente `deleteCommand(directory: "/usr/local/bin", names:)` para nombres
-    /// no vacíos y sin "/" (la única forma de borrar enlaces que admite el ejecutor con permisos).
+    /// `true` only if `command` is exactly `deleteCommand(directory: "/usr/local/bin", names:)` for non-empty
+    /// names without "/" (the only way to delete links the privileged runner accepts).
     static func isAllowedDeleteCommand(_ command: [String]) -> Bool {
         let head = commandPrefix + [directory] + commandFilter
         guard command.count > head.count + commandSuffix.count,

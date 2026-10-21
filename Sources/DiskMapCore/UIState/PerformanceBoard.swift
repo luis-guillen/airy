@@ -11,13 +11,13 @@ public struct PerformanceRow: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Lo que la sección Rendimiento enseña de una instantánea: qué pesa, qué se puede cerrar y qué no.
-/// Los procesos del sistema nunca salen como filas (sí cuentan en las listas de CPU y energía).
+/// What the Performance section shows of a snapshot: what weighs, what can be quit and what cannot.
+/// System processes never appear as rows (they do count in the CPU and energy lists).
 public struct PerformanceBoard: Sendable, Equatable {
-    public var rows: [PerformanceRow]            // .app, .looseProcess y .background por impact desc, hasta limit
-    public var topByCPU: [AppGroup]              // 5, cpuPercent desc (sin nil)
-    public var topByEnergy: [AppGroup]           // 5, energy desc (sin nil)
-    /// Todas las filas posibles (sin el límite), para resolver propuestas de agente.
+    public var rows: [PerformanceRow]            // .app, .looseProcess and .background by impact desc, up to limit
+    public var topByCPU: [AppGroup]              // 5, cpuPercent desc (no nil)
+    public var topByEnergy: [AppGroup]           // 5, energy desc (no nil)
+    /// Every possible row (without the limit), to resolve agent proposals.
     private var allRows: [PerformanceRow]
 
     public init(snapshot: PerformanceSnapshot?, policy: QuitPolicy, limit: Int = 12) {
@@ -42,13 +42,13 @@ public struct PerformanceBoard: Sendable, Equatable {
 
     public static func canSelect(_ row: PerformanceRow) -> Bool { row.eligibility.isAllowed }
 
-    /// Solo filas que siguen existiendo y se pueden cerrar.
+    /// Only rows that still exist and can be quit.
     public func selected(_ ids: Set<String>) -> [PerformanceRow] {
         rows.filter { ids.contains($0.id) && Self.canSelect($0) }
     }
 
-    /// Propuesta de agente: fila por bundle id o nombre (sin mayúsculas); nil sin instantánea o sin coincidencia.
-    /// Con varias coincidencias, la de más memoria. Devuelve también filas «nunca» (la vista dice por qué).
+    /// Agent proposal: row by bundle id or name (case-insensitive); nil without a snapshot or without a match.
+    /// With several matches, the one with the most memory. Also returns "never" rows (the view says why).
     public func row(matching app: String) -> PerformanceRow? {
         let key = app.lowercased()
         return allRows.filter { $0.group.bundleID?.lowercased() == key || $0.group.name.lowercased() == key }

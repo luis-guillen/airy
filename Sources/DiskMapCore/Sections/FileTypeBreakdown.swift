@@ -5,7 +5,7 @@ public struct FileTypeSlice: Sendable, Equatable, Identifiable {
     public var id: ContentKind { kind }
 }
 
-/// Espacio por tipo de archivo, leído de los totales por tipo del índice ya guardado (no recorre el disco).
+/// Space per file type, read from the per-kind totals of the already saved index (it does not walk the disk).
 public struct FileTypeBreakdown: Sendable, Equatable {
     public let slices: [FileTypeSlice]
     public let total: Int64
@@ -18,17 +18,17 @@ public struct FileTypeBreakdown: Sendable, Equatable {
             .map { FileTypeSlice(kind: $0.0, bytes: $0.1, fraction: Double($0.1) / Double(total)) }
     }
 
-    /// Elementos de un tipo, mayores primero: ficheros con `kind == k` y paquetes `.app` (sin bajar dentro) para `.apps`;
-    /// nunca agregados «Otros». `hiddenBytes` = bytes del tipo − suma de los listados (pequeños o fuera del límite).
+    /// Items of one kind, largest first: files with `kind == k` and `.app` bundles (without going inside) for `.apps`;
+    /// never "Other" aggregates. `hiddenBytes` = bytes of the kind − sum of those listed (small or past the limit).
     public static func items(of kind: ContentKind, in root: FileNode, limit: Int = 300) -> (items: [FileNode], hiddenBytes: Int64) {
         guard limit > 0 else { return ([], max(0, root.kindBytes[kind.index])) }
         var found: [FileNode] = []
         var stack = [root]
         while let node = stack.popLast() {
-            // Lector cancelable del árbol: si lo cancelan, deja de recorrer.
+            // Cancellable tree reader: if it is cancelled, it stops walking.
             if Task.isCancelled { return ([], 0) }
             if node.aggregatedCount > 0 { continue }
-            // Un repositorio (`.git`) o una carpeta de compilación nunca se ofrecen enteros ni por dentro.
+            // A repository (`.git`) or a build folder is never offered whole nor from the inside.
             if node.isDirectory, Self.skippedFolders.contains(node.name.lowercased()) { continue }
             if node.isDirectory {
                 if (kind == .apps && node.kind == .apps && node.name.hasSuffix(".app"))
@@ -50,8 +50,8 @@ public struct FileTypeBreakdown: Sendable, Equatable {
 
     static let skippedFolders: Set<String> = [".git", ".build"]
 
-    /// Carpeta cuyo tipo el escáner atribuyó a sus bytes sin reconocer (Cachés, paquetes, sistema): bytes de `kind`
-    /// que no pertenecen a ningún hijo. Se lista la carpeta entera, sin bajar dentro.
+    /// Folder whose kind the scanner attributed to its unrecognized bytes (Caches, bundles, system): bytes of `kind`
+    /// that belong to no child. The whole folder is listed, without going inside.
     private static func hasAttributedBytes(_ node: FileNode, of kind: ContentKind) -> Bool {
         guard kind != .other, node.kind == kind else { return false }
         let inChildren = node.children.reduce(Int64(0)) { $0 + $1.kindBytes[kind.index] }

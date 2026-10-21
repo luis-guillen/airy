@@ -4,10 +4,10 @@ import Foundation
 public struct TreemapTile: Sendable, Identifiable {
     public let id: Int
     public let rect: CGRect
-    /// `nil` ⇒ tesela "Otros (N elementos)".
+    /// `nil` ⇒ "Other (N items)" tile.
     public let node: FileNode?
     public let othersCount: Int
-    /// Bytes que representa la tesela (los del nodo o la suma del grupo "Otros").
+    /// Bytes the tile represents (the node's, or the sum of the "Other" group).
     public let size: Int64
 
     public init(id: Int, rect: CGRect, node: FileNode?, othersCount: Int = 0, size: Int64 = 0) {
@@ -20,8 +20,8 @@ public struct TreemapTile: Sendable, Identifiable {
 }
 
 public enum Treemap {
-    /// Treemap "squarified" (Bruls, Huizing, van Wijk). Los valores deberían llegar
-    /// ordenados de mayor a menor; devuelve un rect por valor, en el mismo orden.
+    /// "Squarified" treemap (Bruls, Huizing, van Wijk). The values should arrive
+    /// sorted from largest to smallest; returns one rect per value, in the same order.
     public static func squarify(values: [Double], in rect: CGRect) -> [CGRect] {
         var result = Array(repeating: CGRect.zero, count: values.count)
         let total = values.reduce(0) { $0 + max($1, 0) }
@@ -39,13 +39,13 @@ public enum Treemap {
             while end < areas.count {
                 let a = areas[end]
                 let newSum = rowSum + a
-                let maxA = max(areas[start], a)   // ordenado: el primero es el mayor
-                let minA = min(areas[end - 1], a) // …y el último de la fila, el menor
+                let maxA = max(areas[start], a)   // sorted: the first is the largest
+                let minA = min(areas[end - 1], a) // …and the last in the row, the smallest
                 let w = worst(sum: newSum, maxA: maxA, minA: minA, side: side)
                 if w > best { break }
                 best = w; rowSum = newSum; end += 1
             }
-            // Coloca la fila a lo largo del lado corto.
+            // Lays the row out along the short side.
             if rowSum <= 0 {
                 for i in start..<end { result[i] = CGRect(x: free.minX, y: free.minY, width: 0, height: 0) }
             } else if free.width >= free.height {
@@ -78,9 +78,9 @@ public enum Treemap {
         return max(s2 * maxA / sum2, sum2 / (s2 * minA))
     }
 
-    /// Hijos de un nodo copiados en el hilo que es dueño del árbol (el principal), para calcular
-    /// el layout en otro hilo sin leer `FileNode` mientras alguien lo modifica (p. ej. tras
-    /// enviar algo a la Papelera). Las referencias a los nodos solo viajan, no se leen.
+    /// Children of a node copied on the thread that owns the tree (the main one), to compute
+    /// the layout on another thread without reading `FileNode` while someone modifies it (e.g. after
+    /// sending something to the Trash). The references to the nodes only travel; they are not read.
     public struct Snapshot: Sendable {
         public struct Child: Sendable {
             public let node: FileNode
@@ -108,8 +108,8 @@ public enum Treemap {
         tiles(for: Snapshot(of: node), in: rect, gap: gap, minTileArea: minTileArea)
     }
 
-    /// Mayor primero; a igual tamaño decide el id, para que hermanos iguales no se reordenen
-    /// entre un cálculo y otro (el zoom anima por id y saltarían de sitio).
+    /// Largest first; at equal size the id decides, so that equal siblings do not reorder
+    /// between one computation and the next (the zoom animates by id and they would jump around).
     private static func before(_ a: (size: Int64, id: Int), _ b: (size: Int64, id: Int)) -> Bool {
         a.size != b.size ? a.size > b.size : a.id < b.id
     }
@@ -126,7 +126,7 @@ public enum Treemap {
         guard total > 0, rect.width > 0, rect.height > 0 else { return [] }
         let rectArea = Double(rect.width * rect.height)
 
-        // Los hijos están ordenados: los diminutos son la cola.
+        // The children are sorted: the tiny ones are the tail.
         var keep = kids.count
         while keep > 0, Double(kids[keep - 1].size) / Double(total) * rectArea < Double(minTileArea) {
             keep -= 1

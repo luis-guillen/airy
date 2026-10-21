@@ -1,20 +1,20 @@
 import Foundation
 import Synchronization
 
-/// Lo que una fuente necesita para descubrir o revalidar objetivos.
+/// What a source needs to discover or revalidate targets.
 public struct DiscoveryContext: Sendable {
     public let catalog: Catalog
     public let home: String
     public let runner: any CommandRunning
     public let processListing: any ProcessListing
     public let now: Date
-    /// Índice de la última exploración (para medir sin recorrer el disco), si lo hay.
+    /// Index of the last exploration (to measure without walking the disk), if any.
     public let scan: FileNode?
-    /// Estado de Docker de esta pasada (una sola sonda); `nil` ⇒ `DockerSource` lo pregunta.
+    /// Docker state for this pass (a single probe); `nil` ⇒ `DockerSource` asks for it.
     public let docker: DockerState?
-    /// Paseo de proyectos de esta pasada, compartido por todas las fichas `projectArtifacts`.
+    /// Project walk for this pass, shared by every `projectArtifacts` entry.
     let projectWalk = ProjectWalkMemo()
-    /// Detección de versiones de herramientas de esta pasada, compartida por todas las fichas `toolchains`.
+    /// Detection of tool versions for this pass, shared by every `toolchains` entry.
     let toolchains = ToolchainMemo()
 
     public init(catalog: Catalog, home: String, runner: any CommandRunning, processListing: any ProcessListing,
@@ -26,9 +26,9 @@ public struct DiscoveryContext: Sendable {
     }
 }
 
-/// Una tanda de vista previa (la hoja de confirmación) o de ejecución: las fuentes revalidan con un único
-/// `DiscoveryContext`, así que lo caro (inventario de versiones, lista de proyectos, `brew uses`) se calcula una vez
-/// para todas sus filas y no una por fila. Solo vive lo que dura la tanda.
+/// A preview batch (the confirmation sheet) or an execution batch: the sources revalidate with a single
+/// `DiscoveryContext`, so the expensive work (version inventory, project list, `brew uses`) is computed once
+/// for all its rows and not once per row. It only lives as long as the batch.
 public final class RevalidationPass: Sendable {
     private let context = Mutex<DiscoveryContext?>(nil)
 
@@ -44,27 +44,27 @@ public final class RevalidationPass: Sendable {
     }
 }
 
-/// Un elemento propuesto por una fuente, antes de medirlo y clasificarlo.
+/// An item proposed by a source, before measuring and classifying it.
 public struct DiscoveredTarget: Sendable, Equatable {
-    /// `nil` ⇒ el id es `entry.id`; si no, `"\(entry.id):\(idSuffix)"`.
+    /// `nil` ⇒ the id is `entry.id`; otherwise, `"\(entry.id):\(idSuffix)"`.
     public var idSuffix: String?
     public var paths: [String]
-    /// Valores de `{target}` (véase `CleanupMethod.targetPlaceholder`).
+    /// `{target}` values (see `CleanupMethod.targetPlaceholder`).
     public var targets: [String] = []
-    /// `nil` ⇒ lo mide el escáner (índice o `TreeWalk` con `TimeBudget.sizeMeasure`).
+    /// `nil` ⇒ the scanner measures it (index or `TreeWalk` with `TimeBudget.sizeMeasure`).
     public var bytes: Int64? = nil
     public var details: [String] = []
     public var lastModified: Date? = nil
-    /// Cadena a buscar en proyectos (comprobación de referencias).
+    /// String to look for in projects (reference check).
     public var needle: String? = nil
-    /// Guardia: solo sube el riesgo.
+    /// Guard: it only raises the risk.
     public var floor: Risk? = nil
     public var floorReason: String? = nil
     public var blockedReason: String? = nil
     public var sizeNote: String? = nil
-    /// `false` ⇒ nunca se marca de entrada, aunque el clasificador lo permita (solo baja la preselección).
+    /// `false` ⇒ never starts checked, even if the classifier allows it (it only lowers the preselection).
     public var preselectable: Bool = true
-    /// Título propio para la interfaz (en vez de «ficha: sufijo»), p. ej. «Python 3.12 (Homebrew)».
+    /// Own title for the UI (instead of "entry: suffix"), e.g. "Python 3.12 (Homebrew)".
     public var label: String? = nil
 
     public init(idSuffix: String? = nil, paths: [String], targets: [String] = [], bytes: Int64? = nil,
@@ -76,16 +76,16 @@ public struct DiscoveredTarget: Sendable, Equatable {
     }
 }
 
-/// Único punto de extensión de la limpieza: el escáner descubre con `discover` y el embudo vuelve a
-/// comprobar con `revalidate` justo antes de actuar. La misma regla en los dos sitios.
+/// The single extension point of cleanup: the scanner discovers with `discover` and the funnel checks
+/// again with `revalidate` right before acting. The same rule in both places.
 public protocol CleanupTargetSource: Sendable {
     func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget]
-    /// En el embudo, justo antes de actuar. `nil` = sigue valiendo tal cual; si no, motivo en español.
+    /// In the funnel, right before acting. `nil` = still valid as is; otherwise, a localized reason.
     func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String?
 }
 
 public enum CleanupTargets {
-    /// `discovery` ⇒ su fuente; `retention` ⇒ `RetentionSource`; si no, `StaticPatternSource`.
+    /// `discovery` ⇒ its source; `retention` ⇒ `RetentionSource`; otherwise, `StaticPatternSource`.
     public static func source(for entry: CatalogEntry) -> any CleanupTargetSource {
         if entry.section == .maintenance { return MaintenanceSource() }
         if entry.discovery == .docker { return DockerSource() }
@@ -101,7 +101,7 @@ public enum CleanupTargets {
         return StaticPatternSource()
     }
 
-    /// Rutas de los patrones de la ficha que existen ahora, sin repetir y sin las de `except`.
+    /// Paths of the entry's patterns that exist now, without repeats and without those in `except`.
     static func livePaths(of entry: CatalogEntry, home: String) -> [String] {
         var unique: [String] = []
         for path in entry.paths.flatMap({ CleanupScanner.expand($0, home: home) })
@@ -126,18 +126,18 @@ public enum CleanupTargets {
     }
 }
 
-/// Fuente de una `discovery` que esta versión aún no sabe recorrer: no ofrece nada y, si llega un
-/// elemento, se rechaza (fallo cerrado).
+/// Source of a `discovery` this version does not know how to walk yet: it offers nothing and, if an
+/// item arrives, it is rejected (fail closed).
 struct PendingDiscoverySource: CleanupTargetSource {
     func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] { [] }
 
     func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
-        "Airy no sabe comprobar «\(entry.title)» todavía; no se toca."
+        String(localized: "Airy does not know how to check “\(entry.title)” yet; it is not touched.", bundle: .airyCore)
     }
 }
 
-/// Los patrones de la ficha (comportamiento de la fase 1), con `except`, `perMatch`, `staleAfterDays`,
-/// `minimumBytes` y `{target}`.
+/// The entry's patterns (phase 1 behaviour), with `except`, `perMatch`, `staleAfterDays`,
+/// `minimumBytes` and `{target}`.
 public struct StaticPatternSource: CleanupTargetSource {
     private let measureBudget: Duration
 
@@ -148,10 +148,10 @@ public struct StaticPatternSource: CleanupTargetSource {
     public func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
         let unique = CleanupTargets.livePaths(of: entry, home: context.home)
         if case .command(let executable, _, let sizeProbe) = entry.cleanup {
-            // Sin la herramienta instalada no se puede limpiar con su comando oficial.
+            // Without the tool installed it cannot be cleaned with its official command.
             guard await context.runner.resolve(executable) != nil else { return [] }
-            // Solo se sabe interpretar la sonda de sqlite3 (espacio libre de una base de datos). Las demás
-            // (tmutil…) no se miden (Docker va por `DockerSource`).
+            // Only the sqlite3 probe can be interpreted (free space of a database). The others
+            // (tmutil…) are not measured (Docker goes through `DockerSource`).
             if let sizeProbe {
                 guard executable == "sqlite3", let resolved = await context.runner.resolve(executable) else { return [] }
                 return await sqliteGroups(entry, paths: unique, probe: sizeProbe, executable: resolved,
@@ -173,7 +173,7 @@ public struct StaticPatternSource: CleanupTargetSource {
         }
 
         var result: [DiscoveredTarget] = []
-        // Un solo plazo para todas las medidas de esta ficha (p. ej. cada elemento de Descargas).
+        // A single time limit for every measurement of this entry (e.g. each item in Downloads).
         let deadline = ContinuousClock().now.advanced(by: measureBudget)
         for var group in groups {
             if entry.staleAfterDays != nil || entry.minimumBytes != nil {
@@ -188,8 +188,8 @@ public struct StaticPatternSource: CleanupTargetSource {
 
     static let sqliteProbeTimeout: TimeInterval = 10
 
-    /// Una sonda por base de datos: `bytes = page_size × freelist_count` (dos enteros, uno por línea). Si falla o
-    /// no se entiende, esa base no se ofrece. Un solo elemento con las bases que pasan `minimumBytes`.
+    /// One probe per database: `bytes = page_size × freelist_count` (two integers, one per line). If it fails or
+    /// cannot be understood, that database is not offered. A single item with the databases that pass `minimumBytes`.
     private func sqliteGroups(_ entry: CatalogEntry, paths: [String], probe: [String], executable: String,
                               runner: any CommandRunning) async -> [DiscoveredTarget] {
         var kept: [String] = []
@@ -209,8 +209,8 @@ public struct StaticPatternSource: CleanupTargetSource {
         return [DiscoveredTarget(paths: kept, targets: kept, bytes: bytes)]
     }
 
-    /// Aplica `staleAfterDays` (quita las rutas recientes o sin medir) y `minimumBytes`. `false` ⇒ fuera.
-    /// Sin `staleAfterDays`, el tamaño del índice basta (no hace falta recorrer el disco).
+    /// Applies `staleAfterDays` (removes recent or unmeasured paths) and `minimumBytes`. `false` ⇒ out.
+    /// Without `staleAfterDays`, the index size is enough (no need to walk the disk).
     private func measure(_ group: inout DiscoveredTarget, entry: CatalogEntry, now: Date, scan: FileNode?,
                          deadline: ContinuousClock.Instant) -> Bool {
         let cutoff = entry.staleAfterDays.map { now.addingTimeInterval(-Double($0) * 86_400) }
@@ -223,7 +223,7 @@ public struct StaticPatternSource: CleanupTargetSource {
                 bytes += node.allocatedSize
                 continue
             }
-            // Sin tiempo no se sabe: no se ofrece.
+            // Without time it cannot be known: it is not offered.
             guard let summary = TreeWalk.summarize(path, budget: max(.zero, ContinuousClock().now.duration(to: deadline)))
             else { continue }
             if let cutoff {
@@ -248,16 +248,16 @@ public struct StaticPatternSource: CleanupTargetSource {
         case .trash:
             let live = CleanupTargets.canonicalSet(CleanupTargets.livePaths(of: entry, home: context.home))
             for path in item.paths where !live.contains(RiskPolicy.canonical(path)) {
-                return "La ruta no corresponde a «\(entry.title)»: \(path)."
+                return String(localized: "The path does not belong to “\(entry.title)”: \(path).", bundle: .airyCore)
             }
             guard let days = entry.staleAfterDays else { return nil }
             let cutoff = context.now.addingTimeInterval(-Double(days) * 86_400)
             for path in item.paths {
                 guard let summary = TreeWalk.summarize(path, budget: TimeBudget.sizeMeasure) else {
-                    return "No se pudo comprobar a tiempo si lo has usado; Airy no lo toca."
+                    return String(localized: "Could not check in time whether you have used it; Airy does not touch it.", bundle: .airyCore)
                 }
                 guard let modified = summary.latestModification, modified < cutoff else {
-                    return "Lo has usado hace poco."
+                    return String(localized: "You have used it recently.", bundle: .airyCore)
                 }
             }
             return nil
@@ -265,15 +265,15 @@ public struct StaticPatternSource: CleanupTargetSource {
             guard entry.cleanup.usesTargets else { return nil }
             let live = CleanupTargets.canonicalSet(CleanupTargets.livePaths(of: entry, home: context.home))
             for target in item.targets where !live.contains(RiskPolicy.canonical(target)) || !target.hasPrefix("/") {
-                return "El objetivo no corresponde a «\(entry.title)»: \(target)."
+                return String(localized: "The target does not belong to “\(entry.title)”: \(target).", bundle: .airyCore)
             }
             return nil
         }
     }
 }
 
-/// Versiones: por carpeta padre se conservan la activa (si hay `activeLink`) y las más nuevas hasta
-/// `keepNewest`; el resto forma un solo elemento.
+/// Versions: per parent folder, the active one (if there is an `activeLink`) and the newest ones up to
+/// `keepNewest` are kept; the rest forms a single item.
 public struct RetentionSource: CleanupTargetSource {
     public init() {}
 
@@ -286,13 +286,13 @@ public struct RetentionSource: CleanupTargetSource {
     public func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
         let removable = CleanupTargets.canonicalSet(Self.plan(entry, home: context.home).removable)
         for path in item.paths where !removable.contains(RiskPolicy.canonical(path)) {
-            return "Ya no es una versión antigua: \((path as NSString).lastPathComponent)."
+            return String(localized: "It is no longer an old version: \((path as NSString).lastPathComponent).", bundle: .airyCore)
         }
         guard entry.retention?.activeLink != nil else { return nil }
         let listing = context.processListing
         guard let outcome = await TimeBudget.run(TimeBudget.processScan, { listing.processes() }),
               let processes = outcome else {
-            return "No se pudo comprobar si está en uso; Airy no lo toca."
+            return String(localized: "Could not check whether it is in use; Airy does not touch it.", bundle: .airyCore)
         }
         for path in item.paths {
             var roots = [RiskPolicy.canonical(path)]
@@ -301,7 +301,7 @@ public struct RetentionSource: CleanupTargetSource {
                 guard let executable = process.executablePath else { continue }
                 let exe = RiskPolicy.canonical(executable)
                 if roots.contains(where: { RiskPolicy.isInside(exe, root: $0) }) {
-                    return "Está en uso: \((path as NSString).lastPathComponent)."
+                    return String(localized: "It is in use: \((path as NSString).lastPathComponent).", bundle: .airyCore)
                 }
             }
         }
@@ -310,8 +310,8 @@ public struct RetentionSource: CleanupTargetSource {
 
     struct Plan { var removable: [String]; var details: [String] }
 
-    /// Rutas sobrantes (en el orden de los patrones) y un «Se conservan: …» por carpeta padre.
-    /// Con `activeLink`, una carpeta cuya versión activa no se encuentra no da nada (fallo cerrado).
+    /// Leftover paths (in pattern order) and one "Kept: …" per parent folder.
+    /// With `activeLink`, a folder whose active version is not found yields nothing (fail closed).
     static func plan(_ entry: CatalogEntry, home: String) -> Plan {
         guard let rule = entry.retention else { return Plan(removable: [], details: []) }
         var parents: [String] = []
@@ -342,12 +342,12 @@ public struct RetentionSource: CleanupTargetSource {
             for path in sorted where kept.count < rule.keepNewest && !kept.contains(path) { kept.append(path) }
             plan.removable += group.filter { !kept.contains($0) }
             let names = sorted.filter(kept.contains).map { ($0 as NSString).lastPathComponent }
-            plan.details.append("Se conservan: \(names.joined(separator: ", "))")
+            plan.details.append(String(localized: "Kept: \(names.joined(separator: ", "))", bundle: .airyCore))
         }
         return plan
     }
 
-    /// `mtime` de la entrada (sin seguir enlaces); 0 si no se puede leer.
+    /// `mtime` of the entry (without following links); 0 if it cannot be read.
     private static func modification(of path: String) -> Double {
         var info = stat()
         guard lstat(path, &info) == 0 else { return 0 }

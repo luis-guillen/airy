@@ -4,7 +4,7 @@ public enum SpotlightDiagnosis: Sendable, Equatable {
     case fine(seconds: Double), slow(seconds: Double), disabled, unknown
 }
 
-/// Mide si Spotlight responde lento. Solo lecturas (`mdutil -s`, `mdfind`); lo lanza el usuario con un botón.
+/// Measures whether Spotlight responds slowly. Reads only (`mdutil -s`, `mdfind`); the user launches it with a button.
 public struct SpotlightCheck: Sendable {
     public static let slowSeconds = 3.0
     static let statusTimeout: TimeInterval = 5
@@ -19,7 +19,7 @@ public struct SpotlightCheck: Sendable {
         self.init(runner: runner, threshold: Self.slowSeconds, queryTimeout: Self.queryTimeout)
     }
 
-    /// Pruebas: umbral y plazo a escala.
+    /// Tests: threshold and time limit scaled down.
     init(runner: any CommandRunning, threshold: Double, queryTimeout: TimeInterval) {
         self.runner = runner; self.threshold = threshold; self.queryTimeout = queryTimeout
     }

@@ -1,37 +1,37 @@
 import Foundation
 
-/// Explicaciones breves de carpetas conocidas que no tienen ficha en el catálogo.
+/// Short explanations of well-known folders that have no catalog entry.
 public enum FolderExplanations {
-    private static let system: [String: String] = [
-        "/Applications": "Tus aplicaciones.",
-        "/System": "El sistema operativo; no se toca.",
-        "/Users": "Las carpetas personales de cada usuario de este Mac.",
-        "/Library": "Ajustes y componentes que comparten todas las apps y usuarios.",
-        "/private": "Datos internos del sistema: memoria virtual, temporales y registros.",
-        "/private/var": "Datos variables del sistema: registros, cachés y memoria virtual.",
-        "/private/var/vm": "Memoria virtual y la imagen de reposo del Mac; la gestiona macOS.",
-        "/usr": "Herramientas de Unix del sistema y lo que instalan algunos programas.",
-        "/opt": "Software instalado aparte del sistema.",
-        "/opt/homebrew": "Homebrew y los paquetes que has instalado con él.",
-        "/Volumes": "Discos externos y volúmenes montados.",
-        "/cores": "Volcados de memoria de programas que se cerraron de golpe.",
-    ]
+    private static var system: [String: String] {[
+        "/Applications": String(localized: "Your applications.", bundle: .airyCore),
+        "/System": String(localized: "The operating system; leave it alone.", bundle: .airyCore),
+        "/Users": String(localized: "The home folders of every user on this Mac.", bundle: .airyCore),
+        "/Library": String(localized: "Settings and components shared by all apps and users.", bundle: .airyCore),
+        "/private": String(localized: "Internal system data: virtual memory, temporary files and logs.", bundle: .airyCore),
+        "/private/var": String(localized: "Variable system data: logs, caches and virtual memory.", bundle: .airyCore),
+        "/private/var/vm": String(localized: "Virtual memory and the Mac's sleep image; macOS manages it.", bundle: .airyCore),
+        "/usr": String(localized: "System Unix tools and what some programs install.", bundle: .airyCore),
+        "/opt": String(localized: "Software installed separately from the system.", bundle: .airyCore),
+        "/opt/homebrew": String(localized: "Homebrew and the packages you have installed with it.", bundle: .airyCore),
+        "/Volumes": String(localized: "External disks and mounted volumes.", bundle: .airyCore),
+        "/cores": String(localized: "Memory dumps of programs that crashed.", bundle: .airyCore),
+    ]}
 
-    private static let home: [String: String] = [
-        "": "Tu carpeta personal.",
-        "Library": "Ajustes, cachés y datos de las apps.",
-        "Library/Application Support": "Datos que guardan las apps para funcionar.",
-        "Library/Containers": "Datos de las apps que funcionan en entorno aislado.",
-        "Library/Group Containers": "Datos que comparten varias apps del mismo desarrollador.",
-        "Documents": "Tus documentos.",
-        "Desktop": "Lo que tienes en el escritorio.",
-        "Downloads": "Lo que has descargado.",
-        "Movies": "Tus vídeos y proyectos de vídeo.",
-        "Pictures": "Tus fotos, incluida la fototeca.",
-        "Music": "Tu música y bibliotecas de audio.",
-        "Applications": "Apps instaladas solo para tu usuario.",
-        ".Trash": "La Papelera: no libera espacio hasta que la vacías.",
-    ]
+    private static var home: [String: String] {[
+        "": String(localized: "Your home folder.", bundle: .airyCore),
+        "Library": String(localized: "Settings, caches and app data.", bundle: .airyCore),
+        "Library/Application Support": String(localized: "Data apps keep in order to work.", bundle: .airyCore),
+        "Library/Containers": String(localized: "Data of apps that run sandboxed.", bundle: .airyCore),
+        "Library/Group Containers": String(localized: "Data shared by several apps from the same developer.", bundle: .airyCore),
+        "Documents": String(localized: "Your documents.", bundle: .airyCore),
+        "Desktop": String(localized: "What you have on your desktop.", bundle: .airyCore),
+        "Downloads": String(localized: "What you have downloaded.", bundle: .airyCore),
+        "Movies": String(localized: "Your videos and video projects.", bundle: .airyCore),
+        "Pictures": String(localized: "Your photos, including the Photos library.", bundle: .airyCore),
+        "Music": String(localized: "Your music and audio libraries.", bundle: .airyCore),
+        "Applications": String(localized: "Apps installed just for your user.", bundle: .airyCore),
+        ".Trash": String(localized: "The Trash: it frees no space until you empty it.", bundle: .airyCore),
+    ]}
 
     public static func text(for path: String, home homePath: String = NSHomeDirectory()) -> String? {
         if let text = system[path] { return text }

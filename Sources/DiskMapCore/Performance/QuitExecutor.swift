@@ -3,13 +3,13 @@ import Darwin
 import Foundation
 import Synchronization
 
-/// Quien de verdad pide cerrar o fuerza un proceso. En pruebas se usa un doble: nunca un proceso real.
+/// Who really asks to quit or force-quits a process. Tests use a double: never a real process.
 public protocol ProcessTerminating: Sendable {
-    /// Cierre normal. App: `NSRunningApplication.terminate()` (puede pedir guardar). Suelto: `SIGTERM`.
+    /// Normal quit. App: `NSRunningApplication.terminate()` (it may ask to save). Loose: `SIGTERM`.
     func requestQuit(pid: Int32, isApp: Bool) -> Bool
-    /// Forzar. App: `forceTerminate` de `NSRunningApplication`. Suelto: `SIGKILL`.
+    /// Force. App: `NSRunningApplication`'s `forceTerminate`. Loose: `SIGKILL`.
     func forceQuit(pid: Int32, isApp: Bool) -> Bool
-    /// Sigue vivo el mismo proceso: mismo PID y mismo inicio (±1 s), para no confundirlo con un PID reutilizado.
+    /// The same process is still alive: same PID and same start (±1 s), so as not to mistake it for a reused PID.
     func isAlive(pid: Int32, startedAt: Date) -> Bool
 }
 
@@ -17,7 +17,7 @@ public struct LiveTerminator: ProcessTerminating {
     public init() {}
 
     public func requestQuit(pid: Int32, isApp: Bool) -> Bool {
-        guard pid > 1 else { return false }   // kill(0)/kill(-1) irían a grupos enteros
+        guard pid > 1 else { return false }   // kill(0)/kill(-1) would hit whole groups
         if isApp { return NSRunningApplication(processIdentifier: pid)?.terminate() ?? false }
         return kill(pid, SIGTERM) == 0
     }
@@ -40,7 +40,7 @@ public struct LiveTerminator: ProcessTerminating {
 
 public enum QuitOutcome: Sendable, Equatable {
     case closed
-    case didNotClose            // no respondió en `wait`: ahora se puede forzar
+    case didNotClose            // did not respond within `wait`: now it can be forced
     case blocked(String)
     case failed(String)
 
@@ -61,15 +61,15 @@ public enum QuitOutcome: Sendable, Equatable {
     }
 }
 
-/// El embudo de cierre de apps (R6): revalidar al actuar → cierre normal primero → forzar solo lo que no
-/// respondió en `wait` → registrar cada intento. Los agentes nunca cierran nada. Es el único sitio que fuerza.
+/// The app quit funnel (R6): revalidate when acting → normal quit first → force only what did not
+/// respond within `wait` → record every attempt. Agents never quit anything. It is the only place that forces.
 public final class QuitExecutor: Sendable {
-    public static let agentRefusal = "Cerrar apps siempre lo decides tú en Airy."
-    public static let goneMessage = "Ya no está abierta."
-    public static let forceFirstMessage = "Primero hay que intentar cerrarla normalmente."
-    public static let requestFailedMessage = "No se pudo pedir que se cerrara."
-    public static let forceFailedMessage = "No se pudo forzar el cierre."
-    /// Lo que se espera a que desaparezca tras forzar (como mucho `wait`).
+    public static var agentRefusal: String { String(localized: "Quitting apps is always your decision, in Airy.", bundle: .airyCore) }
+    public static var goneMessage: String { String(localized: "It is no longer open.", bundle: .airyCore) }
+    public static var forceFirstMessage: String { String(localized: "You first have to try quitting it normally.", bundle: .airyCore) }
+    public static var requestFailedMessage: String { String(localized: "Could not ask it to quit.", bundle: .airyCore) }
+    public static var forceFailedMessage: String { String(localized: "Could not force it to quit.", bundle: .airyCore) }
+    /// How long to wait for it to disappear after forcing (at most `wait`).
     static let forceGrace: Duration = .seconds(2)
 
     private enum Check { case ok(AppGroup), stop(QuitOutcome) }
@@ -85,7 +85,7 @@ public final class QuitExecutor: Sendable {
     private let log: OperationLog?
     private let wait: Duration
     private let poll: Duration
-    /// Los que no se cerraron con el cierre normal dentro de `wait`: solo estos se pueden forzar.
+    /// The ones that did not quit with the normal quit within `wait`: only these can be forced.
     private let unresponsive = Mutex<Set<Key>>([])
 
     public init(terminator: any ProcessTerminating = LiveTerminator(), policy: QuitPolicy = QuitPolicy(),
@@ -115,9 +115,9 @@ public final class QuitExecutor: Sendable {
         return outcome
     }
 
-    // MARK: - Pasos
+    // MARK: - Steps
 
-    /// Contexto, grupo actual con el mismo id/PID/inicio, política del grupo actual y proceso aún vivo.
+    /// Context, current group with the same id/PID/start, policy of the current group and process still alive.
     private func revalidate(_ group: AppGroup, context: OperationContext) async -> Check {
         if context.isAgent { return .stop(.blocked(Self.agentRefusal)) }
         let groups = await currentGroups()
@@ -137,13 +137,13 @@ public final class QuitExecutor: Sendable {
         case .stop(let outcome): return (outcome, nil)
         case .ok(let g): current = g
         }
-        // Solo al proceso principal: las ayudantes se cierran con su app; un suelto es un solo PID.
+        // Only the main process: helpers quit with their app; a loose one is a single PID.
         guard terminator.requestQuit(pid: current.leadPID, isApp: current.kind == .app) else {
             return (.failed(Self.requestFailedMessage), current)
         }
         let deadline = ContinuousClock.now + wait
         if await waitForExit(current, within: wait) { return (.closed, current) }
-        // Solo cuenta como «no responde» si de verdad se esperó todo el plazo (no si se canceló la espera).
+        // It only counts as "not responding" if the whole time limit was really waited (not if the wait was cancelled).
         if ContinuousClock.now >= deadline {
             unresponsive.withLock { _ = $0.insert(Key(pid: current.leadPID, start: current.leadStart)) }
         }
@@ -161,7 +161,7 @@ public final class QuitExecutor: Sendable {
         guard terminator.forceQuit(pid: current.leadPID, isApp: current.kind == .app) else {
             return (.failed(Self.forceFailedMessage), current)
         }
-        // Que se enviara no basta: solo se dice «cerrada» cuando el proceso ya no está.
+        // Being sent is not enough: it is only called "quit" once the process is gone.
         guard await waitForExit(current, within: min(wait, Self.forceGrace)) else {
             return (.failed(Self.forceFailedMessage), current)
         }
@@ -169,7 +169,7 @@ public final class QuitExecutor: Sendable {
         return (.closed, current)
     }
 
-    /// Sondea `isAlive` cada `poll` hasta `within`; true si el proceso terminó. Una cancelación corta la espera.
+    /// Polls `isAlive` every `poll` until `within`; true if the process ended. A cancellation cuts the wait short.
     private func waitForExit(_ group: AppGroup, within: Duration) async -> Bool {
         let deadline = ContinuousClock.now + within
         while ContinuousClock.now < deadline {
@@ -180,7 +180,7 @@ public final class QuitExecutor: Sendable {
     }
 
     private func record(_ outcome: QuitOutcome, action: String, group: AppGroup, context: OperationContext) {
-        // Un fallo queda pendiente en `log.takeWriteFailure()` para que la app lo avise.
+        // A failure stays pending in `log.takeWriteFailure()` so that the app warns about it.
         try? log?.append(OperationRecord(
             runID: context.runID, date: Date(), actor: context.actor, action: action, itemID: group.id,
             title: group.name, paths: [], command: nil, dryRun: false, outcome: outcome.logName,

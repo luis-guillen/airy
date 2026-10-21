@@ -1,15 +1,15 @@
 import Foundation
 
-/// Cuándo mide Rendimiento (I3) y cuándo repite la comprobación de mantenimiento (M9).
+/// When Performance measures (I3) and when it repeats the maintenance check (M9).
 public enum PerformanceSamplingGate {
-    /// Solo con la sección a la vista y la ventana **comprobada** visible. `nil` = aún no se sabe (la vista acaba
-    /// de crearse y el lector de la ventana no ha informado): no se mide hasta saberlo.
+    /// Only with the section in view and the window **confirmed** visible. `nil` = not known yet (the view has just
+    /// been created and the window reader has not reported): nothing is measured until it is known.
     public static func shouldSample(appeared: Bool, windowVisible: Bool?) -> Bool {
         appeared && windowVisible == true
     }
 
-    /// La comprobación de mantenimiento lanza procesos y lee preferencias: como mucho cada 5 min al aparecer
-    /// (tras una acción se repite siempre).
+    /// The maintenance check launches processes and reads preferences: at most every 5 min on appearing
+    /// (after an action it always repeats).
     public static let maintenanceMaxAge: TimeInterval = 300
 
     public static func maintenanceIsStale(lastCheck: Date?, now: Date) -> Bool {

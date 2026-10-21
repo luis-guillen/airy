@@ -1,7 +1,7 @@
 import Foundation
 
-/// Lo que ve la IA: solo metadatos (rutas, tamaños, fechas, tipos y fichas del catálogo).
-/// Nunca se lee el contenido de ningún archivo.
+/// What the AI sees: metadata only (paths, sizes, dates, kinds and catalog entries).
+/// The contents of a file are never read.
 struct AIContextPayload: Codable {
     struct Disk: Codable {
         var totalBytes: Int64
@@ -39,15 +39,15 @@ struct AIContextPayload: Codable {
 public enum AIContextBuilder {
     static let maxDepth = 6
 
-    /// JSON con el disco, los `maxNodes` nodos más grandes hasta profundidad 6 (la raíz del análisis es 0)
-    /// y los elementos de limpieza. Las rutas bajo `home` se muestran con `~`.
+    /// JSON with the disk, the `maxNodes` largest nodes down to depth 6 (the scan root is 0)
+    /// and the cleanup items. Paths under `home` are shown with `~`.
     public static func context(scan: FileNode?, items: [CleanupItem], catalog: Catalog, home: String,
                                maxNodes: Int = 400, diskTotal: Int64 = 0, diskFree: Int64 = 0) -> String {
         var candidates: [FileNode] = []
         if let scan {
             var stack: [(FileNode, Int)] = [(scan, 0)]
             while let (node, depth) = stack.popLast() {
-                // El agregado "Otros (N elementos)" no es una ruta real.
+                // The "Other (N items)" aggregate is not a real path.
                 if node.aggregatedCount == 0 { candidates.append(node) }
                 if depth < maxDepth { stack.append(contentsOf: node.children.map { ($0, depth + 1) }) }
             }
@@ -75,7 +75,7 @@ public enum AIContextBuilder {
             disk: .init(totalBytes: diskTotal, freeBytes: diskFree), nodes: nodes, cleanupItems: cleanupItems)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        // Codable de tipos simples no puede fallar; por si acaso, un JSON vacío válido.
+        // Codable of simple types cannot fail; just in case, a valid empty JSON.
         guard let data = try? encoder.encode(payload) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }
@@ -89,7 +89,7 @@ public enum AIContextBuilder {
     }
 }
 
-/// Conversión entre rutas absolutas y rutas con `~`.
+/// Conversion between absolute paths and paths with `~`.
 enum AIPaths {
     static func base(_ home: String) -> String {
         home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home

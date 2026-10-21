@@ -4,7 +4,7 @@ public enum MemoryPressure: String, Codable, Sendable { case normal, warning, cr
 
 public struct MemoryStats: Sendable, Equatable {
     public var total, used, appMemory, wired, compressed, fileCache, free: Int64
-    public var pressure: MemoryPressure?                  // nil = no se pudo leer
+    public var pressure: MemoryPressure?                  // nil = could not be read
     public var swapUsed, swapTotal: Int64
 
     public init(total: Int64 = 0, used: Int64 = 0, appMemory: Int64 = 0, wired: Int64 = 0,
@@ -15,7 +15,7 @@ public struct MemoryStats: Sendable, Equatable {
         self.pressure = pressure; self.swapUsed = swapUsed; self.swapTotal = swapTotal
     }
 
-    /// Libre + caché de archivos (R4).
+    /// Free + file cache (R4).
     public var available: Int64 { free + fileCache }
     public var availableFraction: Double { total > 0 ? Double(available) / Double(total) : 0 }
     public var swapFraction: Double? { swapTotal > 0 ? Double(swapUsed) / Double(swapTotal) : nil }
@@ -31,10 +31,10 @@ public enum ThermalLevel: String, Codable, Comparable, Sendable {
 
     public var label: String {
         switch self {
-        case .nominal: "Normal"
-        case .fair: "Caliente"
-        case .serious: "Muy caliente"
-        case .critical: "Crítico"
+        case .nominal: String(localized: "Normal", bundle: .airyCore)
+        case .fair: String(localized: "Warm", bundle: .airyCore)
+        case .serious: String(localized: "Very hot", bundle: .airyCore)
+        case .critical: String(localized: "Critical", bundle: .airyCore)
         }
     }
 
@@ -66,13 +66,13 @@ public struct CoreTicks: Sendable, Equatable {
 
 public struct CoreTopology: Sendable, Equatable {
     public var performance: Int
-    public var efficiency: Int          // 0 en Intel
+    public var efficiency: Int          // 0 on Intel
     public init(performance: Int, efficiency: Int) {
         self.performance = performance; self.efficiency = efficiency
     }
 }
 
-/// Proceso del usuario actual (libproc).
+/// Process of the current user (libproc).
 public struct OwnProcess: Sendable, Equatable {
     public var pid, ppid: Int32
     public var uid: UInt32
@@ -98,7 +98,7 @@ public struct OwnProcess: Sendable, Equatable {
     }
 }
 
-/// Proceso de cualquier usuario (`/bin/ps`).
+/// Process of any user (`/bin/ps`).
 public struct SystemProcess: Sendable, Equatable {
     public var pid, ppid: Int32
     public var uid: UInt32
@@ -140,7 +140,7 @@ public struct BatteryReading: Sendable, Equatable {
     }
 }
 
-/// Disco: leídos/escritos. Red: bajada/subida.
+/// Disk: read/written. Network: down/up.
 public struct IOCounters: Sendable, Equatable {
     public var read: UInt64
     public var written: UInt64
@@ -156,7 +156,7 @@ public struct RawSample: Sendable, Equatable {
     public var topology: CoreTopology?
     public var bootTime: Date?
     public var processes: [OwnProcess]
-    public var system: [SystemProcess]?         // nil = ps falló
+    public var system: [SystemProcess]?         // nil = ps failed
     public var apps: [RunningAppInfo]
     public var battery: BatteryReading?
     public var disk: IOCounters?
@@ -218,7 +218,7 @@ public struct AppGroup: Sendable, Equatable, Identifiable {
     public var pids: [Int32]
     public var processNames: [String]
     public var memory: Int64           // Σ footprint
-    public var cpuPercent: Double?     // Σ processCPU (nil si ninguno tiene delta)
+    public var cpuPercent: Double?     // Σ processCPU (nil if none has a delta)
     public var energy: Double?         // Σ processEnergy
     public var explanation: String?
 
@@ -244,9 +244,9 @@ public struct PerformanceSnapshot: Sendable, Equatable {
     public var date: Date
     public var memory: MemoryStats
     public var thermal: ThermalReading
-    public var cpu: CPUUsage?                         // nil en la primera muestra
-    public var processCPU: [Int32: Double]            // % por PID propio (100 = un núcleo)
-    public var processEnergy: [Int32: Double]         // vatios aprox.
+    public var cpu: CPUUsage?                         // nil on the first sample
+    public var processCPU: [Int32: Double]            // % per own PID (100 = one core)
+    public var processEnergy: [Int32: Double]         // approx. watts
     public var raw: RawSample
     public var groups: [AppGroup]
     public var battery: BatteryReading?

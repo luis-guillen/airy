@@ -1,15 +1,15 @@
 import Foundation
 
-/// Detecta los ajustes de mantenimiento (fichas `section: maintenance`) que conviene aplicar. Solo lee:
-/// `defaults read` y los `.plist` de Preferencias. Se ejecutan como cualquier `CleanupItem`, por el embudo
-/// (`CleanupExecutor`), siempre en ámbar y sin marcar.
+/// Detects the maintenance settings (`section: maintenance` entries) worth applying. It only reads:
+/// `defaults read` and the Preferences `.plist` files. They run like any `CleanupItem`, through the funnel
+/// (`CleanupExecutor`), always amber and unchecked.
 public struct MaintenanceScanner: Sendable {
     static let corruptPlistID = "maintenance-corrupt-plist"
     static let spotlightID = "maintenance-spotlight-reindex"
     static let maxPlistBytes: Int64 = 10 * 1_048_576
     static let readTimeout: TimeInterval = 5
 
-    /// Ficha ⇒ (dominio y clave que se leen, se ofrece si el valor leído es «1»).
+    /// Entry ⇒ (domain and key that are read; offered if the value read is "1").
     static let defaultsChecks: [String: (args: [String], offerWhenOne: Bool)] = [
         "maintenance-dsstore-network": (["read", "com.apple.desktopservices", "DSDontWriteNetworkStores"], false),
         "maintenance-dsstore-usb": (["read", "com.apple.desktopservices", "DSDontWriteUSBStores"], false),
@@ -50,7 +50,7 @@ public struct MaintenanceScanner: Sendable {
         return items
     }
 
-    /// Valor leído (sin espacios), «» si la clave no existe (código ≠ 0), `nil` si no se pudo ejecutar.
+    /// Value read (without whitespace), "" if the key does not exist (code ≠ 0), `nil` if it could not run.
     private func read(_ executable: String, _ args: [String]) async -> String? {
         guard let output = try? await runner.run(executable, args, timeout: Self.readTimeout) else { return nil }
         guard output.status == 0 else { return "" }
@@ -63,11 +63,11 @@ public struct MaintenanceScanner: Sendable {
                            blockedByOpenApps: [], usedBy: [], preselected: false)
     }
 
-    // MARK: - Preferencias dañadas
+    // MARK: - Damaged preferences
 
     static func preferencesFolder(home: String) -> String { home + "/Library/Preferences" }
 
-    /// `.plist` de `~/Library/Preferences` (sin `com.apple.`, ≤ 10 MB, fichero normal) que no se pueden leer.
+    /// `.plist` files in `~/Library/Preferences` (without `com.apple.`, ≤ 10 MB, regular file) that cannot be read.
     static func corruptPlists(home: String) -> [(String, Int64)] {
         let folder = preferencesFolder(home: home)
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder) else { return [] }
@@ -78,7 +78,7 @@ public struct MaintenanceScanner: Sendable {
         }
     }
 
-    /// Tamaño si `path` es hoy un `.plist` dañado de Preferencias; `nil` si no (o si es de Apple).
+    /// Size if `path` is a damaged Preferences `.plist` today; `nil` if not (or if it is Apple's).
     static func corruptSize(path: String, home: String) -> Int64? {
         let name = (path as NSString).lastPathComponent
         guard (path as NSString).deletingLastPathComponent == preferencesFolder(home: home),
@@ -92,16 +92,16 @@ public struct MaintenanceScanner: Sendable {
     }
 }
 
-/// Fuente de las fichas de mantenimiento en el embudo: la detección es de `MaintenanceScanner`; aquí solo se
-/// vuelve a comprobar, justo antes de actuar, que una preferencia sigue dañada.
+/// Source of the maintenance entries in the funnel: detection belongs to `MaintenanceScanner`; here it is only
+/// checked again, right before acting, that a preference is still damaged.
 struct MaintenanceSource: CleanupTargetSource {
     func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] { [] }
 
     func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
         guard entry.id == MaintenanceScanner.corruptPlistID else { return nil }
-        guard !item.paths.isEmpty else { return "No hay nada que enviar a la Papelera." }
+        guard !item.paths.isEmpty else { return String(localized: "There is nothing to send to the Trash.", bundle: .airyCore) }
         for path in item.paths where MaintenanceScanner.corruptSize(path: path, home: context.home) == nil {
-            return "Ya no está dañado."
+            return String(localized: "It is no longer damaged.", bundle: .airyCore)
         }
         return nil
     }

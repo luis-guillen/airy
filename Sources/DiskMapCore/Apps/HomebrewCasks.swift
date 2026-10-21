@@ -1,8 +1,8 @@
 import Foundation
 
-/// Casks de Homebrew instalados: nombre del `.app` → token.
+/// Installed Homebrew casks: `.app` name → token.
 public enum HomebrewCasks {
-    /// `brew info --cask --installed --json=v2` (60 s) → [nombre del .app: token]. `nil` si brew no está o falla.
+    /// `brew info --cask --installed --json=v2` (60 s) → [.app name: token]. `nil` if brew is missing or fails.
     public static func installed(runner: any CommandRunning) async -> [String: String]? {
         guard let brew = await runner.resolve("brew") else { return nil }
         guard let output = try? await runner.run(
@@ -11,7 +11,7 @@ public enum HomebrewCasks {
         return parse(output.stdout)
     }
 
-    /// `casks[].token` y `casks[].artifacts[].app` (cadenas u objetos `{"target": …}`).
+    /// `casks[].token` and `casks[].artifacts[].app` (strings or `{"target": …}` objects).
     static func parse(_ json: String) -> [String: String] {
         guard let root = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
               let casks = root["casks"] as? [[String: Any]] else { return [:] }

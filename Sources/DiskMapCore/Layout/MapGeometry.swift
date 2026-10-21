@@ -1,13 +1,13 @@
 import CoreGraphics
 import Foundation
 
-// Geometría pura del mapa animado: la curva de muelle, la interpolación de rectángulos,
-// el índice para saber qué tesela hay bajo el ratón y el orden de la entrada escalonada.
-// Todo sin SwiftUI para poder probarlo y usarlo desde cualquier hilo.
+// Pure geometry of the animated map: the spring curve, rectangle interpolation,
+// the index to find which tile is under the mouse and the order of the staggered entrance.
+// All without SwiftUI so it can be tested and used from any thread.
 
-/// Oscilador armónico amortiguado que parte del reposo en 0 y va hacia 1: la misma curva que
-/// `Animation.spring(response:dampingFraction:)` de SwiftUI (ω₀ = 2π / response, ζ = dampingFraction),
-/// para que lo que el `Canvas` interpola a mano se mueva igual que el resto de la interfaz.
+/// Damped harmonic oscillator that starts at rest at 0 and goes towards 1: the same curve as
+/// SwiftUI's `Animation.spring(response:dampingFraction:)` (ω₀ = 2π / response, ζ = dampingFraction),
+/// so that what the `Canvas` interpolates by hand moves just like the rest of the interface.
 public struct SpringCurve: Sendable, Equatable {
     public let response: Double
     public let dampingFraction: Double
@@ -19,7 +19,7 @@ public struct SpringCurve: Sendable, Equatable {
 
     private var omega: Double { 2 * .pi / response }
 
-    /// Progreso en el instante `t` (segundos desde el inicio). Antes de empezar, 0.
+    /// Progress at instant `t` (seconds since the start). Before starting, 0.
     public func value(at t: Double) -> Double {
         guard t > 0 else { return 0 }
         let w0 = omega, zeta = dampingFraction
@@ -38,7 +38,7 @@ public struct SpringCurve: Sendable, Equatable {
         }
     }
 
-    /// Tiempo a partir del cual el muelle queda a menos de 0,1 % del destino: lo que dura de verdad.
+    /// Time after which the spring stays within 0.1% of the target: how long it really lasts.
     public var settlingDuration: Double {
         let epsilon = 0.001
         let w0 = omega, zeta = dampingFraction
@@ -47,7 +47,7 @@ public struct SpringCurve: Sendable, Equatable {
             let amplitude = (1 + pow(zeta * w0 / wd, 2)).squareRoot()
             return log(amplitude / epsilon) / (zeta * w0)
         }
-        // Sin oscilación la curva es monótona: basta con buscar el primer instante cerca de 1.
+        // Without oscillation the curve is monotonic: it is enough to find the first instant near 1.
         var t = 0.0
         while t < 30, 1 - value(at: t) > epsilon { t += 0.005 }
         return t
@@ -55,7 +55,7 @@ public struct SpringCurve: Sendable, Equatable {
 }
 
 public enum RectMath {
-    /// Interpolación lineal (admite `t` fuera de 0…1 para el rebote del muelle).
+    /// Linear interpolation (accepts `t` outside 0…1 for the spring's overshoot).
     public static func lerp(_ a: CGRect, _ b: CGRect, _ t: Double) -> CGRect {
         let t = CGFloat(t)
         return CGRect(x: a.minX + (b.minX - a.minX) * t,
@@ -64,8 +64,8 @@ public enum RectMath {
                       height: a.height + (b.height - a.height) * t)
     }
 
-    /// Lleva `rect` con la transformación afín que convierte `source` en `destination`
-    /// (escala y traslación por eje). Con un origen degenerado devuelve `rect` sin tocar.
+    /// Moves `rect` with the affine transform that turns `source` into `destination`
+    /// (scale and translation per axis). With a degenerate source it returns `rect` untouched.
     public static func map(_ rect: CGRect, from source: CGRect, to destination: CGRect) -> CGRect {
         guard source.width > 0, source.height > 0 else { return rect }
         let sx = destination.width / source.width, sy = destination.height / source.height
@@ -75,7 +75,7 @@ public enum RectMath {
                       height: rect.height * sy)
     }
 
-    /// Escala respecto a su propio centro.
+    /// Scales around its own centre.
     public static func scaled(_ rect: CGRect, by factor: Double) -> CGRect {
         let f = CGFloat(factor)
         let w = rect.width * f, h = rect.height * f
@@ -83,8 +83,8 @@ public enum RectMath {
     }
 }
 
-/// Rejilla de celdas sobre las teselas para encontrar en O(1) la que hay bajo el ratón,
-/// sin una vista por tesela. Cada celda guarda los índices de las teselas que la tocan.
+/// Grid of cells over the tiles to find, in O(1), the one under the mouse,
+/// without one view per tile. Each cell keeps the indices of the tiles that touch it.
 public struct TileHitIndex: Sendable {
     private let rects: [CGRect]
     private let bounds: CGRect
@@ -118,7 +118,7 @@ public struct TileHitIndex: Sendable {
         self.cells = cells
     }
 
-    /// Índice de la tesela que contiene `point`, o `nil` (hueco entre teselas o fuera).
+    /// Index of the tile that contains `point`, or `nil` (gap between tiles or outside).
     public func hit(_ point: CGPoint) -> Int? {
         guard columns > 0, rows > 0, bounds.contains(point) else { return nil }
         let column = min(Int((point.x - bounds.minX) / cellSize), columns - 1)
@@ -131,8 +131,8 @@ public struct TileHitIndex: Sendable {
 }
 
 public enum EntranceOrder {
-    /// Puesto de aparición de cada rect (0 = el primero): del centro del lienzo hacia fuera.
-    /// A igual distancia decide el índice, para que la cascada sea siempre la misma.
+    /// Appearance rank of each rect (0 = the first): from the centre of the canvas outwards.
+    /// At equal distance the index decides, so that the cascade is always the same.
     public static func ranks(for rects: [CGRect], in bounds: CGRect) -> [Int] {
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         let order = rects.indices.sorted { a, b in

@@ -1,13 +1,13 @@
 import Foundation
 
-/// R1: agrupa los procesos propios por la ruta del `.app` más externo.
+/// R1: groups the user's processes by the path of the outermost `.app`.
 public enum AppGrouper {
     public static let systemPrefixes = ["/System/", "/usr/", "/sbin/", "/bin/", "/Library/Apple/", "/private/"]
-    /// Dentro de esos prefijos pero del usuario (M3): Homebrew de Intel e instaladores en `/usr/local`, y lo que se
-    /// ejecuta desde las carpetas temporales (`go run`, apps trasladadas por Gatekeeper).
+    /// Inside those prefixes but belonging to the user (M3): Intel Homebrew and installers in `/usr/local`, and what
+    /// runs from the temporary folders (`go run`, apps translocated by Gatekeeper).
     public static let userPrefixes = ["/usr/local/", "/private/tmp/", "/private/var/folders/"]
 
-    /// "/Applications/Google Chrome.app" para un helper anidado; nil si la ruta no está dentro de un `.app`.
+    /// "/Applications/Google Chrome.app" for a nested helper; nil if the path is not inside an `.app`.
     public static func outermostBundle(_ path: String?) -> String? {
         guard let path else { return nil }
         let parts = path.split(separator: "/", omittingEmptySubsequences: true)
@@ -15,28 +15,28 @@ public enum AppGrouper {
         return "/" + parts[...i].joined(separator: "/")
     }
 
-    /// Sin ruta conocida cuenta como sistema: nunca se ofrece cerrar algo que no se sabe qué es.
+    /// Without a known path it counts as system: quitting something unknown is never offered.
     private static func isSystem(_ path: String?) -> Bool {
         guard let path else { return true }
         if userPrefixes.contains(where: { path.hasPrefix($0) }) { return false }
         return systemPrefixes.contains { path.hasPrefix($0) }
     }
 
-    /// Carpetas que no dicen qué programa es (se saltan al buscar el nombre de un binario con versión).
+    /// Folders that do not say which program it is (skipped when looking for the name of a versioned binary).
     static let genericFolders: Set<String> = [
         "versions", "version", "bin", "sbin", "libexec", "lib", "current", "node_modules", ".bin", "contents", "macos",
         "share", "local", "build", "release", "debug", "dist", "out",
     ]
 
-    /// «2.1.304», «1.0», «v22.3.0»: un nombre que es solo una versión.
+    /// "2.1.304", "1.0", "v22.3.0": a name that is only a version.
     static func isVersionLike(_ name: String) -> Bool {
         let core = name.hasPrefix("v") ? String(name.dropFirst()) : name
         return !core.isEmpty && core.first!.isNumber && core.allSatisfy { $0.isNumber || $0 == "." || $0 == "-" || $0 == "_" }
     }
 
-    /// Nombre legible de un proceso suelto o del sistema: si el nombre del kernel está truncado, el del
-    /// ejecutable (o su título del catálogo); si el ejecutable es una versión (`…/claude/versions/2.1.304`), la
-    /// primera carpeta superior con nombre de programa.
+    /// Readable name of a loose or system process: if the kernel name is truncated, the
+    /// executable's (or its catalog title); if the executable is a version (`…/claude/versions/2.1.304`), the
+    /// first parent folder with a program name.
     public static func friendlyName(_ p: OwnProcess, catalog: AppCatalog?) -> String {
         var base = p.name
         if let path = p.executablePath {
@@ -53,12 +53,12 @@ public enum AppGrouper {
                 }
             }
         }
-        // Solo cuando el nombre del kernel no servía: un `node` sigue llamándose `node`.
+        // Only when the kernel name was not useful: a `node` is still called `node`.
         if base != p.name, let title = catalog?.entry(bundleID: nil, processName: base)?.title { return title }
         return base
     }
 
-    public static let dockerVMName = "Docker (máquina virtual)"
+    public static var dockerVMName: String { String(localized: "Docker (virtual machine)", bundle: .airyCore) }
 
     public static func group(_ raw: RawSample, cpu: [Int32: Double], energy: [Int32: Double],
                              catalog: AppCatalog?) -> [AppGroup] {
@@ -104,7 +104,7 @@ public enum AppGrouper {
             let regular = apps.filter { $0.policy == .regular }.sorted { $0.pid < $1.pid }
             let fileName = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
 
-            // F5: varias instancias normales del mismo bundle → un grupo por instancia; los ayudantes van a la de menor PID.
+            // F5: several normal instances of the same bundle → one group per instance; helpers go to the lowest PID.
             if regular.count > 1 {
                 for inst in regular {
                     let instancePIDs = Set(regular.map(\.pid))
@@ -133,7 +133,7 @@ public enum AppGrouper {
                                explanation: catalog?.entry(bundleID: app?.bundleID, processName: lead.name)?.explanation))
         }
 
-        // R9: la VM de Virtualization.framework es de Docker si Docker está abierto y ninguna otra app de VM.
+        // R9: the Virtualization.framework VM belongs to Docker if Docker is open and no other VM app is.
         let openBundles = Set(raw.apps.compactMap(\.bundleID) + groups.compactMap(\.bundleID))
         if openBundles.contains(PerformanceDiagnosis.dockerBundleID),
            openBundles.isDisjoint(with: PerformanceDiagnosis.otherVirtualizationBundleIDs) {
@@ -143,8 +143,8 @@ public enum AppGrouper {
             }
         }
 
-        // El mismo bundle id desde dos rutas (una copia de la app) daría dos grupos con el mismo id:
-        // se distinguen por PID para que nunca se confunda una instancia con otra al revalidar o cerrar.
+        // The same bundle id from two paths (a copy of the app) would give two groups with the same id:
+        // they are told apart by PID so that one instance is never mistaken for another when revalidating or quitting.
         var seen: [String: Int] = [:]
         for g in groups { seen[g.id, default: 0] += 1 }
         for i in groups.indices where seen[groups[i].id, default: 0] > 1 {

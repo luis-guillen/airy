@@ -1,7 +1,7 @@
 import Foundation
 
-/// Último resultado de Duplicados en disco (`AppPaths.duplicatesFile`): solo rutas, tamaños y fechas;
-/// nunca las huellas del contenido.
+/// Last Duplicates result on disk (`AppPaths.duplicatesFile`): only paths, sizes and dates;
+/// never the content fingerprints.
 public enum DuplicateReport {
     public struct File: Codable, Sendable, Equatable {
         public struct Group: Codable, Sendable, Equatable {
@@ -10,7 +10,7 @@ public enum DuplicateReport {
         public let date: Date, complete: Bool, filesExamined: Int, groups: [Group]
     }
 
-    /// JSON con claves en snake_case, escritura atómica (fichero temporal + `rename`) y permisos 0600.
+    /// JSON with snake_case keys, atomic write (temporary file + `rename`) and 0600 permissions.
     public static func save(_ result: DuplicateResult, to url: URL) throws {
         let file = File(date: result.date, complete: result.complete, filesExamined: result.filesExamined,
                         groups: result.groups.map {
@@ -40,7 +40,7 @@ public enum DuplicateReport {
         }
     }
 
-    /// `nil` si no existe.
+    /// `nil` if it does not exist.
     public static func load(from url: URL) throws -> File? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         return try decoder.decode(File.self, from: Data(contentsOf: url))

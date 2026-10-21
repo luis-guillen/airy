@@ -1,6 +1,6 @@
 import Foundation
 
-/// Qué tan completo es el último análisis: lo dicen la tarjeta del disco, el Mapa y el MCP.
+/// How complete the last scan is: the disk card, the Map and the MCP say so.
 public enum ScanCompleteness: Sendable, Equatable {
     case complete
     case partial(unreadable: Int)
@@ -13,10 +13,11 @@ public enum ScanCompleteness: Sendable, Equatable {
 
     public var label: String {
         switch self {
-        case .complete: "Análisis completo"
+        case .complete: String(localized: "Complete scan", bundle: .airyCore)
         case .partial(let count):
-            "Análisis parcial: no se pudieron leer \(count) \(count == 1 ? "carpeta" : "carpetas")"
-        case .unavailable: "Sin análisis"
+            count == 1 ? String(localized: "Partial scan: 1 folder could not be read", bundle: .airyCore)
+                : String(localized: "Partial scan: \(count) folders could not be read", bundle: .airyCore)
+        case .unavailable: String(localized: "No scan", bundle: .airyCore)
         }
     }
 
@@ -29,8 +30,8 @@ public enum ScanCompleteness: Sendable, Equatable {
     }
 }
 
-/// Qué rutas tienen algo ilegible dentro (ellas mismas o algo que cuelga de ellas): su tamaño del análisis es un
-/// mínimo y se muestra con «+». Ordena una vez; cada consulta es una búsqueda binaria.
+/// Which paths have something unreadable inside (themselves or something hanging from them): their scanned size is a
+/// minimum and is shown with "+". Sorts once; each query is a binary search.
 public struct PartialScanIndex: Sendable {
     private let sorted: [String]
 
@@ -45,13 +46,13 @@ public struct PartialScanIndex: Sendable {
         let path = Self.trimmed(path)
         let start = lowerBound(path)
         if start < sorted.count, sorted[start] == path { return true }
-        // Lo que cuelga de `path` empieza por «path/» y es contiguo desde su primer candidato.
+        // What hangs from `path` starts with "path/" and is contiguous from its first candidate.
         let prefix = path.hasSuffix("/") ? path : path + "/"
         let inside = lowerBound(prefix)
         return inside < sorted.count && sorted[inside].hasPrefix(prefix)
     }
 
-    /// Primer índice con `sorted[i] >= key`.
+    /// First index with `sorted[i] >= key`.
     private func lowerBound(_ key: String) -> Int {
         var low = 0, high = sorted.count
         while low < high {

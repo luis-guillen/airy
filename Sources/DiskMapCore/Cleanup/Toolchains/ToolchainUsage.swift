@@ -1,13 +1,13 @@
 import Foundation
 
-/// Una versión pedida (por defecto de un gestor o en un archivo de un proyecto).
+/// A requested version (a manager's default or in a project file).
 public struct VersionPin: Sendable, Equatable {
     public var language: ToolchainLanguage
-    /// Tal cual, sin espacios.
+    /// As is, without whitespace.
     public var raw: String
-    /// "~/Projects/app/.nvmrc" o "pyenv global".
+    /// "~/Projects/app/.nvmrc" or "pyenv global".
     public var source: String
-    /// `false`: "lts/*", "node", "latest", "system", "stable"/"nightly" sin toolchain de ese canal…
+    /// `false`: "lts/*", "node", "latest", "system", "stable"/"nightly" without a toolchain of that channel…
     public var resolvable: Bool
 
     public init(language: ToolchainLanguage, raw: String, source: String, resolvable: Bool = true) {
@@ -16,7 +16,7 @@ public struct VersionPin: Sendable, Equatable {
 
     static let rustChannels: Set<String> = ["stable", "beta", "nightly"]
 
-    /// Prefijo por componentes numéricos (R4): `3.11` pide `3.11.x`; `3.1` no pide `3.11.0`.
+    /// Prefix by numeric components (R4): `3.11` asks for `3.11.x`; `3.1` does not ask for `3.11.0`.
     public func matches(_ install: InstalledToolchain) -> Bool {
         guard install.language == language, !raw.isEmpty else { return false }
         if language == .condaEnv {
@@ -49,8 +49,8 @@ public struct VersionPin: Sendable, Equatable {
         return name
     }
 
-    /// Versiones con las que se compara: el nombre (sin candidato de SDKMAN); en Homebrew, `python@3.11` ⇒ `3.11`
-    /// y una fórmula sin `@` ⇒ sus carpetas de versión.
+    /// Versions to compare against: the name (without the SDKMAN candidate); in Homebrew, `python@3.11` ⇒ `3.11`
+    /// and a formula without `@` ⇒ its version folders.
     static func installedVersions(_ install: InstalledToolchain) -> [String] {
         guard install.manager == .homebrew else { return [install.version] }
         if let at = install.name.firstIndex(of: "@") { return [String(install.name[install.name.index(after: at)...])] }
@@ -65,13 +65,13 @@ public struct VersionPin: Sendable, Equatable {
     }
 }
 
-/// Qué versiones están en uso o pedidas.
+/// Which versions are in use or requested.
 public struct UsageReport: Sendable {
-    /// `InstalledToolchain.path` → motivo («Es la versión por defecto de pyenv.», «La usa el PATH (node).»…).
+    /// `InstalledToolchain.path` → reason ("It is pyenv's default version.", "Used by the PATH (node)."…).
     public var defaults: [String: String]
-    /// path → «La pide ~/Projects/app (.nvmrc).»
+    /// path → "Requested by ~/Projects/app (.nvmrc)."
     public var requested: [String: String]
-    /// Pin no resoluble o lista de proyectos incompleta.
+    /// Pin that cannot be resolved, or incomplete project list.
     public var noPreselect: Set<ToolchainLanguage>
     public var projectsComplete: Bool
 
@@ -82,8 +82,8 @@ public struct UsageReport: Sendable {
     }
 }
 
-/// Versión por defecto de cada gestor, PATH y pins de proyecto. Solo se leen archivos (y `runner.resolve`); nunca
-/// se ejecuta ninguna orden.
+/// Default version of each manager, PATH and project pins. Only files are read (and `runner.resolve`); no
+/// command is ever run.
 public enum ToolchainUsage {
     static let pinFiles = [".nvmrc", ".node-version", ".python-version", ".tool-versions", "rust-toolchain",
                            "rust-toolchain.toml", ".ruby-version", "environment.yml"]
@@ -105,14 +105,14 @@ public enum ToolchainUsage {
         func mark(_ install: InstalledToolchain, _ reason: String) {
             if report.defaults[install.path] == nil { report.defaults[install.path] = reason }
         }
-        /// Default que no se resuelve: la más alta del gestor cuenta como por defecto y su lenguaje no se marca.
+        /// A default that does not resolve: the highest of the manager counts as default and its language is not marked.
         func unresolved(_ manager: ToolchainManager) {
             let list = of(manager)
             guard let highest = list.max(by: { versionLess($0.version, $1.version) }) else { return }
             mark(highest, defaultReason(manager))
             report.noPreselect.insert(highest.language)
         }
-        /// Instalaciones del gestor cuya carpeta contiene `real` (destino de un enlace).
+        /// Installs of the manager whose folder contains `real` (a link's target).
         func owner(_ manager: ToolchainManager, containing real: String) -> InstalledToolchain? {
             let canonical = RiskPolicy.canonical(real)
             return of(manager).first {
@@ -120,7 +120,7 @@ public enum ToolchainUsage {
                 return canonical == root || RiskPolicy.isInside(canonical, root: root)
             }
         }
-        /// Una versión por nombre: la más alta que coincide.
+        /// A version by name: the highest that matches.
         func byVersion(_ manager: ToolchainManager, _ raw: String) -> InstalledToolchain? {
             let list = of(manager)
             guard let language = list.first?.language else { return nil }
@@ -131,9 +131,9 @@ public enum ToolchainUsage {
             guard isSymlink(link) else { return nil }
             return CleanupTargets.realPath(link)
         }
-        /// Una línea de `.python-version` como la resuelve pyenv: `~/.pyenv/versions/<línea>` (enlace de
-        /// pyenv-virtualenv `myenv` o ruta larga `3.11.4/envs/myenv`) dentro de una versión base; si no existe,
-        /// el primer componente de una ruta `<ver>/envs/<nombre>`.
+        /// A line of `.python-version` as pyenv resolves it: `~/.pyenv/versions/<line>` (a pyenv-virtualenv
+        /// `myenv` link or the long path `3.11.4/envs/myenv`) inside a base version; if it does not exist,
+        /// the first component of a `<ver>/envs/<name>` path.
         func pyenvOwner(_ line: String) -> InstalledToolchain? {
             guard !line.isEmpty, !line.hasPrefix("/") else { return nil }
             let entry = home + "/.pyenv/versions/" + line
@@ -148,7 +148,7 @@ public enum ToolchainUsage {
             return nil
         }
 
-        // pyenv: ~/.pyenv/version (todas sus líneas).
+        // pyenv: ~/.pyenv/version (all its lines).
         if let text = read(home + "/.pyenv/version") {
             for line in lines(text) where line != "system" {
                 let entry = home + "/.pyenv/versions/" + line
@@ -163,7 +163,7 @@ public enum ToolchainUsage {
                 }
             }
         }
-        // nvm: alias default, siguiendo alias hasta 3 saltos.
+        // nvm: alias default, following aliases up to 3 hops.
         if var value = read(home + "/.nvm/alias/default").flatMap({ lines($0).first }) {
             for _ in 0..<3 {
                 guard let next = read(home + "/.nvm/alias/" + value).flatMap({ lines($0).first }) else { break }
@@ -180,7 +180,7 @@ public enum ToolchainUsage {
                 }
             }
         }
-        // fnm: realpath de <fnm>/aliases/default.
+        // fnm: realpath of <fnm>/aliases/default.
         for root in ToolchainInventory.fnmRoots {
             let link = "\(home)/\(root)/aliases/default"
             guard ProjectArtifactRules.exists(link) else { continue }
@@ -190,7 +190,7 @@ public enum ToolchainUsage {
                 unresolved(.fnm)
             }
         }
-        // volta: node.runtime de platform.json.
+        // volta: node.runtime from platform.json.
         if let data = FileManager.default.contents(atPath: home + "/.volta/tools/user/platform.json") {
             let runtime = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])
                 .flatMap { $0["node"] as? [String: Any] }?["runtime"] as? String
@@ -220,7 +220,7 @@ public enum ToolchainUsage {
                 unresolved(.rbenv)
             }
         }
-        // rvm: realpath de ~/.rvm/rubies/default.
+        // rvm: realpath of ~/.rvm/rubies/default.
         let rvmDefault = home + "/.rvm/rubies/default"
         if ProjectArtifactRules.exists(rvmDefault) {
             if let real = CleanupTargets.realPath(rvmDefault), let install = owner(.rvm, containing: real) {
@@ -229,7 +229,7 @@ public enum ToolchainUsage {
                 unresolved(.rvm)
             }
         }
-        // SDKMAN: realpath de candidates/<c>/current.
+        // SDKMAN: realpath of candidates/<c>/current.
         for (_, folder) in ToolchainInventory.realChildren(home + "/.sdkman/candidates") {
             let current = folder + "/current"
             guard ProjectArtifactRules.exists(current) else { continue }
@@ -239,7 +239,7 @@ public enum ToolchainUsage {
                 unresolved(.sdkman)
             }
         }
-        // rustup: default_toolchain y [overrides] de settings.toml.
+        // rustup: default_toolchain and [overrides] from settings.toml.
         if let text = read(home + "/.rustup/settings.toml") {
             var section = ""
             for line in text.split(whereSeparator: \.isNewline).map(String.init) {
@@ -253,43 +253,43 @@ public enum ToolchainUsage {
                 for install in matches { mark(install, defaultReason(.rustup)) }
             }
         }
-        // Xcode activo.
+        // Active Xcode.
         if let destination = try? FileManager.default.destinationOfSymbolicLink(atPath: roots.xcodeSelectLink) {
             let canonical = RiskPolicy.canonical(destination)
             for install in installs where install.manager == .system && install.name.hasPrefix("Xcode")
                 && RiskPolicy.isInside(canonical, root: RiskPolicy.canonical(install.path)) {
-                mark(install, "Xcode activo (xcode-select).")
+                mark(install, String(localized: "Active Xcode (xcode-select).", bundle: .airyCore))
             }
         }
-        // PATH: el ejecutable resuelto (y su destino real) dentro de una instalación.
+        // PATH: the resolved executable (and its real target) inside an install.
         for (_, executables) in pathExecutables.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
             for executable in executables {
                 guard let resolved = await runner.resolve(executable) else { continue }
                 let real = RiskPolicy.canonical(CleanupTargets.realPath(resolved) ?? resolved)
                 for install in installs {
                     let root = RiskPolicy.canonical(CleanupTargets.realPath(install.path) ?? install.path)
-                    if RiskPolicy.isInside(real, root: root) { mark(install, "La usa el PATH (\(executable)).") }
+                    if RiskPolicy.isInside(real, root: root) { mark(install, String(localized: "Used by the PATH (\(executable)).", bundle: .airyCore)) }
                 }
             }
         }
-        // nvm sin alias por defecto y con varias versiones: la que elige la shell (`nvm use` en .zshrc) no se ve
-        // (y el PATH de la app nunca lleva el node de nvm). Va después del PATH para no tapar su motivo.
+        // nvm without a default alias and with several versions: the one the shell picks (`nvm use` in .zshrc) cannot be seen
+        // (and the app's PATH never carries nvm's node). It goes after the PATH so as not to hide its reason.
         if read(home + "/.nvm/alias/default") == nil, of(.nvm).count > 1 { unresolved(.nvm) }
-        // Java: el ejecutable del PATH es el stub de /usr/bin y `JAVA_HOME` no se ve desde la app; la que se usa
-        // puede no detectarse, así que Java nunca se preselecciona.
+        // Java: the PATH executable is the /usr/bin stub and `JAVA_HOME` cannot be seen from the app; the one in use
+        // may not be detected, so Java is never preselected.
         if offered.contains(where: { $0.language == .java }) { report.noPreselect.insert(.java) }
 
-        // Pins de los proyectos.
+        // Project pins.
         if !projects.complete { report.noPreselect.formUnion(ToolchainLanguage.allCases) }
         for project in projects.projects {
             for pin in pins(inProject: project, home: home) {
                 let file = (pin.source as NSString).lastPathComponent
                 let folder = (pin.source as NSString).deletingLastPathComponent
-                // pyenv-virtualenv (I1): el entorno vive dentro de su versión base; esa base queda pedida.
+                // pyenv-virtualenv (I1): the environment lives inside its base version; that base is requested.
                 if pin.language == .python, file == ".python-version", pin.raw.contains("/") || !pin.resolvable {
                     if let install = pyenvOwner(pin.raw) {
                         if report.requested[install.path] == nil {
-                            report.requested[install.path] = "La pide \(folder) (\(file))."
+                            report.requested[install.path] = String(localized: "Requested by \(folder) (\(file)).", bundle: .airyCore)
                         }
                         report.noPreselect.insert(.python)
                         continue
@@ -306,7 +306,7 @@ public enum ToolchainUsage {
                     continue
                 }
                 for install in matches where report.requested[install.path] == nil {
-                    report.requested[install.path] = "La pide \(folder) (\(file))."
+                    report.requested[install.path] = String(localized: "Requested by \(folder) (\(file)).", bundle: .airyCore)
                 }
             }
         }
@@ -315,12 +315,12 @@ public enum ToolchainUsage {
 
     static func defaultReason(_ manager: ToolchainManager) -> String {
         let names: [ToolchainManager: String] = [.volta: "Volta", .sdkman: "SDKMAN"]
-        return "Es la versión por defecto de \(names[manager] ?? manager.rawValue)."
+        return String(localized: "It is the default version of \(names[manager] ?? manager.rawValue).", bundle: .airyCore)
     }
 
     static func pins(inProject root: String) -> [VersionPin] { pins(inProject: root, home: NSHomeDirectory()) }
 
-    /// Raíz y sus hijos directos (R4); los archivos de más de 64 KB se ignoran.
+    /// Root and its direct children (R4); files larger than 64 KB are ignored.
     static func pins(inProject root: String, home: String) -> [VersionPin] {
         var folders = [root]
         folders += ToolchainInventory.realChildren(root).map(\.1).filter {
@@ -385,7 +385,7 @@ public enum ToolchainUsage {
                 && !value.hasPrefix("python-") && !value.hasPrefix("go") && !value.hasPrefix("java/")
     }
 
-    /// `plugin v1 v2` por línea (sin comentarios).
+    /// `plugin v1 v2` per line (no comments).
     static func toolVersions(_ text: String) -> [(String, [String])] {
         lines(text).compactMap { line in
             let parts = line.split(whereSeparator: \.isWhitespace).map(String.init)
@@ -404,14 +404,14 @@ public enum ToolchainUsage {
         return (key, String(value.dropFirst().dropLast()))
     }
 
-    /// Líneas sin espacios, sin vacías ni comentarios.
+    /// Lines without whitespace, without empty ones or comments.
     static func lines(_ text: String) -> [String] {
         text.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && !$0.hasPrefix("#") }
     }
 
-    /// Fichero normal de como mucho 64 KB, como texto.
+    /// A regular file of at most 64 KB, as text.
     static func read(_ path: String) -> String? {
         var info = stat()
         guard stat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG, info.st_size <= maxPinFileBytes,
@@ -424,7 +424,7 @@ public enum ToolchainUsage {
         return lstat(path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFLNK
     }
 
-    /// Orden numérico por componentes (`v18.9` < `v18.10`).
+    /// Numeric order by components (`v18.9` < `v18.10`).
     static func versionLess(_ a: String, _ b: String) -> Bool {
         let x = numbers(VersionPin.normalize(a)), y = numbers(VersionPin.normalize(b))
         for (p, q) in zip(x, y) where p != q { return p < q }

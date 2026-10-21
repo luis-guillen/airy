@@ -1,119 +1,119 @@
 import Foundation
 
-/// Lógica pura de la vista Limpieza: grupos por riesgo, qué se puede marcar, qué entra en
-/// "Limpiar todo lo seguro" y los textos de bloqueo y método. Sin SwiftUI, para poder probarla.
+/// Pure logic of the Cleanup view: groups by risk, what can be checked, what goes into
+/// "Clean everything safe" and the blocking and method texts. No SwiftUI, so it can be tested.
 public struct CleanupBoard: Sendable {
     public struct Group: Sendable, Identifiable {
         public let risk: Risk
-        /// Primero los destacados por perfil; luego de mayor a menor tamaño (empates por id, para un orden estable).
+        /// Profile highlights first; then largest to smallest (ties by id, for a stable order).
         public let items: [CleanupItem]
         public var id: Risk { risk }
-        /// «Sin problema», «Tú decides» o «No borrar».
+        /// "Safe to remove", "Your call" or "Don't delete".
         public var title: String { risk.label }
         public var bytes: Int64 { items.reduce(0) { $0 + $1.bytes } }
     }
 
-    /// «Sin problema», «Tú decides» y «No borrar», en ese orden y sin grupos vacíos. Lo de «Solo revisar» va
-    /// aparte (`reviewItems`).
+    /// "Safe to remove", "Your call" and "Don't delete", in that order and without empty groups. "Review only"
+    /// goes separately (`reviewItems`).
     public let groups: [Group]
 
-    /// «Solo revisar»: informativos sin acción, de mayor a menor tamaño (empates por id).
+    /// "Review only": informational items without an action, largest to smallest (ties by id).
     public let reviewItems: [CleanupItem]
 
-    /// `hidden`: elementos ya limpiados que se ocultan al momento, antes de que llegue la nueva detección.
+    /// `hidden`: items already cleaned that are hidden right away, before the new detection arrives.
     public init(items: [CleanupItem], hidden: Set<String> = []) {
         let visible = items.filter { !hidden.contains($0.id) }
         reviewItems = visible.filter(Self.isReviewOnly).sorted { (a, b) in (a.bytes, b.id) > (b.bytes, a.id) }
         let actionable = visible.filter { !Self.isReviewOnly($0) }
         groups = [Risk.safe, .yourCall, .doNotTouch].compactMap { risk in
-            // Por tamaño (el perfil «Para ti» está retirado: `highlighted` ya no ordena).
+            // By size (the "For you" profile is retired: `highlighted` no longer sorts).
             let members = actionable.filter { $0.risk == risk }
                 .sorted { a, b in (a.bytes, b.id) > (b.bytes, a.id) }
             return members.isEmpty ? nil : Group(risk: risk, items: members)
         }
     }
 
-    /// Los elementos con grupo (sin «Solo revisar») en el orden de la pantalla.
+    /// Items with a group (without "Review only") in screen order.
     public var items: [CleanupItem] { groups.flatMap(\.items) }
 
-    /// Todo lo que se enseña: los grupos (verde, ámbar, rojo) y después «Solo revisar».
+    /// Everything that is shown: the groups (green, amber, red) and then "Review only".
     public var displayItems: [CleanupItem] { items + reviewItems }
 
-    /// Informativo que se enseña con su consejo y sin casilla: `.info` con `reviewHint`, o que no es «No tocar»
-    /// (Docker volumes y similares siguen en «No borrar»). Aunque las protecciones lo dejen en rojo, si tiene
-    /// consejo es de revisión.
+    /// Informational item shown with its hint and no checkbox: `.info` with a `reviewHint`, or not "Do not touch"
+    /// (Docker volumes and the like stay in "Don't delete"). Even if the protections leave it red, if it has
+    /// a hint it is for review.
     public static func isReviewOnly(_ item: CleanupItem) -> Bool {
         guard case .info = item.entry.cleanup else { return false }
         return item.entry.reviewHint != nil || item.risk != .doNotTouch
     }
 
-    // MARK: Cabecera
+    // MARK: Header
 
-    /// "Puedes liberar X": solo lo `.safe` que tiene acción (incluido lo que espera a que cierres una
-    /// app; no lo que usa un proyecto).
+    /// "You can free X": only `.safe` items with an action (including those waiting for you to close an
+    /// app; not those a project uses).
     public var safeBytes: Int64 {
         items.filter { $0.risk == .safe && Self.showsCheckbox($0) && $0.usedBy.isEmpty }.reduce(0) { $0 + $1.bytes }
     }
 
-    /// Lo que "Limpiar todo lo seguro" ejecuta: `.safe`, con acción y sin bloqueo.
+    /// What "Clean everything safe" runs: `.safe`, with an action and not blocked.
     public var readySafeItems: [CleanupItem] {
         items.filter { $0.risk == .safe && Self.canSelect($0) }
     }
 
     public var readySafeBytes: Int64 { readySafeItems.reduce(0) { $0 + $1.bytes } }
 
-    /// `true` si `safeBytes` incluye limpiezas parciales: la cabecera dice "Puedes liberar hasta".
+    /// `true` if `safeBytes` includes partial cleanups: the header says "You can free up to".
     public var safeBytesIsUpperBound: Bool {
         items.contains { $0.risk == .safe && Self.showsCheckbox($0) && $0.usedBy.isEmpty && Self.isPartial($0) }
     }
 
-    // MARK: Limpiezas parciales
+    // MARK: Partial cleanups
 
-    /// El comando oficial solo quita una parte (`partialCleanup` en el catálogo): su tamaño es un máximo.
+    /// The official command only removes part (`partialCleanup` in the catalog): its size is a maximum.
     public static func isPartial(_ item: CleanupItem) -> Bool { item.entry.partialCleanup }
 
-    /// `sizeNote` si existe («Tamaño desconocido»); si no, «hasta 3,6 GB» para limpiezas parciales, y «+» si el
-    /// análisis no pudo leerlo todo.
+    /// `sizeNote` if there is one ("Unknown size"); otherwise "up to 3.6 GB" for partial cleanups, and "+" if the
+    /// scan could not read all of it.
     public static func sizeText(_ item: CleanupItem) -> String {
         if let note = item.sizeNote { return note }
         return amountText(item.bytes, upperBound: isPartial(item)) + (item.sizeIsPartial ? "+" : "")
     }
 
     public static func amountText(_ bytes: Int64, upperBound: Bool) -> String {
-        upperBound ? "hasta \(Format.bytes(bytes))" : Format.bytes(bytes)
+        upperBound ? String(localized: "up to \(Format.bytes(bytes))", bundle: .airyCore) : Format.bytes(bytes)
     }
 
-    /// Suma de los elementos y si es solo un máximo (alguno es parcial).
+    /// Sum of the items and whether it is only a maximum (some are partial).
     public static func total(_ items: [CleanupItem]) -> (bytes: Int64, upperBound: Bool) {
         (items.reduce(0) { $0 + $1.bytes }, items.contains(where: isPartial))
     }
 
-    // MARK: Selección
+    // MARK: Selection
 
-    /// Tiene casilla si Airy puede actuar sobre él: ni "No tocar", ni protegido, ni solo informativo.
+    /// It has a checkbox if Airy can act on it: not "Do not touch", not protected, not informational only.
     public static func showsCheckbox(_ item: CleanupItem) -> Bool {
         guard item.risk != .doNotTouch, item.entry.risk != .doNotTouch, item.protection == nil else { return false }
         if case .info = item.entry.cleanup { return false }
         return true
     }
 
-    /// Se puede marcar ahora: con casilla, sin apps abiertas que lo bloqueen, sin proyectos que lo usen,
-    /// sin protección y sin otro bloqueo.
+    /// Can be checked now: with a checkbox, without open apps blocking it, without projects using it,
+    /// without protection and without any other block.
     public static func canSelect(_ item: CleanupItem) -> Bool {
         showsCheckbox(item) && item.blockedByOpenApps.isEmpty && item.usedBy.isEmpty
             && item.protection == nil && item.blockedReason == nil
     }
 
-    /// Lo verde que se puede limpiar ya.
+    /// The green items that can be cleaned right away.
     public var greenSelection: Set<String> { Set(readySafeItems.map(\.id)) }
 
-    /// «Seleccionar todo»: verde y ámbar que se pueden marcar. Nunca rojo, protegido, bloqueado ni informativo.
+    /// "Select all": green and amber items that can be checked. Never red, protected, blocked or informational.
     public var fullSelection: Set<String> {
         Set(items.filter { $0.risk != .doNotTouch && Self.canSelect($0) }.map(\.id))
     }
 
-    /// Tras una nueva detección: quita lo que ya no vale y marca los preseleccionados que el usuario aún no había
-    /// visto (`seen`), para no volver a marcar lo que desmarcó. Devuelve también el `seen` actualizado.
+    /// After a new detection: drops what no longer applies and checks the preselected items the user had not
+    /// seen yet (`seen`), so as not to re-check what they unchecked. Also returns the updated `seen`.
     public func nextSelection(current: Set<String>, seen: Set<String>) -> (selection: Set<String>, seen: Set<String>) {
         var selection = pruned(current)
         var seenNow = seen
@@ -124,23 +124,23 @@ public struct CleanupBoard: Sendable {
         return (selection, seenNow)
     }
 
-    /// «Borrar todo · 3,2 GB» o «Borrar todo · hasta 3,2 GB» si alguna limpieza es parcial.
+    /// "Delete all · 3.2 GB", or "Delete all · up to 3.2 GB" if some cleanup is partial.
     public static func deleteAllTitle(_ items: [CleanupItem]) -> String {
         let sum = total(items)
-        return "Borrar todo · " + amountText(sum.bytes, upperBound: sum.upperBound)
+        return String(localized: "Delete all · \(amountText(sum.bytes, upperBound: sum.upperBound))", bundle: .airyCore)
     }
 
-    public static let reviewBlockTitle = "Revisa: esto no se regenera solo o puede tener estado"
+    public static var reviewBlockTitle: String { String(localized: "Review: this does not regenerate by itself or may hold state", bundle: .airyCore) }
 
-    /// Confirmación única: `regular` = verde; `review` = ámbar, en el orden recibido. Lo quitado (`removed`) y lo
-    /// que no se puede marcar (rojo, protegido, bloqueado) no entran.
+    /// Single confirmation: `regular` = green; `review` = amber, in the order received. What was removed (`removed`) and
+    /// what cannot be checked (red, protected, blocked) are left out.
     public static func confirmSections(_ items: [CleanupItem], excluding removed: Set<String>)
         -> (regular: [CleanupItem], review: [CleanupItem]) {
         let kept = items.filter { !removed.contains($0.id) && canSelect($0) }
         return (kept.filter { $0.risk == .safe }, kept.filter { $0.risk == .yourCall })
     }
 
-    /// Los marcados que siguen siendo válidos, en el orden de la pantalla.
+    /// The checked items that are still valid, in screen order.
     public func selected(_ ids: Set<String>) -> [CleanupItem] {
         items.filter { ids.contains($0.id) && Self.canSelect($0) }
     }
@@ -149,12 +149,12 @@ public struct CleanupBoard: Sendable {
         selected(ids).reduce(0) { $0 + $1.bytes }
     }
 
-    /// La selección sin lo que ya no existe o ya no se puede marcar (tras una nueva detección).
+    /// The selection without what no longer exists or can no longer be checked (after a new detection).
     public func pruned(_ ids: Set<String>) -> Set<String> {
         Set(selected(ids).map(\.id))
     }
 
-    // MARK: Textos
+    // MARK: Texts
 
     private static let knownApps: [String: String] = [
         "com.spotify.client": "Spotify",
@@ -165,60 +165,61 @@ public struct CleanupBoard: Sendable {
         "com.openai.chat": "ChatGPT",
     ]
 
-    /// Nombre legible de una app a partir de su bundle ID (la vista prefiere el de la app abierta).
+    /// Readable name of an app from its bundle ID (the view prefers the open app's own name).
     public static func appName(forBundleID bundleID: String) -> String {
         if let known = knownApps[bundleID] { return known }
         return bundleID.split(separator: ".").last.map(String.init) ?? bundleID
     }
 
-    /// "Cierra Spotify para limpiar esto" (o "Cierra A, B y C …").
+    /// "Quit Spotify to clean this" (or "Quit A, B and C …").
     public static func blockedMessage(appNames: [String]) -> String? {
         guard !appNames.isEmpty else { return nil }
-        return "Cierra \(spanishList(appNames)) para limpiar esto"
+        return String(localized: "Quit \(naturalList(appNames)) to clean this", bundle: .airyCore)
     }
 
-    /// "Lo usa: ~/Projects/app/main.py" (como mucho tres rutas y "y N más").
+    /// "Used by: ~/Projects/app/main.py" (at most three paths and "and N more").
     public static func usedByMessage(_ usedBy: [String], home: String = NSHomeDirectory()) -> String? {
         guard !usedBy.isEmpty else { return nil }
         let shown = usedBy.prefix(3).map { Format.tildePath($0, home: home) }
         let rest = usedBy.count - shown.count
-        return "Lo usa: " + shown.joined(separator: ", ") + (rest > 0 ? " y \(rest) más" : "")
+        let list = shown.joined(separator: ", ")
+        return rest > 0 ? String(localized: "Used by: \(list) and \(rest) more", bundle: .airyCore) : String(localized: "Used by: \(list)", bundle: .airyCore)
     }
 
-    /// "A la Papelera", "Comando oficial: docker builder prune -a -f" o "Solo informativo".
+    /// "To the Trash", "Official command: docker builder prune -a -f" or "Informational only".
     public static func methodDescription(_ method: CleanupMethod) -> String {
         switch method {
-        case .trash: "A la Papelera"
-        case .info: "Solo informativo"
-        case .command: "Comando oficial: " + (commandLine(method) ?? "")
+        case .trash: String(localized: "To the Trash", bundle: .airyCore)
+        case .info: String(localized: "Informational only", bundle: .airyCore)
+        case .command: String(localized: "Official command: \(commandLine(method) ?? "")", bundle: .airyCore)
         }
     }
 
-    /// La orden tal como se ejecuta (ejecutable y argumentos), escrita para leerla; `nil` si no es un comando.
-    /// Solo es texto: la app la ejecuta con `Process` y un array de argumentos, nunca con un shell.
+    /// The command as it runs (executable and arguments), written to be read; `nil` if it is not a command.
+    /// It is only text: the app runs it with `Process` and an argument array, never through a shell.
     public static func commandLine(_ method: CleanupMethod) -> String? {
         guard case .command(let executable, let arguments, _) = method else { return nil }
         return ([executable] + arguments).map(displayQuoted).joined(separator: " ")
     }
 
-    /// La orden de una vista previa (`CleanupPreview.wouldRun`), con el mismo entrecomillado.
+    /// The command of a preview (`CleanupPreview.wouldRun`), with the same quoting.
     public static func commandLine(_ argv: [String]) -> String {
         argv.map(displayQuoted).joined(separator: " ")
     }
 
-    /// Por qué una fila con casilla no se puede limpiar ahora (procesos abiertos, comprobación
-    /// incompleta…), para enseñarlo en la propia fila. `nil` si no está bloqueada así o está protegida
-    /// (entonces lo dice `protectionText`).
+    /// Why a row with a checkbox cannot be cleaned right now (open processes, incomplete
+    /// check…), to show it in the row itself. `nil` if it is not blocked that way or is protected
+    /// (then `protectionText` says so).
     public static func blockedReasonText(_ item: CleanupItem) -> String? {
         guard item.protection == nil, let reason = item.blockedReason, !reason.isEmpty else { return nil }
         return reason
     }
 
-    /// Qué dice una fila protegida: «Protegido por ti» o «Protegido por Airy: <motivo>».
+    /// What a protected row says: "Protected by you" or "Protected by Airy: <reason>".
     public static func protectionText(_ protection: ProtectionMatch) -> String {
         switch protection.source {
-        case .user: "Protegido por ti"
-        case .airy: "Protegido por Airy: \(protection.reason)"
+        case .user: String(localized: "Protected by you", bundle: .airyCore)
+        case .airy: String(localized: "Protected by Airy: \(protection.reason)", bundle: .airyCore)
         }
     }
 
@@ -229,8 +230,8 @@ public struct CleanupBoard: Sendable {
         return "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    /// Dónde está lo que se va a tocar: la ruta, "primera · y N más", o "Todo lo que hay en
-    /// ~/Library/Logs (N elementos)" cuando son todos los hijos de un patrón `carpeta/*` del catálogo.
+    /// Where what is about to be touched lives: the path, "first · and N more", or "Everything in
+    /// ~/Library/Logs (N items)" when they are all the children of a catalog `folder/*` pattern.
     public static func locationSummary(_ item: CleanupItem, home: String = NSHomeDirectory()) -> String? {
         let paths = item.paths
         guard let first = paths.first else { return nil }
@@ -245,14 +246,14 @@ public struct CleanupBoard: Sendable {
         }
         if wildcardParents.contains(parent),
            paths.allSatisfy({ ($0 as NSString).deletingLastPathComponent == parent }) {
-            return "Todo lo que hay en \(Format.tildePath(parent, home: home)) (\(paths.count) elementos)"
+            return String(localized: "Everything in \(Format.tildePath(parent, home: home)) (\(paths.count) items)", bundle: .airyCore)
         }
-        return "\(Format.tildePath(first, home: home)) · y \(paths.count - 1) más"
+        return String(localized: "\(Format.tildePath(first, home: home)) · and \(paths.count - 1) more", bundle: .airyCore)
     }
 
-    /// El elemento solo con las rutas que siguen existiendo (las que desaparecieron desde la
-    /// detección no bloquean el resto); `nil` si no queda ninguna. Sin rutas (comandos), tal cual.
-    /// El ejecutor vuelve a validar cada ruta que queda.
+    /// The item with only the paths that still exist (those that vanished since the
+    /// detection do not block the rest); `nil` if none is left. Without paths (commands), as is.
+    /// The executor validates every remaining path again.
     public static func withExistingPaths(_ item: CleanupItem, exists: (String) -> Bool) -> CleanupItem? {
         guard !item.paths.isEmpty else { return item }
         var copy = item
@@ -262,19 +263,20 @@ public struct CleanupBoard: Sendable {
 
     public static func yourCallNote(count: Int) -> String {
         count == 1
-            ? "Incluye 1 elemento marcado «Tú decides»: perderás algo al borrarlo."
-            : "Incluye \(count) elementos marcados «Tú decides»: perderás algo al borrarlo."
+            ? String(localized: "Includes 1 item marked “Your call”: you will lose something by deleting it.", bundle: .airyCore)
+            : String(localized: "Includes \(count) items marked “Your call”: you will lose something by deleting them.", bundle: .airyCore)
     }
 
-    static func spanishList(_ names: [String]) -> String {
+    /// "A, B and C" in the language in use ("A, B y C" in Spanish).
+    static func naturalList(_ names: [String]) -> String {
         guard names.count > 1 else { return names.first ?? "" }
-        return names.dropLast().joined(separator: ", ") + " y " + names.last!
+        return names.formatted(.list(type: .and).locale(Format.locale))
     }
 }
 
-// MARK: - Ejecución en lote
+// MARK: - Batch execution
 
-/// Resultado de una tanda de limpiezas, contado con honestidad: lo que fue a la Papelera no está liberado.
+/// Result of a batch of cleanups, counted honestly: what went to the Trash is not freed.
 public struct CleanupRunSummary: Sendable, Equatable {
     public struct Problem: Sendable, Equatable, Identifiable {
         public let title: String
@@ -289,7 +291,7 @@ public struct CleanupRunSummary: Sendable, Equatable {
     public var successes: [Success] = []
     public var problems: [Problem] = []
 
-    /// Una limpieza que salió bien: título y qué pasó («Liberados 2 GB» / «1,2 GB a la Papelera»).
+    /// A cleanup that went well: title and what happened ("Freed 2 GB" / "1.2 GB to the Trash").
     public struct Success: Sendable, Equatable, Identifiable {
         public let title: String
         public let text: String
@@ -304,11 +306,11 @@ public struct CleanupRunSummary: Sendable, Equatable {
         case .freed(let bytes):
             freed += bytes
             succeededIDs.append(id)
-            successes.append(Success(title: title, text: "Liberados \(Format.bytes(bytes))"))
+            successes.append(Success(title: title, text: String(localized: "Freed \(Format.bytes(bytes))", bundle: .airyCore)))
         case .movedToTrash(let bytes):
             movedToTrash += bytes
             succeededIDs.append(id)
-            successes.append(Success(title: title, text: "\(Format.bytes(bytes)) a la Papelera"))
+            successes.append(Success(title: title, text: String(localized: "\(Format.bytes(bytes)) to the Trash", bundle: .airyCore)))
         case .blocked(let reason):
             problems.append(Problem(title: title, message: reason))
         case .failed(let message):
@@ -316,21 +318,21 @@ public struct CleanupRunSummary: Sendable, Equatable {
         }
     }
 
-    /// Frase de resultado, o `nil` si nada salió bien.
+    /// Result sentence, or `nil` if nothing went well.
     public var headline: String? {
         guard !succeededIDs.isEmpty else { return nil }
         switch (freed > 0, movedToTrash > 0) {
-        case (true, true): return "Liberados \(Format.bytes(freed)) · \(Format.bytes(movedToTrash)) en la Papelera"
-        case (true, false): return "Liberados \(Format.bytes(freed))"
-        case (false, true): return "\(Format.bytes(movedToTrash)) en la Papelera. Se libera al vaciarla."
-        case (false, false): return "Hecho. El espacio libre no ha cambiado de forma apreciable."
+        case (true, true): return String(localized: "Freed \(Format.bytes(freed)) · \(Format.bytes(movedToTrash)) in the Trash", bundle: .airyCore)
+        case (true, false): return String(localized: "Freed \(Format.bytes(freed))", bundle: .airyCore)
+        case (false, true): return String(localized: "\(Format.bytes(movedToTrash)) in the Trash. It is freed when you empty it.", bundle: .airyCore)
+        case (false, false): return String(localized: "Done. The free space has not changed noticeably.", bundle: .airyCore)
         }
     }
 }
 
 public enum CleanupBatch {
-    /// Ejecuta los elementos de uno en uno, en orden (cada uno revalida justo antes de actuar).
-    /// `onStart` recibe el índice del que empieza. En el hilo principal: lo maneja la interfaz.
+    /// Runs the items one by one, in order (each one revalidates right before acting).
+    /// `onStart` receives the index of the one starting. On the main thread: the UI drives it.
     @MainActor
     public static func run(
         _ items: [CleanupItem],
@@ -346,27 +348,27 @@ public enum CleanupBatch {
     }
 }
 
-// MARK: - Tras vaciar la Papelera
+// MARK: - After emptying the Trash
 
 public enum TrashFollowUp {
-    /// Si el espacio libre sube menos de esta fracción de lo esperado, algo lo retiene.
+    /// If free space rises less than this fraction of what was expected, something is holding it.
     public static let expectedRiseFraction = 0.8
     public static let snapshotEntryID = "time-machine-snapshots"
 
-    /// `true` si conviene explicar las instantáneas locales: se sabía cuánto había en la Papelera,
-    /// el espacio libre no subió al menos el 80 % de eso y `tmutil` lista instantáneas.
+    /// `true` if local snapshots are worth explaining: the Trash size was known,
+    /// free space did not rise by at least 80% of that and `tmutil` lists snapshots.
     public static func shouldExplainSnapshots(expectedBytes: Int64?, freeBefore: Int64, freeAfter: Int64,
                                               snapshotCount: Int) -> Bool {
         guard let expectedBytes, expectedBytes > 0, snapshotCount > 0 else { return false }
         return Double(freeAfter - freeBefore) < Double(expectedBytes) * expectedRiseFraction
     }
 
-    /// Lo que se esperaba liberar y no apareció como espacio libre.
+    /// What was expected to be freed and did not show up as free space.
     public static func retainedBytes(expectedBytes: Int64, freeBefore: Int64, freeAfter: Int64) -> Int64 {
         max(0, expectedBytes - max(0, freeAfter - freeBefore))
     }
 
-    /// Elemento de limpieza para la ficha `time-machine-snapshots` del catálogo vivo.
+    /// Cleanup item for the live catalog's `time-machine-snapshots` entry.
     public static func snapshotItem(catalog: Catalog, retainedBytes: Int64) -> CleanupItem? {
         guard let entry = catalog.entry(id: snapshotEntryID) else { return nil }
         return CleanupItem(id: entry.id, entry: entry, paths: [], bytes: max(0, retainedBytes), risk: entry.risk,

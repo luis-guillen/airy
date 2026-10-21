@@ -16,48 +16,48 @@ public struct CommandOutput: Sendable, Equatable {
 public enum CommandError: Error, Sendable, CustomStringConvertible {
     case timedOut(executable: String, seconds: TimeInterval)
     case launchFailed(executable: String, message: String)
-    /// Una línea de la salida en streaming superó `limit` bytes.
+    /// A line of the streamed output exceeded `limit` bytes.
     case lineTooLong(executable: String, limit: Int)
 
     public var description: String {
         switch self {
         case .timedOut(let executable, let seconds):
-            "\((executable as NSString).lastPathComponent) no terminó en \(Int(seconds)) s y se detuvo."
+            String(localized: "\((executable as NSString).lastPathComponent) did not finish in \(Int(seconds)) s and was stopped.", bundle: .airyCore)
         case .launchFailed(let executable, let message):
-            "No se pudo ejecutar \((executable as NSString).lastPathComponent): \(message)"
+            String(localized: "Could not run \((executable as NSString).lastPathComponent): \(message)", bundle: .airyCore)
         case .lineTooLong(let executable, let limit):
-            "\((executable as NSString).lastPathComponent) escribió una línea de más de \(limit / 1_048_576) MB y se detuvo."
+            String(localized: "\((executable as NSString).lastPathComponent) wrote a line longer than \(limit / 1_048_576) MB and was stopped.", bundle: .airyCore)
         }
     }
 }
 
-/// Ejecuta herramientas externas. Siempre con array de argumentos: nunca una cadena de shell.
+/// Runs external tools. Always with an argument array: never a shell string.
 public protocol CommandRunning: Sendable {
-    /// `executable` es una ruta absoluta (resuelta con `resolve`).
+    /// `executable` is an absolute path (resolved with `resolve`).
     func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput
-    /// Igual que `run`, con texto para la entrada estándar y directorio de trabajo opcionales.
+    /// Same as `run`, with optional standard input text and working directory.
     func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
              timeout: TimeInterval) async throws -> CommandOutput
-    /// Salida estándar línea a línea (sin el salto final) según llega. El plazo cubre toda la ejecución;
-    /// al cancelar el consumo se mata el proceso. El código de salida no se comunica.
+    /// Standard output line by line (without the final line break) as it arrives. The time limit covers the whole run;
+    /// cancelling the consumer kills the process. The exit code is not reported.
     func stream(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
                 timeout: TimeInterval) -> AsyncThrowingStream<String, Error>
-    /// Ruta absoluta de una herramienta por su nombre simple, o `nil` si no está instalada.
+    /// Absolute path of a tool by its bare name, or `nil` if it is not installed.
     func resolve(_ executable: String) async -> String?
 }
 
 extension CommandRunning {
-    /// Por defecto (dobles de prueba antiguos) no admite `stdin` ni directorio: lanza en vez de ignorarlos.
+    /// By default (old test doubles) it does not accept `stdin` nor a directory: it throws instead of ignoring them.
     public func run(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
                     timeout: TimeInterval) async throws -> CommandOutput {
         guard stdin == nil, workingDirectory == nil else {
             throw CommandError.launchFailed(
-                executable: executable, message: "este ejecutor no admite entrada estándar ni directorio de trabajo")
+                executable: executable, message: "this runner does not support standard input or a working directory")
         }
         return try await run(executable, arguments, timeout: timeout)
     }
 
-    /// Por defecto: ejecuta entero y emite las líneas de la salida al final.
+    /// By default: runs to completion and emits the output lines at the end.
     public func stream(_ executable: String, _ arguments: [String], stdin: String?, workingDirectory: String?,
                        timeout: TimeInterval) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
@@ -78,7 +78,7 @@ extension CommandRunning {
     }
 }
 
-/// Bandera de cancelación compartida entre el consumidor y el hilo que espera al proceso.
+/// Cancellation flag shared between the consumer and the thread waiting for the process.
 final class CancelFlag: Sendable {
     private let value = Mutex(false)
     func set() { value.withLock { $0 = true } }
@@ -86,7 +86,7 @@ final class CancelFlag: Sendable {
 }
 
 public struct ProcessRunner: CommandRunning {
-    /// Directorios extra que el PATH del sistema no suele incluir (`~` se expande).
+    /// Extra directories the system PATH does not usually include (`~` is expanded).
     public static let fallbackPatterns = [
         "~/anaconda3/bin", "~/miniconda3/bin", "/opt/homebrew/bin", "/usr/local/bin",
         "~/.local/bin", "~/.cargo/bin", "~/Library/pnpm",
@@ -96,7 +96,7 @@ public struct ProcessRunner: CommandRunning {
     private let searchPath: [String]?
     private let home: String
 
-    /// `searchPath` sustituye la búsqueda (PATH del sistema + respaldo); útil en pruebas.
+    /// `searchPath` replaces the lookup (system PATH + fallback); useful in tests.
     public init(searchPath: [String]? = nil, home: String = NSHomeDirectory()) {
         self.searchPath = searchPath
         self.home = home
@@ -107,10 +107,10 @@ public struct ProcessRunner: CommandRunning {
         return fallbackPatterns.map { $0.hasPrefix("~/") ? base + $0.dropFirst(1) : $0 }
     }
 
-    /// Dónde se buscan las herramientas, sin lanzar ninguna shell (nunca se ejecutan los ficheros de
-    /// arranque del usuario): `/etc/paths`, cada fichero de `/etc/paths.d` (en orden alfabético, como
-    /// `path_helper`), el PATH con el que se abrió la app y los directorios de respaldo. Sin duplicados
-    /// y solo rutas absolutas.
+    /// Where tools are looked for, without launching any shell (the user's startup files are never
+    /// run): `/etc/paths`, each file in `/etc/paths.d` (in alphabetical order, like
+    /// `path_helper`), the PATH the app was opened with and the fallback directories. Without duplicates
+    /// and absolute paths only.
     public static func systemSearchPath(home: String, environmentPath: String?,
                                         etcPaths: String = "/etc/paths",
                                         etcPathsDirectory: String = "/etc/paths.d") -> [String] {
@@ -131,14 +131,14 @@ public struct ProcessRunner: CommandRunning {
     }
 
     public func resolve(_ executable: String) async -> String? {
-        // Solo nombres simples: el catálogo nunca trae rutas.
+        // Bare names only: the catalog never brings paths.
         guard !executable.isEmpty, !executable.contains("/") else { return nil }
         let dirs = searchPath ?? Self.systemSearchPath(
             home: home, environmentPath: ProcessInfo.processInfo.environment["PATH"])
         for dir in dirs where dir.hasPrefix("/") {
             let candidate = (dir as NSString).appendingPathComponent(executable)
             var info = stat()
-            // `stat` sigue el enlace (Homebrew instala enlaces); se exige fichero regular ejecutable.
+            // `stat` follows the link (Homebrew installs links); a regular executable file is required.
             guard stat(candidate, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else { continue }
             if access(candidate, X_OK) == 0 { return candidate }
         }
@@ -187,17 +187,17 @@ public struct ProcessRunner: CommandRunning {
         }
     }
 
-    /// Máximo de una línea en streaming (protege la memoria ante una salida sin saltos de línea).
+    /// Maximum length of a streamed line (protects memory against output without line breaks).
     static let maxStreamLineBytes = 4 * 1_048_576
 
-    /// Tras salir el proceso, cuánto se espera a que se cierren las tuberías (nietos que las heredan).
+    /// After the process exits, how long to wait for the pipes to close (grandchildren that inherit them).
     static let drainGrace: TimeInterval = 2
 
-    /// `posix_spawn` en un grupo de procesos propio para poder matar también a los nietos.
-    /// Las tuberías se leen con `poll` y nunca más allá del plazo.
-    /// `stdin` se escribe en un fichero temporal privado (0600) que se borra nada más lanzar el proceso:
-    /// así no hay tubería de entrada que pueda bloquear ni provocar SIGPIPE.
-    /// Con `onLine`, la salida estándar se entrega por líneas y no se acumula en el resultado.
+    /// `posix_spawn` in its own process group so that grandchildren can be killed too.
+    /// The pipes are read with `poll` and never past the time limit.
+    /// `stdin` is written to a private temporary file (0600) that is deleted as soon as the process is launched:
+    /// that way there is no input pipe that could block or cause SIGPIPE.
+    /// With `onLine`, standard output is delivered line by line and not accumulated in the result.
     private static func runBlocking(_ executable: String, _ arguments: [String], stdin: String?,
                                     workingDirectory: String?, timeout: TimeInterval, cancel: CancelFlag?,
                                     onLine: ((String) -> Void)?) throws -> CommandOutput {
@@ -244,7 +244,7 @@ public struct ProcessRunner: CommandRunning {
         var attributes: posix_spawnattr_t?
         posix_spawnattr_init(&attributes)
         defer { posix_spawnattr_destroy(&attributes) }
-        // Grupo propio (pgid = pid), solo los descriptores 0-2 y señales por defecto en el hijo.
+        // Own group (pgid = pid), only descriptors 0-2 and default signals in the child.
         let flags = POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF
             | POSIX_SPAWN_SETSIGMASK
         posix_spawnattr_setflags(&attributes, Int16(flags))
@@ -264,7 +264,7 @@ public struct ProcessRunner: CommandRunning {
         var pid: pid_t = 0
         let spawnResult = posix_spawn(&pid, executable, &actions, &attributes, argv, envp)
         close(outPipe[1]); close(errPipe[1])
-        // El hijo ya tiene abierta su entrada: el fichero temporal sobra.
+        // The child already has its input open: the temporary file is no longer needed.
         if let stdinFile { unlink(stdinFile) }
         guard spawnResult == 0 else {
             close(outPipe[0]); close(errPipe[0])
@@ -294,7 +294,7 @@ public struct ProcessRunner: CommandRunning {
                 throw CommandError.timedOut(executable: executable, seconds: timeout)
             }
             if let exitedAt, now >= min(deadline, exitedAt.addingTimeInterval(drainGrace)) {
-                // El proceso terminó pero un nieto retiene la salida: se mata el grupo y se devuelve lo leído.
+                // The process ended but a grandchild holds the output: kill the group and return what was read.
                 kill(-pid, SIGKILL)
                 break
             }
@@ -324,7 +324,7 @@ public struct ProcessRunner: CommandRunning {
             buffers[0].removeAll()
         }
 
-        // Estado al estilo de la shell: código de salida, o 128 + señal.
+        // Shell-style status: exit code, or 128 + signal.
         let signal = status & 0x7f
         let code = signal == 0 ? (status >> 8) & 0xff : 128 + signal
         return CommandOutput(
@@ -333,7 +333,7 @@ public struct ProcessRunner: CommandRunning {
             stderr: String(decoding: buffers[1], as: UTF8.self))
     }
 
-    /// Entrega las líneas completas del búfer (sin `\n` ni `\r` final) y deja el resto.
+    /// Delivers the buffer's complete lines (without the trailing `\n` or `\r`) and keeps the rest.
     private static func emitLines(_ buffer: inout Data, _ onLine: (String) -> Void) {
         while let newline = buffer.firstIndex(of: 0x0A) {
             var line = buffer[buffer.startIndex..<newline]
@@ -343,7 +343,7 @@ public struct ProcessRunner: CommandRunning {
         }
     }
 
-    /// SIGTERM al grupo, espera hasta 2 s y SIGKILL; recoge siempre al hijo.
+    /// SIGTERM to the group, wait up to 2 s and SIGKILL; always reaps the child.
     private static func terminateGroup(_ pid: pid_t, reaped: Bool) {
         kill(-pid, SIGTERM)
         var status: Int32 = 0

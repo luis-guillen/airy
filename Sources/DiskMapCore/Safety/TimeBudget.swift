@@ -1,16 +1,16 @@
 import Foundation
 
-/// Presupuestos de tiempo de las comprobaciones previas a limpiar.
+/// Time budgets of the checks before cleaning.
 public enum TimeBudget {
     public static let processScan: Duration = .seconds(3)
     public static let sizeMeasure: Duration = .seconds(30)
     public static let references: TimeInterval = 10
-    /// Detección de versiones de herramientas de desarrollo (inventario, uso, `brew uses`).
+    /// Detection of development tool versions (inventory, usage, `brew uses`).
     public static let toolchains: Duration = .seconds(20)
 
-    /// Resultado de `operation`, o `nil` si no termina a tiempo (la tarea se cancela).
-    /// No usa un grupo de tareas: un grupo esperaría a una llamada bloqueante (libproc) aunque haya vencido el plazo.
-    /// Si la operación no coopera con la cancelación, queda abandonada en segundo plano, pero quien llama vuelve ya.
+    /// Result of `operation`, or `nil` if it does not finish in time (the task is cancelled).
+    /// It does not use a task group: a group would wait for a blocking call (libproc) even after the deadline.
+    /// If the operation does not cooperate with cancellation, it is left running in the background, but the caller returns right away.
     public static func run<T: Sendable>(
         _ limit: Duration, _ operation: @escaping @Sendable () async -> T
     ) async -> T? {
@@ -30,7 +30,7 @@ public enum TimeBudget {
         }
     }
 
-    /// Reanuda la continuación exactamente una vez y cancela las tareas en carrera.
+    /// Resumes the continuation exactly once and cancels the racing tasks.
     private final class Gate<T: Sendable>: @unchecked Sendable {
         private let lock = NSLock()
         private var continuation: CheckedContinuation<T?, Never>?

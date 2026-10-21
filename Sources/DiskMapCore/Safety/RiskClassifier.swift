@@ -1,17 +1,17 @@
 import Foundation
 
-/// Veredicto del clasificador para una ficha (con sus rutas) o para una ruta suelta.
+/// The classifier's verdict for an entry (with its paths) or for a loose path.
 public struct Classification: Sendable, Equatable {
     public var risk: Risk
-    /// Se marca de entrada en la vista Limpieza.
+    /// Starts checked in the Cleanup view.
     public var preselected: Bool
-    /// Coincide con algún perfil de uso del usuario (solo se destaca; nunca cambia el riesgo).
+    /// Matches one of the user's usage profiles (only highlighted; it never changes the risk).
     public var highlighted: Bool
-    /// Protección que deja el elemento en «No tocar» (`nil` si no la hay o solo se quitaron algunas rutas).
+    /// Protection that leaves the item as "Do not touch" (`nil` if there is none or only some paths were removed).
     public var protection: ProtectionMatch?
-    /// Rutas que quedan tras quitar las protegidas (fichas de Papelera); el resto, las rutas dadas.
+    /// Paths left after removing the protected ones (Trash entries); otherwise, the given paths.
     public var keptPaths: [String]
-    /// Motivos visibles, en español, de lo que ha cambiado el riesgo o las rutas.
+    /// Visible reasons, localized, for what changed the risk or the paths.
     public var reasons: [String]
 
     public init(risk: Risk, preselected: Bool, highlighted: Bool, protection: ProtectionMatch?,
@@ -21,10 +21,10 @@ public struct Classification: Sendable, Equatable {
     }
 }
 
-/// Única fuente del riesgo: catálogo + modo + protecciones (duras y del usuario) + suelos por ruta + IA.
-/// Reglas: el perfil nunca toca el riesgo y la IA solo puede subirlo; lo protegido siempre es «No tocar».
-/// Solo `aggressiveRisk` puede bajar el riesgo del catálogo, y solo en fichas que se regeneran,
-/// nunca desde «No tocar» y nunca por debajo de los suelos de `RiskPolicy`.
+/// The single source of risk: catalog + mode + protections (hard and the user's) + per-path floors + AI.
+/// Rules: the profile never touches the risk and the AI can only raise it; what is protected is always "Do not touch".
+/// Only `aggressiveRisk` can lower the catalog's risk, and only for entries that regenerate,
+/// never from "Do not touch" and never below the `RiskPolicy` floors.
 public struct RiskClassifier: Sendable {
     private let catalog: Catalog
     private let settings: AirySettings
@@ -40,7 +40,7 @@ public struct RiskClassifier: Sendable {
         userList = ProtectList(patterns: settings.protectedPaths, home: self.home)
     }
 
-    /// Riesgo de la ficha según el modo, antes de protecciones, suelos e IA.
+    /// The entry's risk according to the mode, before protections, floors and AI.
     public func baseRisk(of entry: CatalogEntry) -> Risk {
         guard settings.mode == .aggressive, let aggressive = entry.aggressiveRisk else { return entry.risk }
         if aggressive > entry.risk { return aggressive }
@@ -48,11 +48,11 @@ public struct RiskClassifier: Sendable {
         return entry.risk
     }
 
-    /// `floor`: guardia de la fuente de objetivos (p. ej. un proyecto con claves); solo sube el riesgo.
+    /// `floor`: guard from the target source (e.g. a project with keys); it only raises the risk.
     public func classify(entry: CatalogEntry, paths: [String], ai: Risk? = nil, floor: Risk? = nil) -> Classification {
         let base = baseRisk(of: entry)
         var reasons: [String] = []
-        if base != entry.risk { reasons.append("Modo \(settings.mode.title): «\(base.label)».") }
+        if base != entry.risk { reasons.append(String(localized: "\(settings.mode.title) mode: “\(base.label)”.", bundle: .airyCore)) }
 
         var kept = paths
         var protection: ProtectionMatch?
@@ -61,13 +61,13 @@ public struct RiskClassifier: Sendable {
             kept = []
             for path in paths {
                 if let match = self.protection(for: path) {
-                    reasons.append("Se deja fuera \(Format.tildePath(path, home: home)): \(match.reason)")
+                    reasons.append(String(localized: "Leaving out \(Format.tildePath(path, home: home)): \(match.reason)", bundle: .airyCore))
                     protection = protection ?? match
                 } else {
                     kept.append(path)
                 }
             }
-            // Si queda alguna ruta, el elemento sigue siendo válido sin las protegidas.
+            // If some path remains, the item stays valid without the protected ones.
             if !kept.isEmpty { protection = nil }
         case .command, .info:
             for path in paths {
@@ -90,7 +90,7 @@ public struct RiskClassifier: Sendable {
             protection: protection, keptPaths: kept, reasons: reasons)
     }
 
-    /// Riesgo de una ruta suelta (mapa, IA): su ficha del catálogo si la hay, protecciones y suelos.
+    /// The risk of a loose path (map, AI): its catalog entry if any, protections and floors.
     public func classify(path: String, ai: Risk? = nil) -> Classification {
         let entry = catalog.match(path: path, home: home)
         let highlighted = entry.map(highlighted) ?? false
@@ -104,14 +104,14 @@ public struct RiskClassifier: Sendable {
             highlighted: highlighted, protection: nil, keptPaths: [path], reasons: [])
     }
 
-    // MARK: - Piezas
+    // MARK: - Pieces
 
-    /// Protección dura primero, luego la del usuario; ambas cubren la ruta, lo de dentro y las superiores.
+    /// Hard protection first, then the user's; both cover the path, what is inside and the parents.
     private func protection(for path: String) -> ProtectionMatch? {
         let canonical = RiskPolicy.canonical(path)
         if let hard = protections.match(canonicalPath: canonical, home: home, catalog: catalog) { return hard }
         if let pattern = userList.match(canonical) {
-            return ProtectionMatch(source: .user, pattern: pattern, reason: "Lo has protegido tú (\(pattern)).")
+                return ProtectionMatch(source: .user, pattern: pattern, reason: String(localized: "You protected it (\(pattern)).", bundle: .airyCore))
         }
         return nil
     }

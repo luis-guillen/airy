@@ -1,9 +1,9 @@
 import Foundation
 import Synchronization
 
-/// Busca los restos de una app en la carpeta personal (y, solo para informar, en `/Library`) y arma el plan
-/// de desinstalación con su tamaño real. Los restos se deducen del identificador de la app y de sus ayudantes
-/// (y, con menos confianza, de su nombre); nunca del destino de un enlace.
+/// Finds an app's leftovers in the home folder (and, for information only, in `/Library`) and builds the
+/// uninstall plan with its real size. Leftovers are deduced from the identifier of the app and its helpers
+/// (and, with less confidence, from its name); never from a link's target.
 public struct LeftoverFinder: Sendable {
     private let home: String
     private let gate: PathGate
@@ -25,23 +25,23 @@ public struct LeftoverFinder: Sendable {
     static let pkgutil = "/usr/sbin/pkgutil"
     static let pkgutilTimeout: TimeInterval = 10
 
-    // MARK: - Tabla de ubicaciones
+    // MARK: - Location table
 
     private enum Match { case id, name }
 
-    /// Una fila de la tabla: carpeta bajo `~/Library` y cómo reconoce una entrada (en minúsculas).
+    /// A row of the table: a folder under `~/Library` and how it recognizes an entry (in lowercase).
     private struct Row: Sendable {
         let kind: Leftover.Kind
         let folder: String
         let risk: Risk
         let preselected: Bool
         let reason: String
-        /// La fila coincide por id y por nombre (la coincidencia solo por nombre baja de confianza).
+        /// The row matches by id and by name (a name-only match lowers the confidence).
         var byIDAndName = false
         let match: @Sendable (_ entry: String, _ ids: [String], _ names: Set<String>) -> Match?
     }
 
-    /// `x + suffix` exacto para algún id (o, si `names`, algún nombre).
+    /// Exact `x + suffix` for some id (or, if `names`, some name).
     private static func exact(_ suffixes: [String], names useNames: Bool = false)
         -> @Sendable (String, [String], Set<String>) -> Match? {
         { entry, ids, names in
@@ -55,42 +55,42 @@ public struct LeftoverFinder: Sendable {
         }
     }
 
-    private static let rows: [Row] = [
+    private static var rows: [Row] { [
         Row(kind: .appSupport, folder: "Application Support", risk: .yourCall, preselected: true,
-            reason: "Datos y ajustes de la app; si la reinstalas empezará de cero.", byIDAndName: true,
+            reason: String(localized: "App data and settings; if you reinstall it, it will start from scratch.", bundle: .airyCore), byIDAndName: true,
             match: exact([""], names: true)),
-        Row(kind: .caches, folder: "Caches", risk: .safe, preselected: true, reason: "Caché: se regenera.",
+        Row(kind: .caches, folder: "Caches", risk: .safe, preselected: true, reason: String(localized: "Cache: it regenerates.", bundle: .airyCore),
             byIDAndName: true, match: exact([""], names: true)),
         Row(kind: .containers, folder: "Containers", risk: .yourCall, preselected: true,
-            reason: "Datos de la app (sandbox).", match: exact([""])),
+            reason: String(localized: "App data (sandbox).", bundle: .airyCore), match: exact([""])),
         Row(kind: .preferences, folder: "Preferences", risk: .yourCall, preselected: true,
-            reason: "Ajustes de la app.", match: exact([".plist"])),
+            reason: String(localized: "App settings.", bundle: .airyCore), match: exact([".plist"])),
         Row(kind: .byHost, folder: "Preferences/ByHost", risk: .yourCall, preselected: true,
-            reason: "Ajustes de la app en este Mac.",
+            reason: String(localized: "App settings on this Mac.", bundle: .airyCore),
             match: { entry, ids, _ in
                 ids.contains { entry.hasPrefix($0 + ".") && entry.hasSuffix(".plist") } ? .id : nil
             }),
         Row(kind: .savedState, folder: "Saved Application State", risk: .safe, preselected: true,
-            reason: "Estado de ventanas: se regenera.", match: exact([".savedstate"])),
+            reason: String(localized: "Window state: it regenerates.", bundle: .airyCore), match: exact([".savedstate"])),
         Row(kind: .httpStorage, folder: "HTTPStorages", risk: .safe, preselected: true,
-            reason: "Datos de red de la app.", match: exact(["", ".binarycookies"])),
-        Row(kind: .logs, folder: "Logs", risk: .safe, preselected: true, reason: "Registros.", byIDAndName: true,
+            reason: String(localized: "The app's network data.", bundle: .airyCore), match: exact(["", ".binarycookies"])),
+        Row(kind: .logs, folder: "Logs", risk: .safe, preselected: true, reason: String(localized: "Logs.", bundle: .airyCore), byIDAndName: true,
             match: exact([""], names: true)),
-        Row(kind: .webKit, folder: "WebKit", risk: .safe, preselected: true, reason: "Caché web de la app.",
+        Row(kind: .webKit, folder: "WebKit", risk: .safe, preselected: true, reason: String(localized: "The app's web cache.", bundle: .airyCore),
             match: exact([""])),
         Row(kind: .webKit, folder: "WebKit/com.apple.WebKit.WebContent", risk: .safe, preselected: true,
-            reason: "Caché web de la app.", match: exact([""])),
-        Row(kind: .cookies, folder: "Cookies", risk: .safe, preselected: true, reason: "Cookies de la app.",
+            reason: String(localized: "The app's web cache.", bundle: .airyCore), match: exact([""])),
+        Row(kind: .cookies, folder: "Cookies", risk: .safe, preselected: true, reason: String(localized: "The app's cookies.", bundle: .airyCore),
             match: exact([".binarycookies"])),
         Row(kind: .applicationScripts, folder: "Application Scripts", risk: .yourCall, preselected: true,
-            reason: "Scripts de la app.", match: exact([""])),
+            reason: String(localized: "The app's scripts.", bundle: .airyCore), match: exact([""])),
         Row(kind: .autosave, folder: "Autosave Information", risk: .yourCall, preselected: false,
-            reason: "Puede tener documentos sin guardar.", match: exact([""])),
+            reason: String(localized: "It may hold unsaved documents.", bundle: .airyCore), match: exact([""])),
         Row(kind: .syncedPreferences, folder: "SyncedPreferences", risk: .yourCall, preselected: true,
-            reason: "Ajustes sincronizados.", match: exact([".plist"])),
-    ] + pluginRows
+            reason: String(localized: "Synced settings.", bundle: .airyCore), match: exact([".plist"])),
+    ] + pluginRows }
 
-    private static let pluginReason = "Otras apps pueden usar este complemento."
+    private static var pluginReason: String { String(localized: "Other apps may use this plug-in.", bundle: .airyCore) }
 
     private static var pluginRows: [Row] {
         let named: (String, String) -> Row = { folder, ext in
@@ -114,7 +114,7 @@ public struct LeftoverFinder: Sendable {
 
     // MARK: - Plan
 
-    /// Resto encontrado, antes de etiquetarlo.
+    /// A leftover found, before labelling it.
     private struct Candidate {
         let path: String
         let kind: Leftover.Kind
@@ -123,13 +123,13 @@ public struct LeftoverFinder: Sendable {
         var preselected: Bool
         var reason: String
         var launchLabel: String? = nil
-        /// Ruta de disco que se mide (no en los recibos).
+        /// Disk path that is measured (not for receipts).
         var measured = true
-        /// Nombre de otra app instalada cuyo identificador también reclama este resto.
+        /// Name of another installed app whose identifier also claims this leftover.
         var claimedBy: String? = nil
     }
 
-    /// Identificadores (en minúsculas) de las demás apps instaladas y sus ayudantes → nombre de la app.
+    /// Identifiers (lowercase) of the other installed apps and their helpers → app name.
     private struct OtherOwners {
         let owners: [(id: String, name: String)]
         let ownIDs: [String]
@@ -143,15 +143,15 @@ public struct LeftoverFinder: Sendable {
                     if !lower.isEmpty, seen.insert(lower).inserted { owners.append((lower, app.name)) }
                 }
             }
-            // El más largo primero: el dueño más concreto.
+            // Longest first: the most specific owner.
             self.owners = owners.sorted { $0.0.count != $1.0.count ? $0.0.count > $1.0.count : $0.0 < $1.0 }
             self.ownIDs = ownIDs
         }
 
-        /// La app instalada a la que también pertenece `entry` (en minúsculas). Gana el id más concreto que lo
-        /// nombra (`entry` es el id o empieza por `<id>.`): si el de otra app es igual de largo (compartido) o
-        /// más largo que el propio (`com.example.foo.pro` frente a `com.example.foo`), es de esa app; un id
-        /// más corto (`com.example`) no reclama lo que es de esta.
+        /// The installed app `entry` also belongs to (lowercase). The most specific id that names it
+        /// wins (`entry` is the id or starts with `<id>.`): if another app's id is just as long (shared) or
+        /// longer than our own (`com.example.foo.pro` versus `com.example.foo`), it belongs to that app; a shorter
+        /// id (`com.example`) does not claim what belongs to this one.
         func claimant(of entry: String) -> String? {
             func names(_ id: String) -> Bool { entry == id || entry.hasPrefix(id + ".") }
             let own = ownIDs.filter(names).map(\.count).max() ?? 0
@@ -159,7 +159,7 @@ public struct LeftoverFinder: Sendable {
         }
     }
 
-    /// Por qué Airy no desinstalaría esta app (mismo texto que `plan(for:).refusal`), sin buscar restos.
+    /// Why Airy would not uninstall this app (same text as `plan(for:).refusal`), without looking for leftovers.
     public func refusal(for app: AppRecord) -> String? {
         ProtectionWaiver.uninstall(app, appRoots: appRoots) == nil ? refusalText(for: app) : nil
     }
@@ -194,7 +194,7 @@ public struct LeftoverFinder: Sendable {
                     if row.byIDAndName, match == .name {
                         candidate.risk = .yourCall
                         candidate.preselected = false
-                        candidate.reason = "Coincide por nombre: revisa que sea de «\(app.name)»."
+                        candidate.reason = String(localized: "Matches by name: check that it belongs to “\(app.name)”.", bundle: .airyCore)
                     }
                     if match == .id { candidate.claimedBy = others.claimant(of: entry.lowercased()) }
                     add(candidate)
@@ -204,15 +204,15 @@ public struct LeftoverFinder: Sendable {
                 add(agent)
             }
         }
-        // Reglas 2 y 3: el embudo (con y sin dispensa) y el suelo por ruta.
+        // Rules 2 and 3: the funnel (with and without a waiver) and the per-path floor.
         candidates = candidates.map(labelled(waiver: waiver, appName: app.name))
-        // Nunca se selecciona lo que también es de otra app instalada.
+        // What also belongs to another installed app is never selected.
         candidates = candidates.map {
             guard let owner = $0.claimedBy else { return $0 }
             var copy = $0
             copy.risk = .doNotTouch
             copy.preselected = false
-            copy.reason = "Otra app instalada («\(owner)») también lo usa."
+            copy.reason = String(localized: "Another installed app (“\(owner)”) also uses it.", bundle: .airyCore)
             return copy
         }
         if !ids.isEmpty || !names.isEmpty {
@@ -220,16 +220,16 @@ public struct LeftoverFinder: Sendable {
         }
         for receipt in await receipts(for: app) { add(receipt) }
 
-        // Regla 4: otra copia instalada; y enlaces a apps fuera de las raíces: solo informativo.
+        // Rule 4: another installed copy; and links to apps outside the roots: informational only.
         let other = app.bundleID.isEmpty ? nil : otherApps.first {
             $0.bundleID.caseInsensitiveCompare(app.bundleID) == .orderedSame
         }
         let override: String? = if let other {
-            "Otra copia instalada en \(other.path) los usa."
+            String(localized: "Another copy installed at \(other.path) uses them.", bundle: .airyCore)
         } else if let refusal {
             refusal
         } else if linkIsInformational(app.path) {
-            "Es un enlace a una app que está fuera de Aplicaciones: sus datos no se tocan."
+            String(localized: "It is a link to an app outside Applications: its data is not touched.", bundle: .airyCore)
         } else {
             nil
         }
@@ -243,7 +243,7 @@ public struct LeftoverFinder: Sendable {
             }
         }
 
-        // Primero lo seleccionable: si se agota el tiempo, lo informativo es lo que queda sin medir.
+        // Selectable items first: if time runs out, the informational ones are what is left unmeasured.
         let measured = candidates.filter(\.measured)
         let (sizes, complete) = await measure([app.path] + measured.filter { $0.risk != .doNotTouch }.map(\.path)
                                               + measured.filter { $0.risk == .doNotTouch }.map(\.path))
@@ -268,7 +268,7 @@ public struct LeftoverFinder: Sendable {
                 if waiver != nil, gate.validate(candidate.path, waiver: nil).failure != nil {
                     result.risk = .strictest(result.risk, .yourCall)
                     result.preselected = false
-                    result.reason = "Datos de cuenta de «\(appName)»: si la reinstalas tendrás que volver a configurarla."
+                    result.reason = String(localized: "Account data of “\(appName)”: if you reinstall it you will have to set it up again.", bundle: .airyCore)
                 }
             }
             result.risk = .strictest(result.risk, RiskPolicy.minimumRisk(forPath: candidate.path, home: home))
@@ -277,10 +277,10 @@ public struct LeftoverFinder: Sendable {
         }
     }
 
-    // MARK: - Filas especiales
+    // MARK: - Special rows
 
-    /// `LaunchAgents/*.plist` cuyo `Label` es un id o empieza por `<id>.`, o cuyo programa está dentro del
-    /// `.app` (la ruta tal cual, sin seguir enlaces). Los plist ilegibles se saltan.
+    /// `LaunchAgents/*.plist` whose `Label` is an id or starts with `<id>.`, or whose program lies inside the
+    /// `.app` (the path as is, without following links). Unreadable plists are skipped.
     private func launchAgents(in folder: String, ids: [String], appPath: String, others: OtherOwners) -> [Candidate] {
         let bundle = RiskPolicy.canonical(appPath)
         var result: [Candidate] = []
@@ -297,13 +297,13 @@ public struct LeftoverFinder: Sendable {
             } ?? false
             guard byLabel || byProgram else { continue }
             result.append(Candidate(path: path, kind: .launchAgent, matchedByName: false, risk: .yourCall,
-                                    preselected: true, reason: "Se ejecuta al iniciar sesión; se detiene antes.",
+                                    preselected: true, reason: String(localized: "It runs at login; it is stopped first.", bundle: .airyCore),
                                     launchLabel: label, claimedBy: others.claimant(of: lower)))
         }
         return result
     }
 
-    /// Entradas de `/Library` que empiezan por un id o un nombre: solo informativas, nunca se borran.
+    /// `/Library` entries that start with an id or a name: informational only, never deleted.
     private func systemLocations(ids: [String], names: Set<String>) -> [Candidate] {
         var result: [Candidate] = []
         for sub in Self.systemFolders {
@@ -314,20 +314,20 @@ public struct LeftoverFinder: Sendable {
                 guard byID || names.contains(where: { Self.startsWord(lower, $0) }) else { continue }
                 result.append(Candidate(path: folder + "/" + entry, kind: .systemLocation, matchedByName: !byID,
                                         risk: .doNotTouch, preselected: false,
-                                        reason: "Fuera de tu carpeta personal: Airy no lo borra."))
+                                        reason: String(localized: "Outside your home folder: Airy does not delete it.", bundle: .airyCore)))
             }
         }
         return result
     }
 
-    /// `entry` empieza por `prefix` y sigue el final o un separador (`.`, `-`, `_`, espacio).
+    /// `entry` starts with `prefix` and is followed by the end or a separator (`.`, `-`, `_`, space).
     static func startsWord(_ entry: String, _ prefix: String) -> Bool {
         guard entry.hasPrefix(prefix) else { return false }
         guard let next = entry.dropFirst(prefix.count).first else { return true }
         return ".-_ ".contains(next)
     }
 
-    /// `pkgutil --file-info <app>` → líneas `pkgid: X`. Los id con caracteres raros se descartan.
+    /// `pkgutil --file-info <app>` → `pkgid: X` lines. Ids with odd characters are discarded.
     private func receipts(for app: AppRecord) async -> [Candidate] {
         guard let output = try? await runner.run(Self.pkgutil, ["--file-info", app.path], timeout: Self.pkgutilTimeout),
               output.status == 0 else { return [] }
@@ -339,21 +339,21 @@ public struct LeftoverFinder: Sendable {
             guard Self.isValidPackageID(id), !result.contains(where: { $0.path == id }) else { continue }
             if id.lowercased().hasPrefix("com.apple.") {
                 result.append(Candidate(path: id, kind: .receipt, matchedByName: false, risk: .doNotTouch,
-                                        preselected: false, reason: "Es parte de macOS.", measured: false))
+                                        preselected: false, reason: String(localized: "It is part of macOS.", bundle: .airyCore), measured: false))
                 continue
             }
             var receipt = Candidate(path: id, kind: .receipt, matchedByName: false, risk: .safe, preselected: true,
-                                    reason: "Registro de instalación; pide contraseña de administrador.",
+                                    reason: String(localized: "Install receipt; it asks for an administrator password.", bundle: .airyCore),
                                     measured: false)
             switch await otherBundles(inPackage: id, ownBundle: app.path) {
             case nil:
                 receipt.risk = .yourCall
                 receipt.preselected = false
-                receipt.reason = "No se pudo comprobar si este registro incluye otras apps."
+                receipt.reason = String(localized: "Could not check whether this receipt includes other apps.", bundle: .airyCore)
             case let found? where !found.isEmpty:
                 receipt.risk = .doNotTouch
                 receipt.preselected = false
-                receipt.reason = "Este registro incluye también otras apps (\(found.joined(separator: ", ")))."
+                receipt.reason = String(localized: "This receipt also includes other apps (\(found.joined(separator: ", "))).", bundle: .airyCore)
             default:
                 break
             }
@@ -362,8 +362,8 @@ public struct LeftoverFinder: Sendable {
         return result
     }
 
-    /// `.app` del paquete (el primer componente `*.app` de cada carpeta de `pkgutil --files <id> --only-dirs`)
-    /// distintos del propio, ordenados; `nil` si la consulta falla.
+    /// `.app` bundles of the package (the first `*.app` component of each folder in `pkgutil --files <id> --only-dirs`)
+    /// other than its own, sorted; `nil` if the query fails.
     private func otherBundles(inPackage id: String, ownBundle: String) async -> [String]? {
         guard let output = try? await runner.run(Self.pkgutil, ["--files", id, "--only-dirs"],
                                                  timeout: Self.pkgutilTimeout),
@@ -387,7 +387,7 @@ public struct LeftoverFinder: Sendable {
         return ascii(first) && id.unicodeScalars.allSatisfy { ascii($0) || $0 == "." || $0 == "_" || $0 == "-" }
     }
 
-    // MARK: - Rechazos y enlaces
+    // MARK: - Refusals and links
 
     private func refusalText(for app: AppRecord) -> String {
         let resolved = Self.realPath(app.path) ?? app.path
@@ -396,25 +396,25 @@ public struct LeftoverFinder: Sendable {
         if app.isSystem || ids.contains(where: {
             AppInventory.isSystemApp(path: app.path, bundleID: $0) || AppInventory.isSystemApp(path: resolved, bundleID: $0)
         }) {
-            return "Es parte de macOS."
+            return String(localized: "It is part of macOS.", bundle: .airyCore)
         }
         let lower = ids.map { $0.lowercased() }
         if lower.contains(where: { id in
             AppInventory.officialUninstallerPrefixes.contains { id.hasPrefix($0.lowercased()) }
         }) {
-            return "Usa el desinstalador oficial de «\(app.name)»."
+            return String(localized: "Use the official uninstaller of “\(app.name)”.", bundle: .airyCore)
         }
-        if lower.contains(where: { $0.hasPrefix("local.airy.") }) { return "Es Airy." }
+        if lower.contains(where: { $0.hasPrefix("local.airy.") }) { return String(localized: "It is Airy.", bundle: .airyCore) }
         let setapp = RiskPolicy.canonical(home + "/Library/Application Support/Setapp")
         if RiskPolicy.isInside(RiskPolicy.canonical(app.path), root: setapp)
             || RiskPolicy.isInside(RiskPolicy.canonical(resolved), root: setapp) {
-            return "Desinstálala desde Setapp."
+            return String(localized: "Uninstall it from Setapp.", bundle: .airyCore)
         }
-        return "Solo se desinstalan apps de Aplicaciones."
+        return String(localized: "Only apps in Applications are uninstalled.", bundle: .airyCore)
     }
 
-    /// `true` si el `.app` es un enlace cuyo destino está fuera de las raíces de apps, dentro de `/System`
-    /// o no se puede resolver.
+    /// `true` if the `.app` is a link whose target lies outside the app roots, inside `/System`
+    /// or cannot be resolved.
     private func linkIsInformational(_ path: String) -> Bool {
         var info = stat()
         guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFLNK else { return false }
@@ -426,7 +426,7 @@ public struct LeftoverFinder: Sendable {
         return !roots.contains { form.hasPrefix($0 + "/") }
     }
 
-    // MARK: - Utilidades
+    // MARK: - Utilities
 
     private static func entries(of folder: String) -> [String] {
         ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).sorted()
@@ -438,7 +438,7 @@ public struct LeftoverFinder: Sendable {
         return String(cString: real)
     }
 
-    /// Tamaños dentro del presupuesto; si se agota, lo que no se midió no aparece (0 bytes).
+    /// Sizes within the budget; if it runs out, what was not measured does not appear (0 bytes).
     private func measure(_ paths: [String]) async -> (sizes: [String: Int64], complete: Bool) {
         guard budget > .zero else { return ([:], false) }
         final class Sizes: Sendable { let values = Mutex<[String: Int64]>([:]) }

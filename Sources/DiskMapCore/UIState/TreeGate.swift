@@ -1,12 +1,12 @@
 import Foundation
 import Synchronization
 
-/// Turno de acceso al árbol analizado (`FileNode` es `@unchecked Sendable`: el compilador no ve
-/// las carreras). Todo lector que recorra el árbol en segundo plano (guardar el índice, detectar
-/// limpiezas, preparar contexto para la IA…) entra por `read`; cualquier cambio en el árbol
-/// (p. ej. quitar lo enviado a la Papelera) entra por `mutate`, que cancela los lectores que
-/// lo admiten, **espera** a que todos terminen y solo entonces cambia el árbol. Los lectores que
-/// llegan durante un cambio esperan a que acabe. Los cambios van de uno en uno.
+/// Access turn for the scanned tree (`FileNode` is `@unchecked Sendable`: the compiler does not see
+/// the races). Every reader that walks the tree in the background (saving the index, detecting
+/// cleanups, preparing context for the AI…) goes through `read`; any change to the tree
+/// (e.g. removing what was sent to the Trash) goes through `mutate`, which cancels the readers that
+/// allow it, **waits** for all of them to finish and only then changes the tree. Readers that
+/// arrive during a change wait for it to end. Changes go one at a time.
 @MainActor
 public final class TreeGate {
     private struct Reader {
@@ -21,12 +21,12 @@ public final class TreeGate {
 
     public init() {}
 
-    /// Lectores registrados que aún no se han dado por terminados.
+    /// Registered readers that have not been marked as finished yet.
     public var activeReaders: Int { readers.count }
 
-    /// Lanza `work` fuera del hilo principal como lector del árbol.
-    /// - `cancellable`: si un cambio puede cancelarlo (p. ej. una detección que se repetirá
-    ///   después); si es `false` (guardar el índice), el cambio espera a que termine entero.
+    /// Runs `work` off the main thread as a tree reader.
+    /// - `cancellable`: whether a change can cancel it (e.g. a detection that will be repeated
+    ///   later); if `false` (saving the index), the change waits for it to finish completely.
     @discardableResult
     public func read<T: Sendable>(cancellable: Bool, priority: TaskPriority = .utility,
                                   _ work: @escaping @Sendable () async -> T) -> Task<T, Never> {
@@ -45,9 +45,9 @@ public final class TreeGate {
         return job
     }
 
-    /// Cambia el árbol cuando ningún lector lo está recorriendo. `body` corre en el hilo principal.
-    /// Ojo: `body` va en una tarea no estructurada; cancelar a quien llama no lo detiene (una vez
-    /// pedido el cambio, se hace en cuanto terminen los lectores).
+    /// Changes the tree when no reader is walking it. `body` runs on the main thread.
+    /// Careful: `body` runs in an unstructured task; cancelling the caller does not stop it (once
+    /// the change is requested, it happens as soon as the readers finish).
     public func mutate(_ body: @escaping @MainActor () -> Void) async {
         let previous = mutation
         let current = readers
@@ -64,15 +64,15 @@ public final class TreeGate {
     }
 }
 
-/// Turnos de guardado por clave (p. ej. un volumen): cada guardado pide un turno y, justo antes
-/// de escribir, comprueba que sigue siendo el último pedido para esa clave. Así, si dos guardados
-/// del mismo índice se encadenan, nunca queda en disco el árbol más antiguo.
+/// Save turns per key (e.g. a volume): each save asks for a turn and, right before
+/// writing, checks that it is still the latest request for that key. That way, if two saves
+/// of the same index are chained, the oldest tree never stays on disk.
 public final class SaveSequencer: Sendable {
     private let tickets = Mutex<[String: Int]>([:])
 
     public init() {}
 
-    /// Pide turno para `key`; invalida los anteriores de esa misma clave.
+    /// Asks for a turn for `key`; invalidates the previous ones for that same key.
     public func begin(_ key: String) -> Int {
         tickets.withLock { state in
             let next = (state[key] ?? 0) + 1

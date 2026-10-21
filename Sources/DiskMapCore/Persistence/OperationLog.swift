@@ -1,7 +1,7 @@
 import Foundation
 import Synchronization
 
-/// Quién originó una operación. JSON: `{"type":"user"}` / `{"type":"agent","client":"claude-code"}`.
+/// Who originated an operation. JSON: `{"type":"user"}` / `{"type":"agent","client":"claude-code"}`.
 public enum OperationActor: Codable, Sendable, Equatable {
     case user
     case agent(client: String)
@@ -14,7 +14,7 @@ public enum OperationActor: Codable, Sendable, Equatable {
         case "user": self = .user
         case "agent": self = .agent(client: try c.decode(String.self, forKey: .client))
         case let other:
-            throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "Autor desconocido: \(other)")
+            throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "Unknown actor: \(other)")
         }
     }
 
@@ -30,7 +30,7 @@ public enum OperationActor: Codable, Sendable, Equatable {
     }
 }
 
-/// Solo metadatos (rutas, tamaños, fechas, resultado): nunca contenido de archivos.
+/// Metadata only (paths, sizes, dates, result): never file contents.
 public struct OperationRecord: Codable, Sendable, Equatable {
     public var runID: UUID
     public var date: Date
@@ -46,10 +46,10 @@ public struct OperationRecord: Codable, Sendable, Equatable {
     public var outcome: String
     public var bytes: Int64
     public var message: String?
-    /// Quién dijo proponerlo. Con `proposedVia` = `OperationContext.viaUnverifiedURL` es solo lo que afirmaba
-    /// el enlace `airy://` (cualquier app o web puede abrir uno): no está verificado.
+    /// Who claimed to propose it. With `proposedVia` = `OperationContext.viaUnverifiedURL` it is only what the
+    /// `airy://` link claimed (any app or website can open one): it is not verified.
     public var proposedBy: String?
-    /// Por dónde llegó la propuesta (`"url-unverified"`), o `nil`.
+    /// Where the proposal came from (`"url-unverified"`), or `nil`.
     public var proposedVia: String?
 
     public init(runID: UUID, date: Date, actor: OperationActor, action: String, itemID: String?,
@@ -62,11 +62,11 @@ public struct OperationRecord: Codable, Sendable, Equatable {
     }
 }
 
-/// Registro JSON Lines compartido entre la app y `airy-mcp`: cada registro se añade con una
-/// única escritura `O_APPEND` bajo `flock`, de modo que dos procesos no se pisan. Una línea a medias
-/// (escritura cortada, proceso matado) nunca se come la siguiente: antes de escribir se mira el último
-/// byte y, si no es `\n`, se cierra esa línea; una escritura que falla se deshace (`ftruncate`).
-/// Cada fallo al escribir queda además pendiente en `takeWriteFailure()` para que quien llama lo diga.
+/// JSON Lines log shared between the app and `airy-mcp`: each record is appended with a
+/// single `O_APPEND` write under `flock`, so two processes never clobber each other. A half-written line
+/// (cut-off write, killed process) never swallows the next one: before writing, the last
+/// byte is checked and, if it is not `\n`, that line is closed; a failed write is undone (`ftruncate`).
+/// Every write failure also stays pending in `takeWriteFailure()` so that the caller can report it.
 public final class OperationLog: Sendable {
     typealias Writer = @Sendable (Int32, UnsafeRawPointer, Int) -> Int
 
@@ -78,7 +78,7 @@ public final class OperationLog: Sendable {
         self.init(file: file, writer: { fd, bytes, count in Darwin.write(fd, bytes, count) })
     }
 
-    /// `writer`: solo para pruebas (simular escrituras cortas o fallidas).
+    /// `writer`: tests only (to simulate short or failed writes).
     init(file: URL, writer: @escaping Writer) {
         self.file = file
         self.writer = writer
@@ -95,17 +95,17 @@ public final class OperationLog: Sendable {
         do {
             try write(record)
         } catch {
-            reportFailure("no se pudo anotar «\(record.title)» en el registro de operaciones (\(error.localizedDescription))")
+            reportFailure(String(localized: "could not record “\(record.title)” in the operation log (\(error.localizedDescription))", bundle: .airyCore))
             throw error
         }
     }
 
-    /// Anota un fallo de auditoría (del registro o del historial) para avisar de él.
+    /// Records an audit failure (from the log or the history) to warn about it.
     public func reportFailure(_ message: String) {
         failure.withLock { $0 = message }
     }
 
-    /// Último fallo de auditoría sin avisar (y lo olvida), o `nil`.
+    /// Last unreported audit failure (and forgets it), or `nil`.
     public func takeWriteFailure() -> String? {
         failure.withLock { value in defer { value = nil }; return value }
     }
@@ -143,7 +143,7 @@ public final class OperationLog: Sendable {
             return nil
         }
         if let failedErrno {
-            // Nada a medias: se vuelve a la longitud de antes (bajo el mismo cerrojo).
+            // Nothing half-done: go back to the previous length (under the same lock).
             _ = ftruncate(fd, original)
             throw POSIXError(POSIXErrorCode(rawValue: failedErrno) ?? .EIO)
         }
@@ -151,7 +151,7 @@ public final class OperationLog: Sendable {
 
     private static func posixError() -> POSIXError { POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
 
-    /// Más recientes al final; las líneas ilegibles se saltan.
+    /// Most recent at the end; unreadable lines are skipped.
     public func records(limit: Int? = nil) throws -> [OperationRecord] {
         guard FileManager.default.fileExists(atPath: file.path) else { return [] }
         let data: Data

@@ -1,13 +1,13 @@
 import Foundation
 
-/// Ficha `discovery {"type":"installers"}`: instaladores sueltos (`.dmg`, `.pkg`…) y `.zip` con un instalador
-/// dentro, en Descargas, Escritorio y Documentos (hasta dos niveles). Un elemento por fichero. Nunca sigue
-/// enlaces ni entra en lo que está en iCloud, y la lectura de los `.zip` (`zipinfo -1`) tiene un plazo total.
+/// Entry with `discovery {"type":"installers"}`: loose installers (`.dmg`, `.pkg`…) and `.zip` files with an installer
+/// inside, in Downloads, Desktop and Documents (up to two levels). One item per file. It never follows
+/// links nor enters what is in iCloud, and reading the `.zip` files (`zipinfo -1`) has a total time limit.
 public struct InstallerSource: CleanupTargetSource {
     public static let extensions: Set<String> = ["dmg", "pkg", "mpkg", "iso", "xip"]
     public static let rootNames = ["Downloads", "Desktop", "Documents"]
     public static let zipListTimeout: TimeInterval = 5
-    /// Plazo total para leer `.zip` en una pasada y máximo de `.zip` que se leen.
+    /// Total time limit to read `.zip` files in a pass, and maximum number of `.zip` files read.
     public static let zipTotalBudget: Duration = .seconds(20)
     public static let maxZipListings = 50
 
@@ -24,7 +24,7 @@ public struct InstallerSource: CleanupTargetSource {
         self.totalBudget = totalBudget; self.maxZips = maxZips; self.isUbiquitous = isUbiquitous
     }
 
-    // MARK: - Detección
+    // MARK: - Detection
 
     public func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
         var found: [(path: String, modified: Date)] = []
@@ -40,7 +40,7 @@ public struct InstallerSource: CleanupTargetSource {
             }
         }
         if !zips.isEmpty, let zipinfo = await context.runner.resolve("zipinfo") {
-            // Los más recientes primero: si hay más de `maxZips`, entran los que más probablemente interesan.
+            // Most recent first: if there are more than `maxZips`, the ones most likely to matter get in.
             zips.sort { $0.modified != $1.modified ? $0.modified > $1.modified : $0.path < $1.path }
             let clock = ContinuousClock()
             let deadline = clock.now.advanced(by: totalBudget)
@@ -56,13 +56,13 @@ public struct InstallerSource: CleanupTargetSource {
         found.sort { $0.path < $1.path }
         return found.map { file in
             DiscoveredTarget(idSuffix: Format.tildePath(file.path, home: context.home), paths: [file.path],
-                             details: ["Descargado \(Format.relativeDate(file.modified))"],
+                             details: [String(localized: "Downloaded \(Format.relativeDate(file.modified))", bundle: .airyCore)],
                              lastModified: file.modified)
         }
     }
 
-    /// Ficheros regulares a profundidad ≤ 2 de `root` (los de dentro de `root` son el nivel 1), sin enlaces,
-    /// sin carpetas ocultas ni paquetes (`.app`, bibliotecas…) y sin lo que está en iCloud.
+    /// Regular files at depth ≤ 2 of `root` (those directly inside `root` are level 1), without links,
+    /// without hidden folders or bundles (`.app`, libraries…) and without what is in iCloud.
     private func regularFiles(in root: String) -> [(path: String, modified: Date)] {
         var files: [(path: String, modified: Date)] = []
         func scan(_ folder: String, depth: Int) {
@@ -97,8 +97,8 @@ public struct InstallerSource: CleanupTargetSource {
         return TimeInterval(parts.seconds) + TimeInterval(parts.attoseconds) / 1e18
     }
 
-    /// `zipinfo -1` lista las rutas del `.zip`. Es instalador si hay una app (`.app`) como componente de nivel
-    /// 1 o 2, o un fichero `.pkg`, `.mpkg` o `.dmg` de nivel ≤ 2. Un fallo o un plazo agotado ⇒ no lo es.
+    /// `zipinfo -1` lists the `.zip`'s paths. It is an installer if there is an app (`.app`) as a level 1 or 2
+    /// component, or a `.pkg`, `.mpkg` or `.dmg` file at level ≤ 2. A failure or an exhausted time limit ⇒ it is not.
     static func zipHasInstaller(_ path: String, zipinfo: String, runner: any CommandRunning,
                                 timeout: TimeInterval) async -> Bool {
         guard let output = try? await runner.run(zipinfo, ["-1", path], timeout: timeout), output.status == 0
@@ -113,29 +113,29 @@ public struct InstallerSource: CleanupTargetSource {
         return false
     }
 
-    // MARK: - Antes de actuar
+    // MARK: - Before acting
 
     public func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
-        guard !item.paths.isEmpty else { return "No hay ningún instalador que enviar a la Papelera." }
+        guard !item.paths.isEmpty else { return String(localized: "There is no installer to send to the Trash.", bundle: .airyCore) }
         let roots = Self.rootNames.map { RiskPolicy.canonical(context.home + "/" + $0) }
         for path in item.paths {
             let name = (path as NSString).lastPathComponent
             var info = stat()
             guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else {
-                return "Ya no es un fichero normal: \(name)."
+                return String(localized: "It is no longer a regular file: \(name).", bundle: .airyCore)
             }
-            // Debe seguir en Descargas, Escritorio o Documentos, a lo sumo en una subcarpeta.
+            // It must still be in Downloads, Desktop or Documents, at most in a subfolder.
             let canonical = RiskPolicy.canonical(path)
             guard roots.contains(where: { root in
                 RiskPolicy.isInside(canonical, root: root)
                     && canonical.dropFirst(root.count).split(separator: "/").count <= 2
-            }) else { return "No está en Descargas, Escritorio ni Documentos: \(name)." }
+            }) else { return String(localized: "It is not in Downloads, Desktop or Documents: \(name).", bundle: .airyCore) }
             let ext = (path as NSString).pathExtension.lowercased()
             if Self.extensions.contains(ext) { continue }
             guard ext == "zip", let zipinfo = await context.runner.resolve("zipinfo"),
                   await Self.zipHasInstaller(path, zipinfo: zipinfo, runner: context.runner,
                                              timeout: Self.zipListTimeout) else {
-                return "Ya no es un instalador: \(name)."
+                return String(localized: "It is no longer an installer: \(name).", bundle: .airyCore)
             }
         }
         return nil

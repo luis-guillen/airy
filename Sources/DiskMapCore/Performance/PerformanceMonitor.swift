@@ -1,13 +1,13 @@
 import Foundation
 
-/// Mide solo cuando se le pide (`refresh()`); nunca tiene temporizador propio.
+/// Measures only when asked (`refresh()`); it never has a timer of its own.
 public actor PerformanceMonitor {
     private let sampler: any PerformanceSampling
     private let historyLimit: Int
     private let grouper: @Sendable (RawSample, [Int32: Double], [Int32: Double]) -> [AppGroup]
     private var previous: RawSample?
     private var snapshots: [PerformanceSnapshot] = []
-    // F4: caché de las sondas del diagnóstico (30 s por dato, medido con la fecha de la muestra).
+    // F4: cache of the diagnosis probes (30 s per datum, measured with the sample's date).
     private var extras = DiagnosisExtras.unknown
     private var extrasDates: (docker: Date?, images: Date?) = (nil, nil)
     public static let extrasCacheSeconds: TimeInterval = 30
@@ -21,20 +21,20 @@ public actor PerformanceMonitor {
 
     public var history: [PerformanceSnapshot] { snapshots }
 
-    /// Olvida la muestra previa y el historial (M1: al volver, «sostenido» no mezcla una muestra vieja con una nueva).
+    /// Forgets the previous sample and the history (M1: on return, "sustained" does not mix an old sample with a new one).
     public func reset() {
         previous = nil
         snapshots = []
     }
 
-    /// La última instantánea si se tomó en `since` o después; si no, mide ahora (I2: una propuesta nunca se
-    /// resuelve contra una instantánea de una visita anterior).
+    /// The last snapshot if it was taken at `since` or later; otherwise, measures now (I2: a proposal is never
+    /// resolved against a snapshot from a previous visit).
     public func snapshot(since: Date) async -> PerformanceSnapshot {
         if let last = snapshots.last, last.date >= since { return last }
         return await refresh()
     }
 
-    /// Una muestra, con deltas contra la anterior; se añade al historial.
+    /// One sample, with deltas against the previous one; it is added to the history.
     public func refresh() async -> PerformanceSnapshot {
         let raw = await sampler.sample()
         let prev = previous
@@ -69,9 +69,9 @@ public actor PerformanceMonitor {
         return snapshot
     }
 
-    // MARK: - Diagnóstico
+    // MARK: - Diagnosis
 
-    /// Llama a docker solo si dockerVMMemory > dockerVMBytes y a hdiutil solo si syspolicyd ≥ umbral en las dos últimas; caché 30 s.
+    /// Calls docker only if dockerVMMemory > dockerVMBytes and hdiutil only if syspolicyd ≥ threshold in the last two; 30 s cache.
     public func verdict(probes: DiagnosisProbes?) async -> HealthVerdict {
         let history = snapshots
         guard let last = history.last else { return PerformanceDiagnosis.evaluate([], extras: .unknown) }
@@ -119,7 +119,7 @@ public actor PerformanceMonitor {
         var performance: Double?, efficiency: Double?
         if let topology = now.topology, topology.efficiency > 0,
            topology.efficiency + topology.performance == now.cores.count {
-            // R3: host_processor_info lista primero los de eficiencia.
+            // R3: host_processor_info lists the efficiency cores first.
             efficiency = pct(0..<topology.efficiency)
             performance = pct(topology.efficiency..<now.cores.count)
         } else if let topology = now.topology, topology.performance == now.cores.count {

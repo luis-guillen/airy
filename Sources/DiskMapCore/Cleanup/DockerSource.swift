@@ -1,6 +1,6 @@
 import Foundation
 
-/// Una fila de `docker system df` (bytes decimales; `nil` si no se pudo leer).
+/// A row of `docker system df` (decimal bytes; `nil` if it could not be read).
 public struct DockerUsage: Sendable, Equatable {
     public var size: Int64?
     public var reclaimable: Int64?
@@ -10,13 +10,13 @@ public struct DockerUsage: Sendable, Equatable {
     }
 }
 
-/// Lo que dice Docker en una sola sonda por pasada.
+/// What Docker says in a single probe per pass.
 public struct DockerSnapshot: Sendable, Equatable {
-    /// Por "Type" de `docker system df` ("Images", "Containers", "Local Volumes", "Build Cache").
+    /// By "Type" of `docker system df` ("Images", "Containers", "Local Volumes", "Build Cache").
     public var usage: [String: DockerUsage]
-    /// Nombres de los contenedores parados (exited, created, dead).
+    /// Names of the stopped containers (exited, created, dead).
     public var stoppedContainers: [String]
-    /// Nombres de las redes sin usar, sin las de Docker (bridge, host, none).
+    /// Names of the unused networks, without Docker's own (bridge, host, none).
     public var unusedNetworks: [String]
 
     public init(usage: [String: DockerUsage], stoppedContainers: [String], unusedNetworks: [String]) {
@@ -28,10 +28,10 @@ public enum DockerState: Sendable, Equatable {
     case notInstalled, daemonDown, running(DockerSnapshot)
 }
 
-/// Sondas de solo lectura a `docker`. Nunca arranca Docker ni ejecuta limpiezas.
+/// Read-only probes to `docker`. It never starts Docker nor runs cleanups.
 public enum DockerProbe {
     public static let timeout: TimeInterval = 20
-    public static let unavailableMessage = "Abre Docker Desktop para limpiar esto"
+    public static var unavailableMessage: String { String(localized: "Open Docker Desktop to clean this", bundle: .airyCore) }
 
     static let versionArguments = ["version", "--format", "{{.Server.Version}}"]
     static let dfArguments = ["system", "df", "--format", "{{json .}}"]
@@ -40,7 +40,7 @@ public enum DockerProbe {
     static let networkArguments = ["network", "ls", "--filter", "dangling=true", "--format", "{{.Name}}"]
     static let builtInNetworks: Set<String> = ["bridge", "host", "none"]
 
-    /// Sin `docker` ⇒ `notInstalled`; si `version`, `df` o los listados fallan ⇒ `daemonDown` (fallo cerrado).
+    /// Without `docker` ⇒ `notInstalled`; if `version`, `df` or the listings fail ⇒ `daemonDown` (fail closed).
     public static func state(runner: any CommandRunning) async -> DockerState {
         guard let docker = await runner.resolve("docker") else { return .notInstalled }
         guard await responds(docker, runner: runner),
@@ -52,19 +52,19 @@ public enum DockerProbe {
                                        unusedNetworks: networks.filter { !builtInNetworks.contains($0) }))
     }
 
-    /// `docker version --format {{.Server.Version}}`: estado 0 **y** salida no vacía.
+    /// `docker version --format {{.Server.Version}}`: status 0 **and** non-empty output.
     public static func daemonResponds(runner: any CommandRunning) async -> Bool {
         guard let docker = await runner.resolve("docker") else { return false }
         return await responds(docker, runner: runner)
     }
 
-    /// Contenedores parados ahora, o `nil` si no se pudo saber.
+    /// Containers stopped right now, or `nil` if it could not be known.
     static func stoppedContainers(runner: any CommandRunning) async -> [String]? {
         guard let docker = await runner.resolve("docker") else { return nil }
         return await lines(docker, stoppedArguments, runner: runner)
     }
 
-    /// Redes sin usar ahora (sin las de Docker), o `nil` si no se pudo saber.
+    /// Networks unused right now (without Docker's own), or `nil` if it could not be known.
     static func unusedNetworks(runner: any CommandRunning) async -> [String]? {
         guard let docker = await runner.resolve("docker") else { return nil }
         return await lines(docker, networkArguments, runner: runner)?.filter { !builtInNetworks.contains($0) }
@@ -89,7 +89,7 @@ public enum DockerProbe {
         }
     }
 
-    /// `docker system df --format {{json .}}`: un objeto JSON por línea con "Type", "Size" y "Reclaimable".
+    /// `docker system df --format {{json .}}`: one JSON object per line with "Type", "Size" and "Reclaimable".
     static func parseDF(_ output: String) -> [String: DockerUsage] {
         var usage: [String: DockerUsage] = [:]
         for line in output.split(whereSeparator: \.isNewline) {
@@ -103,14 +103,14 @@ public enum DockerProbe {
     }
 }
 
-/// Fichas `discovery {"type":"docker"}`: tamaños de `docker system df`, contenedores parados y redes sin
-/// usar. Con el demonio caído, las fichas de comando salen bloqueadas y los volúmenes no salen.
+/// Entries with `discovery {"type":"docker"}`: sizes from `docker system df`, stopped containers and unused
+/// networks. With the daemon down, the command entries come out blocked and the volumes do not appear.
 public struct DockerSource: CleanupTargetSource {
     public init() {}
 
     enum Field { case size, reclaimable }
 
-    /// Qué fila y qué campo de `docker system df` mide cada ficha (`docker-networks` no ocupa disco).
+    /// Which `docker system df` row and field each entry measures (`docker-networks` takes no disk space).
     static let measure: [String: (type: String, field: Field)] = [
         "docker-build-cache": ("Build Cache", .reclaimable),
         "docker-images": ("Images", .reclaimable),
@@ -119,7 +119,7 @@ public struct DockerSource: CleanupTargetSource {
     ]
     static let containersID = "docker-containers"
     static let networksID = "docker-networks"
-    static let noDiskNote = "No ocupa espacio en disco"
+    static var noDiskNote: String { String(localized: "Takes no disk space", bundle: .airyCore) }
 
     public func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
         let state: DockerState
@@ -129,10 +129,10 @@ public struct DockerSource: CleanupTargetSource {
         case .notInstalled:
             return []
         case .daemonDown:
-            // Solo lo que se limpia con comando; nunca se arranca Docker para medir.
+            // Only what is cleaned with a command; Docker is never started to measure.
             guard case .command = entry.cleanup else { return [] }
             return [DiscoveredTarget(paths: paths, bytes: 0, blockedReason: DockerProbe.unavailableMessage,
-                                     sizeNote: "Tamaño desconocido")]
+                                     sizeNote: String(localized: "Unknown size", bundle: .airyCore))]
         case .running(let snapshot):
             if entry.id == Self.networksID {
                 guard !snapshot.unusedNetworks.isEmpty else { return [] }
@@ -149,13 +149,13 @@ public struct DockerSource: CleanupTargetSource {
         }
     }
 
-    /// Demonio arriba y, para contenedores y redes, nada nuevo que el usuario no haya visto en la confirmación.
+    /// Daemon up and, for containers and networks, nothing new the user has not seen in the confirmation.
     public func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
         switch entry.cleanup {
         case .info:
             return nil
         case .trash:
-            return "«\(entry.title)» solo se limpia con el comando oficial de Docker; no se toca."
+            return String(localized: "“\(entry.title)” is only cleaned with Docker's official command; it is not touched.", bundle: .airyCore)
         case .command:
             guard await DockerProbe.daemonResponds(runner: context.runner) else { return DockerProbe.unavailableMessage }
             let seen = Set(item.details)
@@ -164,12 +164,12 @@ public struct DockerSource: CleanupTargetSource {
                 guard let live = await DockerProbe.stoppedContainers(runner: context.runner) else {
                     return DockerProbe.unavailableMessage
                 }
-                return Set(live).isSubset(of: seen) ? nil : "Hay contenedores parados nuevos; vuelve a revisarlo."
+                return Set(live).isSubset(of: seen) ? nil : String(localized: "There are new stopped containers; review it again.", bundle: .airyCore)
             case Self.networksID:
                 guard let live = await DockerProbe.unusedNetworks(runner: context.runner) else {
                     return DockerProbe.unavailableMessage
                 }
-                return Set(live).isSubset(of: seen) ? nil : "Hay redes sin usar nuevas; vuelve a revisarlo."
+                return Set(live).isSubset(of: seen) ? nil : String(localized: "There are new unused networks; review it again.", bundle: .airyCore)
             default:
                 return nil
             }

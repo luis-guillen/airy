@@ -1,6 +1,6 @@
 import Foundation
 
-/// Lecturas extra del diagnóstico. Solo leen (argumentos fijos, con plazo): nunca actúan sobre nada.
+/// Extra readings for the diagnosis. They only read (fixed arguments, with a time limit): they never act on anything.
 public struct DiagnosisProbes: Sendable {
     private let runner: any CommandRunning
 
@@ -8,7 +8,7 @@ public struct DiagnosisProbes: Sendable {
         self.runner = runner
     }
 
-    /// Contenedores en marcha (`docker ps -q`, 3 s). Docker ausente, plazo agotado o estado ≠ 0 ⇒ nil.
+    /// Running containers (`docker ps -q`, 3 s). Docker missing, time limit exhausted or status ≠ 0 ⇒ nil.
     public func dockerRunningContainers() async -> Int? {
         guard let docker = await runner.resolve("docker"),
               let out = try? await runner.run(docker, ["ps", "-q"], timeout: 3), out.status == 0 else { return nil }
@@ -16,8 +16,8 @@ public struct DiagnosisProbes: Sendable {
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
     }
 
-    /// Imágenes de disco montadas (`hdiutil info -plist`, 5 s): último componente de cada `image-path`,
-    /// sin las del sistema. Fallo o salida ilegible ⇒ nil.
+    /// Mounted disk images (`hdiutil info -plist`, 5 s): last component of each `image-path`,
+    /// without the system's. Failure or unreadable output ⇒ nil.
     public func mountedDiskImages() async -> [String]? {
         guard let out = try? await runner.run("/usr/bin/hdiutil", ["info", "-plist"], timeout: 5),
               out.status == 0 else { return nil }

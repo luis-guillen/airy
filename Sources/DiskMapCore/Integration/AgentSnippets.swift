@@ -1,13 +1,13 @@
 import Foundation
 
-/// Instrucciones para conectar un agente al servidor MCP de Airy (`airy-mcp`). La ruta se escapa
-/// según el formato de cada destino.
+/// Instructions to connect an agent to Airy's MCP server (`airy-mcp`). The path is escaped
+/// according to each destination's format.
 public struct AgentSnippets: Sendable, Equatable {
     public let serverPath: String
 
     public init(serverPath: String) { self.serverPath = serverPath }
 
-    /// Argumentos para `claude` (alcance de usuario: vale para todos los proyectos).
+    /// Arguments for `claude` (user scope: valid for every project).
     public var claudeCodeArguments: [String] { ["mcp", "add", "-s", "user", "airy", "--", serverPath] }
 
     public var claudeCode: String { "claude mcp add -s user airy -- " + Self.shellQuote(serverPath) }
@@ -30,7 +30,7 @@ public struct AgentSnippets: Sendable, Equatable {
         Self.json(["mcpServers": ["airy": ["args": [String](), "command": serverPath] as [String: Any]]])
     }
 
-    /// `'…'` con cada `'` como `'\''`.
+    /// `'…'` with each `'` as `'\''`.
     public static func shellQuote(_ s: String) -> String {
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
@@ -54,14 +54,14 @@ public enum ClaudeRegistration: Sendable, Equatable {
 public enum ClaudeMCP {
     static let timeout: TimeInterval = 30
 
-    /// `claude mcp add -s user airy -- <ruta>` con array de argumentos (nunca una cadena de shell).
+    /// `claude mcp add -s user airy -- <path>` with an argument array (never a shell string).
     public static func add(claude: String, snippets: AgentSnippets, runner: any CommandRunning) async -> ClaudeRegistration {
         do {
             let out = try await runner.run(claude, snippets.claudeCodeArguments, timeout: timeout)
             if out.status == 0 { return .added }
             if (out.stderr + out.stdout).localizedCaseInsensitiveContains("already exists") { return .alreadyPresent }
             let text = out.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            return .failed(text.isEmpty ? "código de salida \(out.status)" : text)
+            return .failed(text.isEmpty ? String(localized: "exit code \(out.status)", bundle: .airyCore) : text)
         } catch {
             return .failed((error as? LocalizedError)?.errorDescription ?? String(describing: error))
         }

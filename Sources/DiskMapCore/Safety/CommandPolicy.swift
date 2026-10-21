@@ -1,38 +1,38 @@
 import Foundation
 
-/// Veto final del embudo a una orden de limpieza, aunque venga del catálogo: se comprueba en el plan y
-/// otra vez justo antes de cada `runner.run`.
+/// The funnel's final veto on a cleanup command, even one from the catalog: checked in the plan and
+/// again right before each `runner.run`.
 public enum CommandPolicy {
-    static let dockerVolumesReason = "Airy nunca borra volúmenes de Docker."
-    static let invalidReason = "Orden no válida."
-    static let brewDependenciesReason = "Airy nunca fuerza a Homebrew a ignorar dependencias."
-    static let condaBaseReason = "Airy nunca borra el entorno base de conda."
-    static let brewZapReason = "Airy nunca usa --zap de Homebrew: los restos los elige y comprueba Airy."
+    static var dockerVolumesReason: String { String(localized: "Airy never deletes Docker volumes.", bundle: .airyCore) }
+    static var invalidReason: String { String(localized: "Invalid command.", bundle: .airyCore) }
+    static var brewDependenciesReason: String { String(localized: "Airy never forces Homebrew to ignore dependencies.", bundle: .airyCore) }
+    static var condaBaseReason: String { String(localized: "Airy never deletes the conda base environment.", bundle: .airyCore) }
+    static var brewZapReason: String { String(localized: "Airy never uses Homebrew's --zap: Airy picks and checks the leftovers itself.", bundle: .airyCore) }
 
-    /// Motivo para no ejecutar nunca esta orden aunque venga del catálogo; `nil` si se permite.
+    /// Why this command must never run even if it comes from the catalog; `nil` if it is allowed.
     public static func refusal(executable: String, arguments: [String]) -> String? {
-        // Escalares de control (saltos de línea, NUL…) en cualquier orden: nunca son legítimos.
+        // Control scalars (line breaks, NUL…) in any command: they are never legitimate.
         for text in [executable] + arguments where text.unicodeScalars.contains(where: {
             $0.properties.generalCategory == .control
         }) {
             return invalidReason
         }
         let name = (executable as NSString).lastPathComponent.lowercased()
-        // `docker-compose down -v` y compañía: Compose entero queda fuera.
+        // `docker-compose down -v` and friends: Compose is left out entirely.
         if name.hasPrefix("docker-compose") { return dockerVolumesReason }
         if name == "brew", arguments.contains(where: { $0.hasPrefix("--ignore-dependencies") }) {
             return brewDependenciesReason
         }
-        // `--zap` borra la lista del cask sin pasar por las protecciones de Airy.
+        // `--zap` deletes the cask's list without going through Airy's protections.
         if name == "brew", arguments.contains(where: { $0 == "--zap" || $0.hasPrefix("--zap=") }) {
             return brewZapReason
         }
-        // `conda env remove` / `conda remove`: nunca `--all` ni el entorno base (`conda clean --all` sí vale).
+        // `conda env remove` / `conda remove`: never `--all` nor the base environment (`conda clean --all` is fine).
         if name == "conda", arguments.contains(where: { ["remove", "uninstall"].contains($0) }),
            arguments.contains(where: { $0 == "--all" || $0 == "base" || $0.hasPrefix("--name=base") }) {
             return condaBaseReason
         }
-        // Por ruta (`-p`/`--prefix`): solo un entorno que cuelga directamente de una carpeta `envs`.
+        // By path (`-p`/`--prefix`): only an environment hanging directly from an `envs` folder.
         if name == "conda", arguments.contains(where: { ["remove", "uninstall"].contains($0) }) {
             for (index, argument) in arguments.enumerated() {
                 let value: String?
@@ -43,7 +43,7 @@ public enum CommandPolicy {
                 } else {
                     value = nil
                 }
-                // La plantilla del catálogo (`-p {target}`) se vuelve a comprobar ya sustituida.
+                // The catalog template (`-p {target}`) is checked again once substituted.
                 guard let value, value != CleanupMethod.targetPlaceholder else { continue }
                 let parent = (value as NSString).deletingLastPathComponent
                 if !value.hasPrefix("/") || value.contains("/..") || value.hasSuffix("/")
@@ -54,16 +54,16 @@ public enum CommandPolicy {
         }
         guard name == "docker" else { return nil }
         for argument in arguments {
-            // `volume …`, `--volumes…`, y `compose`/`rm` (que con `-v` se llevan volúmenes).
+            // `volume …`, `--volumes…`, and `compose`/`rm` (which take volumes along with `-v`).
             if ["volume", "volumes", "compose", "rm"].contains(argument) || argument.hasPrefix("--volumes") {
                 return dockerVolumesReason
             }
-            // Opción corta con `v` en su grupo: `-v`, `-fv`, `-vf`…
+            // Short option with `v` in its group: `-v`, `-fv`, `-vf`…
             if argument.hasPrefix("-"), !argument.hasPrefix("--"), argument.dropFirst().contains("v") {
                 return dockerVolumesReason
             }
         }
-        // `system prune`, con o sin opciones, puede llevárselos.
+        // `system prune`, with or without options, can take them along.
         if let system = arguments.firstIndex(of: "system"), arguments[system...].contains("prune") {
             return dockerVolumesReason
         }

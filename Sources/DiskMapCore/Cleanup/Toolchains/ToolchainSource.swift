@@ -1,27 +1,27 @@
 import Foundation
 import Synchronization
 
-/// Detección de versiones de una pasada.
+/// Version detection of a pass.
 struct ToolchainDetection: Sendable {
     var installs: [InstalledToolchain]
     var usage: UsageReport
-    /// Fórmula → dependientes; `nil` (o ausente) = no se pudo comprobar.
+    /// Formula → dependents; `nil` (or missing) = could not be checked.
     var brewDependents: [String: [String]?]
-    /// `nil` = listado desconocido.
+    /// `nil` = unknown list.
     var processes: [RunningProcess]?
-    /// `false` si se agotó `TimeBudget.toolchains`.
+    /// `false` if `TimeBudget.toolchains` ran out.
     var complete: Bool
-    /// Ruta de `brew`, si está instalado.
+    /// Path of `brew`, if it is installed.
     var brew: String?
 }
 
-/// Una detección por `DiscoveryContext` (mismo patrón que `ProjectWalkMemo`). Al revalidar, el contexto es el de
-/// la tanda (`RevalidationPass`): la detección y cada `brew uses` se hacen una vez para todas sus filas.
+/// One detection per `DiscoveryContext` (same pattern as `ProjectWalkMemo`). When revalidating, the context is the
+/// batch's (`RevalidationPass`): the detection and each `brew uses` happen once for all its rows.
 final class ToolchainMemo: Sendable {
     private let state = Mutex<ToolchainDetection?>(nil)
     private let brew = Mutex<[String: [String]?]>([:])
 
-    /// Dependientes de una fórmula (`nil` = no se pudo comprobar), una sola vez por contexto.
+    /// Dependents of a formula (`nil` = could not be checked), only once per context.
     func brewDependents(_ formula: String, compute: () async -> [String]?) async -> [String]? {
         if let done = brew.withLock({ $0[formula] }) { return done }
         let fresh = await compute()
@@ -43,17 +43,17 @@ final class ToolchainMemo: Sendable {
     }
 }
 
-/// Fichas `discovery {"type":"toolchains","manager":…}`: versiones repetidas de una herramienta de desarrollo.
-/// Las que se usan salen en rojo; las demás, en ámbar (nunca en verde). La misma regla en `discover` y `revalidate`.
+/// Entries with `discovery {"type":"toolchains","manager":…}`: repeated versions of a development tool.
+/// The ones in use come out red; the rest, amber (never green). The same rule in `discover` and `revalidate`.
 public struct ToolchainSource: CleanupTargetSource {
     static let brewUsesArguments = ["uses", "--installed"]
     static let unusedAfter: TimeInterval = 90 * 86_400
-    /// Solo pruebas: raíces para las fuentes creadas con `init()` (escáner y embudo).
+    /// Tests only: roots for the sources created with `init()` (scanner and funnel).
     @TaskLocal static var rootsOverride: (@Sendable (String) -> ToolchainRoots)?
-    /// Solo pruebas: se llama con cada detección completa (no memorizada).
+    /// Tests only: called with each full (not memoized) detection.
     @TaskLocal static var onDetect: (@Sendable () -> Void)?
-    static let incompleteReason = "No se pudieron revisar las versiones a tiempo; vuelve a buscar."
-    static let projectsIncompleteReason = "No se pudo comprobar a tiempo si algún proyecto pide esta versión."
+    static var incompleteReason: String { String(localized: "The versions could not be reviewed in time; search again.", bundle: .airyCore) }
+    static var projectsIncompleteReason: String { String(localized: "Could not check in time whether some project asks for this version.", bundle: .airyCore) }
 
     private let roots: (@Sendable (String) -> ToolchainRoots)?
     private let budget: Duration
@@ -67,7 +67,7 @@ public struct ToolchainSource: CleanupTargetSource {
         self.roots = roots; self.budget = budget; self.brewTimeout = brewTimeout; self.brewLimit = brewLimit
     }
 
-    /// `^[A-Za-z0-9][A-Za-z0-9._+@-]*$` y sin `..`: lo único que llega como `{target}` que no es ruta.
+    /// `^[A-Za-z0-9][A-Za-z0-9._+@-]*$` and without `..`: the only thing that arrives as a non-path `{target}`.
     static func isSafeName(_ text: String) -> Bool {
         guard let first = text.unicodeScalars.first, first.isASCII, first.properties.isAlphabetic || ("0"..."9").contains(first),
               !text.contains("..") else { return false }
@@ -76,9 +76,9 @@ public struct ToolchainSource: CleanupTargetSource {
         }
     }
 
-    // MARK: - Detección
+    // MARK: - Detection
 
-    /// `checkBrew: false` (revalidación): sin la ronda de `brew uses`; cada fila pide solo su fórmula.
+    /// `checkBrew: false` (revalidation): without the `brew uses` round; each row only asks for its formula.
     func detection(_ context: DiscoveryContext, checkBrew: Bool = true) async -> ToolchainDetection {
         await context.toolchains.detection { await detect(context, checkBrew: checkBrew) }
     }
@@ -87,8 +87,8 @@ public struct ToolchainSource: CleanupTargetSource {
         Self.onDetect?()
         let roots = (self.roots ?? Self.rootsOverride ?? ToolchainRoots.standard)(context.home)
         let installs = ToolchainInventory.scan(roots)
-        // La lista de proyectos tiene su propio plazo (`ProjectArtifactSource`), fuera del de versiones; si no
-        // termina, `projectsComplete` es `false` y las filas se bloquean con su motivo.
+        // The project list has its own time limit (`ProjectArtifactSource`), separate from the versions one; if it
+        // does not finish, `projectsComplete` is `false` and the rows are blocked with their reason.
         let projects = await ProjectArtifactSource().projectList(context: context)
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: budget)
@@ -108,7 +108,7 @@ public struct ToolchainSource: CleanupTargetSource {
         } else if !formulas.isEmpty, let brew = await context.runner.resolve("brew") {
             detection.brew = brew
             var checked = 0
-            // En secuencia (nunca en paralelo), solo las que no son ya rojas, como mucho `brewLimit`.
+            // In sequence (never in parallel), only those that are not red already, at most `brewLimit`.
             for formula in formulas where Self.preBrewVerdict(formula, detection) == nil {
                 guard checked < brewLimit else { break }
                 guard Self.isSafeName(formula.target) else { continue }
@@ -129,14 +129,14 @@ public struct ToolchainSource: CleanupTargetSource {
         return detection
     }
 
-    // MARK: - Reglas
+    // MARK: - Rules
 
-    /// Lenguaje (o herramienta, en «otras») que agrupa las instalaciones (R3).
+    /// Language (or tool, for "other") that groups the installs (R3).
     static func groupKey(_ install: InstalledToolchain) -> String {
         install.language == .other ? "other:\(install.plugin ?? install.name)" : install.language.rawValue
     }
 
-    /// Hay al menos otra instalación del mismo lenguaje (los entornos de conda siempre son «extra»).
+    /// There is at least one other install of the same language (conda environments are always "extra").
     static func isDuplicate(_ install: InstalledToolchain, in installs: [InstalledToolchain]) -> Bool {
         if install.language == .condaEnv { return true }
         let key = groupKey(install)
@@ -149,16 +149,16 @@ public struct ToolchainSource: CleanupTargetSource {
         case amber
     }
 
-    /// Todo menos Homebrew: procesos, por defecto y pins.
+    /// Everything except Homebrew: processes, default and pins.
     private static func preBrewVerdict(_ install: InstalledToolchain, _ d: ToolchainDetection) -> Verdict? {
-        guard let processes = d.processes else { return .blocked("No se pudo comprobar si está en uso.") }
+        guard let processes = d.processes else { return .blocked(String(localized: "Could not check whether it is in use.", bundle: .airyCore)) }
         let roots = [RiskPolicy.canonical(install.path),
                      RiskPolicy.canonical(CleanupTargets.realPath(install.path) ?? install.path)]
         for process in processes {
             guard let exe = process.executablePath else { continue }
             let canonical = RiskPolicy.canonical(exe)
             if roots.contains(where: { canonical == $0 || RiskPolicy.isInside(canonical, root: $0) }) {
-                return .red("Se está usando ahora.")
+                return .red(String(localized: "It is being used right now.", bundle: .airyCore))
             }
         }
         if let reason = d.usage.defaults[install.path] { return .red(reason) }
@@ -170,9 +170,9 @@ public struct ToolchainSource: CleanupTargetSource {
         if let early = preBrewVerdict(install, d) { return early }
         if install.manager == .homebrew {
             guard let checked = d.brewDependents[install.target], let dependents = checked else {
-                return .blocked("No se pudo comprobar a tiempo si Homebrew la necesita.")
+                return .blocked(String(localized: "Could not check in time whether Homebrew needs it.", bundle: .airyCore))
             }
-            if !dependents.isEmpty { return .red("Lo necesita Homebrew para: \(dependents.joined(separator: ", ")).") }
+            if !dependents.isEmpty { return .red(String(localized: "Homebrew needs it for: \(dependents.joined(separator: ", ")).", bundle: .airyCore)) }
         }
         return .amber
     }
@@ -204,7 +204,7 @@ public struct ToolchainSource: CleanupTargetSource {
                 target.floorReason = reason
                 target.preselectable = false
             case .blocked(let reason):
-                // Plazo agotado: lo que no se evaluó del todo se enseña bloqueado y dice por qué.
+                // Time limit exhausted: what was not fully evaluated is shown blocked and says why.
                 target.blockedReason = d.complete ? reason : Self.incompleteReason
                 target.preselectable = false
             case .amber where !d.complete:
@@ -225,8 +225,8 @@ public struct ToolchainSource: CleanupTargetSource {
                     target.bytes = summary.bytes
                 } else {
                     target.bytes = 0
-                    target.sizeNote = "Tamaño desconocido"
-                    target.blockedReason = target.blockedReason ?? "No se pudo medir a tiempo."
+                    target.sizeNote = String(localized: "Unknown size", bundle: .airyCore)
+                    target.blockedReason = target.blockedReason ?? String(localized: "Could not be measured in time.", bundle: .airyCore)
                     target.preselectable = false
                 }
             }
@@ -235,17 +235,17 @@ public struct ToolchainSource: CleanupTargetSource {
         return result
     }
 
-    static let managerTitles: [ToolchainManager: String] = [
+    static var managerTitles: [ToolchainManager: String] {[
         .pyenv: "pyenv", .conda: "conda", .nvm: "nvm", .fnm: "fnm", .volta: "Volta", .asdf: "asdf", .rbenv: "rbenv",
-        .rvm: "rvm", .sdkman: "SDKMAN", .rustup: "rustup", .goSDK: "~/sdk", .homebrew: "Homebrew", .system: "sistema",
-    ]
+        .rvm: "rvm", .sdkman: "SDKMAN", .rustup: "rustup", .goSDK: "~/sdk", .homebrew: "Homebrew", .system: String(localized: "system", bundle: .airyCore),
+    ]}
 
-    /// Título para la interfaz: «Entorno de conda «ml»», «Python 3.12 (Homebrew)», «Rust stable (rustup)».
+    /// Title for the UI: "conda environment “ml”", "Python 3.12 (Homebrew)", "Rust stable (rustup)".
     static func label(_ install: InstalledToolchain) -> String {
         let manager = managerTitles[install.manager] ?? install.manager.rawValue
         switch install.manager {
         case .conda:
-            return "Entorno de conda «\(install.name)»"
+            return String(localized: "conda environment “\(install.name)”", bundle: .airyCore)
         case .homebrew:
             let version = install.name.split(separator: "@", maxSplits: 1).dropFirst().first.map { " \($0)" } ?? ""
             return "\(install.language.title)\(version) (\(manager))"
@@ -259,45 +259,45 @@ public struct ToolchainSource: CleanupTargetSource {
     }
 
     private func details(_ install: InstalledToolchain, _ d: ToolchainDetection) -> [String] {
-        var lines = [install.lastUsed.map { "Usada por última vez: \(ProjectArtifactRules.day($0))" } ?? "Sin fecha de uso"]
+        var lines = [install.lastUsed.map { String(localized: "Last used: \(ProjectArtifactRules.day($0))", bundle: .airyCore) } ?? String(localized: "No usage date", bundle: .airyCore)]
         let key = Self.groupKey(install)
         let others = d.installs.filter { Self.groupKey($0) == key && $0.path != install.path }.map(\.name)
-        if !others.isEmpty { lines.append("Otras versiones: \(others.joined(separator: ", "))") }
-        if install.manager == .asdf { lines.append("Luego ejecuta asdf reshim") }
+        if !others.isEmpty { lines.append(String(localized: "Other versions: \(others.joined(separator: ", "))", bundle: .airyCore)) }
+        if install.manager == .asdf { lines.append(String(localized: "Then run asdf reshim", bundle: .airyCore)) }
         return lines
     }
 
     public func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
         guard case .toolchains(let manager) = entry.discovery, manager != .system else {
-            return "Airy no sabe comprobar «\(entry.title)» todavía; no se toca."
+            return String(localized: "Airy does not know how to check “\(entry.title)” yet; it is not touched.", bundle: .airyCore)
         }
-        let gone = "Ya no es una versión instalada de «\(entry.title)»."
+        let gone = String(localized: "It is no longer an installed version of “\(entry.title)”.", bundle: .airyCore)
         let byTarget = entry.cleanup.usesTargets
         var wanted: String
         if byTarget {
             guard item.targets.count == 1, let target = item.targets.first else {
-                return "«\(entry.title)» debe ser una sola versión."
+                return String(localized: "“\(entry.title)” must be a single version.", bundle: .airyCore)
             }
             if manager == .conda {
                 let parent = (target as NSString).deletingLastPathComponent
                 guard target.hasPrefix("/"), !target.contains("/.."), !target.hasSuffix("/") else {
-                    return "Objetivo no válido para «\(entry.title)»: \(target)."
+                    return String(localized: "Invalid target for “\(entry.title)”: \(target).", bundle: .airyCore)
                 }
                 guard (parent as NSString).lastPathComponent == "envs" else { return CommandPolicy.condaBaseReason }
             } else if !Self.isSafeName(target) {
-                return "Objetivo no válido para «\(entry.title)»: \(target)."
+                return String(localized: "Invalid target for “\(entry.title)”: \(target).", bundle: .airyCore)
             }
             wanted = target
         } else {
             guard item.targets.isEmpty, item.paths.count == 1, let path = item.paths.first, path.hasPrefix("/") else {
-                return "«\(entry.title)» debe ser una sola carpeta."
+                return String(localized: "“\(entry.title)” must be a single folder.", bundle: .airyCore)
             }
             wanted = path
         }
-        // Inventario, uso y proyectos: una vez por tanda (el contexto es de la tanda). Lo que puede cambiar entre
-        // filas se vuelve a mirar aquí: qué sigue instalado, los procesos y `brew uses` de esta fórmula.
+        // Inventory, usage and projects: once per batch (the context is the batch's). What can change between
+        // rows is checked again here: what is still installed, the processes and this formula's `brew uses`.
         var d = await detection(context, checkBrew: false)
-        guard d.complete else { return "No se pudo comprobar a tiempo si esta versión está en uso." }
+        guard d.complete else { return String(localized: "Could not check in time whether this version is in use.", bundle: .airyCore) }
         d.installs = d.installs.filter { ProjectArtifactRules.exists($0.path) }
         let listing = context.processListing
         d.processes = await TimeBudget.run(TimeBudget.processScan, { listing.processes() }) ?? nil
@@ -310,8 +310,8 @@ public struct ToolchainSource: CleanupTargetSource {
             return RiskPolicy.canonical(install.path) == RiskPolicy.canonical(wanted)
         }
         guard let install = match else { return gone }
-        guard Self.isDuplicate(install, in: d.installs) else { return "Ya no hay otra versión de la misma herramienta." }
-        if manager == .homebrew, d.brew == nil { return "No se encontró Homebrew en este Mac." }
+        guard Self.isDuplicate(install, in: d.installs) else { return String(localized: "There is no longer another version of the same tool.", bundle: .airyCore) }
+        if manager == .homebrew, d.brew == nil { return String(localized: "Homebrew was not found on this Mac.", bundle: .airyCore) }
         if manager == .homebrew, let brew = d.brew, Self.preBrewVerdict(install, d) == nil,
            Self.isSafeName(install.target) {
             let formula = install.target, runner = context.runner, timeout = brewTimeout
@@ -326,14 +326,14 @@ public struct ToolchainSource: CleanupTargetSource {
         case .amber: break
         }
         guard d.usage.projectsComplete else {
-            return "No se pudo comprobar a tiempo si algún proyecto pide esta versión."
+            return String(localized: "Could not check in time whether some project asks for this version.", bundle: .airyCore)
         }
         return nil
     }
 }
 
-/// Ficha `discovery {"type":"toolchainSystemInfo"}`: instalaciones del sistema (/Library, Xcode) que forman parte
-/// de un lenguaje repetido. Solo informa.
+/// Entry with `discovery {"type":"toolchainSystemInfo"}`: system installs (/Library, Xcode) that belong to
+/// a repeated language. Informational only.
 struct ToolchainSystemInfoSource: CleanupTargetSource {
     static let sizeBudget: Duration = .seconds(10)
 
@@ -368,15 +368,15 @@ struct ToolchainSystemInfoSource: CleanupTargetSource {
             var target = DiscoveredTarget(
                 idSuffix: title, paths: [], bytes: known ? bytes : 0,
                 details: installs.map {
-                    Format.tildePath($0.path, home: context.home) + (d.usage.defaults[$0.path] != nil ? " (en uso)" : "")
+                    Format.tildePath($0.path, home: context.home) + (d.usage.defaults[$0.path] != nil ? String(localized: " (in use)", bundle: .airyCore) : "")
                 },
-                sizeNote: known ? nil : "Tamaño desconocido")
+                sizeNote: known ? nil : String(localized: "Unknown size", bundle: .airyCore))
             target.preselectable = false
             return target
         }
     }
 
     func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
-        "Este elemento es solo informativo."
+        String(localized: "This item is informational only.", bundle: .airyCore)
     }
 }

@@ -2,11 +2,11 @@ import CryptoKit
 import Foundation
 import Synchronization
 
-/// Una copia de un grupo de duplicados.
+/// One copy of a group of duplicates.
 public struct DuplicateCopy: Sendable, Equatable, Identifiable {
     public let path: String, created: Date?, modified: Date?
-    /// Lo que se libera de verdad al borrarla: `ATTR_CMNEXT_PRIVATESIZE` (0 en un clon APFS que comparte
-    /// bloques); si el sistema no lo da, `st_blocks * 512`. Con más de un hard link, 0.
+    /// What is really freed by deleting it: `ATTR_CMNEXT_PRIVATESIZE` (0 for an APFS clone that shares
+    /// blocks); if the system does not provide it, `st_blocks * 512`. With more than one hard link, 0.
     public let reclaimableBytes: Int64
     public let risk: Risk, protection: ProtectionMatch?
     public var id: String { path }
@@ -19,25 +19,25 @@ public struct DuplicateCopy: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Huella del contenido de un grupo. Solo vive en memoria, dentro del proceso que la calcula: no es
-/// pública, no se guarda en disco y no se imprime (ni `description` ni `dump` la muestran).
+/// Fingerprint of a group's content. It only lives in memory, inside the process that computes it: it is not
+/// public, it is not saved to disk and it is not printed (neither `description` nor `dump` shows it).
 struct ContentFingerprint: Sendable, Hashable, CustomStringConvertible, CustomDebugStringConvertible,
     CustomReflectable {
     fileprivate let digest: SHA256.Digest
-    var description: String { "‹huella›" }
+    var description: String { "‹fingerprint›" }
     var debugDescription: String { description }
     var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 public struct DuplicateGroup: Sendable, Equatable, Identifiable {
-    /// `st_size` de cada copia.
+    /// `st_size` of each copy.
     public let size: Int64
-    /// ≥ 2; el conservado sugerido primero.
+    /// ≥ 2; the suggested kept copy first.
     public let copies: [DuplicateCopy]
     public let keeper: String
     let fingerprint: ContentFingerprint?
     public var id: String { keeper }
-    /// Lo que liberarían todas las copias salvo `keeper`.
+    /// What every copy except `keeper` would free.
     public var wastedBytes: Int64 { copies.filter { $0.path != keeper }.reduce(0) { $0 + $1.reclaimableBytes } }
 
     public init(size: Int64, copies: [DuplicateCopy], keeper: String) {
@@ -52,14 +52,14 @@ public struct DuplicateGroup: Sendable, Equatable, Identifiable {
 public struct DuplicateSearch: Sendable, Equatable {
     public var roots: [String]
     public var minBytes: Int64 = 1_000_000
-    /// Tope de bytes leídos para las huellas; al pasarlo, el resultado queda incompleto.
+    /// Cap on bytes read for the fingerprints; past it, the result is incomplete.
     public var readBudget: Int64 = 40_000_000_000
-    /// Tope de tiempo de la búsqueda; al pasarlo, el resultado queda incompleto.
+    /// Time cap of the search; past it, the result is incomplete.
     public var timeBudget: Duration = .seconds(600)
     public static let sizeSteps: [Int64] = [1_000_000, 10_000_000, 100_000_000]
     public static let skippedNames: Set<String> = [".Trash", ".git", "node_modules", ".venv"]
 
-    /// Hijos de `home` salvo `Library` y `.Trash` (una sola lectura de la carpeta, sin recorrer nada).
+    /// Children of `home` except `Library` and `.Trash` (a single read of the folder, without walking anything).
     public static func defaultRoots(home: String) -> [String] {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: home)) ?? []
         let base = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
@@ -73,7 +73,7 @@ public struct DuplicateSearch: Sendable, Equatable {
 }
 
 public struct DuplicateResult: Sendable, Equatable {
-    /// `wastedBytes` descendente, luego `keeper`.
+    /// `wastedBytes` descending, then `keeper`.
     public let groups: [DuplicateGroup]
     public let complete: Bool
     public let filesExamined: Int
@@ -84,15 +84,15 @@ public struct DuplicateResult: Sendable, Equatable {
     }
 }
 
-/// Lo que el usuario quiere mandar a la Papelera de un grupo: nunca incluye `keep`.
+/// What the user wants to send to the Trash from a group: it never includes `keep`.
 public struct DuplicateRemoval: Sendable, Equatable {
     public let keep: String
     public let remove: [String]
     public let size: Int64
     let fingerprint: ContentFingerprint?
 
-    /// Sin huella: `verify` solo puede comprobar el tamaño de `keep` (las demás se comparan con `keep`
-    /// releído). Para pruebas y vistas previas; lo que se borra sale de `DuplicateBoard.removals()`.
+    /// No fingerprint: `verify` can only check `keep`'s size (the others are compared against `keep`
+    /// read again). For tests and previews; what gets deleted comes from `DuplicateBoard.removals()`.
     public init(keep: String, remove: [String], size: Int64) {
         self.init(keep: keep, remove: remove, size: size, fingerprint: nil)
     }
@@ -102,14 +102,14 @@ public struct DuplicateRemoval: Sendable, Equatable {
     }
 }
 
-/// Busca ficheros idénticos: tamaño → huella parcial (inicio y final) → huella completa. Los candidatos
-/// salen del índice ya analizado (no recorre el disco: solo `lstat` de cada candidato). Lee como mucho dos
-/// ficheros a la vez, con prioridad baja, bloques de 1 MiB y sin caché; se puede cancelar y tiene topes de
-/// tiempo y de bytes. Las huellas no salen de este proceso ni se guardan.
+/// Finds identical files: size → partial fingerprint (start and end) → full fingerprint. Candidates
+/// come from the already scanned index (it does not walk the disk: only an `lstat` per candidate). It reads at most two
+/// files at a time, at low priority, in 1 MiB blocks and without caching; it can be cancelled and has time
+/// and byte caps. The fingerprints never leave this process nor are saved.
 public struct DuplicateFinder: Sendable {
     public static let partialChunk = 65_536
     static let fullChunk = 1 << 20
-    /// Lecturas simultáneas como máximo.
+    /// Maximum simultaneous reads.
     static let width = 2
     static let priority: TaskPriority = .utility
 
@@ -123,10 +123,10 @@ public struct DuplicateFinder: Sendable {
         self.gate = gate
     }
 
-    // MARK: - Candidatos (índice)
+    // MARK: - Candidates (index)
 
-    /// Rutas de ficheros del índice dentro de `search.roots`, sin entrar en `skippedNames`, en `*.app` ni en
-    /// los agregados «Otros». Solo lee el árbol: llámalo dentro de un turno de lectura (`TreeGate.read`).
+    /// Paths of index files inside `search.roots`, without entering `skippedNames`, `*.app` or
+    /// the "Other" aggregates. It only reads the tree: call it inside a read turn (`TreeGate.read`).
     public static func candidates(in index: FileNode, search: DuplicateSearch) -> [String] {
         let roots = search.roots.map(RiskPolicy.canonical)
         var out: [String] = []
@@ -152,21 +152,21 @@ public struct DuplicateFinder: Sendable {
     }
 
     private static func join(_ path: String, _ name: String) -> String {
-        if name.hasPrefix("/") { return name }          // raíces de un índice con varias raíces
+        if name.hasPrefix("/") { return name }          // roots of an index with several roots
         if path.isEmpty || path == "/" { return "/" + name }
         return path + "/" + name
     }
 
-    // MARK: - Búsqueda
+    // MARK: - Search
 
-    /// Atajo: candidatos del índice y búsqueda. Cancelable: con `Task.cancel()` devuelve lo hallado con
-    /// `complete == false`. `progress` = ficheros examinados (≤ 10 veces por segundo).
+    /// Shortcut: index candidates and search. Cancellable: with `Task.cancel()` it returns what was found with
+    /// `complete == false`. `progress` = files examined (≤ 10 times per second).
     public func find(_ search: DuplicateSearch, in index: FileNode,
                      progress: @escaping @Sendable (Int) -> Void = { _ in }) async -> DuplicateResult {
         await find(search, candidates: Self.candidates(in: index, search: search), progress: progress)
     }
 
-    /// Busca entre `candidates` (rutas del índice). Nunca abre un fichero fuera de esa lista.
+    /// Searches among `candidates` (index paths). It never opens a file outside that list.
     public func find(_ search: DuplicateSearch, candidates: [String],
                      progress: @escaping @Sendable (Int) -> Void = { _ in }) async -> DuplicateResult {
         let started = Date()
@@ -182,7 +182,7 @@ public struct DuplicateFinder: Sendable {
         }
         guard !Task.isCancelled else { return finish([], complete: false) }
 
-        // 1–2. Ficheros regulares de los volúmenes de las raíces, con el tamaño mínimo; un solo hard link.
+        // 1–2. Regular files on the roots' volumes, with the minimum size; a single hard link.
         let rootDevices = Set(search.roots.compactMap { Self.lstatInfo($0)?.st_dev })
         let roots = search.roots.map(RiskPolicy.canonical)
         var byInode: [FileKey: Candidate] = [:]
@@ -198,13 +198,13 @@ public struct DuplicateFinder: Sendable {
         }
         let files = Array(byInode.values)
 
-        // 3. Por tamaño.
+        // 3. By size.
         let bySize = Dictionary(grouping: files, by: \.size)
         var sizeGroups = bySize.values.filter { $0.count >= 2 }
         counter.add(files.count - sizeGroups.reduce(0) { $0 + $1.count })
-        sizeGroups.sort { $0[0].size > $1[0].size }       // primero lo que más ocupa
+        sizeGroups.sort { $0[0].size > $1[0].size }       // what takes the most space first
 
-        // 4. Huella parcial (inicio y final).
+        // 4. Partial fingerprint (start and end).
         let partialInput = sizeGroups.flatMap { $0 }
         let partials = await Self.mapBounded(partialInput, limits: limits) { candidate in
             Self.hash(candidate.path, size: candidate.size, partial: true, limits: limits)
@@ -219,7 +219,7 @@ public struct DuplicateFinder: Sendable {
         counter.add(partialInput.count - fullInput.count)
         if Task.isCancelled || limits.exceeded { return finish([], complete: false) }
 
-        // 5. Huella completa.
+        // 5. Full fingerprint.
         let fulls = await Self.mapBounded(fullInput, limits: limits) { candidate -> SHA256.Digest? in
             defer { counter.add(1) }
             return Self.hash(candidate.path, size: candidate.size, partial: false, limits: limits)
@@ -260,8 +260,8 @@ public struct DuplicateFinder: Sendable {
         return DuplicateGroup(size: size, copies: ordered, keeper: keeper, fingerprint: fingerprint)
     }
 
-    /// Por orden: (1) la primera (por ruta) que no se puede marcar, porque lo protegido nunca se propone
-    /// borrar; (2) fuera de `~/Downloads` y `~/Desktop`; (3) la creada antes; (4) la ruta más corta; (5) alfabético.
+    /// In order: (1) the first one (by path) that cannot be checked, because what is protected is never proposed
+    /// for deletion; (2) outside `~/Downloads` and `~/Desktop`; (3) the one created first; (4) the shortest path; (5) alphabetical.
     static func suggestedKeeper(_ copies: [DuplicateCopy], home: String) -> String {
         if let locked = copies.filter({ !$0.canSelect }).map(\.path).min() { return locked }
         let base = RiskPolicy.canonical(home)
@@ -285,10 +285,10 @@ public struct DuplicateFinder: Sendable {
         return best?.path ?? ""
     }
 
-    // MARK: - Antes de borrar
+    // MARK: - Before deleting
 
-    /// Justo antes de borrar: relee el contenido completo de `keep` y de cada `remove`. Devuelve
-    /// ruta → motivo de rechazo (vacío = todo bien). Los problemas de `keep` van con la ruta de `keep`.
+    /// Right before deleting: rereads the full content of `keep` and of each `remove`. Returns
+    /// path → refusal reason (empty = all good). Problems with `keep` go under `keep`'s path.
     public func verify(_ removal: DuplicateRemoval) async -> [String: String] {
         let task = Task.detached(priority: Self.priority) { () -> [String: String] in
             self.verifyNow(removal)
@@ -304,37 +304,37 @@ public struct DuplicateFinder: Sendable {
         for path in removal.remove {
             let sameInode = keepKey != nil && Self.lstatInfo(path).map { FileKey(device: $0.st_dev, inode: $0.st_ino) } == keepKey
             if RiskPolicy.canonical(path) == keepCanonical || sameInode {
-                refusals[path] = "Es la copia que conservas."
+                refusals[path] = String(localized: "It is the copy you are keeping.", bundle: .airyCore)
             }
         }
         let limits = Limits(bytes: .max, time: .seconds(3_600))
-        // Si falla la copia conservada, se rechazan también todas las demás: nunca se borra un grupo entero.
+        // If the kept copy fails, every other one is refused too: a whole group is never deleted.
         func refuseAll(_ reason: String) -> [String: String] {
             for path in removal.remove + [removal.keep] where refusals[path] == nil { refusals[path] = reason }
             return refusals
         }
         guard let keepInfo, (keepInfo.st_mode & S_IFMT) == S_IFREG else {
-            return refuseAll("Ya no existe la copia que conservas.")
+            return refuseAll(String(localized: "The copy you are keeping no longer exists.", bundle: .airyCore))
         }
         guard Int64(keepInfo.st_size) == removal.size,
               let keepDigest = Self.hash(removal.keep, size: removal.size, partial: false, limits: limits),
               removal.fingerprint.map({ $0.digest == keepDigest }) ?? true else {
-            return refuseAll("La copia que conservas ha cambiado.")
+            return refuseAll(String(localized: "The copy you are keeping has changed.", bundle: .airyCore))
         }
         for path in removal.remove where refusals[path] == nil {
-            if Task.isCancelled { refusals[path] = "Ha cambiado desde la búsqueda."; continue }
-            guard let info = Self.lstatInfo(path) else { refusals[path] = "Ya no existe."; continue }
+            if Task.isCancelled { refusals[path] = String(localized: "It has changed since the search.", bundle: .airyCore); continue }
+            guard let info = Self.lstatInfo(path) else { refusals[path] = String(localized: "It no longer exists.", bundle: .airyCore); continue }
             guard (info.st_mode & S_IFMT) == S_IFREG, Int64(info.st_size) == removal.size,
                   Self.hash(path, size: removal.size, partial: false, limits: limits) == keepDigest else {
-                refusals[path] = "Ha cambiado desde la búsqueda."
+                refusals[path] = String(localized: "It has changed since the search.", bundle: .airyCore)
                 continue
             }
         }
         return refusals
     }
 
-    /// Lo que de verdad se puede mandar a la Papelera tras `verify`: las copias que pasan, nunca la que se
-    /// conserva, y nada de un grupo cuya copia conservada falla. `notes`: un motivo visible por rechazo.
+    /// What can really be sent to the Trash after `verify`: the copies that pass, never the one being
+    /// kept, and nothing from a group whose kept copy fails. `notes`: one visible reason per refusal.
     public func confirmable(_ removals: [DuplicateRemoval]) async -> (paths: [String], notes: [String]) {
         var paths: [String] = []
         var notes: [String] = []
@@ -352,27 +352,27 @@ public struct DuplicateFinder: Sendable {
         return (paths, notes)
     }
 
-    // MARK: - Lectura
+    // MARK: - Reading
 
     private struct Candidate: Sendable { let path: String, size: Int64 }
     private struct FileKey: Hashable { let device: dev_t, inode: ino_t }
     private struct PartialKey: Hashable { let size: Int64, digest: SHA256.Digest }
 
-    /// Topes compartidos de bytes leídos y de tiempo.
+    /// Shared caps on bytes read and on time.
     private final class Limits: Sendable {
         private let read = Mutex<Int64>(0)
         private let budget: Int64
         private let deadline: ContinuousClock.Instant
         init(bytes: Int64, time: Duration) { budget = bytes; deadline = .now.advanced(by: time) }
         var exceeded: Bool { read.withLock { $0 } > budget || ContinuousClock.now >= deadline }
-        /// `false` si con estos bytes se pasa el tope.
+        /// `false` if these bytes go past the cap.
         func spend(_ bytes: Int) -> Bool {
             read.withLock { $0 += Int64(bytes) }
             return !exceeded
         }
     }
 
-    /// Ficheros examinados, avisando como mucho cada 100 ms.
+    /// Files examined, reporting at most every 100 ms.
     private final class Counter: Sendable {
         private struct State { var count = 0; var last: ContinuousClock.Instant? }
         private let state = Mutex(State())
@@ -393,7 +393,7 @@ public struct DuplicateFinder: Sendable {
         func flush() { report(value) }
     }
 
-    /// A lo sumo `width` a la vez, con prioridad baja; el orden del resultado es el de `items`.
+    /// At most `width` at a time, at low priority; the result's order is that of `items`.
     private static func mapBounded<T: Sendable, R: Sendable>(_ items: [T], limits: Limits,
                                                              _ body: @escaping @Sendable (T) -> R?) async -> [R?] {
         var results = [R?](repeating: nil, count: items.count)
@@ -414,8 +414,8 @@ public struct DuplicateFinder: Sendable {
         return results
     }
 
-    /// SHA-256 del contenido (o de los primeros y últimos `partialChunk` bytes). `nil` si no se puede leer,
-    /// si es un enlace, si cambia durante la lectura (tamaño o `mtime`) o si se cancela o se pasa un tope.
+    /// SHA-256 of the content (or of the first and last `partialChunk` bytes). `nil` if it cannot be read,
+    /// if it is a link, if it changes during the read (size or `mtime`) or if it is cancelled or a cap is hit.
     private static func hash(_ path: String, size: Int64, partial: Bool, limits: Limits) -> SHA256.Digest? {
         let fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { return nil }
@@ -451,7 +451,7 @@ public struct DuplicateFinder: Sendable {
             if tail > 0 { guard readSpan(at: size - tail, length: tail) else { return nil } }
         } else {
             guard readSpan(at: 0, length: size) else { return nil }
-            // Si ha crecido, sobra algo al final.
+            // If it has grown, there is something extra at the end.
             var probe: UInt8 = 0
             guard pread(fd, &probe, 1, off_t(size)) == 0 else { return nil }
         }
@@ -462,7 +462,7 @@ public struct DuplicateFinder: Sendable {
         return hasher.finalize()
     }
 
-    // MARK: - Metadatos
+    // MARK: - Metadata
 
     private static func lstatInfo(_ path: String) -> stat? {
         var info = stat()
@@ -474,20 +474,20 @@ public struct DuplicateFinder: Sendable {
         return Date(timeIntervalSince1970: Double(spec.tv_sec) + Double(spec.tv_nsec) / 1e9)
     }
 
-    /// Bytes que se liberarían de verdad: con otro hard link, nada; si no, el tamaño privado de APFS
-    /// (0 en un clon que comparte bloques) o, sin él, `st_blocks * 512`.
+    /// Bytes that would really be freed: with another hard link, nothing; otherwise APFS's private size
+    /// (0 for a clone that shares blocks) or, without it, `st_blocks * 512`.
     static func reclaimable(_ path: String, info: stat) -> Int64 {
         if info.st_nlink > 1 { return 0 }
         return privateSize(path) ?? Int64(info.st_blocks) * 512
     }
 
-    /// `getattrlist(ATTR_CMNEXT_PRIVATESIZE)` sin seguir enlaces; `nil` si el volumen no lo da.
+    /// `getattrlist(ATTR_CMNEXT_PRIVATESIZE)` without following links; `nil` if the volume does not provide it.
     static func privateSize(_ path: String) -> Int64? {
         var request = attrlist()
         request.bitmapcount = u_short(ATTR_BIT_MAP_COUNT)
         request.commonattr = attrgroup_t(ATTR_CMN_RETURNED_ATTRS)
         request.forkattr = attrgroup_t(ATTR_CMNEXT_PRIVATESIZE)
-        // u_int32_t longitud + attribute_set_t (5 × u_int32_t) + off_t
+        // u_int32_t length + attribute_set_t (5 × u_int32_t) + off_t
         var buffer = [UInt8](repeating: 0, count: 64)
         let status = buffer.withUnsafeMutableBytes { raw in
             getattrlist(path, &request, raw.baseAddress, raw.count,

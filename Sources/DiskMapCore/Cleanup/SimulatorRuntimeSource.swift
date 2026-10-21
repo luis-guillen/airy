@@ -1,14 +1,14 @@
 import Foundation
 
-/// Fichas `discovery {"type":"simulatorRuntimes"}`: entornos (runtimes) de simulador huérfanos (borrables y sin
-/// ningún simulador que los use), uno por elemento, con su UUID como `{target}`. Solo sondas de lectura de `simctl`.
+/// Entries with `discovery {"type":"simulatorRuntimes"}`: orphaned simulator runtimes (deletable and without
+/// any simulator using them), one per item, with its UUID as `{target}`. Read-only `simctl` probes only.
 ///
-/// Nunca se llama a `xcrun` en un Mac sin Xcode: en uno sin herramientas, el atajo `/usr/bin/xcrun` abre el
-/// diálogo «Instalar herramientas de desarrollo», y con Xcode arranca CoreSimulatorService. Antes hace falta
-/// (1) alguna carpeta de CoreSimulator (sin lanzar nada) y (2) `xcode-select -p` correcto apuntando a una
-/// carpeta de Xcode que existe (no a las Command Line Tools, que no traen `simctl`).
+/// `xcrun` is never called on a Mac without Xcode: on one without tools, the `/usr/bin/xcrun` shim opens the
+/// "Install developer tools" dialog, and with Xcode it starts CoreSimulatorService. First it needs
+/// (1) some CoreSimulator folder (without launching anything) and (2) a valid `xcode-select -p` pointing to an
+/// existing Xcode folder (not to the Command Line Tools, which do not ship `simctl`).
 public struct SimulatorRuntimeSource: CleanupTargetSource {
-    /// Carpetas de CoreSimulator del sistema (además de `~/Library/Developer/CoreSimulator`).
+    /// System CoreSimulator folders (besides `~/Library/Developer/CoreSimulator`).
     static let systemRoots = ["/Library/Developer/CoreSimulator"]
     static let userRoot = "/Library/Developer/CoreSimulator"
     static let xcodeSelectArguments = ["-p"]
@@ -18,13 +18,13 @@ public struct SimulatorRuntimeSource: CleanupTargetSource {
 
     public init() { self.init(systemRoots: Self.systemRoots) }
 
-    /// Pruebas: carpetas del sistema propias (para no depender del Mac donde se ejecutan).
+    /// Tests: custom system folders (so as not to depend on the Mac where they run).
     init(systemRoots: [String]) { self.systemRoots = systemRoots }
 
     static let runtimeArguments = ["simctl", "runtime", "list", "-j"]
     static let deviceArguments = ["simctl", "list", "devices", "-j"]
     static let timeout: TimeInterval = 20
-    static let goneMessage = "Ese entorno de simulador ya lo usa algún simulador o ya no está."
+    static var goneMessage: String { String(localized: "That simulator runtime is already used by a simulator or is gone.", bundle: .airyCore) }
     static let platforms = [
         "com.apple.platform.iphonesimulator": "iOS",
         "com.apple.platform.watchsimulator": "watchOS",
@@ -44,21 +44,21 @@ public struct SimulatorRuntimeSource: CleanupTargetSource {
         guard entry.cleanup.usesTargets else { return [] }
         var used = Set<String>()
         return await orphans(context).map { runtime in
-            // Dos runtimes con la misma versión (builds distintas) no comparten id de elemento.
+            // Two runtimes with the same version (different builds) do not share an item id.
             var suffix = runtime.label
             if !used.insert(suffix).inserted { suffix += " (\(runtime.identifier.prefix(8)))" }
             return DiscoveredTarget(idSuffix: suffix, paths: [], targets: [runtime.identifier], bytes: runtime.bytes)
         }
     }
 
-    /// Vuelve a sondear: cada objetivo debe seguir siendo huérfano y borrable.
+    /// Probes again: each target must still be orphaned and deletable.
     public func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
         guard entry.cleanup.usesTargets, !item.targets.isEmpty else { return Self.goneMessage }
         let live = Set(await orphans(context).map(\.identifier))
         return item.targets.allSatisfy(live.contains) ? nil : Self.goneMessage
     }
 
-    /// `xcrun` solo si hay CoreSimulator y Xcode (véase arriba); si no, `nil` y no se lanza nada más.
+    /// `xcrun` only if there is CoreSimulator and Xcode (see above); otherwise, `nil` and nothing else is launched.
     func xcrunIfXcode(_ context: DiscoveryContext) async -> String? {
         let roots = [context.home + Self.userRoot] + systemRoots
         guard roots.contains(where: Self.isDirectory) else { return nil }
@@ -77,7 +77,7 @@ public struct SimulatorRuntimeSource: CleanupTargetSource {
         return await Self.orphans(xcrun: xcrun, runner: context.runner)
     }
 
-    /// Runtimes `deletable` sin dispositivos en su `runtimeIdentifier`, ordenados. Cualquier fallo ⇒ `[]`.
+    /// `deletable` runtimes without devices in their `runtimeIdentifier`, sorted. Any failure ⇒ `[]`.
     static func orphans(xcrun: String, runner: any CommandRunning) async -> [Runtime] {
         guard let runtimes = await json(xcrun, runtimeArguments, runner: runner) as? [String: Any],
               let devices = (await json(xcrun, deviceArguments, runner: runner) as? [String: Any])?["devices"]
@@ -91,18 +91,18 @@ public struct SimulatorRuntimeSource: CleanupTargetSource {
                   let version = info["version"] as? String,
                   let bytes = (info["sizeBytes"] as? NSNumber)?.int64Value
             else { continue }
-            // Con algún dispositivo (o una lista que no se entiende) no es huérfano.
+            // With some device (or a list that cannot be understood) it is not orphaned.
             if let list = devices[runtimeIdentifier] {
                 guard let array = list as? [Any], array.isEmpty else { continue }
             }
             let platformID = info["platformIdentifier"] as? String ?? ""
-            let platform = platforms[platformID] ?? "Simulador"
+            let platform = platforms[platformID] ?? "Simulator"
             result.append(Runtime(identifier: identifier, platform: platform, version: version, bytes: bytes))
         }
         return result.sorted { ($0.label, $0.identifier) < ($1.label, $1.identifier) }
     }
 
-    /// `^[0-9A-Fa-f-]{36}$`: lo único que llega como argumento de `simctl runtime delete`.
+    /// `^[0-9A-Fa-f-]{36}$`: the only thing that arrives as an argument of `simctl runtime delete`.
     static func isUUID(_ text: String) -> Bool {
         text.utf8.count == 36 && text.unicodeScalars.allSatisfy { $0 == "-" || $0.properties.isASCIIHexDigit }
     }

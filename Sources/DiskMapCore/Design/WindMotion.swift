@@ -1,7 +1,7 @@
 import Foundation
 import CoreGraphics
 
-/// Pose de una hoja en un instante (puntos, o unidades normalizadas según la función).
+/// Pose of a leaf at an instant (points, or normalized units depending on the function).
 public struct LeafPose: Equatable, Sendable {
     public var x, y, rotation, scale, opacity: Double
     public init(x: Double, y: Double, rotation: Double, scale: Double, opacity: Double) {
@@ -11,15 +11,15 @@ public struct LeafPose: Equatable, Sendable {
 
 public enum MotionMode: Equatable, Sendable { case running, paused, reduced }
 
-/// Portero de movimiento: decide si una animación corre, se salta o se reduce a un fundido.
+/// Motion gatekeeper: decides whether an animation runs, is skipped or is reduced to a fade.
 public enum AnimationGate {
-    /// Ambiente (brisa, remolino): oculta o inactiva ⇒ pausada.
+    /// Ambient (breeze, swirl): hidden or inactive ⇒ paused.
     public static func ambient(windowVisible: Bool, appActive: Bool, reduceMotion: Bool) -> MotionMode {
         if !windowVisible || !appActive { return .paused }
         return reduceMotion ? .reduced : .running
     }
 
-    /// Transitoria (borrar, ráfaga, arranque): corre aunque la app esté inactiva.
+    /// Transient (delete, gust, launch): runs even if the app is inactive.
     public static func transient(windowVisible: Bool, reduceMotion: Bool) -> MotionMode {
         if !windowVisible { return .paused }
         return reduceMotion ? .reduced : .running
@@ -32,7 +32,7 @@ public struct BreezeStreak: Equatable, Sendable {
     public var yFraction, lengthFraction, thickness, opacity, period, phase: Double
 }
 
-/// Integra el ángulo del remolino para que un cambio de velocidad no produzca saltos.
+/// Integrates the swirl's angle so that a change of speed does not cause jumps.
 public struct SwirlPhase: Sendable {
     public var angle: Double
     private var lastTime: Double?
@@ -53,9 +53,9 @@ public struct SwirlPhase: Sendable {
 }
 
 public enum WindMotion {
-    // MARK: Ruido determinista
+    // MARK: Deterministic noise
 
-    /// Mezcla tipo splitmix64; resultado en [0, 1).
+    /// splitmix64-style mix; result in [0, 1).
     public static func noise(_ index: Int, _ salt: Int) -> Double {
         var z = UInt64(bitPattern: Int64(index)) &* 0x9E37_79B9_7F4A_7C15
         z = z &+ UInt64(bitPattern: Int64(salt)) &* 0xD1B5_4A32_D192_ED03 &+ 0x9E37_79B9_7F4A_7C15
@@ -68,7 +68,7 @@ public enum WindMotion {
     private static func clamp(_ v: Double, _ lo: Double, _ hi: Double) -> Double { min(max(v, lo), hi) }
     private static func easeOut(_ t: Double) -> Double { 1 - pow(1 - t, 3) }
 
-    // MARK: Arranque
+    // MARK: Launch
 
     public static let launchLeafCount = 18
 
@@ -80,15 +80,15 @@ public enum WindMotion {
         }
     }
 
-    /// Opacidad común de las hojas del arranque: 1 hasta `gather + hold`, baja linealmente a 0
-    /// durante `fade` (no desaparecen de golpe al terminar).
+    /// Shared opacity of the launch leaves: 1 until `gather + hold`, then drops linearly to 0
+    /// during `fade` (they do not vanish abruptly at the end).
     public static func launchLeafFade(elapsed: Double) -> Double {
         let t = launchTimeline(.running)
         guard !elapsed.isNaN, t.fade > 0 else { return 1 }
         return clamp(1 - (elapsed - t.gather - t.hold) / t.fade, 0, 1)
     }
 
-    /// Coordenadas normalizadas (centro 0). Sale de un radio 2,4…3,2, gira en espiral y llega al objetivo.
+    /// Normalized coordinates (centre 0). Starts from a radius of 2.4…3.2, spirals in and reaches the target.
     public static func launchLeaf(index: Int, count: Int, progress: Double) -> LeafPose {
         let targets = AiryLogoGeometry.launchTargets(count: count)
         guard targets.indices.contains(index) else {
@@ -99,7 +99,7 @@ public enum WindMotion {
         let e = easeOut(p)
         let startRadius = 2.4 + 0.8 * noise(index, 1)
         let startAngle = 2 * Double.pi * noise(index, 2)
-        // Desfase inicial (S - objetivo) girado hacia atrás lo que girará, para que en p = 0 sea exactamente S.
+        // Initial offset (S - target) rotated back by what it will rotate, so that at p = 0 it is exactly S.
         let totalTurn = 1.1 * 2 * Double.pi
         let dx = startRadius * cos(startAngle) - target.x
         let dy = startRadius * sin(startAngle) - target.y
@@ -111,13 +111,13 @@ public enum WindMotion {
         return LeafPose(
             x: target.x + remaining * (sx * c - sy * s),
             y: target.y + remaining * (sx * s + sy * c),
-            // Cada hoja da su propio número de vueltas (±1,5) además del giro de la espiral.
+            // Each leaf makes its own number of turns (±1.5) on top of the spiral's rotation.
             rotation: theta + remaining * 3 * Double.pi * (2 * noise(index, 11) - 1),
             scale: 1 - 0.4 * remaining,
             opacity: min(1, p / 0.25))
     }
 
-    // MARK: Órbita
+    // MARK: Orbit
 
     public static let orbitAngularSpeed = 0.9
 
@@ -128,7 +128,7 @@ public enum WindMotion {
         return LeafPose(x: r * cos(angle), y: r * sin(angle), rotation: angle + .pi / 2, scale: 1, opacity: 1)
     }
 
-    // MARK: Deshacerse en hojas
+    // MARK: Break into leaves
 
     public static let dissolveDuration = 0.75
 
@@ -157,7 +157,7 @@ public enum WindMotion {
             opacity: opacity)
     }
 
-    // MARK: Salir volando
+    // MARK: Fly away
 
     public static func leafAwayTransform(progress: Double)
         -> (dx: Double, dy: Double, rotationDegrees: Double, scale: Double, opacity: Double) {
@@ -165,7 +165,7 @@ public enum WindMotion {
         return (220 * p * p, -24 * p, 6 * p, 1 - 0.12 * p, 1 - p)
     }
 
-    // MARK: Ráfaga
+    // MARK: Gust
 
     public static let gustRowDelay = 0.04
     public static let gustRowDuration = 0.55
@@ -179,8 +179,8 @@ public enum WindMotion {
         return min(min(Double(rowCount - 1) * gustRowDelay, gustMaxDelay) + gustRowDuration, gustMaxDuration)
     }
 
-    /// Cuánto vive la capa de la ráfaga: hasta que acaben las filas *y* la banda haya cruzado
-    /// (con 2–7 filas las filas terminan antes que la banda, y quitarla entonces la cortaría).
+    /// How long the gust layer lives: until the rows finish *and* the band has crossed
+    /// (with 2–7 rows the rows finish before the band, and removing it then would cut it off).
     public static func gustLifetime(rowCount: Int) -> Double {
         guard rowCount > 0 else { return 0 }
         return max(gustDuration(rowCount: rowCount), gustBandDuration) + 0.1
@@ -193,7 +193,7 @@ public enum WindMotion {
         return 14 * sin(Double.pi * q)
     }
 
-    // MARK: Brisa
+    // MARK: Breeze
 
     public static func breezeStreaks(_ intensity: BreezeIntensity) -> [BreezeStreak] {
         let count = intensity == .ambient ? 3 : 6
@@ -213,7 +213,7 @@ public enum WindMotion {
         }
     }
 
-    // MARK: Remolino
+    // MARK: Swirl
 
     public static func swirlRevolutionsPerSecond(cpuLoad: Double) -> Double {
         let load = cpuLoad.isNaN ? 0 : clamp(cpuLoad, 0, 1)
@@ -230,7 +230,7 @@ public enum WindMotion {
         }
     }
 
-    // MARK: Balanceo
+    // MARK: Sway
 
     public static let swayKeyframes: [(degrees: Double, time: Double)] =
         [(1.6, 0.12), (-1.1, 0.26), (0.5, 0.42), (0, 0.6)]
