@@ -199,7 +199,7 @@ struct SelectionBar: View {
             guard let order = BatchMotion.gustOrder(ids: ids) else { return }
             let next = SectionGust(start: .now, order: order)
             gust = next
-            let lifetime = WindMotion.gustDuration(rowCount: order.count) + 0.1
+            let lifetime = WindMotion.gustLifetime(rowCount: order.count)
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(lifetime))
                 if gust == next { gust = nil }

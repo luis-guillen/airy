@@ -71,6 +71,8 @@ final class SpinState {
         spin.fromValue = start
         spin.toValue = start + 2 * Double.pi
         spin.duration = 1 / speed
+        // Hasta 0,9 vueltas/s con carga alta: 60 fps como mucho, no los 120 Hz del panel.
+        spin.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
         spin.repeatCount = .infinity
         spin.isRemovedOnCompletion = false
         layer.add(spin, forKey: "spin")

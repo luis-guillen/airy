@@ -103,11 +103,16 @@ final class CleanupFlow {
 
     /// Ráfaga de una tanda de dos filas o más: cuándo empezó y el orden de ejecución (`gustSway`).
     struct Gust: Equatable {
+        /// Qué lista barre: cada vista enseña solo la suya (una desinstalación no sacude Limpieza).
+        enum Owner: Equatable { case items, uninstall }
         let id: UUID
         let start: Date
         let order: [String]
+        let owner: Owner
     }
     private(set) var gust: Gust?
+    /// La ráfaga en curso si barre la lista de `owner` (Limpieza o Desinstalador); si no, `nil`.
+    func gust(for owner: Gust.Owner) -> Gust? { gust?.owner == owner ? gust : nil }
     /// Lo que va despejando la tanda `.items` en curso (píldora «liberados»/«despejados»).
     private(set) var batchTally = BatchMotion.Tally()
     var batchFreed: Int64 { batchTally.bytes }
@@ -196,8 +201,7 @@ final class CleanupFlow {
             guard !items.isEmpty else { return }
             start(request)
             queuedIDs = items.map(\.id)
-            batchTally = BatchMotion.Tally()
-            startGust(order: BatchMotion.gustOrder(ids: queuedIDs))
+            startGust(order: BatchMotion.gustOrder(ids: queuedIDs), owner: .items)
             Task { await run(items, model: model, context: context, onOutcome: request.onOutcome) }
         case .emptyTrash:
             start(request)
@@ -215,7 +219,7 @@ final class CleanupFlow {
             start(request)
             uninstallResult = nil
             queuedIDs = requests.map(\.id)
-            startGust(order: BatchMotion.gustOrder(ids: queuedIDs))
+            startGust(order: BatchMotion.gustOrder(ids: queuedIDs), owner: .uninstall)
             Task { await uninstall(requests, model: model, context: context, onOutcome: request.onOutcome) }
         case .orphans(let groups):
             start(request)
@@ -307,15 +311,18 @@ final class CleanupFlow {
     private func start(_ request: ConfirmRequest) {
         sheet = nil
         lastResult = nil
+        // Cada tanda empieza su cuenta: otra operación (airy://, MCP, desinstalar) no hereda la
+        // píldora «liberados» de la tanda anterior; solo `.items` la vuelve a sumar.
+        batchTally = BatchMotion.Tally()
         request.onConfirm?()
     }
 
     /// Solo reacciona a una tanda ya confirmada; se retira sola al acabar la ráfaga.
-    private func startGust(order: [String]?) {
+    private func startGust(order: [String]?, owner: Gust.Owner) {
         guard let order else { gust = nil; return }
-        let gust = Gust(id: UUID(), start: .now, order: order)
+        let gust = Gust(id: UUID(), start: .now, order: order, owner: owner)
         self.gust = gust
-        let lifetime = WindMotion.gustDuration(rowCount: order.count) + 0.1
+        let lifetime = WindMotion.gustLifetime(rowCount: order.count)
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(lifetime))
             if self?.gust == gust { self?.gust = nil }

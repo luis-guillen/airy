@@ -18,10 +18,10 @@ import AppKit
 ///   `AIRY_*_SCRIPT`, para que los guiones de depuración conserven sus tiempos.
 /// - `AIRY_SCAN_PREVIEW` (en `AppModel`): "1" enseña la pantalla de análisis con un progreso fijo
 ///   sin analizar nada (para medir sus animaciones sin recorrer el disco).
-@MainActor
 /// - `AIRY_MOTION_GALLERY`: "1" sustituye el contenido por la galería de movimiento (`MotionGallery`) y
 ///   no analiza el disco.
 /// - `AIRY_GALLERY_AUTOPLAY`: segundos tras el arranque a los que la galería pulsa sola «Simular borrado».
+@MainActor
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
     /// Reloj común de capturas y guiones de depuración (p. ej. `AIRY_MAP_SCRIPT`).
