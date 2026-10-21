@@ -65,3 +65,29 @@ public struct WhatChangedTool: MCPTool {
         return .ok(value, summary: "Changes between the last two scans.\(headline)")
     }
 }
+
+// MARK: - recent_space_drop (part of get_disk_summary)
+
+enum SpaceDropFormat {
+    /// The last fast drop of free space the app noticed (within `SpaceDropStore.recentWindow`), or `null`.
+    static func recent(_ env: AiryEnvironment, now: Date = Date()) -> JSONValue {
+        guard let snapshot = SpaceDropStore(directory: env.paths.support).recent(now: now) else { return .null }
+        return .object([
+            "detected_at": MCPFormat.iso(snapshot.detectedAt),
+            "dropped_bytes": MCPFormat.number(snapshot.droppedBytes),
+            "minutes": .number(Double(snapshot.minutes)),
+            "free_before_bytes": MCPFormat.number(snapshot.freeBefore),
+            "free_after_bytes": MCPFormat.number(snapshot.freeAfter),
+            "deleted_open_files_known": .bool(snapshot.filesKnown),
+            "deleted_open_files": .array(snapshot.deletedOpenFiles.map {
+                .object(["process": .string($0.process), "pid": .number(Double($0.pid)),
+                         "bytes": MCPFormat.number($0.bytes), "path": .string($0.path)])
+            }),
+            "top_writers": .array(snapshot.topWriters.map {
+                .object(["process": .string($0.process), "pid": .number(Double($0.pid)),
+                         "bytes_written": MCPFormat.number($0.bytesWritten)])
+            }),
+            "summary": .string(snapshot.message),
+        ])
+    }
+}

@@ -2129,6 +2129,54 @@
         }
       }
     },
+    "Free space dropped %@ in %lld min — biggest open deleted file: %@ (%@)": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El espacio libre bajó %1$@ en %2$lld min — mayor archivo borrado aún abierto: %3$@ (%4$@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free space dropped %@ in %lld min — biggest open deleted file: %@ (%@)"
+          }
+        }
+      }
+    },
+    "Free space dropped %@ in %lld min — writing the most: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El espacio libre bajó %1$@ en %2$lld min — quien más escribe: %3$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free space dropped %@ in %lld min — writing the most: %@"
+          }
+        }
+      }
+    },
+    "Free space dropped %@ in %lld min.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El espacio libre bajó %1$@ en %2$lld min."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free space dropped %@ in %lld min."
+          }
+        }
+      }
+    },
     "Freed %@": {
       "localizations": {
         "en": {

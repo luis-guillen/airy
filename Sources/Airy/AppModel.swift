@@ -92,7 +92,7 @@ struct Volume: Identifiable, Hashable, Sendable {
 
 /// Non-blocking notice the UI shows as a dismissible banner.
 struct Notice: Identifiable, Equatable {
-    enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit, performance }
+    enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit, performance, spaceDrop }
     let kind: Kind
     let message: String
     var id: String { kind.rawValue }
@@ -194,6 +194,8 @@ final class AppModel {
     /// Paths an action (Trash or cleanup) removed or changed, with their time. A scan that
     /// started earlier may have seen them as they were: when it is published, only those are re-measured.
     private var touchedPaths: [String: Date] = [:]
+    /// Free-space drop alert: checks once a minute at `.background` while Airy runs. It never acts.
+    @ObservationIgnored private var spaceDropTask: Task<Void, Never>?
 
     init() {
         let paths = AppPaths.standard()
@@ -227,6 +229,18 @@ final class AppModel {
         observeSystem()
         refreshSystemState()
         performance.model = self
+        startSpaceDropMonitor()
+    }
+
+    /// Watches free space once a minute (sleeping in between). On a fast drop it shows a
+    /// notice with the largest deleted-but-open file; the snapshot also reaches `airy-mcp` (`get_disk_summary`).
+    private func startSpaceDropMonitor() {
+        let monitor = SpaceDropMonitor(runner: runner, store: SpaceDropStore(directory: paths.support))
+        spaceDropTask = Task.detached(priority: .background) { [weak self] in
+            await monitor.run { snapshot in
+                await MainActor.run { self?.report(.spaceDrop, snapshot.message) }
+            }
+        }
     }
 
     // MARK: Settings
