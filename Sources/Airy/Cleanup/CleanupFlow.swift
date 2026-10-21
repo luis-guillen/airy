@@ -137,13 +137,15 @@ final class CleanupFlow {
 
     /// El usuario confirmó en la hoja. El estado "ocupado" se fija aquí mismo, antes de lanzar la
     /// tarea, para que un segundo clic no pueda arrancar otra tanda. `blocked`: ids de elementos (o
-    /// rutas sueltas) que la vista previa dio por bloqueados: no se ejecutan.
-    func confirm(_ request: ConfirmRequest, model: AppModel, blocked: Set<String> = []) {
+    /// rutas sueltas) que la vista previa dio por bloqueados: no se ejecutan. `removed`: ids que el usuario quitó
+    /// en la hoja (un clic en «Quitar»): tampoco se ejecutan; vacío ⇒ todo lo pedido.
+    func confirm(_ request: ConfirmRequest, model: AppModel, blocked: Set<String> = [],
+                 excluding removed: Set<String> = []) {
         guard !isBusy else { return }
         let context = request.context
         switch request.kind {
         case .items(let all):
-            let items = all.filter { !blocked.contains($0.id) }
+            let items = all.filter { !blocked.contains($0.id) && !removed.contains($0.id) }
             guard !items.isEmpty else { return }
             start(request)
             queuedIDs = items.map(\.id)

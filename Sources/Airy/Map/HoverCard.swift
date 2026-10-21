@@ -17,14 +17,19 @@ struct TileDetails: Equatable {
     let risk: Risk?
     /// Protección (de Airy o del usuario) que la deja en «No tocar».
     let protection: ProtectionMatch?
+    /// Por qué tiene esa etiqueta (`RiskExplanation`).
+    let why: String?
+    /// El análisis no pudo leer todo lo que hay dentro: el tamaño es un mínimo («+»).
+    let sizeIsPartial: Bool
     let explanation: String
     let asksAssistant: Bool
     let isOthers: Bool
 
     @MainActor
     /// `classify`: el clasificador de la app (`AppModel.classify(path:)`), el mismo que usa Limpieza.
+    /// `isPartial`: si el análisis dejó algo ilegible dentro de esa ruta (`AppModel.partialIndex`).
     init(tile: MapTile, parent: FileNode?, catalog: Catalog?, classify: (String) -> Classification,
-         home: String = NSHomeDirectory()) {
+         isPartial: (String) -> Bool = { _ in false }, home: String = NSHomeDirectory()) {
         id = tile.id
         title = tile.name
         bytes = tile.bytes
@@ -46,6 +51,10 @@ struct TileDetails: Equatable {
             let verdict = classify(fullPath)
             risk = verdict.risk
             protection = verdict.protection
+            sizeIsPartial = isPartial(fullPath)
+            why = RiskExplanation.why(risk: verdict.risk, entry: entry, protection: verdict.protection, reason: nil,
+                                      bytes: tile.bytes,
+                                      personal: RiskPolicy.minimumRisk(forPath: fullPath, home: home) == .yourCall)
             if let entry {
                 explanation = entry.explanation
                 asksAssistant = false
@@ -64,6 +73,8 @@ struct TileDetails: Equatable {
             isFolder = false
             risk = nil
             protection = nil
+            why = nil
+            sizeIsPartial = false
             explanation = "Archivos y carpetas pequeños agrupados"
             asksAssistant = false
         }
@@ -108,9 +119,10 @@ struct HoverCard: View {
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(Format.bytes(details.bytes))
+                Text(Format.bytes(details.bytes, partial: details.sizeIsPartial))
                     .font(.system(.title2, design: .rounded, weight: .bold))
                     .monospacedDigit()
+                    .help(details.sizeIsPartial ? "Airy no pudo leer todo lo que hay dentro: puede ocupar más." : "")
                 Text(details.percentText)
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -134,7 +146,20 @@ struct HoverCard: View {
             }
 
             if let risk = details.risk {
-                RiskBadge(risk: risk)
+                RiskBadge(risk: risk, reason: details.why)
+                // Con protección ya lo dice la línea de abajo.
+                if let why = details.why, details.protection == nil {
+                    Text(why)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(risk == .safe ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.Airy.riskInk(risk)))
+                        .lineLimit(3)
+                }
+            }
+            if details.sizeIsPartial {
+                Text("Airy no pudo leer todo lo que hay dentro: puede ocupar más.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
             if let protection = details.protection {
                 Label(CleanupBoard.protectionText(protection), systemImage: "lock.fill")
