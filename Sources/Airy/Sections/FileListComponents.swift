@@ -21,7 +21,7 @@ struct SelectableFileRow: View {
             Group {
                 if file.canSelect {
                     Toggle("", isOn: Binding(get: { isSelected }, set: { _ in onToggle() }))
-                        .toggleStyle(.checkbox)
+                        .toggleStyle(.airyCheckbox)
                         .labelsHidden()
                         .accessibilityLabel("Marcar \(file.name)")
                 } else {

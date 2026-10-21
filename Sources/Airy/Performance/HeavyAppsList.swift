@@ -59,7 +59,7 @@ private struct HeavyAppRow: View {
                     get: { session.selection.contains(row.id) },
                     set: { on in if on { session.selection.insert(row.id) } else { session.selection.remove(row.id) } }))
                     .labelsHidden()
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(.airyCheckbox)
                     .padding(.top, 8)
             }
             AppIcon(path: group.bundlePath)
@@ -92,11 +92,13 @@ private struct HeavyAppRow: View {
                 } else if unresponsive {
                     VStack(alignment: .trailing, spacing: 4) {
                         Text("No responde").font(.caption.weight(.semibold)).foregroundStyle(Theme.Airy.riskInk(.yourCall))
-                        Button("Forzar cierre…") { flow.requestForceQuit([group]) }
+                        PrimaryButton("Forzar cierre…", style: .destructive) { flow.requestForceQuit([group]) }
+                            .fixedSize()
                             .disabled(flow.isBusy)
                     }
                 } else {
-                    Button("Cerrar") { flow.requestQuit([group]) }
+                    PrimaryButton("Cerrar", style: .secondary) { flow.requestQuit([group]) }
+                        .fixedSize()
                         .disabled(flow.isBusy)
                         .padding(.top, 4)
                 }

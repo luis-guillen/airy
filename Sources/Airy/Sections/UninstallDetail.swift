@@ -91,7 +91,7 @@ struct UninstallDetail: View {
                 if leftover.canSelect {
                     Toggle("", isOn: Binding(get: { selected.contains(leftover.id) },
                                              set: { _ in store.toggle(leftover, in: plan) }))
-                        .toggleStyle(.checkbox)
+                        .toggleStyle(.airyCheckbox)
                         .labelsHidden()
                 } else {
                     Image(systemName: "lock.fill").foregroundStyle(Theme.Airy.riskInk(.doNotTouch))

@@ -62,7 +62,7 @@ struct OrphansView: View {
         HStack(alignment: .top, spacing: 10) {
             Toggle("", isOn: Binding(get: { store.orphanSelection.contains(group.id) },
                                      set: { _ in store.orphanSelection.formSymmetricDifference([group.id]) }))
-                .toggleStyle(.checkbox)
+                .toggleStyle(.airyCheckbox)
                 .labelsHidden()
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
@@ -109,7 +109,7 @@ struct BrokenLinksView: View {
                                         Toggle("", isOn: Binding(
                                             get: { store.linkSelection.contains(link.id) },
                                             set: { _ in store.linkSelection.formSymmetricDifference([link.id]) }))
-                                            .toggleStyle(.checkbox)
+                                            .toggleStyle(.airyCheckbox)
                                             .labelsHidden()
                                         Text("\((link.path as NSString).lastPathComponent) → \(link.target)")
                                             .font(.callout.monospaced())
