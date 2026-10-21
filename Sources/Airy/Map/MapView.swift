@@ -15,6 +15,8 @@ struct MapView: View {
     @ViewState private var toast: MapToast?
     @Environment(\.airyTransientMotion) private var transientMotion
     @FocusState private var focused: Bool
+    /// "What changed" hidden by the user until the next scan brings new changes.
+    @ViewState private var changesHidden = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -28,6 +30,11 @@ struct MapView: View {
             }
 
             Breadcrumb(items: model.navigation.breadcrumb, onBack: goBack, onJump: jump(to:))
+
+            if let changes = model.scanChanges, !changes.isEmpty, !changesHidden {
+                WhatChangedCard(changes: changes) { changesHidden = true }
+                    .transition(.opacity)
+            }
 
             canvas
 
@@ -71,6 +78,7 @@ struct MapView: View {
             // When a zoom ends, if the pointer is still over it, the card for what is underneath comes back.
             if tracker.pointerInside { hover(at: tracker.location) }
         }
+        .onChange(of: model.scanChanges?.scannedAt) { _, _ in changesHidden = false }
         .onChange(of: model.treeRevision) { _, revision in
             clearHover()
             scene.show(model.navigation.current, revision: revision)

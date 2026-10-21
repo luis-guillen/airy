@@ -92,7 +92,7 @@ public struct MCPToolRegistry: Sendable {
 
     /// Read-only tools (Task 12).
     static func readTools() -> [any MCPTool] {
-        [GetDiskSummaryTool(), ListLargestTool(), ExplainPathTool(), ListCleanupItemsTool()]
+        [GetDiskSummaryTool(), ListLargestTool(), ExplainPathTool(), ListCleanupItemsTool(), WhatChangedTool()]
     }
 
     /// Action tools, always behind the safety funnel (Task 13).

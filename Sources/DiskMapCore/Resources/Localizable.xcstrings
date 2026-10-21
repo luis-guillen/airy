@@ -4481,6 +4481,22 @@
         }
       }
     },
+    "Temporary files": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivos temporales"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temporary files"
+          }
+        }
+      }
+    },
     "Terragrunt recreates it when it runs.": {
       "localizations": {
         "en": {
