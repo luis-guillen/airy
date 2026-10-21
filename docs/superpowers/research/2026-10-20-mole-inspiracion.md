@@ -1,428 +1,428 @@
-# Mole como inspiración para Airy
+# Mole as inspiration for Airy
 
-Fecha: 2026-10-20
-Fuente: Mole v1.59.1 (tw93/Mole, instalado con Homebrew en `/opt/homebrew/Cellar/mole/1.59.1`), solo lectura de sus scripts de shell y del README. No se ejecutó ningún subcomando de `mo`. El binario de `status` (`status-go`) está compilado en Go y no tiene código fuente disponible: lo que se dice de sus sensores sale de `strings` sobre el binario (indicios fuertes, no código leído).
+Date: 2026-10-20
+Source: Mole v1.59.1 (tw93/Mole, installed with Homebrew at `/opt/homebrew/Cellar/mole/1.59.1`), read-only reading of its shell scripts and README. No `mo` subcommand was run. The `status` binary (`status-go`) is compiled in Go and has no source code available: what is said about its sensors comes from `strings` on the binary (strong hints, not code read).
 
-**Licencia:** GPL-3.0-or-later (fichero `LICENSE` y fórmula de Homebrew). El README pide además no usar el mismo nombre en bifurcaciones y mencionar a Mole como origen. Existe una app nativa aparte, "Mole for Mac", propietaria y de pago, de la que no hay nada que leer. Para Airy: **adaptamos ideas, listas de rutas (son hechos sobre macOS, no expresión creativa) y heurísticas, pero no copiamos código** (ni siquiera fragmentos de shell traducidos línea a línea) para no contaminar Airy con GPL. Conviene citar a Mole en la documentación como inspiración.
-
----
-
-## 1. Funciones y comandos de Mole
-
-| Comando | Qué hace |
-|---|---|
-| `mo` | Menú interactivo. |
-| `mo clean` | Limpieza profunda: cachés, logs, temporales, artefactos de desarrollo y restos de apps ya desinstaladas. Vacía la Papelera por defecto (borrado directo, sin Finder). Opciones: `--dry-run`, `--whitelist`, `--debug`, `--external PATH` (limpia metadatos de SO de un volumen externo). |
-| `mo uninstall [app…]` | Desinstala apps con sus restos. Va a la Papelera por defecto, `--permanent` para borrar ya. `--list`, `--dry-run`. Si falta la app, remite a `mo clean`. Integra Homebrew Cask (`brew uninstall --cask [--zap]`). |
-| `mo optimize` | Mantenimiento acotado (DNS, Spotlight, caché de Finder, bases SQLite, etc.). Cada tarea se salta con motivo si no hace falta. Incluye un **diagnóstico de rendimiento** previo (solo lectura). `--whitelist` por tarea. |
-| `mo analyze` | Explorador de disco en terminal (Go): vista general, navegación, filtro, multiselección, vista previa en Finder, mover a la Papelera. Marca "Old Downloads (90d+)". `--json` con `scan_status` por entrada (`complete`/`partial`/`unavailable`) para no mentir cuando el escaneo es parcial. |
-| `mo status` | Panel de salud en vivo (Go): CPU, memoria, disco, red, energía, procesos. Puntuación de salud. `--json`, `--watch --interval 2s` (NDJSON), alertas de procesos con CPU sostenida, diagnóstico de zombis (solo lectura). |
-| `mo purge` | Artefactos de proyecto regenerables (`node_modules`, `target`…), agrupados por proyecto, selección, borrado permanente solo de lo confirmado. `--paths` configura raíces, `--yes` para no interactivo. |
-| `mo installer` | Busca instaladores (`.dmg .pkg .mpkg .iso .xip` y `.zip` que contengan un instalador) y los borra tras selección. |
-| `mo history [--json]` | Registro de operaciones de limpieza (`~/Library/Logs/mole/operations.log`), con `run_id` y atribución. Se desactiva con `MO_NO_OPLOG=1`. |
-| `mo touchid` | Configura Touch ID para `sudo`. |
-| `mo completion`, `mo update`, `mo remove` | Utilidades de la propia herramienta (autocompletado, actualización, desinstalación). |
-| Lanzadores Raycast/Alfred | Scripts que abren cada comando en el terminal. |
-
-Principios de diseño visibles en el código, todos aprovechables por Airy:
-
-1. **Todo borrado pasa por un único embudo** (`safe_remove` / `safe_clean`) que valida la ruta, aplica protecciones y lista blanca, y deja registro. Las funciones de limpieza solo *proponen* rutas.
-2. **Fallar cerrado:** si un sondeo (tamaño, proceso, antigüedad) agota el tiempo o da error, el elemento se conserva y se dice por qué.
-3. **Protocolo de proceso en tres estados** (corriendo / parado / desconocido): se limpia solo con "parado". Si no se sabe, se salta. Ejemplos: no se poda la caché de pnpm si hay un pnpm vivo, ni DerivedData con Xcode abierto, ni cachés de Mail si Mail corre.
-4. **Doble comprobación** (la lista y, otra vez, justo antes de borrar), con identidad del archivo (inodo/padre) para evitar carreras.
-5. **Categoría "solo revisar"**: cosas grandes que Mole *nunca* borra solo, las muestra con el comando manual (ver §2.14).
-6. **Presupuestos de tiempo** (timeouts) en todo, para que una carpeta enorme o un disco lento no cuelgue la herramienta.
+**License:** GPL-3.0-or-later (`LICENSE` file and Homebrew formula). The README also asks not to use the same name in forks and to mention Mole as the origin. There is a separate native app, "Mole for Mac", proprietary and paid, of which there is nothing to read. For Airy: **we adapt ideas, path lists (they are facts about macOS, not creative expression) and heuristics, but we do not copy code** (not even shell fragments translated line by line) so as not to contaminate Airy with GPL. Mole should be cited in the documentation as inspiration.
 
 ---
 
-## 2. Catálogo de objetivos de limpieza
+## 1. Mole's features and commands
 
-Convenciones: `~` = carpeta del usuario. "Edad" = antigüedad mínima. "(sudo)" = Mole pide contraseña de administrador. Casi todo son cachés bajo `~/Library/Caches` y `~/Library/Application Support/<app>`, y las rutas se agrupan aquí por familia. Entre paréntesis, cómo decide Mole la seguridad cuando tiene regla propia.
-
-### 2.1 Sistema (requiere sudo)
-
-| Ruta / patrón | Criterio |
+| Command | What it does |
 |---|---|
-| `/Library/Caches/**/*.cache` | archivos de más de 7 días |
-| `/Library/Caches/**/*.log` | más de 7 días |
-| `/Library/Logs/DiagnosticReports/*` | informes de fallos de más de 7 días |
-| `/private/var/log/*.log` | más de 7 días, excluye `*.gz` y `*.asl` |
-| `/Library/Logs/Adobe`, `/Library/Logs/CreativeCloud`, `/Library/Logs/adobegc.log` | más de 7 días |
+| `mo` | Interactive menu. |
+| `mo clean` | Deep cleanup: caches, logs, temporaries, development artifacts and leftovers of already-uninstalled apps. Empties the Trash by default (direct deletion, without Finder). Options: `--dry-run`, `--whitelist`, `--debug`, `--external PATH` (cleans OS metadata from an external volume). |
+| `mo uninstall [app…]` | Uninstalls apps with their leftovers. Goes to the Trash by default, `--permanent` to delete right away. `--list`, `--dry-run`. If the app is missing, it refers to `mo clean`. Integrates Homebrew Cask (`brew uninstall --cask [--zap]`). |
+| `mo optimize` | Bounded maintenance (DNS, Spotlight, Finder cache, SQLite databases, etc.). Each task is skipped with a reason if it is not needed. Includes a prior **performance diagnosis** (read-only). `--whitelist` per task. |
+| `mo analyze` | Terminal disk explorer (Go): overview, navigation, filter, multi-selection, Finder preview, move to the Trash. Marks "Old Downloads (90d+)". `--json` with `scan_status` per entry (`complete`/`partial`/`unavailable`) so as not to lie when the scan is partial. |
+| `mo status` | Live health dashboard (Go): CPU, memory, disk, network, power, processes. Health score. `--json`, `--watch --interval 2s` (NDJSON), alerts for processes with sustained CPU, zombie diagnosis (read-only). |
+| `mo purge` | Regenerable project artifacts (`node_modules`, `target`…), grouped by project, selection, permanent deletion only of what is confirmed. `--paths` configures roots, `--yes` for non-interactive use. |
+| `mo installer` | Looks for installers (`.dmg .pkg .mpkg .iso .xip` and `.zip` that contain an installer) and deletes them after selection. |
+| `mo history [--json]` | Log of cleanup operations (`~/Library/Logs/mole/operations.log`), with `run_id` and attribution. Disabled with `MO_NO_OPLOG=1`. |
+| `mo touchid` | Configures Touch ID for `sudo`. |
+| `mo completion`, `mo update`, `mo remove` | The tool's own utilities (autocompletion, update, uninstall). |
+| Raycast/Alfred launchers | Scripts that open each command in the terminal. |
+
+Design principles visible in the code, all usable by Airy:
+
+1. **All deletion goes through a single funnel** (`safe_remove` / `safe_clean`) that validates the path, applies protections and the whitelist, and leaves a log. The cleanup functions only *propose* paths.
+2. **Fail closed:** if a probe (size, process, age) runs out of time or errors, the item is kept and the reason is given.
+3. **Three-state process protocol** (running / stopped / unknown): cleanup only with "stopped". If unknown, skip. Examples: the pnpm cache is not pruned if a pnpm is alive, nor DerivedData with Xcode open, nor Mail caches if Mail is running.
+4. **Double check** (the list and, again, right before deleting), with file identity (inode/parent) to avoid races.
+5. **"Review only" category**: large things that Mole *never* deletes by itself, it shows them with the manual command (see §2.14).
+6. **Time budgets** (timeouts) on everything, so that a huge folder or a slow disk does not hang the tool.
+
+---
+
+## 2. Catalog of cleanup targets
+
+Conventions: `~` = the user's folder. "Age" = minimum age. "(sudo)" = Mole asks for the administrator password. Almost everything is caches under `~/Library/Caches` and `~/Library/Application Support/<app>`, and the paths are grouped here by family. In parentheses, how Mole decides safety when it has its own rule.
+
+### 2.1 System (requires sudo)
+
+| Path / pattern | Criterion |
+|---|---|
+| `/Library/Caches/**/*.cache` | files older than 7 days |
+| `/Library/Caches/**/*.log` | older than 7 days |
+| `/Library/Logs/DiagnosticReports/*` | crash reports older than 7 days |
+| `/private/var/log/*.log` | older than 7 days, excludes `*.gz` and `*.asl` |
+| `/Library/Logs/Adobe`, `/Library/Logs/CreativeCloud`, `/Library/Logs/adobegc.log` | older than 7 days |
 | `/Library/Caches/com.apple.iconservices.store` | regenerable |
-| Apps "Install macOS *.app" en `/Applications` | más de 14 días, no en ejecución, no la versión actual del sistema, sin actualización pendiente; si no se puede saber la versión, se conserva |
-| `/System/Library/Caches/com.apple.coresymbolicationd/data` | única ruta bajo `/System` que su validador deja borrar (caché reconstruible); Airy **no** debe imitarlo |
-| Cachés de GPU reconstruibles bajo `/private/var/folders/*/*/C/...` (Metal/Dawn/shader) | más de 1 día; **excluye** cualquier carpeta de un agente de seguridad (ver §2.16) |
-| `com.apple.idleassetsd` temporales de `/private/var/folders/*/T/` (descargas abortadas `CFNetworkDownload_*.tmp`) | más de 7 días; se han visto cientos de GB de basura aquí ("Datos del sistema") |
-| Clones de firma de código de navegadores (`*.code_sign_clone`) | reconstruibles; excluye EDR |
-| Servicios huérfanos de sistema (LaunchDaemons/PrivilegedHelperTools cuyo binario ya no existe) | sudo; con una lista larga de falsos positivos conocidos (Docker, Zoom, Wireshark, Tailscale…) |
-| Instantáneas locales de Time Machine | **no las borra**: solo cuenta (`tmutil listlocalsnapshots /`) y muestra "revisar" |
-| Copias de TM fallidas `*.inProgress` en `/Volumes/*/Backups.backupdb` | solo con TM configurado, sin copia en marcha (`tmutil status`), y con más de 48 h |
+| "Install macOS *.app" apps in `/Applications` | older than 14 days, not running, not the system's current version, no pending update; if the version cannot be known, it is kept |
+| `/System/Library/Caches/com.apple.coresymbolicationd/data` | the only path under `/System` that its validator lets be deleted (rebuildable cache); Airy must **not** imitate it |
+| Rebuildable GPU caches under `/private/var/folders/*/*/C/...` (Metal/Dawn/shader) | older than 1 day; **excludes** any folder of a security agent (see §2.16) |
+| `com.apple.idleassetsd` temporaries in `/private/var/folders/*/T/` (aborted downloads `CFNetworkDownload_*.tmp`) | older than 7 days; hundreds of GB of junk have been seen here ("System Data") |
+| Browser code-signing clones (`*.code_sign_clone`) | rebuildable; excludes EDR |
+| Orphaned system services (LaunchDaemons/PrivilegedHelperTools whose binary no longer exists) | sudo; with a long list of known false positives (Docker, Zoom, Wireshark, Tailscale…) |
+| Time Machine local snapshots | **does not delete them**: only counts (`tmutil listlocalsnapshots /`) and shows "review" |
+| Failed TM backups `*.inProgress` in `/Volumes/*/Backups.backupdb` | only with TM configured, no backup running (`tmutil status`), and older than 48 h |
 
-No toca `/System`, `/usr`, `/bin`, `/sbin`, `/etc`, `/var/db`, `/Library/Apple`, `/Library/Extensions`, `/Library/Keychains` ni `/private/var/db` (ver lista de protegidos en §2.15).
+It does not touch `/System`, `/usr`, `/bin`, `/sbin`, `/etc`, `/var/db`, `/Library/Apple`, `/Library/Extensions`, `/Library/Keychains` nor `/private/var/db` (see the protected list in §2.15).
 
-### 2.2 Usuario: lo esencial
+### 2.2 User: the essentials
 
-| Ruta | Notas |
+| Path | Notes |
 |---|---|
-| `~/Library/Caches/*` (barrido genérico de todos los hijos) | pasa por la lista de protecciones (§2.15) y por un **guardián de caché viva**: se rechaza si hay un proceso de la app dueña o un manejador abierto de SQLite en esa caché. Se excluye la raíz de Deno. |
-| `~/Library/Logs/*` | logs de más de 7 días |
-| `~/.Trash` | vaciado directo (el usuario puede protegerlo con la whitelist). Si falta Acceso total al disco, avisa y salta. |
-| `~/Library/Saved Application State/*` | estados guardados |
-| `~/Library/Preferences/com.apple.recentitems.plist` | lista de recientes |
-| `~/Library/Mail Downloads`, `~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads` | adjuntos de Mail de más de 30 días y de al menos 5 MB, y solo si Mail no corre |
-| Descargas incompletas `~/Downloads/*.download`, `*.crdownload`, `*.part` | con guardián de "no activa" |
-| `.DS_Store` en el home (máx. 500 por pasada) | **protegido por defecto** (está en la lista blanca por defecto) |
-| `~/Library/Messages/StickerCache`, `Caches/Previews/{Attachments,StickerCache}` | cachés de Mensajes |
-| `~/Library/Caches/com.apple.{photoanalysisd,akd,WebKit.Networking,QuickLook.thumbnailcache,iconservices*,helpd,GeoServices,AppleMediaServices,duetexpertd,parsecd,python}`, `Quick Look/*` | cachés de sistema de usuario |
-| `~/Library/IdentityCaches/*`, `~/Library/Suggestions/*`, `AddressBook/Sources/*/Photos.cache` | cachés de identidad, Siri y Contactos |
-| Contenedores de Apple: `~/Library/Containers/com.apple.{wallpaper.agent,mediaanalysisd,AppStore,configurator.xpc.InternetService,wallpaper.extension.aerials,geod,stocks,AvatarUI.AvatarPickerMemojiPicker,AMPArtworkAgent,CoreDevice.CoreDeviceService,NeptuneOneExtension,AppleMediaServicesUI.UtilityExtension}/Data/{Library/Caches,tmp}/*` | solo `Data/Library/Caches` y `Data/tmp`, nunca el resto del contenedor |
-| `~/Library/Group Containers/*` cachés | salta `com.apple.*`, `group.com.apple.*` y contenedores de extensiones de Safari |
-| Cachés de Apple Silicon: `~/Library/Caches/com.apple.rosetta.update`, `com.apple.amp.mediasevicesd` | menores |
-| Portapapeles/Handoff cache | reconstruible |
+| `~/Library/Caches/*` (generic sweep of all children) | goes through the protection list (§2.15) and through a **live-cache guard**: rejected if there is a process of the owning app or an open SQLite handle on that cache. The Deno root is excluded. |
+| `~/Library/Logs/*` | logs older than 7 days |
+| `~/.Trash` | direct emptying (the user can protect it with the whitelist). If Full Disk Access is missing, it warns and skips. |
+| `~/Library/Saved Application State/*` | saved states |
+| `~/Library/Preferences/com.apple.recentitems.plist` | recents list |
+| `~/Library/Mail Downloads`, `~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads` | Mail attachments older than 30 days and of at least 5 MB, and only if Mail is not running |
+| Incomplete downloads `~/Downloads/*.download`, `*.crdownload`, `*.part` | with a "not active" guard |
+| `.DS_Store` in the home (max. 500 per pass) | **protected by default** (it is in the default whitelist) |
+| `~/Library/Messages/StickerCache`, `Caches/Previews/{Attachments,StickerCache}` | Messages caches |
+| `~/Library/Caches/com.apple.{photoanalysisd,akd,WebKit.Networking,QuickLook.thumbnailcache,iconservices*,helpd,GeoServices,AppleMediaServices,duetexpertd,parsecd,python}`, `Quick Look/*` | user system caches |
+| `~/Library/IdentityCaches/*`, `~/Library/Suggestions/*`, `AddressBook/Sources/*/Photos.cache` | identity, Siri and Contacts caches |
+| Apple containers: `~/Library/Containers/com.apple.{wallpaper.agent,mediaanalysisd,AppStore,configurator.xpc.InternetService,wallpaper.extension.aerials,geod,stocks,AvatarUI.AvatarPickerMemojiPicker,AMPArtworkAgent,CoreDevice.CoreDeviceService,NeptuneOneExtension,AppleMediaServicesUI.UtilityExtension}/Data/{Library/Caches,tmp}/*` | only `Data/Library/Caches` and `Data/tmp`, never the rest of the container |
+| `~/Library/Group Containers/*` caches | skips `com.apple.*`, `group.com.apple.*` and Safari extension containers |
+| Apple Silicon caches: `~/Library/Caches/com.apple.rosetta.update`, `com.apple.amp.mediasevicesd` | minor |
+| Clipboard/Handoff cache | rebuildable |
 
-### 2.3 Navegadores
+### 2.3 Browsers
 
-Familia Safari, Chrome, Chromium, Edge, Brave, Arc, Dia, Vivaldi, Opera, Yandex, QQ Browser, Helium, Comet, Orion (Kagi), Zen y Firefox.
+Family Safari, Chrome, Chromium, Edge, Brave, Arc, Dia, Vivaldi, Opera, Yandex, QQ Browser, Helium, Comet, Orion (Kagi), Zen and Firefox.
 
-- Caché HTTP: `~/Library/Caches/{com.apple.Safari, Google/Chrome, Chromium, com.microsoft.edgemac, BraveSoftware/Brave-Browser, company.thebrowser.Browser (Arc), company.thebrowser.dia, com.vivaldi.Vivaldi, com.operasoftware.Opera, Yandex/YandexBrowser, net.imput.helium, Comet, com.kagi.kagimacOS, zen, Firefox}/*` y `~/.cache/puppeteer`.
-- Dentro de `~/Library/Application Support/<Navegador>/<Perfil>/` y `User Data/<Perfil>/`: `Cache`, `Code Cache`, `GPUCache`, `DawnCache`, `DawnGraphiteCache`, `DawnWebGPUCache`, `GrShaderCache`, `GraphiteDawnCache`, `ShaderCache`, `Application Cache`, `component_crx_cache`, `extensions_crx_cache`, `Crashpad/completed`. GoogleUpdater: `crx_cache` y `*.old`.
-- Service Worker CacheStorage: lógica propia para limpiarlo con presupuesto por dominio.
-- **Versiones antiguas de Chrome/Edge/Brave dentro del `.app`**: `…/Contents/Frameworks/<Framework>/Versions/*` excepto la que apunta `Current`. Solo con el navegador cerrado y con el symlink `Current` válido.
-- **Nunca** toca el perfil: cookies, historial, `Local Storage`, `IndexedDB`, extensiones, contraseñas.
-- Guardián: solo se limpia si el navegador no está en ejecución (sondeo por familia).
+- HTTP cache: `~/Library/Caches/{com.apple.Safari, Google/Chrome, Chromium, com.microsoft.edgemac, BraveSoftware/Brave-Browser, company.thebrowser.Browser (Arc), company.thebrowser.dia, com.vivaldi.Vivaldi, com.operasoftware.Opera, Yandex/YandexBrowser, net.imput.helium, Comet, com.kagi.kagimacOS, zen, Firefox}/*` and `~/.cache/puppeteer`.
+- Inside `~/Library/Application Support/<Browser>/<Profile>/` and `User Data/<Profile>/`: `Cache`, `Code Cache`, `GPUCache`, `DawnCache`, `DawnGraphiteCache`, `DawnWebGPUCache`, `GrShaderCache`, `GraphiteDawnCache`, `ShaderCache`, `Application Cache`, `component_crx_cache`, `extensions_crx_cache`, `Crashpad/completed`. GoogleUpdater: `crx_cache` and `*.old`.
+- Service Worker CacheStorage: its own logic to clean it with a per-domain budget.
+- **Old Chrome/Edge/Brave versions inside the `.app`**: `…/Contents/Frameworks/<Framework>/Versions/*` except the one `Current` points to. Only with the browser closed and with a valid `Current` symlink.
+- It **never** touches the profile: cookies, history, `Local Storage`, `IndexedDB`, extensions, passwords.
+- Guard: it is only cleaned if the browser is not running (probe per family).
 
-### 2.4 Cachés de apps de usuario (más de 190 reglas, lista cerrada por app)
+### 2.4 User app caches (more than 190 rules, closed list per app)
 
-Patrón: `~/Library/Caches/<bundle id>/*`, `~/Library/Containers/<bundle>/Data/Library/Caches/*`, `~/Library/Application Support/<App>/{Cache,Code Cache,GPUCache,Dawn*,logs}` y logs.
+Pattern: `~/Library/Caches/<bundle id>/*`, `~/Library/Containers/<bundle>/Data/Library/Caches/*`, `~/Library/Application Support/<App>/{Cache,Code Cache,GPUCache,Dawn*,logs}` and logs.
 
-- **Editores/IDE:** VS Code (`Code/{logs,Cache,CachedData,CachedExtensionVSIXs,WebStorage/*/CacheStorage}`), Cursor, Sublime, Zed (caché, node/cache, logs), CodeBuddy, extensiones obsoletas de editores, JetBrains (logs; versiones antiguas del Toolbox), Qoder, Antigravity, Filo.
-- **Comunicación:** Slack, Discord, Legcord, Zoom, Teams (nuevo y heredado), WhatsApp, Telegram, WeChat, QQ, Skype, DingTalk, Feishu, Tencent Meeting.
-- **IA:** ChatGPT, Claude (caché, `Application Support/Claude/{Cache,Code Cache,GPUCache,Dawn*,sentry}`, logs), LM Studio (caché de la app, no modelos), Codex Desktop (cachés de Chromium exactas; el perfil y las sesiones están protegidos), Claude Code/Cursor Agent/Copilot CLI **versiones antiguas** (se conserva la activa y 1 anterior).
-- **Creativas:** Adobe (`Caches/Adobe`, `com.adobe.*`, `Media Cache Files`; el patrón `Adobe *` está protegido en la lista de rutas), Figma, Sketch, Final Cut (caché; los proxies solo si el usuario lo marca), DaVinci Resolve (`~/Movies/CacheClip`), Premiere, Blender, Cinema 4D, SketchUp, ScreenFlow.
-- **Medios:** Spotify, Apple Music/Podcasts/TV (incluye temporales de Podcasts), Plex, IINA, VLC, mpv, Bilibili, iQIYI y similares, Stremio.
-- **Descargas/torrents:** Transmission, qBittorrent, Aria2, Downie, Folx.
-- **Juegos:** Steam (`htmlcache`, `appcache`, `depotcache`, `steamapps/shadercache`, logs), Epic, Battle.net, EA, GOG, Riot, Minecraft (logs, crash-reports, webcache), Lunar Client, PCSX2, RPCS3.
-- **Utilidades:** Notion, Obsidian, Logseq, Bear, Evernote, Alfred, The Unarchiver, TeamViewer, AnyDesk, CleanShot, Warp, Ghostty, WakaTime, mihomo-party, Todoist, Spark, Airmail.
-- **Oficina:** Word/Excel/PowerPoint/Outlook (caché + contenedor + logs), iWork, WPS, Thunderbird, **Apple Mail `com.apple.mail/*`** (la lista blanca de Mole lo ofrece como opcional).
-- **Virtualización:** VMware Fusion, Parallels, VirtualBox `.cache`, UTM (caché de la app, del sandbox y temporales), Lima (descargas), Vagrant (`.vagrant.d/tmp`), Tart.
-- **Heurística genérica de Application Support:** una carpeta de app se considera con caché regenerable si contiene `Code Cache`, `GPUCache`, `DawnCache`, `GrShaderCache`, `GraphiteDawnCache`, `DawnGraphiteCache`, `DawnWebGPUCache` o `Crashpad`; entonces se limpian esas subcarpetas (y `Cache`/`CachedData`), salvo apps protegidas (§2.15) y salvo carpetas con demasiados elementos.
-- Otros: `~/.zcompdump*`, `~/.lesshst`, `~/.viminfo.tmp`, `~/.wget-hsts`, `~/.oh-my-zsh/cache`, `~/.cache/{curl,wget,pre-commit}`, cachés de curl y wget en `~/Library/Caches`.
+- **Editors/IDEs:** VS Code (`Code/{logs,Cache,CachedData,CachedExtensionVSIXs,WebStorage/*/CacheStorage}`), Cursor, Sublime, Zed (cache, node/cache, logs), CodeBuddy, obsolete editor extensions, JetBrains (logs; old Toolbox versions), Qoder, Antigravity, Filo.
+- **Communication:** Slack, Discord, Legcord, Zoom, Teams (new and legacy), WhatsApp, Telegram, WeChat, QQ, Skype, DingTalk, Feishu, Tencent Meeting.
+- **AI:** ChatGPT, Claude (cache, `Application Support/Claude/{Cache,Code Cache,GPUCache,Dawn*,sentry}`, logs), LM Studio (app cache, not models), Codex Desktop (exact Chromium caches; the profile and sessions are protected), Claude Code/Cursor Agent/Copilot CLI **old versions** (the active one and 1 previous are kept).
+- **Creative:** Adobe (`Caches/Adobe`, `com.adobe.*`, `Media Cache Files`; the pattern `Adobe *` is protected in the path list), Figma, Sketch, Final Cut (cache; proxies only if the user checks it), DaVinci Resolve (`~/Movies/CacheClip`), Premiere, Blender, Cinema 4D, SketchUp, ScreenFlow.
+- **Media:** Spotify, Apple Music/Podcasts/TV (includes Podcasts temporaries), Plex, IINA, VLC, mpv, Bilibili, iQIYI and similar, Stremio.
+- **Downloads/torrents:** Transmission, qBittorrent, Aria2, Downie, Folx.
+- **Games:** Steam (`htmlcache`, `appcache`, `depotcache`, `steamapps/shadercache`, logs), Epic, Battle.net, EA, GOG, Riot, Minecraft (logs, crash-reports, webcache), Lunar Client, PCSX2, RPCS3.
+- **Utilities:** Notion, Obsidian, Logseq, Bear, Evernote, Alfred, The Unarchiver, TeamViewer, AnyDesk, CleanShot, Warp, Ghostty, WakaTime, mihomo-party, Todoist, Spark, Airmail.
+- **Office:** Word/Excel/PowerPoint/Outlook (cache + container + logs), iWork, WPS, Thunderbird, **Apple Mail `com.apple.mail/*`** (Mole's whitelist offers it as optional).
+- **Virtualization:** VMware Fusion, Parallels, VirtualBox `.cache`, UTM (app cache, sandbox cache and temporaries), Lima (downloads), Vagrant (`.vagrant.d/tmp`), Tart.
+- **Generic Application Support heuristic:** an app folder is considered to have a regenerable cache if it contains `Code Cache`, `GPUCache`, `DawnCache`, `GrShaderCache`, `GraphiteDawnCache`, `DawnGraphiteCache`, `DawnWebGPUCache` or `Crashpad`; then those subfolders (and `Cache`/`CachedData`) are cleaned, except protected apps (§2.15) and except folders with too many items.
+- Others: `~/.zcompdump*`, `~/.lesshst`, `~/.viminfo.tmp`, `~/.wget-hsts`, `~/.oh-my-zsh/cache`, `~/.cache/{curl,wget,pre-commit}`, curl and wget caches in `~/Library/Caches`.
 
-### 2.5 Herramientas de desarrollo (cachés de paquetes y compiladores)
+### 2.5 Development tools (package and compiler caches)
 
-Con su comando oficial cuando existe (marcado con **cmd**):
+With their official command when one exists (marked **cmd**):
 
-| Herramienta | Qué limpia |
+| Tool | What it cleans |
 |---|---|
-| npm | `~/.npm/_cacache/*` y residuales (`_logs`, etc.) usando la ruta de `npm config get cache`; `~/.tnpm` |
-| pnpm | **cmd** `pnpm store prune` por cada binario pnpm usable, con ruta de store validada; salta si hay un pnpm corriendo; `~/Library/pnpm/store` solo se revisa |
+| npm | `~/.npm/_cacache/*` and residuals (`_logs`, etc.) using the path from `npm config get cache`; `~/.tnpm` |
+| pnpm | **cmd** `pnpm store prune` for each usable pnpm binary, with a validated store path; skips if a pnpm is running; `~/Library/pnpm/store` is only reviewed |
 | yarn | `~/.yarn/cache/*`, `~/Library/Caches/Yarn/*` |
-| bun | **cmd** `bun pm cache rm` y huérfanos de `~/.bun/install/cache` |
+| bun | **cmd** `bun pm cache rm` and orphans in `~/.bun/install/cache` |
 | Corepack | `$COREPACK_HOME/*` |
-| uv | **cmd** `uv cache prune` (`uv cache dir` para la ruta). Nota: Airy usa `uv cache clean`, más agresivo; Mole usa `prune` |
+| uv | **cmd** `uv cache prune` (`uv cache dir` for the path). Note: Airy uses `uv cache clean`, which is more aggressive; Mole uses `prune` |
 | pip | **cmd** `pip3 cache purge` |
-| conda | **cmd** `conda clean --yes --index-cache --tarballs --logfiles` (no toca `pkgs` en uso: `~/.conda/pkgs` solo se revisa) |
-| Poetry, pyenv, Jupyter, Ruff, mypy, pytest | `~/.cache/poetry`, `Library/Caches/pypoetry/{artifacts,cache}` (**`pypoetry/virtualenvs` protegido siempre**), `~/.pyenv/cache`, `~/.jupyter/runtime`, `~/.cache/{ruff,mypy}`, `~/.pytest_cache`, PyInstaller `bincache` |
-| Go | rutas dadas por `go env GOCACHE` y `GOMODCACHE` (nunca rutas anchas como `~` o `~/go`) |
-| Rust | `$CARGO_HOME/registry/cache` (solo la caché de descargas), `~/.rustup/downloads`; **no** toca `registry/src`, `registry/index`, `git`, `bin` ni `toolchains` (razón: rust-analyzer y compilaciones offline los usan). Salta si hay cargo/rustc corriendo |
+| conda | **cmd** `conda clean --yes --index-cache --tarballs --logfiles` (does not touch `pkgs` in use: `~/.conda/pkgs` is only reviewed) |
+| Poetry, pyenv, Jupyter, Ruff, mypy, pytest | `~/.cache/poetry`, `Library/Caches/pypoetry/{artifacts,cache}` (**`pypoetry/virtualenvs` always protected**), `~/.pyenv/cache`, `~/.jupyter/runtime`, `~/.cache/{ruff,mypy}`, `~/.pytest_cache`, PyInstaller `bincache` |
+| Go | paths given by `go env GOCACHE` and `GOMODCACHE` (never wide paths such as `~` or `~/go`) |
+| Rust | `$CARGO_HOME/registry/cache` (only the download cache), `~/.rustup/downloads`; it does **not** touch `registry/src`, `registry/index`, `git`, `bin` nor `toolchains` (reason: rust-analyzer and offline builds use them). Skips if cargo/rustc is running |
 | Ruby | rbenv cache, `~/.gem/specs`, `~/.gem/ruby/*/cache/*.gem`, `~/.bundle/cache` |
 | PHP | Composer (`~/.composer/cache`, `~/Library/Caches/composer`) |
-| Otros lenguajes | Perl CPAN build, Hex (Elixir), Opam, Bazel `~/.cache/bazel`, Zig, mise, Nix, Terraform, Gradle (protegido por defecto), Maven `~/.m2/repository` (solo revisar), Deno (solo revisar), NuGet (solo revisar), CocoaPods |
-| Frontend | `~/.cache/{typescript,electron,node-gyp,webpack,vite,eslint,prettier,prisma}`, `~/.node-gyp`, `~/.turbo/cache`, `~/.vite/cache`, `~/.parcel-cache`, Expo (`~/.expo/*`, salvo `state.json` con tokens) |
-| Nube/CI | `~/.kube/cache`, `~/.aws/cli/cache`, `~/.config/gcloud/logs`, `~/.azure/logs`, GitHub CLI (`~/.cache/gh`), `~/.cache/gitlab-runner`, `~/.circleci/cache`, `~/.sonar` |
-| Clientes de BD y API | Sequel Ace/Pro, DBeaver, Navicat, Redis Insight, Postman, Insomnia, TablePlus, Paw, Charles, Proxyman (solo cachés) |
+| Other languages | Perl CPAN build, Hex (Elixir), Opam, Bazel `~/.cache/bazel`, Zig, mise, Nix, Terraform, Gradle (protected by default), Maven `~/.m2/repository` (review only), Deno (review only), NuGet (review only), CocoaPods |
+| Frontend | `~/.cache/{typescript,electron,node-gyp,webpack,vite,eslint,prettier,prisma}`, `~/.node-gyp`, `~/.turbo/cache`, `~/.vite/cache`, `~/.parcel-cache`, Expo (`~/.expo/*`, except `state.json` with tokens) |
+| Cloud/CI | `~/.kube/cache`, `~/.aws/cli/cache`, `~/.config/gcloud/logs`, `~/.azure/logs`, GitHub CLI (`~/.cache/gh`), `~/.cache/gitlab-runner`, `~/.circleci/cache`, `~/.sonar` |
+| DB and API clients | Sequel Ace/Pro, DBeaver, Navicat, Redis Insight, Postman, Insomnia, TablePlus, Paw, Charles, Proxyman (caches only) |
 | Android/Swift | `~/.android/{build-cache,cache}`, `Caches/Google/AndroidStudio*`, `~/.cache/swift-package-manager`, `Library/Caches/org.swift.swiftpm` |
-| Homebrew | **cmd** `brew cleanup --prune=30` (antes de ejecutar, una vista previa con `--dry-run`); `~/Library/Caches/Homebrew/downloads/*`; no barre `api/` ni `bootsnap/` ni el directorio de bloqueos; solo cada 7 días; **solo muestra** `brew autoremove` |
-| Navegadores de automatización "huérfanos" | perfiles temporales de Puppeteer/Playwright de más de 2 h y sin proceso vivo |
-| Cachés de proyecto | `__pycache__`, `.pytest_cache`, etc. dentro de proyectos con indicadores, con índice de Git (ver §5.2) |
+| Homebrew | **cmd** `brew cleanup --prune=30` (before running, a preview with `--dry-run`); `~/Library/Caches/Homebrew/downloads/*`; does not sweep `api/` nor `bootsnap/` nor the locks directory; only every 7 days; **only shows** `brew autoremove` |
+| "Orphaned" automation browsers | temporary Puppeteer/Playwright profiles older than 2 h and with no live process |
+| Project caches | `__pycache__`, `.pytest_cache`, etc. inside projects with markers, with the Git index (see §5.2) |
 
-### 2.6 Xcode y simuladores
+### 2.6 Xcode and simulators
 
-| Ruta / comando | Criterio |
+| Path / command | Criterion |
 |---|---|
-| `~/Library/Developer/Xcode/DerivedData/*` y `Products/*` | solo con Xcode y build tooling parados (sondeo de procesos) |
-| `~/Library/Caches/com.apple.dt.Xcode/*` | idem |
-| `~/Library/Developer/Xcode/{iOS,watchOS,tvOS} DeviceSupport/*` | **conserva las 2 más recientes** por fecha (configurable); limpia además `*/Symbols/System/Library/Caches/*` y `*.log` |
-| `~/Library/Developer/XCTestDevices/*` | cada clon por separado; Xcode los recrea |
-| **cmd** `xcrun simctl delete unavailable` | con un `DEVELOPER_DIR` que tenga `simctl`; reintenta una vez por el arranque en frío de CoreSimulatorService |
-| `~/Library/Developer/CoreSimulator/Caches/*`, `Devices/*/data/tmp/*`, `~/Library/Logs/CoreSimulator/*` | solo sin simuladores arrancados (`simctl list devices booted -j`) |
-| `~/Library/Developer/CoreSimulator/Profiles/Runtimes/*/…/System/Library/Caches/*` | caché de runtime |
-| `/Library/Developer/CoreSimulator/Caches` (sudo), `/Library/Developer/Xcode/DocumentationCache` | caches de sistema |
-| `~/Library/Developer/Xcode/UserData/IB Support/*` | caché de Interface Builder |
-| Runtimes de simulador huérfanos (sin dispositivos) | **solo informa**: `xcrun simctl runtime delete <id>` |
-| `Xcode/Archives`, `CoreSimulator/Devices` | **solo revisar** (§2.14) |
+| `~/Library/Developer/Xcode/DerivedData/*` and `Products/*` | only with Xcode and build tooling stopped (process probe) |
+| `~/Library/Caches/com.apple.dt.Xcode/*` | same |
+| `~/Library/Developer/Xcode/{iOS,watchOS,tvOS} DeviceSupport/*` | **keeps the 2 most recent** by date (configurable); also cleans `*/Symbols/System/Library/Caches/*` and `*.log` |
+| `~/Library/Developer/XCTestDevices/*` | each clone separately; Xcode recreates them |
+| **cmd** `xcrun simctl delete unavailable` | with a `DEVELOPER_DIR` that has `simctl`; retries once because of the cold start of CoreSimulatorService |
+| `~/Library/Developer/CoreSimulator/Caches/*`, `Devices/*/data/tmp/*`, `~/Library/Logs/CoreSimulator/*` | only with no booted simulators (`simctl list devices booted -j`) |
+| `~/Library/Developer/CoreSimulator/Profiles/Runtimes/*/…/System/Library/Caches/*` | runtime cache |
+| `/Library/Developer/CoreSimulator/Caches` (sudo), `/Library/Developer/Xcode/DocumentationCache` | system caches |
+| `~/Library/Developer/Xcode/UserData/IB Support/*` | Interface Builder cache |
+| Orphaned simulator runtimes (without devices) | **only reports**: `xcrun simctl runtime delete <id>` |
+| `Xcode/Archives`, `CoreSimulator/Devices` | **review only** (§2.14) |
 
-### 2.7 Docker, OrbStack y contenedores
+### 2.7 Docker, OrbStack and containers
 
-**Mole no ejecuta ningún `docker … prune`.** Solo avisa "Docker unused data · review with `docker system df`" y borra `~/.docker/buildx/cache/*`, `~/.local/share/containers/storage/tmp/*`, `~/.vagrant.d/tmp`. Muestra "revisar" para `~/Library/Containers/com.docker.docker/Data`, OrbStack (`~/.orbstack`, `Group Containers/*dev.orbstack/data`, `~/OrbStack`; **protegidos** como ruta: contienen sistemas de archivos vivos) y `~/.lima`. Airy es más agresivo y capaz aquí (prunes oficiales); eso es una ventaja de Airy, no una carencia.
+**Mole does not run any `docker … prune`.** It only warns "Docker unused data · review with `docker system df`" and deletes `~/.docker/buildx/cache/*`, `~/.local/share/containers/storage/tmp/*`, `~/.vagrant.d/tmp`. It shows "review" for `~/Library/Containers/com.docker.docker/Data`, OrbStack (`~/.orbstack`, `Group Containers/*dev.orbstack/data`, `~/OrbStack`; **protected** as a path: they contain live file systems) and `~/.lima`. Airy is more aggressive and capable here (official prunes); that is an advantage of Airy, not a shortcoming.
 
-### 2.8 Homebrew y gestores
+### 2.8 Homebrew and managers
 
-Ya cubierto en §2.5. Además: restos de descargas en `~/Library/Caches/Homebrew`; Caskroom como parte del inventario de apps instaladas.
+Already covered in §2.5. In addition: download leftovers in `~/Library/Caches/Homebrew`; Caskroom as part of the inventory of installed apps.
 
-### 2.9 Restos de apps ya desinstaladas (huérfanos)
+### 2.9 Leftovers of already-uninstalled apps (orphans)
 
-Ver §5.1 para la lógica. Carpetas que revisa: `~/Library/Caches`, `~/Library/Logs`, `~/Library/Saved Application State`, más contenedores "stub" (solo los de MacPaw/CleanMyMac) y servicios del sistema (sudo).
+See §5.1 for the logic. Folders it reviews: `~/Library/Caches`, `~/Library/Logs`, `~/Library/Saved Application State`, plus "stub" containers (only those of MacPaw/CleanMyMac) and system services (sudo).
 
-### 2.10 Instaladores y firmware
+### 2.10 Installers and firmware
 
-- `mo installer`: `.dmg .pkg .mpkg .iso .xip` y `.zip` que listados con `zipinfo -1` parezcan instalador, en `~/Downloads`, `~/Desktop`, `~/Documents`, `~/Public`, `~/Library/Downloads`, `~/Library/Caches/Homebrew`, iCloud Drive `…/com~apple~CloudDocs/Downloads`, Mail Downloads, Telegram Desktop. Verifica identidad del archivo en el momento de borrar. Descarta la lista entera si el escaneo falla o expira.
-- Firmware de dispositivos: `~/Library/iTunes/*Software Updates/*.ipsw`, `~/Library/Group Containers/*.group.com.apple.configurator/**/*.ipsw`.
-- Actualizaciones de macOS: `/Library/Updates` y `/macOS Install Data` los deja a Software Update; `~/Library/Updates` solo revisa.
+- `mo installer`: `.dmg .pkg .mpkg .iso .xip` and `.zip` that look like an installer when listed with `zipinfo -1`, in `~/Downloads`, `~/Desktop`, `~/Documents`, `~/Public`, `~/Library/Downloads`, `~/Library/Caches/Homebrew`, iCloud Drive `…/com~apple~CloudDocs/Downloads`, Mail Downloads, Telegram Desktop. Verifies file identity at the moment of deleting. Discards the whole list if the scan fails or expires.
+- Device firmware: `~/Library/iTunes/*Software Updates/*.ipsw`, `~/Library/Group Containers/*.group.com.apple.configurator/**/*.ipsw`.
+- macOS updates: `/Library/Updates` and `/macOS Install Data` are left to Software Update; `~/Library/Updates` is only reviewed.
 
 ### 2.11 Logs
 
-`~/Library/Logs/*` (más de 7 días; protegidos los de Codex y los del propio Mole), logs de apps (Claude, Zed, JetBrains, Warp, DingTalk, Steam, Minecraft…), logs del sistema (§2.1), informes de fallos (`~/Library/Logs/DiagnosticReports`, `Crashpad/completed` y `pending` de Codex de más de cierta edad, `SentryCrash`, `KSCrash`, `Crashlytics`).
+`~/Library/Logs/*` (older than 7 days; Codex's and Mole's own are protected), app logs (Claude, Zed, JetBrains, Warp, DingTalk, Steam, Minecraft…), system logs (§2.1), crash reports (`~/Library/Logs/DiagnosticReports`, Codex's `Crashpad/completed` and `pending` older than a certain age, `SentryCrash`, `KSCrash`, `Crashlytics`).
 
-### 2.12 Estado de apps y otros mantenimientos que borran
+### 2.12 App state and other maintenance that deletes
 
-`~/Library/Saved Application State/*.savedState` de más de 30 días, `~/Library/Application Support/com.apple.sharedfilelist/*.sfl2|sfl3` corruptos (`plutil -lint` falla), preferencias `.plist` corruptas (no `com.apple.*`).
+`~/Library/Saved Application State/*.savedState` older than 30 days, corrupt `~/Library/Application Support/com.apple.sharedfilelist/*.sfl2|sfl3` (`plutil -lint` fails), corrupt `.plist` preferences (not `com.apple.*`).
 
-### 2.13 Cachés de Finder / Vista rápida
+### 2.13 Finder / Quick Look caches
 
-`com.apple.QuickLook.thumbnailcache`, `com.apple.iconservices.store`, `com.apple.iconservices` + `qlmanage -r cache` y `qlmanage -r`.
+`com.apple.QuickLook.thumbnailcache`, `com.apple.iconservices.store`, `com.apple.iconservices` + `qlmanage -r cache` and `qlmanage -r`.
 
-### 2.14 Elementos de solo revisar (nunca los borra solo)
+### 2.14 Review-only items (it never deletes them by itself)
 
-Los muestra con tamaño y el comando manual. Para Airy es la base de su categoría "tú decides / revisar" sin botón automático:
+It shows them with their size and the manual command. For Airy this is the basis of its "you decide / review" category without an automatic button:
 
-Mail (`~/Library/Mail`), instaladores de macOS, caché de actualizaciones, datos de Docker/OrbStack/Lima, DerivedData y Archives de Xcode, datos de simuladores, copias de iOS (`~/Library/Application Support/MobileSync/Backup`), modelos de LM Studio, Hugging Face (`~/.cache/huggingface` y la ruta que pida `HF_HOME`), Maven, Ivy, NuGet, Deno, store de pnpm, `~/.conda/pkgs`, Gradle, emuladores y system-images de Android, instalaciones de `mise`, SDK de Flutter (FVM), datos antiguos de JetBrains, cachés de modelos compilados de Apple Intelligence (`com.apple.e5rt.e5bundlecache`: **protegido**, caro de regenerar), worktrees de agentes (`~/.codex/worktrees`, `~/.claude/worktrees`), instantáneas locales de Time Machine, login items/LaunchAgents rotos, artefactos de build (con comando `mo purge`).
+Mail (`~/Library/Mail`), macOS installers, update cache, Docker/OrbStack/Lima data, Xcode DerivedData and Archives, simulator data, iOS backups (`~/Library/Application Support/MobileSync/Backup`), LM Studio models, Hugging Face (`~/.cache/huggingface` and whatever path `HF_HOME` asks for), Maven, Ivy, NuGet, Deno, pnpm store, `~/.conda/pkgs`, Gradle, Android emulators and system-images, `mise` installs, Flutter SDK (FVM), old JetBrains data, Apple Intelligence compiled-model caches (`com.apple.e5rt.e5bundlecache`: **protected**, expensive to regenerate), agent worktrees (`~/.codex/worktrees`, `~/.claude/worktrees`), Time Machine local snapshots, broken login items/LaunchAgents, build artifacts (with the `mo purge` command).
 
-### 2.15 Lista de protecciones (lo más valioso para copiar *como idea*)
+### 2.15 Protection list (the most valuable thing to copy *as an idea*)
 
-Mole tiene tres capas independientes. Copio la lista tal cual está definida, porque es la parte de mayor valor para el motor de seguridad de Airy.
+Mole has three independent layers. I copy the list exactly as it is defined, because it is the highest-value part for Airy's safety engine.
 
-**Capa A: validación de ruta antes de borrar (`validate_path_for_deletion`)**
+**Layer A: path validation before deleting (`validate_path_for_deletion`)**
 
-- Debe ser absoluta, sin `..` como componente, sin caracteres de control.
-- Si la ruta es un enlace simbólico, se valida el destino. Si **algún ancestro** es un enlace, se resuelve la ruta física y se vuelven a pasar las comprobaciones de crítico y protegido.
-- Raíces críticas, nunca borrables (ni sus alias por mayúsculas/minúsculas en APFS, ni por inodo): `/`, `/bin`, `/dev`, `/sbin`, `/usr`, `/System`, `/Library` (y `/Library/Apple`, `/Library/Application Support` raíz, `/Library/Extensions`, `/Library/Keychains`), `/Applications` (raíz), `/Applications/Finder.app`, `/Applications/Safari.app`, `/Volumes`, `/opt`, `/opt/homebrew` (raíz; los hijos sí se pueden), `/Users`, `/Users/Shared`, `/Users/Guest`, `/private`, `/private/tmp`, `/etc`, `/var`, `/var/db`, `/var/audit`, `/var/root`, `/private/var`, `/private/var/tmp`, `/private/var/folders` (raíz), `/private/var/db`, `/private/var/audit`, `/private/var/root`, `/Network`, `/cores`, `/home`, `/net`, `/tmp`. También rechaza `/Users/<nombre>` (la raíz de un home) para evitar un `rm -rf` por una variable vacía.
-- Rechaza la base de datos activa de telemetría de energía (`powerlog`), aunque pese decenas de GB.
+- It must be absolute, without `..` as a component, without control characters.
+- If the path is a symbolic link, the target is validated. If **any ancestor** is a link, the physical path is resolved and the critical and protected checks are passed again.
+- Critical roots, never deletable (nor their case aliases in APFS, nor by inode): `/`, `/bin`, `/dev`, `/sbin`, `/usr`, `/System`, `/Library` (and `/Library/Apple`, `/Library/Application Support` root, `/Library/Extensions`, `/Library/Keychains`), `/Applications` (root), `/Applications/Finder.app`, `/Applications/Safari.app`, `/Volumes`, `/opt`, `/opt/homebrew` (root; the children can be), `/Users`, `/Users/Shared`, `/Users/Guest`, `/private`, `/private/tmp`, `/etc`, `/var`, `/var/db`, `/var/audit`, `/var/root`, `/private/var`, `/private/var/tmp`, `/private/var/folders` (root), `/private/var/db`, `/private/var/audit`, `/private/var/root`, `/Network`, `/cores`, `/home`, `/net`, `/tmp`. It also rejects `/Users/<name>` (the root of a home) to avoid an `rm -rf` caused by an empty variable.
+- It rejects the active energy telemetry database (`powerlog`), even if it weighs tens of GB.
 
-**Capa B: protección de rutas (`should_protect_path`), solo en modo limpieza**
+**Layer B: path protection (`should_protect_path`), only in cleanup mode**
 
-- Siempre protegidos: `~/.prometheus/data`, copias de seguridad de configuración de Git y de historiales de shell (`.gitconfig.bak*`, `.zsh_history.bak*`…), las raíces compartidas `~/.cache`, `~/.config`, `~/.local` (y `~/.local/{bin,lib,share,state}`), pero no sus hijos específicos de una app.
-- Cualquier ruta con `SystemSettings`, `SystemPreferences`, `ControlCenter`, `com.apple.Settings*`, `com.apple.Notes`; cachés de la interfaz del sistema (`com.apple.systempreferences.cache`, `controlcenter.cache`, `finder.cache`, `dock.cache`: borrarlas deja paneles en blanco); contenedores de Ajustes y Control Center; `dock.plist` y `finder.plist`; preferencias de Bluetooth y Wi-Fi (`ByHost/com.apple.bluetooth.*`, `wifi.*`); `com.apple.networkextension*.plist` (estado de VPN).
+- Always protected: `~/.prometheus/data`, Git configuration backups and shell history backups (`.gitconfig.bak*`, `.zsh_history.bak*`…), the shared roots `~/.cache`, `~/.config`, `~/.local` (and `~/.local/{bin,lib,share,state}`), but not their app-specific children.
+- Any path with `SystemSettings`, `SystemPreferences`, `ControlCenter`, `com.apple.Settings*`, `com.apple.Notes`; system UI caches (`com.apple.systempreferences.cache`, `controlcenter.cache`, `finder.cache`, `dock.cache`: deleting them leaves blank panels); Settings and Control Center containers; `dock.plist` and `finder.plist`; Bluetooth and Wi-Fi preferences (`ByHost/com.apple.bluetooth.*`, `wifi.*`); `com.apple.networkextension*.plist` (VPN state).
 - iCloud Drive: `~/Library/Mobile Documents*`.
-- Datos personales de cuentas: `~/Library/Accounts`, `~/Library/Keychains`, `~/Library/Mail`, `~/Library/Calendars`, `~/Library/Contacts`.
-- Plugins de audio y licencias: `/Library/Audio/Plug-Ins/{Components,VST,VST3}`, `iZotope`, `LaserSoft Imaging`, preferencias de Native Instruments, Avid Media Composer, FabFilter, PACE (iLok).
-- Cachés con estado de cuenta o licencia pese al nombre: `ms-playwright`, Cotypist, DisplayLink, SilverFast, `Adobe *`, `com.apple.containermanagerd`, `homed`, `ap.adprivacyd`, `FamilyCircle`, `HomeKit`, cachés de sandbox de Atajos (`ShortcutsSandboxCache`), `GIPPseudonymousID`, `CCTClearcutLogger` (borrarlas con Gemini abierto provoca un bucle de escritura).
-- Fondos de pantalla y salvapantallas del usuario: `Application Support/com.apple.idleassetsd`, `com.apple.wallpaper`.
-- Audio del sistema: cualquier cosa con `coreaudio`, `com.apple.audio.`, `coreaudiod` (borrar causa pérdida de sonido en Macs Intel).
-- OrbStack (`~/.orbstack`, `Group Containers/*dev.orbstack`), estado de Codex (sesiones, `auth.json`, historial, índices).
-- Cachés de **agentes de seguridad/EDR/MDM** bajo `/private/var/folders`: prefijos `com.crowdstrike.`, `com.sentinelone.`, `com.sentinel-labs.`, `com.eset.`, `com.jamf.`, `com.jamfsoftware.`, `com.paloaltonetworks.`, `com.cisco.anyconnect`, `com.cisco.secureclient`. Borrar algo ahí dispara la detección de manipulación (MITRE T1562.001) y corporativamente parece malware.
-- Cachés de modelos compilados (`com.apple.e5rt.e5bundlecache`): se saltan.
-- Contenedores de apps (`~/Library/Containers/<id>`, `Group Containers/<id>`): si el id es de una app protegida, se protege todo salvo `Data/Library/Caches/*` y `Data/tmp/*`, que se consideran regenerables por definición.
+- Personal account data: `~/Library/Accounts`, `~/Library/Keychains`, `~/Library/Mail`, `~/Library/Calendars`, `~/Library/Contacts`.
+- Audio plugins and licenses: `/Library/Audio/Plug-Ins/{Components,VST,VST3}`, `iZotope`, `LaserSoft Imaging`, Native Instruments preferences, Avid Media Composer, FabFilter, PACE (iLok).
+- Caches with account or license state despite the name: `ms-playwright`, Cotypist, DisplayLink, SilverFast, `Adobe *`, `com.apple.containermanagerd`, `homed`, `ap.adprivacyd`, `FamilyCircle`, `HomeKit`, Shortcuts sandbox caches (`ShortcutsSandboxCache`), `GIPPseudonymousID`, `CCTClearcutLogger` (deleting them with Gemini open causes a write loop).
+- User wallpapers and screensavers: `Application Support/com.apple.idleassetsd`, `com.apple.wallpaper`.
+- System audio: anything with `coreaudio`, `com.apple.audio.`, `coreaudiod` (deleting causes sound loss on Intel Macs).
+- OrbStack (`~/.orbstack`, `Group Containers/*dev.orbstack`), Codex state (sessions, `auth.json`, history, indexes).
+- Caches of **security agents/EDR/MDM** under `/private/var/folders`: prefixes `com.crowdstrike.`, `com.sentinelone.`, `com.sentinel-labs.`, `com.eset.`, `com.jamf.`, `com.jamfsoftware.`, `com.paloaltonetworks.`, `com.cisco.anyconnect`, `com.cisco.secureclient`. Deleting anything there triggers tamper detection (MITRE T1562.001) and looks like malware to a corporation.
+- Compiled-model caches (`com.apple.e5rt.e5bundlecache`): skipped.
+- App containers (`~/Library/Containers/<id>`, `Group Containers/<id>`): if the id belongs to a protected app, everything is protected except `Data/Library/Caches/*` and `Data/tmp/*`, which are considered regenerable by definition.
 
-**Capa C: apps con datos sensibles (lista `DATA_PROTECTED_BUNDLES`), protegidas en limpieza (se pueden desinstalar a petición)**
+**Layer C: apps with sensitive data (`DATA_PROTECTED_BUNDLES` list), protected in cleanup (they can be uninstalled on request)**
 
-Gestores de contraseñas (1Password, Bitwarden, LastPass, Dashlane, KeePass, Authy, Yubico), IDE y editores (JetBrains, VS Code, Sublime, Xcode, Nova, Typora), herramientas de IA (Cursor, Claude, ChatGPT, Codex, Ollama, LM Studio, Jan, Perplexity, DrawThings, Windsurf, Gemini), clientes de bases de datos, herramientas de API y red (Postman, Insomnia, Charles, Proxyman, Paw), **VPN y proxys** (Clash/ClashX/Verge, Surge, Tailscale, ZeroTier, WireGuard, OpenVPN, Cloudflare WARP, Nord/Express/Proton/Mullvad…), Git (GitHub Desktop, Tower, Fork, GitKraken, Sublime Merge), terminales (iTerm2, kitty, Alacritty, WezTerm, Warp), Docker y virtualización (Docker, OrbStack, UTM, VMware, Parallels, VirtualBox, Vagrant), monitorización, gestores de ventanas y lanzadores (Alfred, Raycast, Karabiner, Rectangle, Bartender), notas (Obsidian, Notion, Bear, Logseq, Evernote, Day One, GoodNotes), diseño y creativas (Adobe, Figma, Sketch, Affinity, Pixelmator, Cinema 4D, Autodesk, Native Instruments, iZotope, FabFilter), comunicación (Slack, Discord, Zoom, Teams, Telegram, WhatsApp, WeChat…), almacenamiento y copia (Dropbox, OneDrive, Google Drive, Box, Backblaze, iCloud `bird`/`CloudDocs`), acceso remoto (TeamViewer, AnyDesk, Chrome Remote Desktop), métodos de entrada (IME).
+Password managers (1Password, Bitwarden, LastPass, Dashlane, KeePass, Authy, Yubico), IDEs and editors (JetBrains, VS Code, Sublime, Xcode, Nova, Typora), AI tools (Cursor, Claude, ChatGPT, Codex, Ollama, LM Studio, Jan, Perplexity, DrawThings, Windsurf, Gemini), database clients, API and network tools (Postman, Insomnia, Charles, Proxyman, Paw), **VPNs and proxies** (Clash/ClashX/Verge, Surge, Tailscale, ZeroTier, WireGuard, OpenVPN, Cloudflare WARP, Nord/Express/Proton/Mullvad…), Git (GitHub Desktop, Tower, Fork, GitKraken, Sublime Merge), terminals (iTerm2, kitty, Alacritty, WezTerm, Warp), Docker and virtualization (Docker, OrbStack, UTM, VMware, Parallels, VirtualBox, Vagrant), monitoring, window managers and launchers (Alfred, Raycast, Karabiner, Rectangle, Bartender), notes (Obsidian, Notion, Bear, Logseq, Evernote, Day One, GoodNotes), design and creative (Adobe, Figma, Sketch, Affinity, Pixelmator, Cinema 4D, Autodesk, Native Instruments, iZotope, FabFilter), communication (Slack, Discord, Zoom, Teams, Telegram, WhatsApp, WeChat…), storage and backup (Dropbox, OneDrive, Google Drive, Box, Backblaze, iCloud `bird`/`CloudDocs`), remote access (TeamViewer, AnyDesk, Chrome Remote Desktop), input methods (IME).
 
-Además, una lista de **patrones de datos sensibles que nunca se tratan como huérfanos**: `*1password*`, `*keychain*`, `*bitwarden*`, `*lastpass*`, `*keepass*`, `*dashlane*`, `*enpass*`, `*ssh*`, `*gpg*`, `*gnupg*`, `com.apple.keychain*`.
+In addition, a list of **sensitive data patterns that are never treated as orphans**: `*1password*`, `*keychain*`, `*bitwarden*`, `*lastpass*`, `*keepass*`, `*dashlane*`, `*enpass*`, `*ssh*`, `*gpg*`, `*gnupg*`, `com.apple.keychain*`.
 
-**Lista blanca de usuario (`~/.config/mole/whitelist`)**
+**User whitelist (`~/.config/mole/whitelist`)**
 
-- Se gestiona con `mo clean --whitelist` (menú con las cachés ofrecidas) y se guarda una ruta/patrón por línea. Lo que el usuario guarda *reemplaza* los valores por defecto opcionales, pero las **protecciones de seguridad duras se vuelven a mezclar siempre** (para que una lista antigua no pierda protecciones nuevas).
-- Valores por defecto opcionales (protegidos hasta que el usuario los desmarque): `~/Library/Caches/ms-playwright*`, `~/.gradle/{caches,daemon}/*`, `~/.ollama/models/*`, cachés y datos de Surge, `~/Library/Caches/org.R-project.R/R/renv/*`, `~/Library/Caches/JetBrains*`, `com.jetbrains.toolbox*`, `tealdeer/tldr-pages`, `~/Library/Application Support/JetBrains*`, `~/Library/Caches/com.apple.finder`, `~/Library/Mobile Documents*`, y la marca interna de "metadatos de Finder / .DS_Store".
-- Protecciones duras que siempre se fusionan: FINDER_METADATA, `com.apple.FontRegistry*`, `com.apple.spotlight*`/`Spotlight*` (romperlas rompe la búsqueda y el renderizado de fuentes), `CloudKit*` (rompe sincronización de iCloud), `pypoetry/virtualenvs*` (intérpretes vivos), `renv` (enlaces simbólicos desde proyectos R).
-- Para `optimize` hay una lista blanca aparte (`whitelist_optimize`, por nombre de tarea o patrón de ruta).
+- It is managed with `mo clean --whitelist` (a menu with the offered caches) and one path/pattern per line is saved. What the user saves *replaces* the optional defaults, but the **hard safety protections are always merged back in** (so that an old list does not lose new protections).
+- Optional defaults (protected until the user unchecks them): `~/Library/Caches/ms-playwright*`, `~/.gradle/{caches,daemon}/*`, `~/.ollama/models/*`, Surge caches and data, `~/Library/Caches/org.R-project.R/R/renv/*`, `~/Library/Caches/JetBrains*`, `com.jetbrains.toolbox*`, `tealdeer/tldr-pages`, `~/Library/Application Support/JetBrains*`, `~/Library/Caches/com.apple.finder`, `~/Library/Mobile Documents*`, and the internal "Finder metadata / .DS_Store" flag.
+- Hard protections that are always merged: FINDER_METADATA, `com.apple.FontRegistry*`, `com.apple.spotlight*`/`Spotlight*` (breaking them breaks search and font rendering), `CloudKit*` (breaks iCloud sync), `pypoetry/virtualenvs*` (live interpreters), `renv` (symbolic links from R projects).
+- For `optimize` there is a separate whitelist (`whitelist_optimize`, by task name or path pattern).
 
-### 2.16 Retención y umbrales (constantes de Mole)
+### 2.16 Retention and thresholds (Mole constants)
 
-Logs 7 días; informes de fallos 7; temporales 7; huérfanos 30; "dotdir" huérfano (pista) 60; estados guardados 30; adjuntos de Mail 30 días y 5 MB; GPU 1 día; copia de TM segura 48 h; instaladores de macOS 14 días; Brew cada 7 días; carpetas DeviceSupport: conservar 2; versiones de agentes de IA: conservar la activa más 1; máx. 500 `.DS_Store` por pasada; máx. 15 trabajos en paralelo; base SQLite de más de 100 MB no se compacta; base de notificaciones se compacta si pasa de 50 MB; `knowledgeC.db` si pasa de 100 MB.
+Logs 7 days; crash reports 7; temporaries 7; orphans 30; orphaned "dotdir" (hint) 60; saved states 30; Mail attachments 30 days and 5 MB; GPU 1 day; safe TM backup 48 h; macOS installers 14 days; Brew every 7 days; DeviceSupport folders: keep 2; AI agent versions: keep the active one plus 1; max. 500 `.DS_Store` per pass; max. 15 parallel jobs; SQLite database over 100 MB is not compacted; notifications database is compacted if it exceeds 50 MB; `knowledgeC.db` if it exceeds 100 MB.
 
 ---
 
-## 3. Tareas de `optimize`
+## 3. `optimize` tasks
 
-Todas son "seguras para ejecución automática" según el catálogo de Mole (hay una validación que impide registrar una tarea no segura). Tras cada una informa uno de seis resultados: aplicado, sin cambios, saltado, no disponible, requiere atención, fallido. Mole **no usa `sudo` global**: lo pide al principio una vez y cada tarea comprueba si lo tiene; sin él, la salta con motivo. No se ejecuta como root.
+All are "safe for automatic execution" according to Mole's catalog (there is a validation that prevents registering an unsafe task). After each one it reports one of six results: applied, unchanged, skipped, unavailable, needs attention, failed. Mole **does not use global `sudo`**: it asks for it once at the start and each task checks whether it has it; without it, it skips with a reason. It is not run as root.
 
-Leyenda de utilidad: **Útil** (resuelve un problema real o libera algo medible), **Situacional** (solo ayuda si hay un fallo concreto), **Placebo** (en macOS actual no mejora nada medible o es ruido).
+Usefulness legend: **Useful** (solves a real problem or frees something measurable), **Situational** (only helps if there is a specific failure), **Placebo** (on current macOS it improves nothing measurable or is noise).
 
-| Tarea | Qué ejecuta exactamente | sudo | Valoración |
+| Task | What exactly it runs | sudo | Assessment |
 |---|---|---|---|
-| `system_maintenance` (DNS y Spotlight) | `dscacheutil -flushcache` + `killall -HUP mDNSResponder`; consulta `mdutil -s /` | sí | **Situacional.** Vaciar DNS solo ayuda con problemas de resolución; hacerlo de forma rutinaria es placebo. |
-| `cache_refresh` (Finder) | `qlmanage -r cache`, `qlmanage -r`; borra `com.apple.QuickLook.thumbnailcache`, `com.apple.iconservices.store`, `com.apple.iconservices` | no | **Situacional.** Arregla miniaturas o iconos corruptos; libera poco; no acelera. |
-| `saved_state_cleanup` | borra `*.savedState` de más de 30 días en `~/Library/Saved Application State` | no | **Útil menor.** Algo de espacio y estados obsoletos; riesgo mínimo. |
-| `fix_broken_configs` | busca `.plist` corruptos en preferencias del usuario (no `com.apple.*`) y los elimina | no | **Situacional.** Resuelve apps que no arrancan por una preferencia dañada; conviene hacerlo en ámbar. |
-| `network_optimization` | `dscacheutil -flushcache` + SIGHUP a mDNSResponder (se salta con VPN activa) | sí | **Placebo** como rutina (duplica `system_maintenance`). |
-| `sqlite_vacuum` | `VACUUM` tras `PRAGMA integrity_check` en `Mail/V*/MailData/Envelope Index*`, `Messages/chat.db`, `Safari/History.db`, `Safari/TopSites.db`. Salta si Mail, Safari o Mensajes corren, si la base pasa de 100 MB o si la lista libre es pequeña | no | **Útil con reservas.** Compactar índices de Mail puede acelerar la búsqueda; para Airy es **rojo** (Mail/Mensajes). Solo Safari sería concebible. |
-| `prevent_network_dsstore` | `defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true` y `DSDontWriteUSBStores` | no | **Útil.** Es persistente, reversible (`defaults delete`) y evita basura en discos de red y USB. |
-| `legacy_overrides_audit` | lee `NSAppSleepDisabled` global y `com.apple.frameworks.diskimages skip-verify*`; si están a 1 los borra con `defaults delete` | no | **Útil.** Elimina "tweaks" antiguos que degradan macOS (App Nap desactivado, verificación de imágenes de disco omitida). |
-| `network_stack_optimize` | `route -n flush` y `arp -a -d` (con comprobación previa de conectividad y de VPN de túnel completo) | sí | **Placebo / arriesgada.** Puede cortar rutas explícitas de VPN. Rechazar. |
-| `disk_permissions_repair` | `diskutil resetUserPermissions / <uid>` (si detecta problema) | sí | **Situacional.** Solo si hay errores de permisos en el home. |
-| `spotlight_index_optimize` | mide `mdfind "kMDItemFSName == 'Applications'"` dos veces; si ambas tardan más de 3 s y hay corriente, `mdutil -E /` (reindexa, 1-2 h de uso intenso) | sí | **Situacional útil.** Con búsqueda realmente rota. La medición previa es una buena idea; la reindexación a ciegas sería dañina. |
-| `spotlight_orphan_rules_cleanup` | edita `EnabledPreferenceRules` en `com.apple.spotlight` quitando entradas de apps desinstaladas | no | **Útil menor / cosmético.** |
-| `periodic_maintenance` | `sudo periodic daily weekly monthly` si está obsoleto | sí | **Placebo.** macOS lo hace solo; el comando desaparece en macOS 26+. |
-| `shared_file_list_repair` | borra `*.sfl2/*.sfl3` corruptos (`plutil -lint`), salvo `ApplicationRecentDocuments` | no | **Situacional.** Arregla favoritos de Finder/Recientes rotos. |
-| `disk_verify` | `diskutil verifyVolume /` (desactivado por defecto: `MOLE_ENABLE_DISK_VERIFY=1`) | no (reparar sí) | **Diagnóstico útil**, pero pesado; mejor leer el estado S.M.A.R.T. |
-| `login_items_audit` | revisa elementos de inicio sin binario (`launchctl print`, `PlistBuddy`; evita `sfltool dumpbtm` porque lanza un aviso del sistema) | no | **Útil (solo informa).** |
-| `quarantine_cleanup` | `sqlite3 …/com.apple.LaunchServices.QuarantineEventsV2 "DELETE FROM LSQuarantineEvent; VACUUM;"` | no | **Útil para privacidad**, no para rendimiento. Cambio de riesgo bajo. Ámbar. |
-| `launch_agents_cleanup` | lista `~/Library/LaunchAgents/*.plist` cuyo `Program` absoluto no existe (ignora unidades desmontadas y nombres sin ruta) | no | **Útil (solo informa).** No borra. |
-| `notification_cleanup` | `DELETE FROM record WHERE delivered_date < now-30d; VACUUM;` en la BD del Centro de notificaciones si pesa más de 50 MB; luego `killall NotificationCenter` | no | **Útil cuando la BD es enorme.** Raro. |
-| `coreduet_cleanup` | `DELETE FROM ZOBJECT WHERE ZCREATIONDATE < now-90d; VACUUM;` en `~/Library/Application Support/Knowledge/knowledgeC.db` si pasa de 100 MB | no | **Útil con reservas.** Toca historial de uso (privacidad). Ámbar. |
+| `system_maintenance` (DNS and Spotlight) | `dscacheutil -flushcache` + `killall -HUP mDNSResponder`; queries `mdutil -s /` | yes | **Situational.** Flushing DNS only helps with resolution problems; doing it routinely is placebo. |
+| `cache_refresh` (Finder) | `qlmanage -r cache`, `qlmanage -r`; deletes `com.apple.QuickLook.thumbnailcache`, `com.apple.iconservices.store`, `com.apple.iconservices` | no | **Situational.** Fixes corrupt thumbnails or icons; frees little; does not speed anything up. |
+| `saved_state_cleanup` | deletes `*.savedState` older than 30 days in `~/Library/Saved Application State` | no | **Minor useful.** Some space and obsolete states; minimal risk. |
+| `fix_broken_configs` | looks for corrupt `.plist` files in user preferences (not `com.apple.*`) and removes them | no | **Situational.** Solves apps that do not launch because of a damaged preference; it should be done in amber. |
+| `network_optimization` | `dscacheutil -flushcache` + SIGHUP to mDNSResponder (skipped with an active VPN) | yes | **Placebo** as a routine (duplicates `system_maintenance`). |
+| `sqlite_vacuum` | `VACUUM` after `PRAGMA integrity_check` on `Mail/V*/MailData/Envelope Index*`, `Messages/chat.db`, `Safari/History.db`, `Safari/TopSites.db`. Skips if Mail, Safari or Messages are running, if the database exceeds 100 MB or if the free list is small | no | **Useful with reservations.** Compacting Mail indexes can speed up search; for Airy it is **red** (Mail/Messages). Only Safari would be conceivable. |
+| `prevent_network_dsstore` | `defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true` and `DSDontWriteUSBStores` | no | **Useful.** It is persistent, reversible (`defaults delete`) and avoids junk on network and USB drives. |
+| `legacy_overrides_audit` | reads global `NSAppSleepDisabled` and `com.apple.frameworks.diskimages skip-verify*`; if they are set to 1 it deletes them with `defaults delete` | no | **Useful.** Removes old "tweaks" that degrade macOS (App Nap disabled, disk image verification skipped). |
+| `network_stack_optimize` | `route -n flush` and `arp -a -d` (with a prior check of connectivity and of full-tunnel VPN) | yes | **Placebo / risky.** It can cut explicit VPN routes. Reject. |
+| `disk_permissions_repair` | `diskutil resetUserPermissions / <uid>` (if it detects a problem) | yes | **Situational.** Only if there are permission errors in the home. |
+| `spotlight_index_optimize` | measures `mdfind "kMDItemFSName == 'Applications'"` twice; if both take more than 3 s and power is connected, `mdutil -E /` (reindexes, 1-2 h of heavy use) | yes | **Situational, useful.** With search that is really broken. The prior measurement is a good idea; blind reindexing would be harmful. |
+| `spotlight_orphan_rules_cleanup` | edits `EnabledPreferenceRules` in `com.apple.spotlight` removing entries of uninstalled apps | no | **Minor useful / cosmetic.** |
+| `periodic_maintenance` | `sudo periodic daily weekly monthly` if stale | yes | **Placebo.** macOS does it by itself; the command disappears in macOS 26+. |
+| `shared_file_list_repair` | deletes corrupt `*.sfl2/*.sfl3` (`plutil -lint`), except `ApplicationRecentDocuments` | no | **Situational.** Fixes broken Finder favorites/Recents. |
+| `disk_verify` | `diskutil verifyVolume /` (disabled by default: `MOLE_ENABLE_DISK_VERIFY=1`) | no (repairing, yes) | **Useful diagnostic**, but heavy; better to read the S.M.A.R.T. status. |
+| `login_items_audit` | reviews startup items without a binary (`launchctl print`, `PlistBuddy`; avoids `sfltool dumpbtm` because it raises a system notice) | no | **Useful (only reports).** |
+| `quarantine_cleanup` | `sqlite3 …/com.apple.LaunchServices.QuarantineEventsV2 "DELETE FROM LSQuarantineEvent; VACUUM;"` | no | **Useful for privacy**, not for performance. Low-risk change. Amber. |
+| `launch_agents_cleanup` | lists `~/Library/LaunchAgents/*.plist` whose absolute `Program` does not exist (ignores unmounted drives and names without a path) | no | **Useful (only reports).** Does not delete. |
+| `notification_cleanup` | `DELETE FROM record WHERE delivered_date < now-30d; VACUUM;` on the Notification Center DB if it weighs more than 50 MB; then `killall NotificationCenter` | no | **Useful when the DB is huge.** Rare. |
+| `coreduet_cleanup` | `DELETE FROM ZOBJECT WHERE ZCREATIONDATE < now-90d; VACUUM;` on `~/Library/Application Support/Knowledge/knowledgeC.db` if it exceeds 100 MB | no | **Useful with reservations.** It touches usage history (privacy). Amber. |
 
-Tareas que Mole **retiró** y de las que conviene aprender: `dock_refresh`, `memory_pressure_relief` (el `purge`), `launch_services_rebuild` (rompía extensiones de VPN en ejecución) y `radio_refresh` (cortaba Wi-Fi/Bluetooth). Es un respaldo a la postura de Airy de no ofrecer un botón "liberar RAM".
+Tasks that Mole **withdrew** and that are worth learning from: `dock_refresh`, `memory_pressure_relief` (the `purge`), `launch_services_rebuild` (it broke running VPN extensions) and `radio_refresh` (it cut Wi-Fi/Bluetooth). This supports Airy's stance of not offering a "free RAM" button.
 
-### 3.1 Diagnóstico de rendimiento (solo lectura)
+### 3.1 Performance diagnosis (read-only)
 
-Es lo mejor de `optimize` y encaja con la sección Rendimiento de Airy. Muestrea `ps -Aceo pcpu=,command=` dos veces, con 1 s de separación, y mira estas **familias** con un umbral de 25 % de CPU sostenida en ambas muestras:
+This is the best part of `optimize` and fits Airy's Performance section. It samples `ps -Aceo pcpu=,command=` twice, 1 s apart, and looks at these **families** with a threshold of 25 % sustained CPU in both samples:
 
-- `syspolicyd` (Gatekeeper/firma de código; si sube, comprueba `spctl --status` y busca imágenes de disco montadas con `hdiutil info`, ofreciendo expulsar las que no son del sistema);
-- `WindowServer` (composición; síntoma más que causa);
+- `syspolicyd` (Gatekeeper/code signing; if it rises, check `spctl --status` and look for mounted disk images with `hdiutil info`, offering to eject those that are not the system's);
+- `WindowServer` (compositing; a symptom more than a cause);
 - Spotlight (`mds`, `mdworker`, `mds_stores`, `mdbulkimport`);
-- discos de simuladores (`diskimagesiod`, `simdiskimaged`);
-- agentes empresariales de seguridad (CloudShell, AliEntSafe…; **nunca los cierra**, solo los nombra).
+- simulator disks (`diskimagesiod`, `simdiskimaged`);
+- enterprise security agents (CloudShell, AliEntSafe…; **it never closes them**, it only names them).
 
-Más dos comprobaciones fuera de esa lista:
+Plus two checks outside that list:
 
-- **Presión de memoria:** `sysctl vm.swapusage` (swap usada / total) y porcentaje libre. Avisa si la swap pasa del **50 %** o la memoria libre baja del **15 %**, y nombra los mayores consumidores.
-- **VM inactiva reteniendo memoria:** una máquina virtual (típicamente Docker Desktop) con más de **2 GB** y sin contenedores en marcha; recomienda salir de Docker Desktop.
-- **Proceso desbocado:** uno que lleva al menos **12 h** vivo y ha gastado **≥ 25 %** de CPU sostenida durante toda su vida. Sugiere `kill -TERM <pid>` pero no lo ejecuta.
+- **Memory pressure:** `sysctl vm.swapusage` (swap used / total) and free percentage. It warns if swap exceeds **50 %** or free memory drops below **15 %**, and names the biggest consumers.
+- **Idle VM holding memory:** a virtual machine (typically Docker Desktop) with more than **2 GB** and no containers running; it recommends quitting Docker Desktop.
+- **Runaway process:** one that has been alive at least **12 h** and has used **≥ 25 %** sustained CPU over its whole life. It suggests `kill -TERM <pid>` but does not run it.
 
 ---
 
-## 4. Métricas de `status`
+## 4. `status` metrics
 
-`mo status` es un binario de Go (`gopsutil` v4) con ayuda de utilidades del sistema. Salida JSON y NDJSON (`--watch`). Lo siguiente combina lo documentado en el README con las cadenas del binario.
+`mo status` is a Go binary (`gopsutil` v4) with the help of system utilities. JSON and NDJSON output (`--watch`). The following combines what the README documents with the strings of the binary.
 
-| Métrica | Qué muestra | Cómo la mide (indicio) |
+| Metric | What it shows | How it measures it (hint) |
 |---|---|---|
-| CPU | uso total y por núcleo, carga 1/5/15 min, núcleos de rendimiento y eficiencia (`P+E`) | `host_processor_info`/gopsutil; `hw.perflevel0.logicalcpu`, `hw.perflevel1.logicalcpu`; `vm.loadavg` |
-| Memoria | usada, libre, disponible, total, **presión** | `vm_stat` (activa, cableada, comprimida; tamaño de página de la cabecera), `hw.memsize`, `memory_pressure`, `sysctl vm.swapusage` |
-| Disco | uso, libre, lectura/escritura MB/s | `statfs`/`df -k`, IOKit (`IOBlockStorageDriver`) para contadores; `diskutil info` para saber si es interno |
-| Red | bajada/subida por interfaz con gráfico; detecta túneles (VPN) y evita contar dos veces el tráfico del túnel y de su portadora; proxy HTTP/HTTPS/SOCKS/PAC | `netstat -ib`, tabla de rutas, `scutil --proxy` |
-| Energía | nivel, estado (cargando/descargando), ciclos, **salud de batería** (capacidad máxima), amperaje | IOKit `AppleSmartBattery` (propiedades como `AppleRawMaxCapacity`, `InstantAmperage`, `CycleCount`) y `system_profiler SPPowerDataType` |
-| **Temperatura** | CPU y estado térmico, alerta "CPU temperature high" / "Overheating" | **Sensores HID privados de IOKit** (`IOHIDEventSystemClientCreate`, `…SetMatching`, `…CopyServices`, `IOHIDEventGetFloatValue`), es decir, API privada de Apple. Además usa `powermetrics` (necesita sudo) para potencia de GPU |
-| Ventiladores | número y RPM | claves de IOKit `FanCount`, `FanSpeed` |
-| GPU | uso (residencia activa/inactiva) | `ioreg`/`powermetrics`; hay rutas de `nvidia-smi` heredadas de otras plataformas |
-| Bluetooth | dispositivos y batería | `system_profiler SPBluetoothDataType` |
-| Procesos | top por CPU y memoria, alertas de proceso con CPU por encima del umbral durante una ventana (`--proc-cpu-threshold`, `--proc-cpu-window`), **zombis** con el proceso padre responsable | `ps -Ao pid,ppid,state,pcpu,pmem,rss,comm` |
-| Sistema | modelo, chip, RAM, versión de macOS, tiempo encendido, número de procesos | `kern.boottime`, `kern.osrelease`, IOPlatformUUID, `sw_vers` |
-| **Puntuación de salud (0-100)** | combina CPU, memoria, capacidad de disco, S.M.A.R.T., E/S, térmicos, batería y tiempo encendido, con rangos de color | cálculo propio |
+| CPU | total and per-core usage, 1/5/15 min load, performance and efficiency cores (`P+E`) | `host_processor_info`/gopsutil; `hw.perflevel0.logicalcpu`, `hw.perflevel1.logicalcpu`; `vm.loadavg` |
+| Memory | used, free, available, total, **pressure** | `vm_stat` (active, wired, compressed; page size from the header), `hw.memsize`, `memory_pressure`, `sysctl vm.swapusage` |
+| Disk | usage, free, read/write MB/s | `statfs`/`df -k`, IOKit (`IOBlockStorageDriver`) for counters; `diskutil info` to know whether it is internal |
+| Network | download/upload per interface with a chart; detects tunnels (VPN) and avoids counting the tunnel's and its carrier's traffic twice; HTTP/HTTPS/SOCKS/PAC proxy | `netstat -ib`, routing table, `scutil --proxy` |
+| Power | level, state (charging/discharging), cycles, **battery health** (maximum capacity), amperage | IOKit `AppleSmartBattery` (properties such as `AppleRawMaxCapacity`, `InstantAmperage`, `CycleCount`) and `system_profiler SPPowerDataType` |
+| **Temperature** | CPU and thermal state, alert "CPU temperature high" / "Overheating" | **Private IOKit HID sensors** (`IOHIDEventSystemClientCreate`, `…SetMatching`, `…CopyServices`, `IOHIDEventGetFloatValue`), i.e. a private Apple API. It also uses `powermetrics` (needs sudo) for GPU power |
+| Fans | number and RPM | IOKit keys `FanCount`, `FanSpeed` |
+| GPU | usage (active/idle residency) | `ioreg`/`powermetrics`; there are `nvidia-smi` paths inherited from other platforms |
+| Bluetooth | devices and battery | `system_profiler SPBluetoothDataType` |
+| Processes | top by CPU and memory, process alerts with CPU above the threshold during a window (`--proc-cpu-threshold`, `--proc-cpu-window`), **zombies** with the responsible parent process | `ps -Ao pid,ppid,state,pcpu,pmem,rss,comm` |
+| System | model, chip, RAM, macOS version, uptime, number of processes | `kern.boottime`, `kern.osrelease`, IOPlatformUUID, `sw_vers` |
+| **Health score (0-100)** | combines CPU, memory, disk capacity, S.M.A.R.T., I/O, thermals, battery and uptime, with color ranges | own calculation |
 
-El README de Mole dice además que la app comercial "Mole for Mac" ofrece control de ventiladores en Macs compatibles: no está en el CLI y no hay código.
+Mole's README also says that the commercial app "Mole for Mac" offers fan control on compatible Macs: it is not in the CLI and there is no code.
 
-Para Airy: ya decidió **no mostrar grados** por depender de API privada. Mole demuestra que es viable (IOHID sensores), pero con la fragilidad conocida. La batería, los contadores de E/S, la red, la GPU y el tiempo encendido sí son alcanzables con interfaces estables y no están en la especificación (ver §6).
-
----
-
-## 5. Lógica de restos, desinstalación y purgado de proyectos
-
-### 5.1 Detección de restos huérfanos (apps ya desinstaladas)
-
-1. **Inventario de apps instaladas** (cacheado 5 min): busca `*.app` hasta profundidad 3 en `/Applications`, `/System/Applications`, `~/Applications`, `/opt/homebrew/Caskroom`, `/usr/local/Caskroom`, `~/Library/Application Support/Setapp/Applications`, más apps cuyo `.pkg` las instaló fuera de rutas estándar (`pkgutil --pkgs`/`--files`, `/var/db/receipts`; resultado cacheado una hora a una semana según la huella de recibos) y apps de iOS en Apple Silicon (`Wrapper/*.app`). Lee `CFBundleIdentifier` con `PlistBuddy`. **Si el inventario está incompleto o un Info.plist no se puede leer, no se decide nada** ("un inventario incompleto no puede autorizar huérfanos").
-2. **Candidatos:** solo `~/Library/Caches`, `~/Library/Logs`, `~/Library/Saved Application State` con nombres `com.*`, `org.*`, `net.*`, `io.*` (id en formato DNS inverso).
-3. **Árbol de decisión** para considerar huérfano un id:
-   1. si está en la lista de datos protegidos, no;
-   2. si coincide con los patrones sensibles (contraseñas, ssh, gpg…), no;
-   3. si está en el inventario, no;
-   4. si es un componente del sistema (`loginwindow`, `dock`, `finder`, `safari`, Ajustes…), no;
-   5. **si la carpeta se modificó hace menos de 30 días, no**;
-   6. como último recurso, `mdfind "kMDItemCFBundleIdentifier == '<id>'"` (con timeout; si falla o expira, **se asume instalada**, y no se guarda en la caché del resultado);
-   7. si pasa todo, es huérfano.
-4. **Nunca** considera huérfanos (reglas explícitas, "CRITICAL: NEVER"): `LaunchAgents`, `LaunchDaemons`, `Containers/`, `Application Scripts/`, `Group Containers/` (los ids con prefijo de equipo dan falsos positivos). Solo trata los "stubs" de contenedor de MacPaw/CleanMyMac.
-5. **Servicios huérfanos del sistema** (sudo): plists de `/Library/LaunchAgents` y `/Library/LaunchDaemons` cuyo binario no existe y cuyo dueño no está instalado, con una lista de protección de apps conocidas (Docker, Zoom, Wireshark ChmodBPF, Tailscale, Intego, Homebrew `homebrew.mxcl.*`…). Y `PrivilegedHelperTools` equivalentes.
-6. Comprueba la identidad del candidato (inodo, padre) justo antes de borrar.
-
-### 5.2 Desinstalador (`find_app_files`)
-
-Ubicaciones que asocia a una app, por **nombre** (con variantes: tal cual, sin espacios, guion bajo, guion, minúsculas) y por **bundle id** (y por los ids de bundles embebidos/ayudantes):
-
-- Usuario: `Application Support`, `Caches`, `Logs`, `Preferences` (`.plist` y `ByHost/<id>.*`), `Saved Application State/<id>.savedState`, `Containers/<id>`, `Group Containers` (coincidencia con prefijo de equipo), `WebKit/<id>` y `WebKit/com.apple.WebKit.WebContent/<id>`, `HTTPStorages/<id>` (+ `.binarycookies`), `Cookies/<id>.binarycookies`, `Application Scripts/<id>`, `Autosave Information/<id>`, `SyncedPreferences/<id>.plist`, `~/.config/<app>`, `~/.cache/<app>`, `~/.local/share/<app>`.
-- Extensiones de la app: `Services/*.workflow`, `QuickLook/*.qlgenerator`, `Internet Plug-Ins`, `Audio/Plug-Ins/{Components,VST,VST3,Digidesign}`, `PreferencePanes`, `Input Methods`, `Screen Savers`, `Frameworks`, `Contextual Menu Items`, `Spotlight/*.mdimporter`, `ColorPickers`, `Workflows`, `Address Book Plug-Ins`, `Accessibility`, `Mail/Bundles`.
-- Lanzadores: `~/Library/LaunchAgents/*.plist` cuyo dueño es la app (por id o por programa que apunta dentro del `.app`); se descargan con `launchctl bootout gui/<uid>/<id>`.
-- Sistema (sudo): `/Library/{Application Support,Caches,Logs,Preferences}` con el nombre o id, `/Library/LaunchAgents|LaunchDaemons/<id>.plist` (con `sudo launchctl`), `/Library/PrivilegedHelperTools`, recibos de `/private/var/db/receipts`.
-- Si la app está instalada con Homebrew Cask, ejecuta `brew uninstall --cask` (o `--zap`).
-- Seguridad: no toca restos de apps protegidas del sistema (lista `SYSTEM_CRITICAL_BUNDLES`: en vez de `com.apple.*`, enumera los componentes del sistema para que se puedan desinstalar Xcode, Final Cut, Logic, GarageBand, iWork, etc.); **rechaza** apps de seguridad/MDM/EDR que exigen su desinstalador oficial (ESET, Jamf, CrowdStrike, SentinelOne, GlobalProtect, Cisco Secure Client); cierra la app si está abierta (`osascript` / `pgrep -qx`) antes; comparte datos si otra copia instalada los usa ("shared app paths"); deja en la Papelera por defecto.
-- Steam: tratamiento aparte para juegos.
-
-### 5.3 Purgado de artefactos de proyecto (`mo purge`)
-
-**Qué busca (31 nombres):** `node_modules`, `target`, `build`, `dist`, `venv`, `.venv`, `.pytest_cache`, `.mypy_cache`, `.tox`, `.nox`, `.ruff_cache`, `.gradle`, `.terragrunt-cache`, `__pycache__`, `.next`, `.nuxt`, `.output`, `vendor`, `bin`, `obj`, `.turbo`, `.parcel-cache`, `.dart_tool`, `.zig-cache`, `zig-out`, `.angular`, `.svelte-kit`, `.astro`, `coverage`, `DerivedData`, `Pods`, `.cxx`, `.expo`, `.build`. Además reconoce cualquier carpeta marcada con un fichero `CACHEDIR.TAG` con la firma estándar (`Signature: 8a477f597d28d172789f06886806bc55`).
-
-**Dónde:** raíces por defecto `~/www`, `~/dev`, `~/Projects`, `~/GitHub`, `~/Code`, `~/Workspace`, `~/Repos`, `~/Development`, `~/Library/CloudStorage`, `~/.codex/worktrees`, `~/.claude/worktrees` (o las que configure el usuario en `~/.config/mole/purge_paths`, que *sustituyen* a las de por defecto). Profundidad: de 1 a 6 niveles bajo cada raíz. Usa `fd` si está disponible y `find` si no; poda `.git`, `Library`, `.Trash`, `Applications`. Un directorio es "proyecto" si contiene alguno de: `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `requirements.txt`, `pom.xml`, `build.gradle`, `terragrunt.hcl`, `Gemfile`, `composer.json`, `pubspec.yaml`, `Package.swift`, `Makefile`, `build.zig`, `.git`. Reconoce monorepos (`lerna.json`, `pnpm-workspace.yaml`, `nx.json`, `rush.json`, `.git`).
-
-**Umbral de edad:** `MIN_AGE_DAYS = 7`, pero **no es "proyecto sin tocar"**: es la actividad *dentro del propio artefacto*. Si hay algún archivo modificado en los últimos 7 días dentro del artefacto, o no se puede comprobar (timeout, error), queda **sin seleccionar por defecto** (estado `recent`/`uncertain`); el usuario puede marcarlo. No hay umbral de meses. El criterio de Airy (proyecto entero sin tocar ≥ 3 meses, excluyendo carpetas regenerables) es **más prudente y más acertado** que el de Mole.
-
-**Protecciones por artefacto** (porque el nombre no prueba que sea regenerable):
-- Se protege si contiene un repositorio Git anidado o un archivo `*-keypair.json` (claves de despliegue de Anchor/Solana en `target/deploy`).
-- Se protege si contiene **archivos rastreados por Git** (`build/` o `coverage/` con código fuente en el repo).
-- `bin` solo si el padre tiene `*.csproj|*.fsproj|*.vbproj` y `bin/` contiene `Debug/` o `Release/`.
-- `vendor` solo si es de Composer (PHP); los demás `vendor` (Go, etc.) quedan protegidos.
-- Debe estar contenido físicamente (sin enlaces simbólicos) dentro de una raíz configurada y a profundidad ≥ 1 (o ser la propia raíz si esta es un proyecto único).
-- Se revalida justo antes de borrar. Se borran los artefactos dentro de worktrees, nunca el worktree.
-- El borrado es **permanente** (no va a la Papelera); en no interactivo exige `--yes`.
-- En `mo clean`, una versión ligera avisa de artefactos con una pista ("Build artifacts · 12.3 GB · run mo purge") excluyendo `bin` y `vendor` por ruido.
+For Airy: it already decided **not to show degrees** because of the dependence on a private API. Mole shows it is feasible (IOHID sensors), but with the known fragility. Battery, I/O counters, network, GPU and uptime are reachable with stable interfaces and are not in the specification (see §6).
 
 ---
 
-## 6. Tabla de carencias: lo que cubre Mole y la especificación de Airy no cubre
+## 5. Logic for leftovers, uninstallation and project purging
 
-Recomendación: **Adoptar** (verde o sin riesgo según el catálogo), **Adoptar en ámbar** (se ofrece, nunca preseleccionado en Prudente, y se explica qué se pierde), **Rechazar** (con motivo). Respeta las reglas de Airy: nunca Docker volumes, documentos personales, iCloud, Mail, Mensajes, Llaveros, Fotos, `/System`; la IA y el perfil solo suben el riesgo; todo pasa por confirmación.
+### 5.1 Detection of orphaned leftovers (already-uninstalled apps)
 
-Ordenadas por valor esperado (las 10 primeras son las prioritarias).
+1. **Inventory of installed apps** (cached 5 min): looks for `*.app` down to depth 3 in `/Applications`, `/System/Applications`, `~/Applications`, `/opt/homebrew/Caskroom`, `/usr/local/Caskroom`, `~/Library/Application Support/Setapp/Applications`, plus apps that a `.pkg` installed outside standard paths (`pkgutil --pkgs`/`--files`, `/var/db/receipts`; result cached from one hour to a week depending on the receipts fingerprint) and iOS apps on Apple Silicon (`Wrapper/*.app`). Reads `CFBundleIdentifier` with `PlistBuddy`. **If the inventory is incomplete or an Info.plist cannot be read, nothing is decided** ("an incomplete inventory cannot authorize orphans").
+2. **Candidates:** only `~/Library/Caches`, `~/Library/Logs`, `~/Library/Saved Application State` with names `com.*`, `org.*`, `net.*`, `io.*` (id in reverse-DNS format).
+3. **Decision tree** to consider an id an orphan:
+   1. if it is in the protected data list, no;
+   2. if it matches the sensitive patterns (passwords, ssh, gpg…), no;
+   3. if it is in the inventory, no;
+   4. if it is a system component (`loginwindow`, `dock`, `finder`, `safari`, Settings…), no;
+   5. **if the folder was modified less than 30 days ago, no**;
+   6. as a last resort, `mdfind "kMDItemCFBundleIdentifier == '<id>'"` (with timeout; if it fails or expires, **it is assumed installed**, and it is not stored in the result cache);
+   7. if everything passes, it is an orphan.
+4. It **never** considers orphans (explicit rules, "CRITICAL: NEVER"): `LaunchAgents`, `LaunchDaemons`, `Containers/`, `Application Scripts/`, `Group Containers/` (ids with a team prefix give false positives). It only handles the MacPaw/CleanMyMac container "stubs".
+5. **Orphaned system services** (sudo): plists in `/Library/LaunchAgents` and `/Library/LaunchDaemons` whose binary does not exist and whose owner is not installed, with a protection list of known apps (Docker, Zoom, Wireshark ChmodBPF, Tailscale, Intego, Homebrew `homebrew.mxcl.*`…). And the equivalent `PrivilegedHelperTools`.
+6. It checks the candidate's identity (inode, parent) right before deleting.
 
-| # | Carencia (qué hace Mole) | Recomendación | Motivo en una línea |
+### 5.2 Uninstaller (`find_app_files`)
+
+Locations it associates with an app, by **name** (with variants: as is, without spaces, underscore, hyphen, lowercase) and by **bundle id** (and by the ids of embedded bundles/helpers):
+
+- User: `Application Support`, `Caches`, `Logs`, `Preferences` (`.plist` and `ByHost/<id>.*`), `Saved Application State/<id>.savedState`, `Containers/<id>`, `Group Containers` (match with team prefix), `WebKit/<id>` and `WebKit/com.apple.WebKit.WebContent/<id>`, `HTTPStorages/<id>` (+ `.binarycookies`), `Cookies/<id>.binarycookies`, `Application Scripts/<id>`, `Autosave Information/<id>`, `SyncedPreferences/<id>.plist`, `~/.config/<app>`, `~/.cache/<app>`, `~/.local/share/<app>`.
+- App extensions: `Services/*.workflow`, `QuickLook/*.qlgenerator`, `Internet Plug-Ins`, `Audio/Plug-Ins/{Components,VST,VST3,Digidesign}`, `PreferencePanes`, `Input Methods`, `Screen Savers`, `Frameworks`, `Contextual Menu Items`, `Spotlight/*.mdimporter`, `ColorPickers`, `Workflows`, `Address Book Plug-Ins`, `Accessibility`, `Mail/Bundles`.
+- Launchers: `~/Library/LaunchAgents/*.plist` owned by the app (by id or by a program that points inside the `.app`); they are unloaded with `launchctl bootout gui/<uid>/<id>`.
+- System (sudo): `/Library/{Application Support,Caches,Logs,Preferences}` with the name or id, `/Library/LaunchAgents|LaunchDaemons/<id>.plist` (with `sudo launchctl`), `/Library/PrivilegedHelperTools`, receipts in `/private/var/db/receipts`.
+- If the app is installed with Homebrew Cask, it runs `brew uninstall --cask` (or `--zap`).
+- Safety: it does not touch leftovers of protected system apps (`SYSTEM_CRITICAL_BUNDLES` list: instead of `com.apple.*`, it enumerates the system components so that Xcode, Final Cut, Logic, GarageBand, iWork, etc. can be uninstalled); it **refuses** security/MDM/EDR apps that require their official uninstaller (ESET, Jamf, CrowdStrike, SentinelOne, GlobalProtect, Cisco Secure Client); it closes the app if it is open (`osascript` / `pgrep -qx`) beforehand; it shares data if another installed copy uses it ("shared app paths"); it leaves things in the Trash by default.
+- Steam: separate treatment for games.
+
+### 5.3 Project artifact purging (`mo purge`)
+
+**What it looks for (31 names):** `node_modules`, `target`, `build`, `dist`, `venv`, `.venv`, `.pytest_cache`, `.mypy_cache`, `.tox`, `.nox`, `.ruff_cache`, `.gradle`, `.terragrunt-cache`, `__pycache__`, `.next`, `.nuxt`, `.output`, `vendor`, `bin`, `obj`, `.turbo`, `.parcel-cache`, `.dart_tool`, `.zig-cache`, `zig-out`, `.angular`, `.svelte-kit`, `.astro`, `coverage`, `DerivedData`, `Pods`, `.cxx`, `.expo`, `.build`. It also recognizes any folder marked with a `CACHEDIR.TAG` file with the standard signature (`Signature: 8a477f597d28d172789f06886806bc55`).
+
+**Where:** default roots `~/www`, `~/dev`, `~/Projects`, `~/GitHub`, `~/Code`, `~/Workspace`, `~/Repos`, `~/Development`, `~/Library/CloudStorage`, `~/.codex/worktrees`, `~/.claude/worktrees` (or those the user configures in `~/.config/mole/purge_paths`, which *replace* the defaults). Depth: 1 to 6 levels under each root. It uses `fd` if available and `find` if not; it prunes `.git`, `Library`, `.Trash`, `Applications`. A directory is a "project" if it contains any of: `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `requirements.txt`, `pom.xml`, `build.gradle`, `terragrunt.hcl`, `Gemfile`, `composer.json`, `pubspec.yaml`, `Package.swift`, `Makefile`, `build.zig`, `.git`. It recognizes monorepos (`lerna.json`, `pnpm-workspace.yaml`, `nx.json`, `rush.json`, `.git`).
+
+**Age threshold:** `MIN_AGE_DAYS = 7`, but it is **not "untouched project"**: it is activity *inside the artifact itself*. If any file was modified in the last 7 days inside the artifact, or it cannot be checked (timeout, error), it is left **unselected by default** (state `recent`/`uncertain`); the user can check it. There is no threshold in months. Airy's criterion (entire project untouched for ≥ 3 months, excluding regenerable folders) is **more cautious and more accurate** than Mole's.
+
+**Protections per artifact** (because the name does not prove it is regenerable):
+- It is protected if it contains a nested Git repository or a `*-keypair.json` file (Anchor/Solana deployment keys in `target/deploy`).
+- It is protected if it contains **files tracked by Git** (`build/` or `coverage/` with source code in the repo).
+- `bin` only if the parent has `*.csproj|*.fsproj|*.vbproj` and `bin/` contains `Debug/` or `Release/`.
+- `vendor` only if it is Composer's (PHP); other `vendor` folders (Go, etc.) stay protected.
+- It must be physically contained (no symbolic links) inside a configured root and at depth ≥ 1 (or be the root itself if the root is a single project).
+- It is revalidated right before deleting. Artifacts inside worktrees are deleted, never the worktree.
+- Deletion is **permanent** (it does not go to the Trash); in non-interactive mode it requires `--yes`.
+- In `mo clean`, a light version warns about artifacts with a hint ("Build artifacts · 12.3 GB · run mo purge") excluding `bin` and `vendor` for noise.
+
+---
+
+## 6. Gap table: what Mole covers and Airy's specification does not
+
+Recommendation: **Adopt** (green or safe according to the catalog), **Adopt in amber** (offered, never preselected in Cautious, and with an explanation of what is lost), **Reject** (with reason). It respects Airy's rules: never Docker volumes, personal documents, iCloud, Mail, Messages, Keychains, Photos, `/System`; the AI and the profile only raise risk; everything goes through confirmation.
+
+Sorted by expected value (the first 10 are the priorities).
+
+| # | Gap (what Mole does) | Recommendation | Reason in one line |
 |---|---|---|---|
-| 1 | **Embudo único de borrado con validación de ruta** (absoluta, sin `..`, sin control, enlaces y ancestros simbólicos resueltos, raíces críticas por inodo y sin distinguir mayúsculas, rechazo de `/Users/<yo>`, identidad del archivo comprobada otra vez al borrar) | **Adoptar** | Es la defensa contra el fallo más grave posible (borrar de más); Airy lo especifica a nivel de política, no de motor. |
-| 2 | **Guardián de proceso en 3 estados** (corriendo/parado/desconocido) por familia de limpieza, más guardián de caché viva (proceso dueño + manejador SQLite abierto) | **Adoptar** | Evita limpiar bajo los pies de Xcode/pnpm/navegadores y corrupciones; "desconocido" = saltar. |
-| 3 | **Lista de protecciones ampliada** (§2.15: UI del sistema, red/VPN, cachés con licencia, plugins de audio, EDR, modelos compilados de Apple Intelligence, CloudKit/Spotlight/FontRegistry, `pypoetry/virtualenvs`, `renv`, `.orbstack`, Codex) y su regla "las protecciones duras siempre se vuelven a mezclar" | **Adoptar** | Años de incidentes reales condensados; el catálogo de Airy solo enumera lo que se limpia. |
-| 4 | **Lista blanca de usuario** ("Proteger esto") por ruta/patrón, aplicada por la app y por el MCP | **Adoptar** | Falta por completo en Airy y da control sin pedir permiso para cada limpieza. |
-| 5 | **Modo "Vista previa"** (`--dry-run`) y **registro de operaciones** exportable con atribución (`run_id`, app o agente) | **Adoptar** | Airy tiene confirmación e historial, pero no previsualización para el MCP (`dry_run: true`) ni exportación JSON. |
-| 6 | **Diagnóstico de rendimiento por reglas** (familias `syspolicyd`/`WindowServer`/Spotlight/CoreSimulator con ≥25 % sostenido en 2 muestras; swap >50 % o libre <15 %; VM de Docker >2 GB sin contenedores; proceso desbocado ≥25 % durante ≥12 h; imágenes de disco montadas que cargan `syspolicyd`) | **Adoptar** | Encaja con la sección Rendimiento y con las frases de "estado general"; son solo lectura y explican causas reales. |
-| 7 | **Instaladores** (`.dmg .pkg .mpkg .iso .xip` y `.zip` con instalador) en Descargas/Escritorio/Documentos/caché de Homebrew/Telegram | **Adoptar en ámbar** (verde para la caché de Homebrew y para duplicados claros) | Es el "gran ganador" doméstico; el usuario puede querer conservar un instalador, así que ámbar con lista y antigüedad. |
-| 8 | **Catálogo de artefactos de proyecto ampliado** (+ `CACHEDIR.TAG`, `Pods`, `.gradle`, `.dart_tool`, `.build`, `.turbo`, `.angular`, `.svelte-kit`, `.astro`, `.tox`, `__pycache__`…) y **guardias**: repositorio anidado, claves `*-keypair.json`, archivos rastreados por Git, `bin`/`vendor` solo si son .NET/Composer | **Adoptar en ámbar** | Airy lista 5 carpetas; faltan guardias que eviten borrar `build/` con código o `target/deploy` con claves. |
-| 9 | **Limpieza completa de navegadores Chromium** (todos los derivados, `Code Cache`, `GPUCache`, `Dawn*`, `ShaderCache`, `component_crx_cache`, `Crashpad/completed`, Service Worker CacheStorage, versiones antiguas del framework dentro del `.app`) y heurística genérica de Application Support con marcadores de caché regenerable | **Adoptar** | Mucho espacio sin tocar perfil; Airy menciona Brave/Chrome/Safari pero no la lista fina ni las versiones antiguas. |
-| 10 | **Reglas de huérfanos por bundle id** (inventario completo o nada, 30 días de reposo, `mdfind` con fallo = instalada, solo Caches/Logs/Saved State, nunca Containers/Group Containers/LaunchAgents/Application Scripts, patrones sensibles `ssh/gpg/keychain/1password…`) | **Adoptar** | Define con precisión cuándo un resto es huérfano y evita el falso positivo que borra datos de una app viva. |
-| 11 | **Categoría "solo revisar"** (Xcode Archives, copias de iOS, emuladores Android, modelos LM Studio/HF, Maven/NuGet/Gradle, JetBrains antiguo, Docker/OrbStack, snapshots de Time Machine, worktrees de agentes) sin botón de borrar automático | **Adoptar** (rojo/ámbar sin acción, o ámbar con confirmación fuerte) | Coincide con las tres etiquetas de Airy: se muestran, se explican, el usuario decide. |
-| 12 | **Xcode más fino**: conservar las N=2 versiones más recientes de DeviceSupport (iOS/watchOS/tvOS), XCTestDevices, DocumentationCache, Products, IB Support, `simctl runtime delete` de runtimes huérfanos, solo con Xcode y simuladores parados | **Adoptar** | Airy dice "iOS DeviceSupport antiguos" sin definir cuáles; Mole define la regla de retención. |
-| 13 | **Catálogo largo de cachés de desarrollo** (Go vía `go env`, Poetry/pyenv/Ruff/mypy, Ruby/Bundler, Composer, Hex, Opam, Bazel, Terraform, kube, AWS/gcloud/Azure, Electron/node-gyp/webpack/vite/prisma, Expo, Android, Swift PM, Flutter, Corepack) con **cmd oficial** si existe | **Adoptar** (verde); excepciones en ámbar: `ms-playwright`, Gradle, JetBrains, `.ollama/models`, `renv`, tldr, `pypoetry/virtualenvs` (rojo) | Aprovecha el perfil "Programo"; conviene que el catálogo sea datos (JSON/Plist), no código. |
-| 14 | **Cachés de apps de usuario** (comunicación, creativas, medios, juegos, utilidades, oficina, VM) | **Adoptar**, ordenadas por perfil | El perfil de Airy ya reordena esto; hacen falta las entradas. Solo `Caches` y `Data/Library/Caches`/`Data/tmp`; **rechazar** los cachés de Mensajes (`Messages/*Cache*`) y `com.apple.mail/*` y `Mail Downloads`. |
-| 15 | **Sistema con contraseña de administrador**: `/Library/Logs/DiagnosticReports`, logs de `/private/var/log` y `/Library/Caches` antiguos (7 días), instaladores de macOS ("Install macOS *.app" de más de 14 días y no actuales), temporales abortados de `idleassetsd` (cientos de GB en "Datos del sistema") | **Adoptar en ámbar** (instaladores y `idleassetsd`); **adoptar en verde** los informes de fallos del propio usuario `~/Library/Logs/DiagnosticReports` | Recupera "Datos del sistema" opaco; todo exige contraseña del sistema y confirmación, nada preseleccionado. |
-| 16 | **Cachés de GPU y clones de firma bajo `/private/var/folders`** | **Rechazar** | Ruta crítica protegida, ganancia de MB y riesgo de disparar detección EDR; Mole lo limita con muchas reservas. |
-| 17 | **Auditoría de elementos de inicio** (LaunchAgents con binario inexistente, login items rotos) | **Adoptar en ámbar, solo informe** | Sección útil de Rendimiento ("arranque lento"); no borrar, enlazar a Ajustes del Sistema. |
-| 18 | **Métricas de estado que faltan**: batería (ciclos, salud, amperaje), E/S de disco (MB/s), red por interfaz con detección de túnel, GPU, tiempo encendido, zombis con padre, CPU por núcleo (P/E), proxy | **Adoptar** (excepto GPU y sensores privados) | Todas con interfaces estables (IOKit batería, contadores del sistema, `getifaddrs`); Airy solo tiene memoria, swap, estado térmico y CPU. |
-| 19 | **Temperatura en grados y ventiladores** (sensores IOHID privados, `powermetrics`) | **Rechazar por ahora** (revisar en una fase posterior como "experimental" y oculto por defecto) | Coherente con la decisión de Airy: API privada que se puede romper con cada macOS; el estado térmico oficial basta. |
-| 20 | **Puntuación de salud global** (CPU, memoria, disco, S.M.A.R.T., E/S, térmico, batería, uptime) | **Adoptar** (como frase y semáforo, no solo número) | Resume el estado en un vistazo y alimenta el "estado general" por reglas fijas que Airy ya quiere. |
-| 21 | **`optimize` útil**: `defaults write DSDontWriteNetworkStores/DSDontWriteUSBStores`, borrar tweaks heredados (`NSAppSleepDisabled`, `skip-verify*`), diagnóstico de Spotlight con medición previa antes de reindexar (`mdutil -E /`, 1-2 h), reparar `.plist`/`.sfl*` corruptos, compactar BD de notificaciones | **Adoptar en ámbar** (con descripción honesta y reversibilidad) | Reales y reversibles; la reindexación de Spotlight solo con búsqueda medida como lenta y con corriente. |
-| 22 | **`optimize` placebo**: vaciar DNS, reiniciar red (`route -n flush`, `arp -d`), `periodic daily weekly monthly`, "reconstruir" Launch Services, `purge` de memoria, reiniciar el Dock | **Rechazar** | Sin beneficio medible o con efectos secundarios (cortes de VPN). Mole mismo retiró varias. |
-| 23 | **Compactar bases SQLite de Mail, Mensajes y Safari** (`VACUUM`) | **Rechazar** Mail y Mensajes (rojo en Airy); Safari **adoptar en ámbar** solo con Safari cerrado | Mail/Mensajes son zona prohibida; el beneficio es pequeño frente al riesgo de corrupción. |
-| 24 | **Limpieza de historial de privacidad** (`QuarantineEventsV2`, `knowledgeC.db` >90 días) | **Adoptar en ámbar** (opcional, sin preselección) | Tema de privacidad más que de espacio; borra historial, no cachés. |
-| 25 | **Vaciar la Papelera automáticamente** | **Rechazar** | Airy ya decidió que lo hace el usuario con un botón. |
-| 26 | **Eliminar `.DS_Store`** | **Rechazar** | Mole mismo lo deja protegido por defecto; ganancia nula. |
-| 27 | **Servicios huérfanos de sistema** (LaunchDaemons/helpers sin binario) y **stubs de contenedores** | **Rechazar el borrado**, **adoptar solo informe** | Lista enorme de falsos positivos conocidos, requiere sudo y puede romper arranques. |
-| 28 | **Copias de Time Machine `.inProgress` fallidas** (>48 h) | **Rechazar** (mostrar como "solo revisar") | Airy no toca copias de seguridad; las instantáneas locales sí las ofrece con `tmutil`, Mole solo las cuenta. |
-| 29 | **Desinstalador: ubicaciones extra y proceso completo** (WebKit, HTTPStorages, Cookies binarios, Application Scripts, Autosave Information, SyncedPreferences, plugins de audio/Servicios/Quick Look, ByHost, recibos `pkgutil`, `launchctl bootout` de ayudantes, `brew uninstall --cask [--zap]`, cierre de la app abierta, restos del sistema con contraseña, **negativa para apps de seguridad/MDM**) | **Adoptar** (restos de `/Library` en ámbar con contraseña; plugins de audio en ámbar) | Airy lista 8 ubicaciones; Mole demuestra que faltan unas 15 y que hay apps que no se deben desinstalar a mano. |
-| 30 | **Retirada de versiones antiguas de agentes de IA** (Claude Code, Cursor Agent, Copilot CLI, runtimes de Codex; conserva la activa y 1 anterior) | **Adoptar** (verde, solo versiones no activas) | Relevante para el perfil "Programo/IA"; regla de retención clara. |
-| 31 | **Honestidad de escaneo** (`scan_status`: completo/parcial/no disponible; tamaño con `+` si parcial) | **Adoptar** | Refuerza el anti-objetivo "mentir con números". |
-| 32 | **Presupuestos de tiempo y fallo cerrado** en cada sondeo | **Adoptar** (como requisito de ingeniería) | Un disco grande o lento no debe colgar la app ni borrar con datos dudosos. |
-| 33 | **Firmware de dispositivos** (`.ipsw` en `~/Library/iTunes/*Software Updates`, Apple Configurator) | **Adoptar** (verde) | Fácil de recuperar (se vuelve a descargar) y suele ocupar varios GB. |
-| 34 | **Touch ID para sudo** (`mo touchid`), autocompletado, actualización propia, lanzadores Raycast/Alfred | **Rechazar** (salvo `airy://` + atajo si se quiere) | Airy usa el diálogo de contraseña del sistema; no es función de producto. |
+| 1 | **Single deletion funnel with path validation** (absolute, no `..`, no control characters, symbolic links and ancestors resolved, critical roots by inode and case-insensitive, rejection of `/Users/<me>`, file identity checked again when deleting) | **Adopt** | It is the defense against the worst possible failure (deleting too much); Airy specifies it at policy level, not engine level. |
+| 2 | **Three-state process guard** (running/stopped/unknown) per cleanup family, plus a live-cache guard (owning process + open SQLite handle) | **Adopt** | It avoids cleaning out from under Xcode/pnpm/browsers and corruption; "unknown" = skip. |
+| 3 | **Extended protection list** (§2.15: system UI, network/VPN, caches with licenses, audio plugins, EDR, Apple Intelligence compiled models, CloudKit/Spotlight/FontRegistry, `pypoetry/virtualenvs`, `renv`, `.orbstack`, Codex) and its rule "hard protections are always merged back in" | **Adopt** | Years of real incidents condensed; Airy's catalog only enumerates what is cleaned. |
+| 4 | **User whitelist** ("Protect this") by path/pattern, applied by the app and by the MCP | **Adopt** | Completely missing in Airy and gives control without asking permission for each cleanup. |
+| 5 | **"Preview" mode** (`--dry-run`) and exportable **operations log** with attribution (`run_id`, app or agent) | **Adopt** | Airy has confirmation and history, but no preview for the MCP (`dry_run: true`) nor JSON export. |
+| 6 | **Rule-based performance diagnosis** (families `syspolicyd`/`WindowServer`/Spotlight/CoreSimulator with ≥25 % sustained in 2 samples; swap >50 % or free <15 %; Docker VM >2 GB without containers; runaway process ≥25 % for ≥12 h; mounted disk images that load `syspolicyd`) | **Adopt** | It fits the Performance section and the "overall status" sentences; they are read-only and explain real causes. |
+| 7 | **Installers** (`.dmg .pkg .mpkg .iso .xip` and `.zip` with an installer) in Downloads/Desktop/Documents/Homebrew cache/Telegram | **Adopt in amber** (green for the Homebrew cache and for clear duplicates) | It is the domestic "big winner"; the user may want to keep an installer, so amber with a list and age. |
+| 8 | **Extended project artifact catalog** (+ `CACHEDIR.TAG`, `Pods`, `.gradle`, `.dart_tool`, `.build`, `.turbo`, `.angular`, `.svelte-kit`, `.astro`, `.tox`, `__pycache__`…) and **guards**: nested repository, `*-keypair.json` keys, Git-tracked files, `bin`/`vendor` only if .NET/Composer | **Adopt in amber** | Airy lists 5 folders; guards are missing that avoid deleting `build/` with code or `target/deploy` with keys. |
+| 9 | **Complete cleanup of Chromium browsers** (all derivatives, `Code Cache`, `GPUCache`, `Dawn*`, `ShaderCache`, `component_crx_cache`, `Crashpad/completed`, Service Worker CacheStorage, old framework versions inside the `.app`) and a generic Application Support heuristic with regenerable-cache markers | **Adopt** | A lot of space without touching the profile; Airy mentions Brave/Chrome/Safari but not the fine list nor the old versions. |
+| 10 | **Orphan rules by bundle id** (full inventory or nothing, 30 days idle, `mdfind` failing = installed, only Caches/Logs/Saved State, never Containers/Group Containers/LaunchAgents/Application Scripts, sensitive patterns `ssh/gpg/keychain/1password…`) | **Adopt** | It defines precisely when a leftover is an orphan and avoids the false positive that deletes data of a live app. |
+| 11 | **"Review only" category** (Xcode Archives, iOS backups, Android emulators, LM Studio/HF models, Maven/NuGet/Gradle, old JetBrains, Docker/OrbStack, Time Machine snapshots, agent worktrees) without an automatic delete button | **Adopt** (red/amber without action, or amber with strong confirmation) | It matches Airy's three labels: they are shown, explained, the user decides. |
+| 12 | **Finer Xcode**: keep the N=2 most recent DeviceSupport versions (iOS/watchOS/tvOS), XCTestDevices, DocumentationCache, Products, IB Support, `simctl runtime delete` of orphaned runtimes, only with Xcode and simulators stopped | **Adopt** | Airy says "old iOS DeviceSupport" without defining which; Mole defines the retention rule. |
+| 13 | **Long catalog of development caches** (Go via `go env`, Poetry/pyenv/Ruff/mypy, Ruby/Bundler, Composer, Hex, Opam, Bazel, Terraform, kube, AWS/gcloud/Azure, Electron/node-gyp/webpack/vite/prisma, Expo, Android, Swift PM, Flutter, Corepack) with the **official cmd** if it exists | **Adopt** (green); exceptions in amber: `ms-playwright`, Gradle, JetBrains, `.ollama/models`, `renv`, tldr, `pypoetry/virtualenvs` (red) | It takes advantage of the "I code" profile; the catalog should be data (JSON/Plist), not code. |
+| 14 | **User app caches** (communication, creative, media, games, utilities, office, VM) | **Adopt**, ordered by profile | Airy's profile already reorders this; the entries are needed. Only `Caches` and `Data/Library/Caches`/`Data/tmp`; **reject** Messages caches (`Messages/*Cache*`) and `com.apple.mail/*` and `Mail Downloads`. |
+| 15 | **System with administrator password**: `/Library/Logs/DiagnosticReports`, old logs in `/private/var/log` and `/Library/Caches` (7 days), macOS installers ("Install macOS *.app" older than 14 days and not current), aborted `idleassetsd` temporaries (hundreds of GB in "System Data") | **Adopt in amber** (installers and `idleassetsd`); **adopt in green** the user's own crash reports `~/Library/Logs/DiagnosticReports` | It recovers the opaque "System Data"; everything requires the system password and confirmation, nothing preselected. |
+| 16 | **GPU caches and signing clones under `/private/var/folders`** | **Reject** | Protected critical path, gain of MB and risk of triggering EDR detection; Mole limits it with many reservations. |
+| 17 | **Startup items audit** (LaunchAgents with a nonexistent binary, broken login items) | **Adopt in amber, report only** | Useful Performance section ("slow startup"); do not delete, link to System Settings. |
+| 18 | **Missing status metrics**: battery (cycles, health, amperage), disk I/O (MB/s), network per interface with tunnel detection, GPU, uptime, zombies with parent, CPU per core (P/E), proxy | **Adopt** (except GPU and private sensors) | All with stable interfaces (IOKit battery, system counters, `getifaddrs`); Airy only has memory, swap, thermal state and CPU. |
+| 19 | **Temperature in degrees and fans** (private IOHID sensors, `powermetrics`) | **Reject for now** (review in a later phase as "experimental" and hidden by default) | Consistent with Airy's decision: private API that can break with every macOS; the official thermal state is enough. |
+| 20 | **Global health score** (CPU, memory, disk, S.M.A.R.T., I/O, thermal, battery, uptime) | **Adopt** (as a sentence and traffic light, not just a number) | It summarizes the state at a glance and feeds the fixed-rule "overall status" that Airy already wants. |
+| 21 | **Useful `optimize`**: `defaults write DSDontWriteNetworkStores/DSDontWriteUSBStores`, delete legacy tweaks (`NSAppSleepDisabled`, `skip-verify*`), Spotlight diagnosis with prior measurement before reindexing (`mdutil -E /`, 1-2 h), repair corrupt `.plist`/`.sfl*`, compact the notifications DB | **Adopt in amber** (with honest description and reversibility) | Real and reversible; Spotlight reindexing only with search measured as slow and with power connected. |
+| 22 | **Placebo `optimize`**: flushing DNS, restarting the network (`route -n flush`, `arp -d`), `periodic daily weekly monthly`, "rebuilding" Launch Services, memory `purge`, restarting the Dock | **Reject** | No measurable benefit or with side effects (VPN cuts). Mole itself withdrew several. |
+| 23 | **Compacting SQLite databases of Mail, Messages and Safari** (`VACUUM`) | **Reject** Mail and Messages (red in Airy); Safari **adopt in amber** only with Safari closed | Mail/Messages are a forbidden zone; the benefit is small compared with the corruption risk. |
+| 24 | **Privacy history cleanup** (`QuarantineEventsV2`, `knowledgeC.db` >90 days) | **Adopt in amber** (optional, without preselection) | A privacy topic more than a space one; it deletes history, not caches. |
+| 25 | **Emptying the Trash automatically** | **Reject** | Airy already decided that the user does it with a button. |
+| 26 | **Deleting `.DS_Store`** | **Reject** | Mole itself leaves it protected by default; zero gain. |
+| 27 | **Orphaned system services** (LaunchDaemons/helpers without a binary) and **container stubs** | **Reject deletion**, **adopt report only** | Huge list of known false positives, requires sudo and can break boots. |
+| 28 | **Failed Time Machine `.inProgress` backups** (>48 h) | **Reject** (show as "review only") | Airy does not touch backups; local snapshots it does offer with `tmutil`, Mole only counts them. |
+| 29 | **Uninstaller: extra locations and complete process** (WebKit, HTTPStorages, binary Cookies, Application Scripts, Autosave Information, SyncedPreferences, audio plugins/Services/Quick Look, ByHost, `pkgutil` receipts, `launchctl bootout` of helpers, `brew uninstall --cask [--zap]`, closing the open app, system leftovers with password, **refusal for security/MDM apps**) | **Adopt** (`/Library` leftovers in amber with password; audio plugins in amber) | Airy lists 8 locations; Mole shows that about 15 are missing and that there are apps that must not be uninstalled by hand. |
+| 30 | **Retiring old versions of AI agents** (Claude Code, Cursor Agent, Copilot CLI, Codex runtimes; keeps the active one and 1 previous) | **Adopt** (green, non-active versions only) | Relevant to the "I code/AI" profile; clear retention rule. |
+| 31 | **Scan honesty** (`scan_status`: complete/partial/unavailable; size with `+` if partial) | **Adopt** | It reinforces the anti-goal "lying with numbers". |
+| 32 | **Time budgets and fail-closed** on every probe | **Adopt** (as an engineering requirement) | A large or slow disk must not hang the app nor delete with doubtful data. |
+| 33 | **Device firmware** (`.ipsw` in `~/Library/iTunes/*Software Updates`, Apple Configurator) | **Adopt** (green) | Easy to recover (re-downloaded) and usually takes several GB. |
+| 34 | **Touch ID for sudo** (`mo touchid`), autocompletion, self-update, Raycast/Alfred launchers | **Reject** (except `airy://` + a shortcut if wanted) | Airy uses the system password dialog; it is not a product feature. |
 
-### Las 10 mayores carencias, en una línea
+### The 10 biggest gaps, in one line
 
-1. Embudo único de borrado con validación de ruta y comprobación de identidad al borrar (#1).
-2. Guardián de proceso en tres estados antes de limpiar cada familia (#2).
-3. Lista de protecciones duras mucho más amplia, siempre re-mezclada (#3).
-4. Lista blanca de usuario ("proteger esto") compartida con el MCP (#4).
-5. Vista previa y registro exportable de operaciones, también para agentes (#5).
-6. Diagnóstico de rendimiento por reglas con causas reales (#6).
-7. Instaladores `.dmg/.pkg/.iso/.xip/.zip` como objetivo ámbar (#7).
-8. Catálogo de artefactos de proyecto ampliado con guardias de Git, claves y repos anidados (#8).
-9. Limpieza fina de navegadores Chromium y heurística de caché regenerable en Application Support (#9).
-10. Reglas precisas de huérfanos por bundle id (#10).
+1. Single deletion funnel with path validation and identity check when deleting (#1).
+2. Three-state process guard before cleaning each family (#2).
+3. A much broader hard-protection list, always re-merged (#3).
+4. User whitelist ("protect this") shared with the MCP (#4).
+5. Preview and exportable operations log, also for agents (#5).
+6. Rule-based performance diagnosis with real causes (#6).
+7. `.dmg/.pkg/.iso/.xip/.zip` installers as an amber target (#7).
+8. Extended project artifact catalog with Git, key and nested-repo guards (#8).
+9. Fine cleanup of Chromium browsers and a regenerable-cache heuristic in Application Support (#9).
+10. Precise orphan rules by bundle id (#10).
 
 ---
 
-## 7. Cosas que Airy ya hace mejor que Mole (conviene conservar)
+## 7. Things Airy already does better than Mole (worth keeping)
 
-- **Docker:** prunes oficiales de builder, imágenes, contenedores y redes. Mole solo avisa. Mantener el veto a volúmenes.
-- **Confirmación única con lista completa**, selección múltiple y "Borrar todo": Mole mezcla borrado directo y selección en TUI.
-- **Papelera por defecto** para archivos: Mole vacía la Papelera y purga permanentemente `node_modules` y similares. Airy es recuperable.
-- **Criterio de "proyecto sin tocar ≥ 3 meses"** frente a los 7 días de actividad dentro del artefacto.
-- **Perfil de uso** que reordena sin bajar riesgos: Mole es igual para todos.
-- **Modelos de IA (Ollama, HF, whisper)**: Mole los protege o solo los revisa; Airy los trata como parte del catálogo con comprobación de referencias.
-- **Instantáneas locales de Time Machine**: Mole solo las cuenta.
-- **MCP** para agentes: Mole solo tiene CLI y `--json`.
-- **Sin placebos** de optimización: la decisión de no tener "liberar RAM" queda respaldada por el propio historial de Mole.
+- **Docker:** official prunes of builder, images, containers and networks. Mole only warns. Keep the veto on volumes.
+- **Single confirmation with a full list**, multiple selection and "Delete all": Mole mixes direct deletion and TUI selection.
+- **Trash by default** for files: Mole empties the Trash and permanently purges `node_modules` and the like. Airy is recoverable.
+- **"Project untouched ≥ 3 months" criterion** versus the 7 days of activity inside the artifact.
+- **Usage profile** that reorders without lowering risks: Mole is the same for everyone.
+- **AI models (Ollama, HF, whisper)**: Mole protects them or only reviews them; Airy treats them as part of the catalog with reference checking.
+- **Time Machine local snapshots**: Mole only counts them.
+- **MCP** for agents: Mole only has a CLI and `--json`.
+- **No optimization placebos**: the decision not to have "free RAM" is backed by Mole's own history.
