@@ -13,8 +13,9 @@ public struct LiveSampler: PerformanceSampling {
         async let system = ProcessProbe.systemProcesses(runner: runner)
         let date = Date()
         let uptime = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-        // NSWorkspace se consulta desde el hilo principal.
-        let apps = await MainActor.run { ProcessProbe.runningApps() }
+        let processes = ProcessProbe.ownProcesses()
+        // NSWorkspace se consulta desde el hilo principal; lo que no conozca, a LaunchServices al momento (I1).
+        let apps = await MainActor.run { ProcessProbe.runningApps(processes: processes) }
         let raw = RawSample(
             date: date, uptimeNs: uptime,
             memory: MemoryProbe.read() ?? MemoryStats(),
@@ -22,10 +23,10 @@ public struct LiveSampler: PerformanceSampling {
             cores: CPUProbe.ticks() ?? [],
             topology: CPUProbe.topology(),
             bootTime: CPUProbe.bootTime(),
-            processes: ProcessProbe.ownProcesses(),
+            processes: processes,
             system: nil,
             apps: apps,
-            battery: BatteryProbe.read(),
+            battery: BatteryProbe.cached(),
             disk: IOProbe.disk(),
             network: IOProbe.network())
         var result = raw

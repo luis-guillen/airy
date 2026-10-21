@@ -169,3 +169,46 @@ import Testing
         #expect(ContinuousClock.now - start < .seconds(3))   // F7
     }
 }
+
+@Test func psRSSNeverOverflows() {
+    let out = """
+      10    1   501   1,0 9223372036854775807 S    huge
+      11    1   501   1,0 -5 S    negative
+      12    1   501   1,0 4 S    small
+    """
+    let p = ProcessProbe.parsePS(out)
+    #expect(p.map(\.name) == ["huge", "small"])
+    #expect(p[0].rssBytes == .max && p[1].rssBytes == 4096)
+}
+
+@Test func batteryIsReadAtMostEveryThirtySeconds() {
+    let throttle = BatteryThrottle(maxAge: BatteryProbe.cacheSeconds)
+    let t0 = Date(timeIntervalSince1970: 1_000)
+    var reads = 0
+    let read = { () -> BatteryReading? in
+        reads += 1
+        return BatteryReading(percent: reads, isCharging: false, onACPower: true)
+    }
+    #expect(throttle.value(now: t0, read: read)?.percent == 1)
+    #expect(throttle.value(now: t0.addingTimeInterval(1.5), read: read)?.percent == 1)
+    #expect(throttle.value(now: t0.addingTimeInterval(29), read: read)?.percent == 1)
+    #expect(throttle.value(now: t0.addingTimeInterval(30), read: read)?.percent == 2)
+    #expect(reads == 2)
+    #expect((30...60).contains(BatteryProbe.cacheSeconds))
+}
+
+@Test func samplingNeedsAConfirmedVisibleWindow() {
+    #expect(!PerformanceSamplingGate.shouldSample(appeared: true, windowVisible: nil))
+    #expect(!PerformanceSamplingGate.shouldSample(appeared: true, windowVisible: false))
+    #expect(!PerformanceSamplingGate.shouldSample(appeared: false, windowVisible: true))
+    #expect(PerformanceSamplingGate.shouldSample(appeared: true, windowVisible: true))
+}
+
+@Test func maintenanceCheckIsThrottled() {
+    let t0 = Date(timeIntervalSince1970: 5_000)
+    #expect(PerformanceSamplingGate.maintenanceIsStale(lastCheck: nil, now: t0))
+    #expect(!PerformanceSamplingGate.maintenanceIsStale(lastCheck: t0, now: t0.addingTimeInterval(60)))
+    #expect(PerformanceSamplingGate.maintenanceIsStale(lastCheck: t0, now: t0.addingTimeInterval(PerformanceSamplingGate.maintenanceMaxAge)))
+    #expect(PerformanceSamplingGate.maintenanceIsStale(lastCheck: t0, now: t0.addingTimeInterval(-1)))
+    #expect((120...600).contains(PerformanceSamplingGate.maintenanceMaxAge))
+}

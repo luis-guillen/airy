@@ -32,6 +32,7 @@ final class PerformanceSession {
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private let runner = ProcessRunner()
     @ObservationIgnored private let probes: DiagnosisProbes
+    @ObservationIgnored private var maintenanceCheckedAt: Date?
 
     init() {
         let catalog = try? AppCatalog.bundled()
@@ -50,6 +51,8 @@ final class PerformanceSession {
         let monitor = monitor
         let probes = probes
         task = Task { [weak self] in
+            // M1: el historial empieza de cero en cada visita, antes de la primera muestra (sin carreras con `stop()`).
+            await monitor.reset()
             while !Task.isCancelled {
                 let snapshot = await monitor.refresh()
                 Self.debugLog("sample")
@@ -67,8 +70,10 @@ final class PerformanceSession {
         if task != nil { Self.debugLog("stop") }
         task?.cancel()
         task = nil
-        let monitor = monitor
-        Task { await monitor.reset() }
+        // I2: nada de una visita sirve en la siguiente (ni para la vista ni para una propuesta `airy://quit`).
+        snapshot = nil
+        verdict = nil
+        board = PerformanceBoard(snapshot: nil, policy: QuitPolicy())
     }
 
     /// Solo en Debug con `AIRY_PERF_LOG=1`: traza del muestreo (para comprobar que se para).
@@ -91,16 +96,16 @@ final class PerformanceSession {
         rowMessages = rowMessages.filter { alive.contains($0.key) }
     }
 
-    /// Para `airy://quit`: la primera instantánea (espera a la sección; si no llega, mide una vez).
-    func firstSnapshot() async -> PerformanceSnapshot {
+    /// Para `airy://quit`: una instantánea tomada después de la petición (I2). Espera a la del muestreo de la
+    /// sección; si no llega (ventana oculta, sección sin abrir), mide una vez.
+    func freshSnapshot() async -> PerformanceSnapshot {
+        let requested = Date()
         for _ in 0..<20 {
-            if let snapshot { return snapshot }
+            if let snapshot, snapshot.date >= requested { return snapshot }
             try? await Task.sleep(for: .milliseconds(150))
         }
-        if let snapshot { return snapshot }
-        let snapshot = await monitor.refresh()
-        if self.snapshot == nil { board = PerformanceBoard(snapshot: snapshot, policy: QuitPolicy()) }
-        return snapshot
+        if let snapshot, snapshot.date >= requested { return snapshot }
+        return await monitor.snapshot(since: requested)
     }
 
     // MARK: Cerrar
@@ -124,9 +129,16 @@ final class PerformanceSession {
 
     // MARK: Mantenimiento
 
-    /// `MaintenanceScanner` + elementos de inicio rotos (solo lecturas). Al aparecer y tras cada acción.
+    /// Al aparecer con la ventana visible: solo si la última comprobación tiene más de unos minutos (M9).
+    func refreshMaintenanceIfStale() async {
+        guard PerformanceSamplingGate.maintenanceIsStale(lastCheck: maintenanceCheckedAt, now: Date()) else { return }
+        await refreshMaintenance()
+    }
+
+    /// `MaintenanceScanner` + elementos de inicio rotos (solo lecturas). Al aparecer (con caché) y tras cada acción.
     func refreshMaintenance() async {
-        let onAC = snapshot?.battery?.onACPower ?? true
+        maintenanceCheckedAt = Date()
+        let onAC = snapshot?.battery?.onACPower ?? BatteryProbe.cached()?.onACPower ?? true
         let spotlight = spotlight
         let runner = runner
         let catalog = model?.catalog
