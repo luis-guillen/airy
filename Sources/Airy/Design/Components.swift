@@ -71,6 +71,34 @@ struct RiskBadge: View {
     }
 }
 
+// MARK: - ProtectedFolderBadge
+
+/// Badge for a folder Airy only protects as a whole (`ProtectionMatch.Scope.folderOnly`: `/Users`, the home,
+/// `~/Library`…). Blue, not red: what is inside can still be cleaned, so it must not read as "Don't delete".
+struct ProtectedFolderBadge: View {
+    var compact = false
+    var reason: String?
+
+    var body: some View {
+        let label = String(localized: "Protected folder")
+        Label {
+            if !compact { Text(label) }
+        } icon: {
+            Image(systemName: "lock.open.fill")
+                .imageScale(.small)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(Theme.Airy.accent)
+        .padding(.horizontal, compact ? 6 : 9)
+        .padding(.vertical, 4)
+        .background(Theme.Airy.accentFill.opacity(AiryPalette.badgeTintOpacity), in: Capsule())
+        .overlay(Capsule().strokeBorder(Theme.Airy.accentFill.opacity(0.35), lineWidth: 0.5))
+        .help(reason ?? label)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(reason.map { "\(label). \($0)" } ?? label)
+    }
+}
+
 // MARK: - BytesCounter
 
 /// A size that counts up when it appears and rolls its digits on every change.

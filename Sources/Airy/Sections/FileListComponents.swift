@@ -25,9 +25,9 @@ struct SelectableFileRow: View {
                         .labelsHidden()
                         .accessibilityLabel("Select \(file.name)")
                 } else {
-                    Image(systemName: "lock.fill")
+                    Image(systemName: protectsOnlyTheFolder ? "lock.open.fill" : "lock.fill")
                         .font(.caption)
-                        .foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
+                        .foregroundStyle(protectsOnlyTheFolder ? Theme.Airy.accent : Theme.Airy.riskInk(.doNotTouch))
                         .accessibilityHidden(true)
                 }
             }
@@ -70,7 +70,11 @@ struct SelectableFileRow: View {
                 }
             }
 
-            RiskBadge(risk: file.risk, compact: true, reason: file.reasons.first)
+            if protectsOnlyTheFolder {
+                ProtectedFolderBadge(compact: true, reason: file.reasons.first)
+            } else {
+                RiskBadge(risk: file.risk, compact: true, reason: file.reasons.first)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 9)
@@ -78,7 +82,7 @@ struct SelectableFileRow: View {
         .contentShape(Rectangle())
         .onTapGesture { if file.canSelect { onToggle() } }
         .onHover { hovering = $0 }
-        .help(file.reasons.isEmpty ? file.risk.label : file.reasons.joined(separator: "\n"))
+        .help(helpText)
         .contextMenu {
             Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: file.path)])
@@ -92,6 +96,16 @@ struct SelectableFileRow: View {
                 Button("Protect This", systemImage: "lock") { model.protect(path: file.path) }
             }
         }
+    }
+
+    /// Protected only as a whole: what is inside can still be cleaned (display only).
+    private var protectsOnlyTheFolder: Bool { file.protection?.scope == .folderOnly }
+
+    /// The reasons, plus that what is inside stays cleanable when only the folder is protected.
+    private var helpText: String {
+        var lines = file.reasons.isEmpty ? [file.risk.label] : file.reasons
+        if let protection = file.protection, protectsOnlyTheFolder { lines.append(CleanupBoard.protectionScopeText(protection)) }
+        return lines.joined(separator: "\n")
     }
 
     /// "Opened 8 months ago" if Spotlight knows the open date; otherwise, "Modified 8 months ago".

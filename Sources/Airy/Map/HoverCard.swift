@@ -25,6 +25,9 @@ struct TileDetails: Equatable {
     let asksAssistant: Bool
     let isOthers: Bool
 
+    /// Protected only as a whole: what is inside can still be cleaned (display only).
+    var protectsOnlyTheFolder: Bool { protection?.scope == .folderOnly }
+
     @MainActor
     /// `classify`: the app's classifier (`AppModel.classify(path:)`), the same one Cleanup uses.
     /// `isPartial`: whether the scan left something unreadable inside that path (`AppModel.partialIndex`).
@@ -152,7 +155,13 @@ struct HoverCard: View {
             }
 
             if let risk = details.risk {
-                RiskBadge(risk: risk, reason: details.why)
+                // Protected only as a whole (`/Users`, the home, `~/Library`…): not the red "Don't delete",
+                // since what is inside can still be cleaned.
+                if details.protectsOnlyTheFolder {
+                    ProtectedFolderBadge(reason: details.protection.map(CleanupBoard.protectionText))
+                } else {
+                    RiskBadge(risk: risk, reason: details.why)
+                }
                 // With a protection, the line below already says it.
                 if let why = details.why, details.protection == nil {
                     Text(why)
@@ -168,10 +177,32 @@ struct HoverCard: View {
                     .lineLimit(2)
             }
             if let protection = details.protection {
-                Label(CleanupBoard.protectionText(protection), systemImage: "lock.fill")
+                if details.protectsOnlyTheFolder {
+                    Label {
+                        Text(details.isFolder
+                             ? String(localized: "Airy won’t delete this whole folder, but you can clean what’s inside. Click to open it.")
+                             : CleanupBoard.protectionScopeText(protection))
+                            .foregroundStyle(.primary)
+                    } icon: {
+                        Image(systemName: "lock.open.fill").foregroundStyle(Theme.Airy.accent)
+                    }
+                        .font(.caption.weight(.medium))
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(CleanupBoard.protectionText(protection), systemImage: "lock.fill")
+                            .lineLimit(2)
+                        if details.isFolder {
+                            Text(CleanupBoard.protectionScopeText(protection))
+                                .foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
+                                .lineLimit(2)
+                        }
+                    }
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             if showsExplanation {

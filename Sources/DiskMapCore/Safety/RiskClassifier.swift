@@ -111,7 +111,11 @@ public struct RiskClassifier: Sendable {
         let canonical = RiskPolicy.canonical(path)
         if let hard = protections.match(canonicalPath: canonical, home: home, catalog: catalog) { return hard }
         if let pattern = userList.match(canonical) {
-                return ProtectionMatch(source: .user, pattern: pattern, reason: String(localized: "You protected it (\(pattern)).", bundle: .airyCore))
+            // A parent of what the user protected: only the folder itself is kept (display only).
+            let child = (canonical == "/" ? "" : canonical) + "/" + HardProtections.contentsProbeName
+            return ProtectionMatch(source: .user, pattern: pattern,
+                                   reason: String(localized: "You protected it (\(pattern)).", bundle: .airyCore),
+                                   scope: userList.match(child) == nil ? .folderOnly : .folderAndContents)
         }
         return nil
     }

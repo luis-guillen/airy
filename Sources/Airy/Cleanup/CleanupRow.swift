@@ -107,7 +107,8 @@ struct CleanupRow: View {
                 .help(canSelect ? (isSelected ? String(localized: "Remove from Selection") : String(localized: "Select"))
                       : CleanupBoard.blockedReasonText(item) ?? String(localized: "Can’t be cleaned right now"))
         } else {
-            Image(systemName: isInfo && item.risk != .doNotTouch ? "info.circle" : "lock.fill")
+            Image(systemName: isInfo && item.risk != .doNotTouch ? "info.circle"
+                  : (protectsOnlyTheFolder ? "lock.open.fill" : "lock.fill"))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.tertiary)
                 .help(item.protection.map(CleanupBoard.protectionText)
@@ -122,9 +123,16 @@ struct CleanupRow: View {
                      text: item.entry.regenerates ? "Regenerates" : "Doesn’t regenerate")
             MethodChip(method: liveMethod)
             Spacer(minLength: 6)
-            RiskBadge(risk: item.risk, reason: why)
+            if protectsOnlyTheFolder {
+                ProtectedFolderBadge(reason: why)
+            } else {
+                RiskBadge(risk: item.risk, reason: why)
+            }
         }
     }
+
+    /// Protected only as a whole (a parent of something protected): not the red "Don't delete" (display only).
+    private var protectsOnlyTheFolder: Bool { item.protection?.scope == .folderOnly }
 
     @ViewBuilder private var notices: some View {
         if isCurrent {
@@ -163,10 +171,16 @@ struct CleanupRow: View {
             }
         }
         if let protection = item.protection {
-            Label(CleanupBoard.protectionText(protection), systemImage: "lock.fill")
+            Label(CleanupBoard.protectionText(protection), systemImage: protectsOnlyTheFolder ? "lock.open.fill" : "lock.fill")
                 .font(.callout.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+            if protectsOnlyTheFolder {
+                Text(CleanupBoard.protectionScopeText(protection))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Theme.Airy.accent)
+                    .lineLimit(2)
+            }
         }
         if let reason = CleanupBoard.blockedReasonText(item) {
             Label(reason, systemImage: "hand.raised.fill")
