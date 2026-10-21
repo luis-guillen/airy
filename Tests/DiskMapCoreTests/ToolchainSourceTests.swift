@@ -3,7 +3,7 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 final class TCListing: ProcessListing, Sendable {
     private let list: Mutex<[RunningProcess]?>
@@ -17,7 +17,7 @@ func tcCatalog(_ ids: String...) throws -> Catalog {
     return Catalog(entries: try ids.map { try #require(all.entry(id: $0), "\($0)") })
 }
 
-/// Una versión con un fichero dentro (para que ocupe) y uso hace `days` días.
+/// A version with a file inside (so it takes space) and use `days` days ago.
 func tcVersion(_ path: String, usedDaysAgo days: Double, exe: String = "bin/python3") {
     tcWrite(path + "/" + exe, String(repeating: "x", count: 5000))
     tcSetTimes(path + "/" + exe, accessDaysAgo: days, modifiedDaysAgo: days)
@@ -56,7 +56,7 @@ func tcExecute(_ item: CleanupItem, catalog: Catalog, base: String, runner: Fake
 
 private let pyenvBin = "/fake/bin/pyenv"
 
-/// pyenv con 3.9.18 (global), 3.11.4 (uso hace 200 d) y 3.12.1 (hace 10 d).
+/// pyenv with 3.9.18 (global), 3.11.4 (used 200 d ago) and 3.12.1 (10 d ago).
 private func pyenvHome() -> String {
     let base = toolchainTempDir()
     let v = base + "/home/.pyenv/versions"
@@ -75,7 +75,7 @@ private func pyenvHome() -> String {
             #expect(items.map(\.id).sorted() == ["toolchain-pyenv:python 3.11.4", "toolchain-pyenv:python 3.12.1",
                                                  "toolchain-pyenv:python 3.9.18"])
             let global = try #require(items.first { $0.id.hasSuffix("3.9.18") })
-            #expect(global.risk == .doNotTouch && global.riskReason == "Es la versión por defecto de pyenv.")
+            #expect(global.risk == .doNotTouch && global.riskReason == "It is the default version of pyenv.")
             #expect(items.filter { $0.id != global.id }.allSatisfy { $0.risk == .yourCall })
             #expect(!items.contains { $0.risk == .safe })
             #expect(items.allSatisfy { $0.targets == [String($0.id.split(separator: " ").last!)] })
@@ -95,7 +95,7 @@ private func pyenvHome() -> String {
         tcVersion(base + "/home/.rbenv/versions/3.2.2", usedDaysAgo: 200, exe: "bin/ruby")
         let items = await tcScan(try tcCatalog("toolchain-rbenv", "toolchain-rvm"), base: base)
         #expect(items.isEmpty)
-        // Con otra en rvm, las dos se ofrecen (se cuenta por lenguaje).
+        // With another one in rvm, both are offered (counted by language).
         tcVersion(base + "/home/.rvm/rubies/ruby-3.1.0", usedDaysAgo: 200, exe: "bin/ruby")
         #expect(await tcScan(try tcCatalog("toolchain-rbenv", "toolchain-rvm"), base: base).count == 2)
     }
@@ -106,11 +106,11 @@ private func pyenvHome() -> String {
         let items = await tcScan(try tcCatalog("toolchain-pyenv"), base: base,
                                  listing: TCListing([RunningProcess(pid: 9, name: "python3", executablePath: exe)]))
         let running = try #require(items.first { $0.id.hasSuffix("3.11.4") })
-        #expect(running.risk == .doNotTouch && running.riskReason == "Se está usando ahora." && !running.preselected)
-        // Listado desconocido ⇒ bloqueado.
+        #expect(running.risk == .doNotTouch && running.riskReason == "It is being used right now." && !running.preselected)
+        // Unknown listing ⇒ blocked.
         let unknown = await tcScan(try tcCatalog("toolchain-pyenv"), base: base, listing: TCListing(nil))
         #expect(unknown.filter { $0.risk != .doNotTouch }.allSatisfy {
-            $0.blockedReason == "No se pudo comprobar si está en uso." && !$0.preselected
+            $0.blockedReason == "Could not check whether it is in use." && !$0.preselected
         })
     }
 
@@ -127,12 +127,12 @@ private func pyenvHome() -> String {
         let items = await tcScan(try tcCatalog("toolchain-homebrew"), base: base, runner: runner)
         func item(_ f: String) -> CleanupItem? { items.first { $0.targets == [f] } }
         #expect(item("python@3.11")?.risk == .doNotTouch)
-        #expect(item("python@3.11")?.riskReason == "Lo necesita Homebrew para: ffmpeg.")
-        #expect(item("python@3.12")?.blockedReason == "No se pudo comprobar a tiempo si Homebrew la necesita.")
+        #expect(item("python@3.11")?.riskReason == "Homebrew needs it for: ffmpeg.")
+        #expect(item("python@3.12")?.blockedReason == "Could not check in time whether Homebrew needs it.")
         #expect(item("python@3.13")?.risk == .yourCall && item("python@3.13")?.blockedReason == nil)
         #expect(items.allSatisfy { $0.paths.isEmpty && $0.bytes > 0 })
         #expect(runner.calls.allSatisfy { $0.arguments.prefix(2) == ["uses", "--installed"] && $0.timeout <= 15 })
-        // Más de `brewLimit`: las que no se comprueban quedan bloqueadas.
+        // More than `brewLimit`: the ones not checked stay blocked.
         let limited = await ToolchainSource.$rootsOverride.withValue({ _ in tcRoots(base) }) {
             await ToolchainSource(roots: nil, brewLimit: 1).discover(
                 try! tcCatalog("toolchain-homebrew").entries[0],
@@ -143,7 +143,7 @@ private func pyenvHome() -> String {
         #expect(CommandPolicy.refusal(executable: "/opt/homebrew/bin/brew",
                                       arguments: ["uninstall", "--ignore-dependencies", "x"]) != nil)
         #expect(CommandPolicy.refusal(executable: "brew", arguments: ["uninstall", "x"]) == nil)
-        // Sin brew no se ofrece nada de Homebrew.
+        // Without brew nothing from Homebrew is offered.
         #expect(await tcScan(try tcCatalog("toolchain-homebrew"), base: base).isEmpty)
     }
 
@@ -170,7 +170,7 @@ private func pyenvHome() -> String {
         #expect(await tcExecute(item, catalog: catalog, base: base, runner: runner) == .freed(0))
         #expect(runner.calls.map { [$0.executable] + $0.arguments } == [[conda, "env", "remove", "-p", envs + "/old", "-y"]])
 
-        // Cambiada por un enlace entre el plan y la ejecución: bloqueado y sin llamada.
+        // Swapped for a link between the plan and the execution: blocked and without a call.
         let swapped = FakeRunner(resolved: ["conda": conda])
         tcMakeDir(base + "/elsewhere")
         let outcome = await tcExecute(item, catalog: catalog, base: base, runner: swapped, beforeMove: { path in
@@ -204,13 +204,13 @@ private func pyenvHome() -> String {
         let item = try #require(await tcScan(catalog, base: base, runner: runner).first { $0.id.hasSuffix("3.11.4") })
         tcWrite(base + "/home/.pyenv/version", "3.11.4\n")
         #expect(await tcExecute(item, catalog: catalog, base: base, runner: runner)
-            == .blocked(reason: "Es la versión por defecto de pyenv."))
-        // Un proyecto nuevo que la pide también la bloquea.
+            == .blocked(reason: "It is the default version of pyenv."))
+        // A new project that asks for it blocks it too.
         tcWrite(base + "/home/.pyenv/version", "3.9.18\n")
         tcWrite(base + "/home/Projects/app/pyproject.toml", "")
         tcWrite(base + "/home/Projects/app/.python-version", "3.11\n")
         #expect(await tcExecute(item, catalog: catalog, base: base, runner: runner)
-            == .blocked(reason: "La pide ~/Projects/app (.python-version)."))
+            == .blocked(reason: "Requested by ~/Projects/app (.python-version)."))
         #expect(runner.calls.isEmpty)
     }
 
@@ -236,7 +236,7 @@ private func pyenvHome() -> String {
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-n", "base", "-y"]) != nil)
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["remove", "--all", "-y"]) != nil)
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["clean", "--all", "-y"]) == nil)
-        // Por ruta, solo `…/envs/<nombre>` (M3).
+        // By path, only `…/envs/<name>` (M3).
         for prefix in ["/Users/x/miniconda3", "/Users/x/miniconda3/envs/../", "relative/envs/a", "/Users/x/envs/a/"] {
             #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-p", prefix, "-y"]) != nil,
                     "\(prefix)")
@@ -267,7 +267,7 @@ private func pyenvHome() -> String {
             ToolchainSource.label(InstalledToolchain(manager: m, language: l, name: n, path: "/x/envs/" + n, target: n,
                                                      lastUsed: nil))
         }
-        #expect(label(.conda, .condaEnv, "deepseek-ocr2") == "Entorno de conda «deepseek-ocr2»")
+        #expect(label(.conda, .condaEnv, "deepseek-ocr2") == "conda environment “deepseek-ocr2”")
         #expect(label(.homebrew, .python, "python@3.12") == "Python 3.12 (Homebrew)")
         #expect(label(.homebrew, .node, "node") == "Node (Homebrew)")
         #expect(label(.rustup, .rust, "stable-aarch64-apple-darwin") == "Rust stable (rustup)")
@@ -298,10 +298,10 @@ private func pyenvHome() -> String {
         #expect(items.map(\.id) == ["toolchain-system-info:Xcode"])
         let item = try #require(items.first)
         #expect(item.details.sorted() == [base + "/Applications/Xcode-15.4.app",
-                                          base + "/Applications/Xcode.app (en uso)"])
+                                          base + "/Applications/Xcode.app (in use)"])
         #expect(item.paths.isEmpty && item.bytes > 0 && !item.preselected)
         #expect(await tcExecute(item, catalog: catalog, base: base, runner: FakeRunner())
-            == .blocked(reason: "Este elemento es solo informativo."))
+            == .blocked(reason: "This item is informational only."))
     }
 
     @Test func libraryPythonCountsTowardDuplicates() async throws {

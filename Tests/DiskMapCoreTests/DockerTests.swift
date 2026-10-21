@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 private let docker = "/usr/local/bin/docker"
 
@@ -23,7 +23,7 @@ private let networkArgs = ["network", "ls", "--filter", "dangling=true", "--form
 
 private func ok(_ stdout: String) -> CommandOutput { CommandOutput(status: 0, stdout: stdout, stderr: "") }
 
-/// Docker en marcha con el `df` de prueba, dos contenedores parados y una red sin usar.
+/// Docker running with the test `df`, two stopped containers and one unused network.
 private func runningOutputs(containers: String = "db-viejo\nweb\n",
                             networks: String = "bridge\nred-vieja\n") -> [String: CommandOutput] {
     [key(versionArgs): ok("27.3.1\n"), key(dfArgs): ok(dfFixture), key(psArgs): ok(containers),
@@ -65,7 +65,7 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
     runner.calls.contains { Array($0.arguments.prefix(prefix.count)) == prefix }
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct DockerTests {
     @Test func runningDaemonYieldsFourActionableItems() async throws {
@@ -80,14 +80,14 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
         #expect(byID["docker-containers"]?.bytes == 200_000_000)
         #expect(byID["docker-containers"]?.details == ["db-viejo", "web"])
         #expect(byID["docker-networks"]?.bytes == 0)
-        #expect(byID["docker-networks"]?.sizeNote == "No ocupa espacio en disco")
+        #expect(byID["docker-networks"]?.sizeNote == "Takes no disk space")
         #expect(byID["docker-networks"]?.details == ["red-vieja"])
         #expect(byID["docker-volumes"]?.bytes == 1_000_000_000)
         #expect(byID["docker-volumes"]?.risk == .doNotTouch)
         for id in ["docker-build-cache", "docker-images", "docker-containers", "docker-networks"] {
             #expect(byID[id]?.blockedReason == nil, "\(id)")
         }
-        // Una sola sonda por pasada: cuatro llamadas, ninguna de limpieza.
+        // A single probe per pass: four calls, none of them a cleanup.
         #expect(fake.calls.count == 4)
         #expect(!fake.calls.contains { $0.arguments.contains("prune") })
     }
@@ -105,11 +105,11 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
         #expect(Set(items.map(\.id)) == ["docker-build-cache", "docker-images", "docker-containers", "docker-networks"])
         for item in items {
             #expect(item.bytes == 0)
-            #expect(item.sizeNote == "Tamaño desconocido")
-            #expect(item.blockedReason == "Abre Docker Desktop para limpiar esto")
+            #expect(item.sizeNote == "Unknown size")
+            #expect(item.blockedReason == "Open Docker Desktop to clean this")
             #expect(!CleanupBoard.canSelect(item))
         }
-        // Nunca se arranca Docker: solo se le pregunta la versión.
+        // Docker is never started: it is only asked for its version.
         #expect(fake.calls.map(\.arguments) == [versionArgs])
     }
 
@@ -132,7 +132,7 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
 
     @Test func probeParsesSnapshot() async throws {
         guard case .running(let snapshot) = await DockerProbe.state(runner: runner(runningOutputs())) else {
-            Issue.record("esperaba .running"); return
+            Issue.record("expected .running"); return
         }
         #expect(snapshot.stoppedContainers == ["db-viejo", "web"])
         #expect(snapshot.unusedNetworks == ["red-vieja"])
@@ -158,7 +158,7 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
         let images = try #require(await scan(fake, catalog: catalog).first { $0.id == "docker-images" })
         let act = runner(runningOutputs())
         guard case .freed = await executor(act, catalog: catalog).execute(images) else {
-            Issue.record("esperaba .freed"); return
+            Issue.record("expected .freed"); return
         }
         #expect(act.calls.last?.arguments == ["image", "prune", "-a", "-f"])
     }
@@ -171,14 +171,14 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
 
         let later = runner(runningOutputs(containers: "db-viejo\nweb\nnuevo\n", networks: "red-vieja\nred-nueva\n"))
         let exec = executor(later, catalog: catalog)
-        #expect(await exec.execute(containers) == .blocked(reason: "Hay contenedores parados nuevos; vuelve a revisarlo."))
-        #expect(await exec.execute(networks) == .blocked(reason: "Hay redes sin usar nuevas; vuelve a revisarlo."))
+        #expect(await exec.execute(containers) == .blocked(reason: "There are new stopped containers; review it again."))
+        #expect(await exec.execute(networks) == .blocked(reason: "There are new unused networks; review it again."))
         #expect(!later.calls.contains { $0.arguments.contains("prune") })
 
-        // Si alguno ya no está (el usuario lo borró), sigue valiendo: nunca se borra nada que no se vio.
+        // If one is no longer there (the user deleted it), it is still valid: nothing that was not seen is ever deleted.
         let fewer = runner(runningOutputs(containers: "web\n"))
         guard case .freed = await executor(fewer, catalog: catalog).execute(containers) else {
-            Issue.record("esperaba .freed"); return
+            Issue.record("expected .freed"); return
         }
         #expect(fewer.calls.last?.arguments == ["container", "prune", "-f"])
     }
@@ -187,13 +187,13 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
         #expect(CommandPolicy.refusal(executable: "/usr/local/bin/docker", arguments: ["volume", "prune", "-f"]) != nil)
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["system", "prune", "-a", "--volumes"]) != nil)
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["system", "prune", "-a"])
-            == "Airy nunca borra volúmenes de Docker.")
+            == "Airy never deletes Docker volumes.")
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["container", "rm", "--volumes=true", "x"]) != nil)
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["volumes"]) != nil)
         for args in [["rm", "-v", "web"], ["rm", "-fv", "web"], ["container", "rm", "web"], ["compose", "down", "-v"],
                      ["compose", "down"], ["container", "prune", "-vf"], ["run", "-v", "/x:/y", "img"]] {
             #expect(CommandPolicy.refusal(executable: "/usr/local/bin/docker", arguments: args)
-                == "Airy nunca borra volúmenes de Docker.", "\(args)")
+                == "Airy never deletes Docker volumes.", "\(args)")
         }
         #expect(CommandPolicy.refusal(executable: "/usr/local/bin/docker-compose", arguments: ["down", "-v"]) != nil)
         #expect(CommandPolicy.refusal(executable: "docker-compose", arguments: ["down"]) != nil)
@@ -202,8 +202,8 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["builder", "prune", "-a", "-f"]) == nil)
         #expect(CommandPolicy.refusal(executable: "docker", arguments: ["network", "prune", "-f"]) == nil)
         #expect(CommandPolicy.refusal(executable: "/usr/bin/xcrun", arguments: ["simctl", "delete\n", "x"])
-            == "Orden no válida.")
-        #expect(CommandPolicy.refusal(executable: "uv", arguments: ["cache", "clean\u{0}"]) == "Orden no válida.")
+            == "Invalid command.")
+        #expect(CommandPolicy.refusal(executable: "uv", arguments: ["cache", "clean\u{0}"]) == "Invalid command.")
         #expect(CommandPolicy.refusal(executable: "uv", arguments: ["cache", "clean"]) == nil)
     }
 
@@ -217,7 +217,7 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
         let item = CleanupItem(id: rogue.id, entry: rogue, paths: [], bytes: 1, risk: .safe, blockedByOpenApps: [],
                                usedBy: [])
         let outcome = await executor(fake, catalog: Catalog(entries: [rogue])).execute(item)
-        #expect(outcome == .blocked(reason: "Airy nunca borra volúmenes de Docker."))
+        #expect(outcome == .blocked(reason: "Airy never deletes Docker volumes."))
         #expect(fake.calls.isEmpty)
     }
 
@@ -252,7 +252,7 @@ private func ran(_ runner: FakeRunner, _ prefix: [String]) -> Bool {
             #expect(entry.shortReason != nil, "\(entry.id)")
         }
         #expect(catalog.entry(id: "docker-images")?.regenerates == true)
-        // Avisa de que se van todas las imágenes sin usar y hay que volver a bajarlas o construirlas.
-        #expect(catalog.entry(id: "docker-images")?.shortReason?.contains("todas las imágenes") == true)
+        // It warns that every unused image goes and they have to be downloaded or built again.
+        #expect(catalog.entry(id: "docker-images")?.shortReason?.contains("every image") == true)
     }
 }

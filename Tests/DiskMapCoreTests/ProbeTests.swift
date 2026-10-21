@@ -35,7 +35,7 @@ import Testing
         #expect(ThermalProbe.reading(state: .nominal, speedLimit: 80).throttling)
         #expect(!ThermalProbe.reading(state: .fair, speedLimit: 100).throttling)
         #expect(ThermalProbe.reading(state: .fair, speedLimit: 100).level == .fair)
-        #expect(ThermalLevel.fair.label == "Caliente")
+        #expect(ThermalLevel.fair.label == "Warm")
     }
 
     @Test func liveMemoryIsPlausible() throws {
@@ -62,7 +62,7 @@ import Testing
         #expect(boot < Date())
     }
 
-    // MARK: - Procesos
+    // MARK: - Processes
 
     @Test func parsesSpanishDecimalsAndSpaces() {
         let out = """
@@ -111,7 +111,7 @@ import Testing
     @Test func ownCPUTimeAdvances() {
         let pid = ProcessInfo.processInfo.processIdentifier
         func mine() -> UInt64? { ProcessProbe.ownProcesses().first { $0.pid == pid }?.cpuTimeNs }
-        guard let before = mine() else { Issue.record("no se ve a sí mismo"); return }
+        guard let before = mine() else { Issue.record("it does not see itself"); return }
         let deadline = Date().addingTimeInterval(2)
         var sink = 0.0
         var after = before
@@ -131,7 +131,7 @@ import Testing
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil)) func runningAppsHaveNamesAndPolicies() {
         let apps = ProcessProbe.runningApps()
-        // Sin sesión gráfica la lista puede venir vacía; con sesión, todas traen nombre.
+        // Without a graphical session the list may come back empty; with one, they all carry a name.
         #expect(apps.allSatisfy { !$0.name.isEmpty && $0.pid > 0 })
     }
 

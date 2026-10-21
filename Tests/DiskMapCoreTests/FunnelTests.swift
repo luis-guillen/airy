@@ -3,9 +3,9 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Dobles
+// MARK: - Doubles
 
-/// Listado de procesos simulado; `state` se puede cambiar a mitad de prueba.
+/// Fake process listing; `state` can be changed halfway through a test.
 private final class FakeListing: ProcessListing, Sendable {
     enum Mode: Sendable { case quiet, running(String), unknown }
     private let mode: Mutex<Mode>
@@ -38,7 +38,7 @@ private final class LiveSettings: Sendable {
     var reads: Int { readCount.withLock { $0 } }
 }
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 private func tempDir(_ label: String) -> String {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(label)-\(UUID().uuidString)")
@@ -65,11 +65,11 @@ private func settings(agents: Bool = true, protected: [String] = []) -> Settings
 }
 
 private let uvEntry = CatalogEntry(
-    id: "uv", title: "Caché de uv", explanation: "", whoCreatesIt: "", regenerates: true, risk: .safe,
+    id: "uv", title: "uv cache", explanation: "", whoCreatesIt: "", regenerates: true, risk: .safe,
     kind: .caches, paths: ["~/.cache/uv"],
     cleanup: .command(executable: "uv", arguments: ["cache", "clean"], sizeProbe: nil))
 
-/// Un home temporal con una caché verde de Papelera (`~/Library/Caches/prueba`) y su ficha.
+/// A temporary home with a green Trash cache (`~/Library/Caches/prueba`) and its entry.
 private struct Fixture {
     let home = tempDir("airy-funnel-home")
     let store = IndexStore(directory: URL(fileURLWithPath: tempDir("airy-funnel-store")))
@@ -108,14 +108,14 @@ private struct Fixture {
     }
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct FunnelTests {
     @Test func agentCannotExecuteYourCall() async throws {
         let f = Fixture()
         let amber = f.entry(risk: .yourCall)
         let amberCommand = CatalogEntry(
-            id: "uv", title: "Caché de uv", explanation: "", whoCreatesIt: "", regenerates: true, risk: .yourCall,
+            id: "uv", title: "uv cache", explanation: "", whoCreatesIt: "", regenerates: true, risk: .yourCall,
             kind: .caches, paths: ["~/.cache/uv"],
             cleanup: .command(executable: "uv", arguments: ["cache", "clean"], sizeProbe: nil))
         let exec = CleanupExecutor(
@@ -123,10 +123,10 @@ private struct Fixture {
             references: ReferenceChecker(roots: []), home: f.home, freeSpace: { 0 }, settings: { .missing },
             log: f.log, processGuard: ProcessGuard(listing: FakeListing()))
         let outcome = await exec.execute(f.item(amber), context: .agent("test"))
-        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
-        #expect(reason.contains("«Sin problema»"), "\(reason)")
+        guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
+        #expect(reason.contains("“Safe to remove”"), "\(reason)")
         let command = await exec.execute(f.item(amberCommand, paths: []), context: .agent("test"))
-        guard case .blocked = command else { Issue.record("esperaba .blocked, hubo \(command)"); return }
+        guard case .blocked = command else { Issue.record("expected .blocked, got \(command)"); return }
         #expect(f.runner.calls.isEmpty)
         #expect(exists(f.folder + "/f"))
         #expect(try f.store.history().isEmpty)
@@ -138,16 +138,16 @@ private struct Fixture {
         let green = f.entry()
         let exec = f.executor([green], settings: { settings(agents: false) })
         for outcome in [await exec.execute(f.item(green), context: .agent("test"))] {
-            guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
-            #expect(reason.contains("desactivado"), "\(reason)")
+            guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
+            #expect(reason.contains("turned off"), "\(reason)")
         }
-        // También la vista previa (dry_run) queda bloqueada.
+        // The preview (dry_run) is blocked too.
         guard case .blocked = await exec.preview(f.item(green), context: .agent("test")) else {
-            Issue.record("la vista previa debió bloquear"); return
+            Issue.record("the preview should have blocked"); return
         }
         #expect(exists(f.folder + "/f"))
-        // El usuario sí puede (el interruptor es solo para agentes).
-        guard case .wouldTrash = await exec.preview(f.item(green)) else { Issue.record("el usuario sí puede"); return }
+        // The user can (the switch is only for agents).
+        guard case .wouldTrash = await exec.preview(f.item(green)) else { Issue.record("the user can"); return }
     }
 
     @Test func agentBlockedWhenSettingsUnreadable() async throws {
@@ -155,10 +155,10 @@ private struct Fixture {
         let green = f.entry()
         let exec = f.executor([green], settings: { .unreadable("roto") })
         let outcome = await exec.execute(f.item(green), context: .agent("test"))
-        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
-        #expect(reason.contains("no puede leer sus ajustes"), "\(reason)")
-        // Fallo cerrado también para el usuario: sin ajustes no se conoce su lista «Proteger esto».
-        guard case .blocked = await exec.execute(f.item(green)) else { Issue.record("debió bloquear al usuario"); return }
+        guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
+        #expect(reason.contains("cannot read its settings"), "\(reason)")
+        // Fail closed for the user too: without settings their "Protect this" list is unknown.
+        guard case .blocked = await exec.execute(f.item(green)) else { Issue.record("should have blocked the user"); return }
         #expect(exists(f.folder + "/f"))
     }
 
@@ -167,10 +167,10 @@ private struct Fixture {
         let probes = FakeProbes(trash: 5_000)
         let exec = f.executor([f.entry()], probes: probes)
         guard case .blocked = await exec.trashPaths([f.folder], title: "x", context: .agent("test")) else {
-            Issue.record("trashPaths de agente debió bloquear"); return
+            Issue.record("an agent's trashPaths should have blocked"); return
         }
         guard case .blocked = await exec.emptyTrash(context: .agent("test")) else {
-            Issue.record("emptyTrash de agente debió bloquear"); return
+            Issue.record("an agent's emptyTrash should have blocked"); return
         }
         #expect(probes.emptyCount == 0)
         #expect(exists(f.folder + "/f"))
@@ -211,7 +211,7 @@ private struct Fixture {
 
     @Test func agentIsRefusedIfTheItemStopsBeingGreenBetweenPlanAndAct() async throws {
         let f = Fixture()
-        // «Tú decides» que el modo agresivo baja a «Sin problema».
+        // "Your call" that Aggressive mode lowers to "Safe to remove".
         let entry = CatalogEntry(id: "prueba", title: "Prueba", explanation: "", whoCreatesIt: "", regenerates: true,
                                  risk: .yourCall, kind: .caches, paths: ["~/Library/Caches/prueba"], cleanup: .trash,
                                  aggressiveRisk: .safe)
@@ -220,13 +220,13 @@ private struct Fixture {
         let aggressive = { var s = AirySettings(); s.mode = .aggressive; return s }()
         let prudent = { var s = AirySettings(); s.mode = .prudent; return s }()
         let live = LiveSettings(.loaded(aggressive))
-        // El usuario pasa a «Prudente» justo después del plan.
+        // The user switches to "Careful" right after the plan.
         let exec = f.executor([entry], settings: { live.read() }, beforeMove: { _ in live.set(.loaded(prudent)) })
         let outcome = await exec.execute(item, context: .agent("test"))
         guard case .blocked(let reason) = outcome else { Issue.record("expected blocked, got \(outcome)"); return }
-        #expect(reason.contains("solo se ejecuta lo marcado"))
+        #expect(reason.contains("only what is marked"))
         #expect(exists(f.folder))
-        // El usuario sí puede (la hoja le enseña el riesgo nuevo y decide él).
+        // The user can (the sheet shows them the new risk and they decide).
         live.set(.loaded(aggressive))
         let user = await f.executor([entry], settings: { live.read() },
                                     beforeMove: { _ in live.set(.loaded(prudent)) }).execute(item, context: .user())
@@ -252,7 +252,7 @@ private struct Fixture {
         let record = try #require(try f.log.records().last)
         #expect(record.actor == .user)
         #expect(record.proposedBy == "Claude Code" && record.proposedVia == "url-unverified")
-        #expect(URLProposalPolicy.activityAuthor(record) == "Por enlace (dice ser «Claude Code») · confirmado por ti")
+        #expect(URLProposalPolicy.activityAuthor(record) == "By link (claims to be “Claude Code”) · confirmed by you")
     }
 
     @Test func openAppCheckFailsClosedWhenItCannotBeRead() async throws {
@@ -261,14 +261,14 @@ private struct Fixture {
         let outcome = await f.executor([safari], probes: FakeProbes(currentUnknown: true))
             .execute(f.item(safari), context: .agent("test"))
         guard case .blocked(let reason) = outcome else { Issue.record("expected blocked, got \(outcome)"); return }
-        #expect(reason.contains("No se pudo comprobar si com.apple.Safari está abierta"), "\(reason)")
+        #expect(reason.contains("Could not check whether com.apple.Safari is open"), "\(reason)")
         #expect(exists(f.folder))
     }
 
     @Test func historyFailureIsReportedNotSwallowed() async throws {
         let f = Fixture()
         let green = f.entry()
-        // El historial no se puede escribir: `history.json` es una carpeta.
+        // The history cannot be written: `history.json` is a folder.
         let badDir = URL(fileURLWithPath: tempDir("airy-funnel-bad"))
         let blocked = IndexStore(directory: badDir)
         try FileManager.default.createDirectory(atPath: badDir.appendingPathComponent("history.json").path,
@@ -280,7 +280,7 @@ private struct Fixture {
         let outcome = await exec.execute(f.item(green), context: .user())
         guard case .movedToTrash = outcome else { Issue.record("expected moved, got \(outcome)"); return }
         let failure = try #require(f.log.takeWriteFailure())
-        #expect(failure.contains("historial"))
+        #expect(failure.contains("history"))
     }
 
     @Test func previewMovesNothingAndMatchesExecute() async throws {
@@ -331,7 +331,7 @@ private struct Fixture {
             let preview = await exec.preview(item)
             let outcome = await exec.execute(item)
             guard case .blocked(let a) = preview, case .blocked(let b) = outcome else {
-                Issue.record("\(label): esperaba dos bloqueos, hubo \(preview) y \(outcome)"); continue
+                Issue.record("\(label): expected two blocks, got \(preview) and \(outcome)"); continue
             }
             #expect(a == b, "\(label)")
         }
@@ -344,7 +344,7 @@ private struct Fixture {
         let documents = f.home + "/Documents"
         writeFile(documents + "/tesis.docx")
         let green = f.entry()
-        // Entre el plan y el movimiento, la carpeta se sustituye por un enlace a ~/Documents.
+        // Between the plan and the move, the folder is replaced by a link to ~/Documents.
         let folder = f.folder
         let toLink = f.executor([green], beforeMove: { path in
             guard path == folder else { return }
@@ -352,11 +352,11 @@ private struct Fixture {
             try? FileManager.default.createSymbolicLink(atPath: folder, withDestinationPath: documents)
         })
         let outcome = await toLink.execute(f.item(green))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(documents + "/tesis.docx"))
-        #expect(exists(folder)) // el enlace sigue ahí: no se movió nada
+        #expect(exists(folder)) // the link is still there: nothing was moved
 
-        // Otra carpeta corriente en la misma ruta (otro inodo) también se rechaza: no es lo que se comprobó.
+        // Another ordinary folder at the same path (another inode) is rejected too: it is not what was checked.
         try FileManager.default.removeItem(atPath: folder)
         writeFile(folder + "/f")
         let toOther = f.executor([green], beforeMove: { path in
@@ -365,8 +365,8 @@ private struct Fixture {
             writeFile(folder + "/otro")
         })
         let other = await toOther.execute(f.item(green))
-        guard case .blocked(let reason) = other else { Issue.record("esperaba .blocked, hubo \(other)"); return }
-        #expect(reason.contains("ha cambiado"), "\(reason)")
+        guard case .blocked(let reason) = other else { Issue.record("expected .blocked, got \(other)"); return }
+        #expect(reason.contains("has changed"), "\(reason)")
         #expect(exists(folder + "/otro"))
         #expect(try f.store.history().isEmpty)
     }
@@ -377,7 +377,7 @@ private struct Fixture {
         let listing = FakeListing()
         let exec = f.executor([entry], listing: listing, beforeMove: { _ in listing.set(.running("herramienta")) })
         let outcome = await exec.execute(f.item(entry))
-        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(reason.contains("herramienta"), "\(reason)")
         #expect(exists(f.folder + "/f"))
     }
@@ -385,25 +385,25 @@ private struct Fixture {
     @Test func userProtectedRefusedAtExecution() async throws {
         let f = Fixture()
         let green = f.entry()
-        // El elemento se detectó sin proteger; al ejecutar, los ajustes vivos ya lo protegen.
+        // The item was detected unprotected; when running, the live settings already protect it.
         let live = LiveSettings(settings())
         let exec = f.executor([green], settings: { live.read() })
         live.set(settings(protected: ["~/Library/Caches/prueba"]))
         let outcome = await exec.execute(f.item(green))
-        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
-        #expect(reason.contains("Lo has protegido tú"), "\(reason)")
+        guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
+        #expect(reason.contains("You protected it"), "\(reason)")
         guard case .blocked = await exec.trashPaths([f.folder + "/f"], title: "x") else {
-            Issue.record("trashPaths debió bloquear lo protegido"); return
+            Issue.record("trashPaths should have blocked what is protected"); return
         }
         #expect(exec.wouldRefuseTrash(path: f.folder))
         #expect(exists(f.folder + "/f"))
 
-        // Protegido entre el plan y el movimiento: también se rechaza.
+        // Protected between the plan and the move: it is rejected too.
         live.set(settings())
         let late = f.executor([green], settings: { live.read() }, beforeMove: { _ in
             live.set(settings(protected: ["~/Library/Caches/prueba"]))
         })
-        guard case .blocked = await late.execute(f.item(green)) else { Issue.record("debió bloquear al actuar"); return }
+        guard case .blocked = await late.execute(f.item(green)) else { Issue.record("should have blocked when acting"); return }
         #expect(exists(f.folder + "/f"))
     }
 
@@ -417,12 +417,12 @@ private struct Fixture {
         let exec = f.executor([a, b], settings: { live.read() })
 
         guard case .movedToTrash = await exec.execute(f.item(a), context: .agent("test")) else {
-            Issue.record("el primero debió ejecutarse"); return
+            Issue.record("the first one should have run"); return
         }
         #expect(!exists(f.folder))
         live.set(settings(agents: false))
         guard case .blocked = await exec.execute(f.item(b, paths: [second]), context: .agent("test")) else {
-            Issue.record("el segundo debió bloquearse"); return
+            Issue.record("the second one should have been blocked"); return
         }
         #expect(exists(second + "/f"))
         #expect(live.reads >= 2)
@@ -440,7 +440,7 @@ private struct Fixture {
         #expect(!exec.wouldRefuseTrash(path: f.folder))
     }
 
-    // Revisión 1: los comandos se comprueban con las rutas de la ficha viva, no con las del elemento.
+    // Review 1: commands are checked with the live entry's paths, not with the item's.
     @Test func commandProtectedIsRefusedEvenWithEmptyPaths() async throws {
         let f = Fixture()
         try FileManager.default.createDirectory(atPath: f.home + "/.cache/uv", withIntermediateDirectories: true)
@@ -448,9 +448,9 @@ private struct Fixture {
         for item in [f.item(uvEntry, paths: []), f.item(uvEntry, paths: [f.home + "/.cache/uv"])] {
             guard case .blocked(let reason) = await exec.preview(item),
                   case .blocked(let same) = await exec.execute(item) else {
-                Issue.record("el comando sobre una carpeta protegida debió bloquearse"); continue
+                Issue.record("the command on a protected folder should have been blocked"); continue
             }
-            #expect(reason == same && reason.contains("Lo has protegido tú"), "\(reason)")
+            #expect(reason == same && reason.contains("You protected it"), "\(reason)")
         }
         #expect(f.runner.calls.isEmpty)
     }
@@ -458,7 +458,7 @@ private struct Fixture {
     @Test func commandProtectedBetweenPlanAndActIsRefused() async throws {
         let f = Fixture()
         try FileManager.default.createDirectory(atPath: f.home + "/.cache/uv", withIntermediateDirectories: true)
-        // Primera lectura (plan): sin proteger; las siguientes (antes de ejecutar): protegida.
+        // First read (plan): unprotected; the following ones (before running): protected.
         let live = LiveSettings(settings())
         let exec = f.executor([], settings: {
             let load = live.read()
@@ -466,32 +466,32 @@ private struct Fixture {
             return load
         })
         guard case .blocked(let reason) = await exec.execute(f.item(uvEntry, paths: [])) else {
-            Issue.record("debió bloquearse al ejecutar"); return
+            Issue.record("should have been blocked when running"); return
         }
-        #expect(reason.contains("Lo has protegido tú"), "\(reason)")
+        #expect(reason.contains("You protected it"), "\(reason)")
         #expect(f.runner.calls.isEmpty)
     }
 
     @Test func commandNeedsItsLiveFolderAndOnlyItsPaths() async throws {
         let f = Fixture()
         let exec = f.executor([])
-        // Sin ~/.cache/uv en el disco no se ejecuta nada.
+        // Without ~/.cache/uv on disk nothing runs.
         guard case .blocked = await exec.execute(f.item(uvEntry, paths: [])) else {
-            Issue.record("sin carpeta debió bloquearse"); return
+            Issue.record("without a folder it should have been blocked"); return
         }
         try FileManager.default.createDirectory(atPath: f.home + "/.cache/uv", withIntermediateDirectories: true)
-        // Una ruta ajena a la ficha tampoco.
+        // A path that does not belong to the entry either.
         guard case .blocked(let reason) = await exec.execute(f.item(uvEntry, paths: [f.folder])) else {
-            Issue.record("ruta ajena debió bloquearse"); return
+            Issue.record("an unrelated path should have been blocked"); return
         }
-        #expect(reason.contains("no corresponde"), "\(reason)")
+        #expect(reason.contains("does not belong"), "\(reason)")
         #expect(f.runner.calls.isEmpty)
-        guard case .freed = await exec.execute(f.item(uvEntry, paths: [])) else { Issue.record("debió ejecutarse"); return }
+        guard case .freed = await exec.execute(f.item(uvEntry, paths: [])) else { Issue.record("should have run"); return }
         #expect(f.runner.calls.count == 1)
         #expect(try f.log.records().last?.paths == [f.home + "/.cache/uv"])
     }
 
-    // Revisión 2: una tanda que se para a medias se registra con lo que de verdad se movió.
+    // Review 2: a batch that stops halfway is recorded with what was really moved.
     @Test func partialTrashIsLoggedWithWhatMoved() async throws {
         let f = Fixture()
         let second = f.home + "/Library/Caches/segunda"
@@ -501,7 +501,7 @@ private struct Fixture {
             if path == second { try? FileManager.default.removeItem(atPath: second) }
         })
         let outcome = await exec.trashPaths([f.folder, second], title: "Tanda")
-        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(!exists(f.folder))
         let record = try #require(try f.log.records().last)
         #expect(record.outcome == "partial")

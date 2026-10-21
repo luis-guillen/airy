@@ -14,10 +14,10 @@ private final class NoListing: ProcessListing, Sendable {
         let partial = ScanCompleteness.of(ScanResult(root: root, inaccessible: ["/a", "/b", "/c"], duration: 1))
         #expect(partial == .partial(unreadable: 3))
         #expect(ScanCompleteness.of(nil) == .unavailable)
-        #expect(ScanCompleteness.complete.label == "Análisis completo")
-        #expect(partial.label == "Análisis parcial: no se pudieron leer 3 carpetas")
-        #expect(ScanCompleteness.partial(unreadable: 1).label == "Análisis parcial: no se pudieron leer 1 carpeta")
-        #expect(ScanCompleteness.unavailable.label == "Sin análisis")
+        #expect(ScanCompleteness.complete.label == "Complete scan")
+        #expect(partial.label == "Partial scan: 3 folders could not be read")
+        #expect(ScanCompleteness.partial(unreadable: 1).label == "Partial scan: 1 folder could not be read")
+        #expect(ScanCompleteness.unavailable.label == "No scan")
         #expect([partial.jsonName, ScanCompleteness.complete.jsonName, ScanCompleteness.unavailable.jsonName]
             == ["partial", "complete", "unavailable"])
     }
@@ -62,7 +62,7 @@ private final class NoListing: ProcessListing, Sendable {
         #expect(byId["a"]?.sizeIsPartial == true)
         #expect(byId["b"]?.sizeIsPartial == false)
         #expect(CleanupBoard.sizeText(try #require(byId["a"])).hasSuffix("+"))
-        // Sin índice no hay marca: se midió el disco.
+        // Without an index there is no mark: the disk was measured.
         #expect(await scanner.findItems(scan: nil, inaccessible: [home + "/Library/Caches/a/sub"]).allSatisfy { !$0.sizeIsPartial })
     }
 }

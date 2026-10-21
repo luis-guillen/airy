@@ -6,7 +6,7 @@ import Synchronization
 @Suite struct ScannerTests {
     private static let mb: Int64 = 1_048_576
 
-    /// Carpeta temporal única que se borra al terminar, restaurando permisos antes.
+    /// A unique temporary folder deleted at the end, restoring permissions first.
     private final class TempTree {
         let url: URL
         var path: String { url.path }
@@ -142,7 +142,7 @@ import Synchronization
 
     @Test func privatePathsAreKeptAndExcluded() async throws {
         let tree = try TempTree()
-        // Ruta real, con `/private` delante, como la ve el escáner al recorrer `/`.
+        // Real path, with `/private` in front, as the scanner sees it when walking `/`.
         let real = try #require(tree.path.withCString { realpath($0, nil) }.map { pointer in
             defer { free(pointer) }
             return String(cString: pointer)
@@ -201,7 +201,7 @@ import Synchronization
         #expect(one.root.children.map(\.allocatedSize) == four.root.children.map(\.allocatedSize))
     }
 
-    /// Cancela con los hilos en marcha y carpetas a medio cerrar: termina y lanza `CancellationError`.
+    /// Cancels with the threads running and folders half closed: it ends and throws `CancellationError`.
     @Test func cancellingMidScanStopsTheWalk() async throws {
         let tree = try TempTree()
         for index in 0..<300 { try tree.makeDirectory("d\(index)/e/f") }
@@ -212,7 +212,7 @@ import Synchronization
         let reports = Mutex(0)
         let task = Task {
             try await scanner.scan { _ in
-                // El primer aviso llega tras leer la raíz: sus 300 subcarpetas siguen pendientes.
+                // The first update arrives after reading the root: its 300 subfolders are still pending.
                 guard reports.withLock({ $0 += 1; return $0 }) == 1 else { return }
                 ready.wait()
                 box.withLock { $0?.cancel() }
@@ -245,6 +245,6 @@ import Synchronization
     func realHome() async throws {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let result = try await DiskScanner(options: ScanOptions(roots: [home])).scan { _ in }
-        print("realHome: \(Format.bytes(result.root.allocatedSize)) en \(String(format: "%.1f", result.duration)) s, \(result.root.descendantCount) elementos, \(result.inaccessible.count) inaccesibles")
+        print("realHome: \(Format.bytes(result.root.allocatedSize)) in \(String(format: "%.1f", result.duration)) s, \(result.root.descendantCount) items, \(result.inaccessible.count) inaccessible")
     }
 }

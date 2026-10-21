@@ -82,13 +82,13 @@ import Testing
         try write("{no json", to: file)
         let store = SettingsStore(file: file)
         let fresh = try store.resetUnreadable()
-        // Nada rescatable: lista vacía y agentes apagados (falla cerrado).
+        // Nothing salvageable: empty list and agents off (fail closed).
         var expected = AirySettings.defaults
         expected.agentsEnabled = false
         #expect(fresh.settings == expected && store.load() == .loaded(expected))
         #expect(fresh.salvage.recoveredProtectedPaths == false)
-        #expect(fresh.message.contains("No se pudo recuperar tu lista «Proteger esto»"))
-        #expect(fresh.message.contains("Los agentes quedan desactivados"))
+        #expect(fresh.message.contains("Your “Protect this” list could not be recovered"))
+        #expect(fresh.message.contains("Agents stay disabled"))
         let aside = try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path)
             .filter { $0.hasPrefix("settings.unreadable-") && $0.hasSuffix(".json") }
         #expect(aside.count == 1)
@@ -136,20 +136,20 @@ import Testing
         #expect(s.protectedPaths.isEmpty)
     }
 
-    // MARK: Ajustes en la app
+    // MARK: Settings in the app
 
     @Test func unreadableSettingsBlockDestructiveActionsUntilReset() throws {
         let file = tempFile()
-        try write("{ no es json", to: file)
+        try write("{ not json", to: file)
         var session = SettingsSession(store: SettingsStore(file: file))
         #expect(session.load.isUnreadable)
         #expect(session.destructiveRefusal != nil)
         #expect(session.unreadableNotice
-                == "No se pudieron leer los ajustes (settings.json no es válido). Los agentes no pueden limpiar hasta que los restablezcas.")
-        // Con el fichero ilegible no se guarda nada encima: lo decide el usuario con «Restablecer ajustes».
+                == "The settings could not be read (settings.json is not valid). Agents cannot clean until you reset them.")
+        // With the file unreadable nothing is saved on top: the user decides with "Reset settings".
         #expect(throws: SettingsSession.Unreadable.self) { _ = try session.update { $0.mode = .prudent } }
-        #expect(try String(contentsOf: file, encoding: .utf8) == "{ no es json")
-        #expect(session.resetConfirmation()?.contains("no se puede recuperar") == true)
+        #expect(try String(contentsOf: file, encoding: .utf8) == "{ not json")
+        #expect(session.resetConfirmation()?.contains("cannot be recovered") == true)
         try session.reset()
         var expected = AirySettings.defaults
         expected.agentsEnabled = false
@@ -162,19 +162,19 @@ import Testing
 
     @Test func resetKeepsProtectionsFromANewerVersionAndLeavesAgentsAsTheyWere() throws {
         let file = tempFile()
-        // Un Airy más nuevo escribió la versión 2: no se carga, pero su lista y el interruptor se rescatan.
+        // A newer Airy wrote version 2: it is not loaded, but its list and the switch are salvaged.
         try write(#"{"version":2,"mode":"prudent","agentsEnabled":false,"protectedPaths":["~/Work","~/Models/*.gguf"],"newThing":{"x":1}}"#, to: file)
         var session = SettingsSession(store: SettingsStore(file: file))
         #expect(session.load.isUnreadable)
         let maybeConfirmation = session.resetConfirmation()
         let confirmation = try #require(maybeConfirmation)
-        #expect(confirmation.contains("Se conservará tu lista «Proteger esto» (2 rutas)"))
-        #expect(confirmation.contains("Los agentes quedarán desactivados"))
+        #expect(confirmation.contains("Your “Protect this” list will be kept (2 paths)"))
+        #expect(confirmation.contains("Agents will be disabled"))
         let maybeResult = try session.reset()
         let result = try #require(maybeResult)
         #expect(result.settings.protectedPaths == ["~/Work", "~/Models/*.gguf"])
         #expect(result.settings.agentsEnabled == false && result.settings.mode == .prudent)
-        #expect(result.message.contains("Se conservó tu lista «Proteger esto» (2 rutas)"))
+        #expect(result.message.contains("Your “Protect this” list was kept (2 paths)"))
         #expect(result.backup.map { FileManager.default.fileExists(atPath: $0.path) } == true)
         #expect(SettingsStore(file: file).load() == .loaded(result.settings))
     }
@@ -184,7 +184,7 @@ import Testing
         try write(#"{"version":9,"agentsEnabled":true,"protectedPaths":["~/Work"]}"#, to: file)
         let kept = try SettingsStore(file: file).resetUnreadable()
         #expect(kept.settings.agentsEnabled && kept.settings.protectedPaths == ["~/Work"])
-        // Sin lista legible, los agentes quedan apagados aunque el fichero dijera que no.
+        // Without a readable list, agents stay off even if the file said otherwise.
         try write(#"{"version":9,"agentsEnabled":true,"protectedPaths":"~/Work"}"#, to: file)
         let lost = try SettingsStore(file: file).resetUnreadable()
         #expect(!lost.settings.agentsEnabled && lost.settings.protectedPaths.isEmpty)
@@ -194,10 +194,10 @@ import Testing
 
     @Test func resetDoesNothingIfTheFileBecameReadable() throws {
         let file = tempFile()
-        try write("{ roto", to: file)
+        try write("{ broken", to: file)
         var session = SettingsSession(store: SettingsStore(file: file))
         #expect(session.load.isUnreadable)
-        // Mientras tanto, otro proceso (o el usuario a mano) lo arregla.
+        // Meanwhile, another process (or the user by hand) fixes it.
         try write(#"{"version":1,"protectedPaths":["~/Work"]}"#, to: file)
         #expect(session.resetConfirmation() == nil)
         #expect(try session.reset() == nil)
@@ -222,7 +222,7 @@ import Testing
         expected.protectedPaths = ["~/Work"]
         #expect(SettingsStore(file: file).load() == .loaded(expected))
         #expect(session.effective == expected)
-        // Otro proceso (o el usuario) lo estropea: se nota al volver a leer y bloquea.
+        // Another process (or the user) breaks it: it is noticed when reading again and it blocks.
         try write("[]", to: file)
         #expect(session.reload() == true)
         #expect(session.destructiveRefusal != nil)

@@ -3,9 +3,9 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Dobles y utilidades
+// MARK: - Doubles and utilities
 
-/// Listado de procesos simulado (local: el de `FunnelTests` es privado).
+/// Fake process listing (local: the one in `FunnelTests` is private).
 private final class SchemaListing: ProcessListing, Sendable {
     private let list: Mutex<[RunningProcess]?>
     init(_ list: [RunningProcess]? = []) { self.list = Mutex(list) }
@@ -24,7 +24,7 @@ private func makeDir(_ path: String) {
     try! FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
 }
 
-/// Fichero con contenido real (no disperso): ocupa `bytes` en disco.
+/// File with real (non-sparse) contents: it takes `bytes` on disk.
 private func writeFile(_ path: String, bytes: Int = 10_000) {
     makeDir((path as NSString).deletingLastPathComponent)
     FileManager.default.createFile(atPath: path, contents: Data(repeating: 0x41, count: bytes))
@@ -72,33 +72,33 @@ private func makeLog() -> OperationLog {
     OperationLog(file: URL(fileURLWithPath: tempDir("airy-schema-log")).appendingPathComponent("ops.jsonl"))
 }
 
-/// Sustituye `path` por un enlace simbólico a `destination`.
+/// Replaces `path` with a symbolic link to `destination`.
 private func replaceWithLink(_ path: String, to destination: String) {
     try? FileManager.default.removeItem(atPath: path)
     try! FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: destination)
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct CatalogSchemaTests {
     @Test func newFieldsRoundTripAndDefaultsAreOmitted() throws {
         let json = """
         {"entries":[{"id":"x","title":"X","explanation":"","whoCreatesIt":"","regenerates":true,"risk":"yourCall",
-        "kind":"caches","paths":["~/x/*"],"cleanup":{"type":"trash"},"shortReason":"Se regenera sola.",
+        "kind":"caches","paths":["~/x/*"],"cleanup":{"type":"trash"},"shortReason":"It regenerates itself.",
         "perMatch":true,"except":[".DS_Store"],"staleAfterDays":180,"minimumBytes":52428800,
         "retention":{"keepNewest":2,"activeLink":"~/.local/bin/claude"},
         "discovery":{"type":"projectArtifacts","names":["node_modules"],"cachedirTag":true},
-        "reviewHint":"Revísalo tú."}]}
+        "reviewHint":"Check it yourself."}]}
         """
         let decoded = try #require(try Catalog.decode(Data(json.utf8)).entries.first)
-        #expect(decoded.shortReason == "Se regenera sola.")
+        #expect(decoded.shortReason == "It regenerates itself.")
         #expect(decoded.perMatch)
         #expect(decoded.except == [".DS_Store"])
         #expect(decoded.staleAfterDays == 180)
         #expect(decoded.minimumBytes == 52_428_800)
         #expect(decoded.retention == RetentionRule(keepNewest: 2, activeLink: "~/.local/bin/claude"))
         #expect(decoded.discovery == .projectArtifacts(names: ["node_modules"], cachedirTag: true))
-        #expect(decoded.reviewHint == "Revísalo tú.")
+        #expect(decoded.reviewHint == "Check it yourself.")
 
         let again = try JSONDecoder().decode(CatalogEntry.self, from: JSONEncoder().encode(decoded))
         #expect(again.shortReason == decoded.shortReason && again.perMatch && again.except == decoded.except
@@ -113,12 +113,12 @@ private func replaceWithLink(_ path: String, to destination: String) {
             #expect(back.discovery == kind)
         }
 
-        // Valores por defecto: no se codifican.
+        // Default values: they are not encoded.
         let plain = entry("plain", paths: ["~/p"])
         let text = String(decoding: try JSONEncoder().encode(plain), as: UTF8.self)
         for key in ["shortReason", "perMatch", "except", "staleAfterDays", "minimumBytes", "retention",
                     "discovery", "reviewHint"] {
-            #expect(!text.contains("\"\(key)\""), "\(key) no debería codificarse: \(text)")
+            #expect(!text.contains("\"\(key)\""), "\(key) should not be encoded: \(text)")
         }
         let minimal = try #require(try Catalog.decode(Data("""
         {"entries":[{"id":"m","title":"M","explanation":"","whoCreatesIt":"","regenerates":true,"risk":"safe",
@@ -144,13 +144,13 @@ private func replaceWithLink(_ path: String, to destination: String) {
 
         #expect(TreeWalk.summarize(root, budget: .zero) == nil)
         let summary = try #require(TreeWalk.summarize(root, budget: .seconds(10), watch: { $0 == "blob" }))
-        #expect(summary.bytes < 1_000_000, "el enlace no se recorre: \(summary.bytes)")
+        #expect(summary.bytes < 1_000_000, "the link is not walked: \(summary.bytes)")
         #expect(summary.bytes >= 4_096)
-        #expect(summary.watched.isEmpty, "no entra en el destino del enlace")
-        // Un enlace como raíz: su propia entrada, nunca su destino.
+        #expect(summary.watched.isEmpty, "it does not enter the link's target")
+        // A link as the root: its own entry, never its target.
         let link = try #require(TreeWalk.summarize(root + "/link", budget: .seconds(10)))
         #expect(link.bytes < 1_000_000)
-        // Un fichero como raíz: su tamaño y su fecha.
+        // A file as the root: its size and its date.
         setModified(big + "/blob", daysAgo: 30)
         let file = try #require(TreeWalk.summarize(big + "/blob", budget: .seconds(10)))
         #expect(file.bytes >= 10_000_000)
@@ -158,7 +158,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         #expect(abs(age - 30 * 86_400) < 60)
         #expect(TreeWalk.summarize(root + "/no-existe", budget: .seconds(10)) == nil)
 
-        // Enlaces duros: una sola vez.
+        // Hard links: only once.
         let hard = tempDir()
         writeFile(hard + "/a", bytes: 1_000_000)
         try FileManager.default.linkItem(atPath: hard + "/a", toPath: hard + "/b")
@@ -175,7 +175,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
                      project + "/deploy", project] {
             setModified(path, daysAgo: 200)
         }
-        // node_modules recién tocado: no cuenta ni en la fecha ni en el tamaño.
+        // node_modules just touched: it counts neither in the date nor in the size.
         let summary = try #require(TreeWalk.summarize(
             project, budget: .seconds(10), prune: { name, _ in name == "node_modules" },
             watch: { $0.hasSuffix("-keypair.json") }))
@@ -183,7 +183,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         #expect(Date().timeIntervalSince(latest) > 190 * 86_400)
         #expect(summary.bytes < 1_000_000)
         #expect(summary.watched == ["deploy/solana-keypair.json"])
-        // Sin poda, el cambio reciente sí cuenta.
+        // Without pruning, the recent change does count.
         let full = try #require(TreeWalk.summarize(project, budget: .seconds(10)))
         #expect(Date().timeIntervalSince(try #require(full.latestModification)) < 86_400)
         #expect(full.bytes > 2_000_000)
@@ -226,7 +226,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         #expect(items.count == 1)
         #expect(items.first?.id == "device-support")
         #expect(items.first?.paths == [base + "/iOS DeviceSupport/15"])
-        #expect(items.first?.details == ["Se conservan: 17, 16", "Se conservan: 10, 9"])
+        #expect(items.first?.details == ["Kept: 17, 16", "Kept: 10, 9"])
     }
 
     @Test func retentionKeepsActiveLinkPlusOne() async throws {
@@ -243,26 +243,26 @@ private func replaceWithLink(_ path: String, to destination: String) {
                           retention: RetentionRule(keepNewest: 2, activeLink: "~/.local/bin/claude"))
         let items = await scanner([agent], home: home).findItems(scan: nil)
         #expect(items.map(\.paths) == [[versions + "/1.1"]])
-        #expect(items.first?.details == ["Se conservan: 2.0, 1.0"])
+        #expect(items.first?.details == ["Kept: 2.0, 1.0"])
 
-        // Enlace roto: fallo cerrado, no se ofrece nada.
+        // Broken link: fail closed, nothing is offered.
         try FileManager.default.removeItem(atPath: home + "/.local/bin/claude")
         try FileManager.default.createSymbolicLink(atPath: home + "/.local/bin/claude", withDestinationPath: home + "/nada")
         #expect(await scanner([agent], home: home).findItems(scan: nil).isEmpty)
 
-        // En el embudo: una versión del elemento en marcha, o un listado ilegible, bloquean.
+        // In the funnel: a running version of the item, or an unreadable listing, block.
         try FileManager.default.removeItem(atPath: home + "/.local/bin/claude")
         try FileManager.default.createSymbolicLink(
             atPath: home + "/.local/bin/claude", withDestinationPath: versions + "/1.0/claude")
         let item = try #require(items.first)
         let listing = SchemaListing([RunningProcess(pid: 7, name: "claude", executablePath: versions + "/1.1/claude")])
         guard case .blocked(let reason) = await executor([agent], home: home, listing: listing).execute(item) else {
-            Issue.record("debió bloquearse"); return
+            Issue.record("should have been blocked"); return
         }
-        #expect(reason == "Está en uso: 1.1.")
+        #expect(reason == "It is in use: 1.1.")
         guard case .blocked(let unknown) = await executor([agent], home: home, listing: SchemaListing(nil)).execute(item)
-        else { Issue.record("debió bloquearse"); return }
-        #expect(unknown == "No se pudo comprobar si está en uso; Airy no lo toca.")
+        else { Issue.record("should have been blocked"); return }
+        #expect(unknown == "Could not check whether it is in use; Airy does not touch it.")
         #expect(FileManager.default.fileExists(atPath: versions + "/1.1/claude"))
     }
 
@@ -278,7 +278,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         #expect(items.first?.paths == [home + "/Library/Caches/shared"])
         #expect(items.last?.paths == [home + "/Library/Caches/only-second"])
         let total = items.reduce(Int64(0)) { $0 + $1.bytes }
-        #expect(total < 600_000, "sin doble cuenta: \(total)")
+        #expect(total < 600_000, "without double counting: \(total)")
         #expect(total >= 400_000)
     }
 
@@ -290,12 +290,12 @@ private func replaceWithLink(_ path: String, to destination: String) {
         let full = entry("full", paths: ["~/Library/Caches/full"])
         #expect(await scanner([empty, full], home: home).findItems(scan: nil).map(\.id) == ["full"])
 
-        // Sin tiempo para medir: se queda con nota y bloqueo, aunque mida 0.
+        // Without time to measure: it keeps a note and a block, even if it measures 0.
         let items = await scanner([full], home: home, measureBudget: .zero).findItems(scan: nil)
         #expect(items.map(\.id) == ["full"])
         #expect(items.first?.bytes == 0)
-        #expect(items.first?.sizeNote == "Tamaño desconocido")
-        #expect(items.first?.blockedReason == "No se pudo medir a tiempo.")
+        #expect(items.first?.sizeNote == "Unknown size")
+        #expect(items.first?.blockedReason == "Could not be measured in time.")
     }
 
     @Test func funnelRevalidatesThroughTheSource() async throws {
@@ -309,19 +309,19 @@ private func replaceWithLink(_ path: String, to destination: String) {
                             retention: RetentionRule(keepNewest: 2))
         let item = try #require(await scanner([support], home: home).findItems(scan: nil).first)
         #expect(item.paths == [parent + "/15"])
-        // Ahora 15 es la más nueva: se conserva y el embudo la rechaza.
+        // Now 15 is the newest: it is kept and the funnel rejects it.
         setModified(parent + "/15", daysAgo: 0)
         let outcome = await executor([support], home: home).execute(item)
-        #expect(outcome == .blocked(reason: "Ya no es una versión antigua: 15."))
+        #expect(outcome == .blocked(reason: "It is no longer an old version: 15."))
         #expect(FileManager.default.fileExists(atPath: parent + "/15/symbols"))
 
-        // Ficha de patrones estáticos con `staleAfterDays`: si se ha usado desde la detección, no se toca.
+        // Static patterns entry with `staleAfterDays`: if it was used since the detection, it is not touched.
         writeFile(home + "/Downloads/old.zip", bytes: 2 * 1_048_576)
         setModified(home + "/Downloads/old.zip", daysAgo: 400)
         let downloads = entry("old", risk: .yourCall, paths: ["~/Downloads/*"], perMatch: true, staleAfterDays: 180)
         let stale = try #require(await scanner([downloads], home: home).findItems(scan: nil).first)
         setModified(home + "/Downloads/old.zip", daysAgo: 1)
-        #expect(await executor([downloads], home: home).execute(stale) == .blocked(reason: "Lo has usado hace poco."))
+        #expect(await executor([downloads], home: home).execute(stale) == .blocked(reason: "You have used it recently."))
         #expect(FileManager.default.fileExists(atPath: home + "/Downloads/old.zip"))
     }
 
@@ -331,7 +331,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         let db2 = home + "/Library/Safari/Other.db"
         writeFile(db1)
         writeFile(db2)
-        // Literales: `~/Library/Safari` es de una app sensible y un comodín a su nivel nunca vale de excepción.
+        // Literals: `~/Library/Safari` belongs to a sensitive app and a wildcard at its level never counts as an exception.
         let compact = entry("safari-compact", paths: ["~/Library/Safari/History.db", "~/Library/Safari/Other.db",
                                                       "~/Library/Safari/Evil.db"],
                             cleanup: .command(executable: "sqlite3", arguments: ["{target}", "VACUUM;"], sizeProbe: nil))
@@ -348,7 +348,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         #expect(outcome == .freed(250))
         #expect(runner.calls.map(\.arguments) == [[db1, "VACUUM;"], [db2, "VACUUM;"]])
 
-        // Sin objetivos, con un objetivo relativo o protegido: bloqueado y sin ejecutar nada.
+        // Without targets, with a relative or a protected target: blocked and without running anything.
         let quiet = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])
         let blockedExec = executor([compact], home: home, runner: quiet)
         let keychain = home + "/Library/Keychains/x"
@@ -356,35 +356,35 @@ private func replaceWithLink(_ path: String, to destination: String) {
         for targets in [[], ["History.db"], [keychain], [db1, keychain]] {
             item.targets = targets
             guard case .blocked = await blockedExec.execute(item) else {
-                Issue.record("debió bloquearse con \(targets)"); continue
+                Issue.record("should have been blocked with \(targets)"); continue
             }
         }
-        // Un objetivo que el usuario ha protegido: lo para el clasificador (rutas de la ficha) antes de `PathGate`.
+        // A target the user has protected: the classifier stops it (the entry's paths) before `PathGate`.
         item.targets = [db1, db2]
         let guarded = executor([compact], home: home, runner: quiet, protected: ["~/Library/Safari/Other.db"])
         guard case .blocked(let reason) = await guarded.execute(item) else {
-            Issue.record("debió bloquearse por la lista del usuario"); return
+            Issue.record("should have been blocked by the user's list"); return
         }
-        #expect(reason.contains("Lo has protegido tú"), "\(reason)")
-        // Un enlace de la ficha que apunta a los Llaveros: solo `PathGate` (que resuelve enlaces) lo para.
+        #expect(reason.contains("You protected it"), "\(reason)")
+        // A link of the entry that points to the Keychains: only `PathGate` (which resolves links) stops it.
         let evil = home + "/Library/Safari/Evil.db"
         try FileManager.default.createSymbolicLink(atPath: evil, withDestinationPath: keychain)
         item.targets = [db1, evil]
         guard case .blocked(let linkReason) = await blockedExec.execute(item) else {
-            Issue.record("el enlace a los Llaveros debió bloquearse"); return
+            Issue.record("the link to the Keychains should have been blocked"); return
         }
-        // Rechazo de `PathGate` (forma resuelta: Llaveros o componente «keychain»), no de la pertenencia.
-        #expect(linkReason.contains("No se ejecuta «Prueba safari-compact» sobre \(evil)"), "\(linkReason)")
+        // Refusal from `PathGate` (resolved form: Keychains or the "keychain" component), not from the ownership check.
+        #expect(linkReason.contains("“Prueba safari-compact” is not run on \(evil)"), "\(linkReason)")
         #expect(linkReason.contains("Llaveros") || linkReason.contains("keychain"), "\(linkReason)")
         try FileManager.default.removeItem(atPath: evil)
         #expect(quiet.calls.isEmpty)
 
-        // El primer fallo detiene la tanda.
+        // The first failure stops the batch.
         let failing = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"],
                                  outputs: ["/usr/bin/sqlite3 \(db1) VACUUM;": CommandOutput(status: 1, stdout: "", stderr: "locked")])
         item.targets = [db1, db2]
         guard case .failed = await executor([compact], home: home, runner: failing).execute(item) else {
-            Issue.record("debió fallar"); return
+            Issue.record("should have failed"); return
         }
         #expect(failing.calls.count == 1)
     }
@@ -402,43 +402,43 @@ private func replaceWithLink(_ path: String, to destination: String) {
         var item = detected
         item.targets = [db1, db2]
 
-        // El primer objetivo pasa a ser un enlace entre el plan y su ejecución: no se ejecuta nada.
+        // The first target becomes a link between the plan and its run: nothing runs.
         let first = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])
         let swapFirst = executor([compact], home: home, runner: first, beforeRun: { path in
             if path == db1 { replaceWithLink(db1, to: keychain) }
         })
         guard case .blocked(let reason) = await swapFirst.execute(item) else {
-            Issue.record("debió bloquearse en el primer objetivo"); return
+            Issue.record("should have been blocked on the first target"); return
         }
         #expect(first.calls.isEmpty, "\(reason)")
         try FileManager.default.removeItem(atPath: db1)
         writeFile(db1)
 
-        // El segundo cambia tras ejecutar el primero: se para y el registro es «partial» con lo ejecutado.
+        // The second changes after running the first: it stops and the record is "partial" with what ran.
         let second = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])
         let log = makeLog()
         let swapSecond = executor([compact], home: home, runner: second, freeSpace: FakeFreeSpace([0, 40]), log: log,
                                   beforeRun: { path in if path == db2 { replaceWithLink(db2, to: keychain) } })
-        guard case .blocked = await swapSecond.execute(item) else { Issue.record("debió bloquearse"); return }
+        guard case .blocked = await swapSecond.execute(item) else { Issue.record("should have been blocked"); return }
         #expect(second.calls.map(\.arguments) == [[db1, "VACUUM;"]])
         let blockedRecord = try #require(try log.records().last)
         #expect(blockedRecord.outcome == "partial" && blockedRecord.paths == [db1] && blockedRecord.bytes == 40)
         try FileManager.default.removeItem(atPath: db2)
         writeFile(db2)
 
-        // El primero sale bien y el segundo falla: «partial» con el primero y sus bytes.
+        // The first goes well and the second fails: "partial" with the first one and its bytes.
         let failing = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"],
                                  outputs: ["/usr/bin/sqlite3 \(db2) VACUUM;": CommandOutput(status: 1, stdout: "", stderr: "locked")])
         let failLog = makeLog()
         guard case .failed = await executor([compact], home: home, runner: failing, freeSpace: FakeFreeSpace([0, 70, 70]),
-                                            log: failLog).execute(item) else { Issue.record("debió fallar"); return }
+                                            log: failLog).execute(item) else { Issue.record("should have failed"); return }
         let failRecord = try #require(try failLog.records().last)
         #expect(failRecord.outcome == "partial" && failRecord.paths == [db1] && failRecord.bytes == 70)
 
-        // Todo bien: el registro anota el comando que de verdad se ejecutó.
+        // All good: the record notes the command that really ran.
         let okLog = makeLog()
         guard case .freed = await executor([compact], home: home, runner: FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"]),
-                                           log: okLog).execute(item) else { Issue.record("debió ejecutarse"); return }
+                                           log: okLog).execute(item) else { Issue.record("should have run"); return }
         let okRecord = try #require(try okLog.records().last)
         #expect(okRecord.command == ["sqlite3", db1, "VACUUM;"] && okRecord.paths == [db1, db2])
     }
@@ -448,10 +448,10 @@ private func replaceWithLink(_ path: String, to destination: String) {
         writeFile(home + "/Library/Caches/full/data", bytes: 50_000)
         let full = entry("full", paths: ["~/Library/Caches/full"])
         let item = try #require(await scanner([full], home: home, measureBudget: .zero).findItems(scan: nil).first)
-        #expect(item.blockedReason == "No se pudo medir a tiempo.")
+        #expect(item.blockedReason == "Could not be measured in time.")
         let runner = FakeRunner()
         let outcome = await executor([full], home: home, runner: runner).execute(item)
-        #expect(outcome == .blocked(reason: "«Prueba full» no se puede limpiar ahora: No se pudo medir a tiempo."))
+        #expect(outcome == .blocked(reason: "“Prueba full” cannot be cleaned right now: Could not be measured in time."))
         #expect(FileManager.default.fileExists(atPath: home + "/Library/Caches/full/data"))
     }
 
@@ -467,7 +467,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
     }
 }
 
-// MARK: - Versiones de herramientas de desarrollo (plan 3b)
+// MARK: - Development tool versions (plan 3b)
 
 @Suite struct ToolchainCatalogSchemaTests {
     @Test func toolchainDiscoveryDecodesAndRoundTrips() throws {
@@ -512,7 +512,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         let commands: Set<ToolchainManager> = [.pyenv, .conda, .fnm, .rbenv, .rustup, .homebrew]
         for (manager, entry) in try Self.toolchainEntries() where commands.contains(manager) {
             guard case .command(let executable, let arguments, _) = entry.cleanup else {
-                Issue.record("\(entry.id) sin comando"); continue
+                Issue.record("\(entry.id) without a command"); continue
             }
             #expect(entry.cleanup.usesTargets, "\(entry.id)")
             #expect(!([executable] + arguments).contains { $0.contains(" ") || $0 == "sh" }, "\(entry.id)")
@@ -528,14 +528,14 @@ private func replaceWithLink(_ path: String, to destination: String) {
     }
 }
 
-/// M5: la excepción de catálogo dentro de la carpeta de una app sensible solo vale para cachés. Cualquier ficha
-/// futura con algo como `Google/Chrome/*/History` rompe esta prueba.
+/// M5: the catalog exception inside a sensitive app's folder is only valid for caches. Any future
+/// entry with something like `Google/Chrome/*/History` breaks this test.
 @Suite struct SensitiveAppCatalogPatternTests {
-    /// Nombres sin «cache» que también son regenerables (informes de fallos enviados, imágenes de VM descargadas).
+    /// Names without "cache" that are also regenerable (sent crash reports, downloaded VM images).
     static let allowedLastComponents: Set<String> = ["completed", "vm_bundles"]
 
     /// `Cache`, `Code Cache`, `GPUCache`, `Dawn*Cache`, `CacheStorage`, `ScriptCache`, `CachedData`,
-    /// `component_crx_cache`, `Media Cache Files`…; nunca `History`, `Cookies`, `Login Data`, `Default`.
+    /// `component_crx_cache`, `Media Cache Files`…; never `History`, `Cookies`, `Login Data`, `Default`.
     static func isCacheName(_ name: String) -> Bool {
         allowedLastComponents.contains(name) || name.lowercased().contains("cache")
     }

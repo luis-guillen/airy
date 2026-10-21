@@ -10,9 +10,9 @@ import Testing
 
     static let catalog = AppCatalog(entries: [
         AppCatalogEntry(id: "chrome", title: "Google Chrome",
-                        explanation: "Navegador de Google; cada pestaña y extensión es un proceso aparte, por eso suma tanto.",
+                        explanation: "Google's browser; each tab and extension is a separate process, which is why it adds up so much.",
                         bundleIDs: ["com.google.Chrome"], processNames: []),
-        AppCatalogEntry(id: "node", title: "Node.js", explanation: "Programa de JavaScript.",
+        AppCatalogEntry(id: "node", title: "Node.js", explanation: "A JavaScript program.",
                         bundleIDs: [], processNames: ["node"]),
     ])
 
@@ -34,7 +34,7 @@ import Testing
         #expect(g.count == 1 && g[0].name == "Google Chrome" && g[0].memory == 1_000 << 20)
         #expect(g[0].cpuPercent == 25 && g[0].leadPID == 10 && g[0].pids.sorted() == [10, 11])
         #expect(g[0].kind == .app && g[0].bundleID == "com.google.Chrome" && g[0].id == "com.google.Chrome")
-        #expect(g[0].explanation?.hasPrefix("Navegador de Google") == true)
+        #expect(g[0].explanation?.hasPrefix("Google's browser") == true)
         #expect(g[0].energy == nil)
     }
 
@@ -50,7 +50,7 @@ import Testing
                            workingDirectory: "/Users/x/Proyectos/mi-api")
         let g = AppGrouper.group(raw([p]), cpu: [:], energy: [:], catalog: Self.catalog)
         #expect(g.count == 1 && g[0].kind == .looseProcess && g[0].detail == "mi-api")
-        #expect(g[0].id == "pid:50:0" && g[0].explanation == "Programa de JavaScript.")
+        #expect(g[0].id == "pid:50:0" && g[0].explanation == "A JavaScript program.")
     }
 
     @Test func looseInHomeOrRootHasNoDetail() {
@@ -127,7 +127,7 @@ import Testing
         #expect(g.count == 2)
         #expect(Set(g.map(\.id)) == ["com.apple.TextEdit#400", "com.apple.TextEdit#500"])
         #expect(g.first { $0.leadPID == 400 }?.bundlePath == a)
-        // Una sola instancia conserva el id sin calificar.
+        // A single instance keeps the unqualified id.
         let one = AppGrouper.group(raw([procs[0]], apps: [apps[0]]), cpu: [:], energy: [:], catalog: nil)
         #expect(one.map(\.id) == ["com.apple.TextEdit"])
     }
@@ -171,7 +171,7 @@ import Testing
         for id in ids {
             let e = catalog.entries.first { $0.id == id }
             #expect(e != nil, "falta \(id)")
-            #expect(e.map { !$0.explanation.isEmpty && !$0.explanation.contains("\n") } == true, "explicación de \(id)")
+            #expect(e.map { !$0.explanation.isEmpty && !$0.explanation.contains("\n") } == true, "explanation of \(id)")
         }
         #expect(catalog.entry(bundleID: "com.google.Chrome", processName: "x")?.id == "chrome")
         #expect(catalog.entry(bundleID: "com.docker.docker", processName: "x")?.id == "docker-desktop")
@@ -179,10 +179,10 @@ import Testing
         #expect(catalog.entry(bundleID: nil, processName: "mdworker_shared")?.id == "spotlight")
         #expect(catalog.entry(bundleID: nil, processName: "redis-server")?.id == "redis")
         #expect(catalog.entry(bundleID: nil, processName: "nada") == nil)
-        #expect(catalog.entry(bundleID: nil, processName: "node")?.explanation.hasPrefix("Programa de JavaScript") == true)
+        #expect(catalog.entry(bundleID: nil, processName: "node")?.explanation.hasPrefix("A JavaScript program") == true)
     }
 
-    // MARK: - I1: apps abiertas después de arrancar airy-mcp
+    // MARK: - I1: apps opened after airy-mcp started
 
     static let spotifyApp = "/Applications/Spotify.app"
     static let spotifyProcs = [
@@ -193,16 +193,16 @@ import Testing
                    footprint: 200 << 20),
     ]
 
-    /// Decisión explícita: sin información de app (ni de NSWorkspace ni de LaunchServices) un `.app` sigue siendo
-    /// «de fondo» y no se ofrece cerrar. La corrección está en rellenar esa información, no en adivinar.
+    /// Explicit decision: without app information (neither from NSWorkspace nor from LaunchServices) an `.app` is still
+    /// "background" and quitting it is not offered. The fix is to fill in that information, not to guess.
     @Test func bundleWithoutAppInfoStaysBackground() {
         let g = AppGrouper.group(raw(Self.spotifyProcs), cpu: [:], energy: [:], catalog: nil)
         #expect(g.count == 1 && g[0].kind == .background)
         #expect(!QuitPolicy(currentUID: 501, ownPIDs: []).eligibility(g[0]).isAllowed)
     }
 
-    /// NSWorkspace sin la app (lista caducada): se pregunta a LaunchServices por los PIDs del `.app` y la app
-    /// se reconoce como normal y se puede cerrar.
+    /// NSWorkspace without the app (stale list): LaunchServices is asked about the `.app`'s PIDs and the app
+    /// is recognized as normal and can be quit.
     @Test func staleWorkspaceIsFilledFromFreshLookup() {
         var asked: [Int32] = []
         let apps = ProcessProbe.merge(workspace: [], processes: Self.spotifyProcs) { pid in
@@ -222,7 +222,7 @@ import Testing
                                    bundlePath: Self.chromeApp, policy: .regular)
         let chrome = chromeRaw().processes
         var asked: [Int32] = []
-        // El ayudante de Spotify responde con su propio `.app` interior: no cuenta como Spotify.
+        // Spotify's helper answers with its own inner `.app`: it does not count as Spotify.
         let apps = ProcessProbe.merge(workspace: [known], processes: chrome + Self.spotifyProcs) { pid in
             asked.append(pid)
             return pid == 71 ? RunningAppInfo(pid: 71, name: "Spotify Helper",
@@ -233,7 +233,7 @@ import Testing
         #expect(apps == [known])
     }
 
-    // MARK: - M3: /usr/local y temporales del usuario no son macOS
+    // MARK: - M3: /usr/local and the user's temporary folders are not macOS
 
     @Test func userBinariesUnderSystemPrefixesAreLoose() {
         let brew = OwnProcess(pid: 80, name: "node", executablePath: "/usr/local/bin/node")

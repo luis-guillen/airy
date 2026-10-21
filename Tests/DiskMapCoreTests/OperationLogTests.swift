@@ -40,7 +40,7 @@ import Testing
         let file = tempDir().appendingPathComponent("ops.jsonl")
         let log = OperationLog(file: file)
         try log.append(record("a"))
-        // Otro proceso murió a media escritura: una línea sin `\n` al final.
+        // Another process died halfway through a write: a line without a trailing `\n`.
         let handle = try FileHandle(forWritingTo: file)
         try handle.seekToEnd(); try handle.write(contentsOf: Data(#"{"runID":"cortado","tit"#.utf8)); try handle.close()
         try log.append(record("b"))
@@ -53,7 +53,7 @@ import Testing
         let file = tempDir().appendingPathComponent("ops.jsonl")
         try OperationLog(file: file).append(record("a"))
         let before = try Data(contentsOf: file)
-        // Escribe la mitad y luego falla (disco lleno).
+        // It writes half and then fails (disk full).
         let calls = Mutex(0)
         let broken = OperationLog(file: file, writer: { fd, bytes, count in
             let call = calls.withLock { n in defer { n += 1 }; return n }
@@ -64,7 +64,7 @@ import Testing
         #expect(throws: (any Error).self) { try broken.append(self.record("b")) }
         #expect(try Data(contentsOf: file) == before)
         let failure = try #require(broken.takeWriteFailure())
-        #expect(failure.contains("«b»"))
+        #expect(failure.contains("“b”"))
         #expect(broken.takeWriteFailure() == nil)
         try OperationLog(file: file).append(record("c"))
         #expect(try OperationLog(file: file).records().map(\.title) == ["a", "c"])
@@ -131,6 +131,6 @@ import Testing
         let all = try store.history()
         #expect(all.map(\.byAgent) == [false, true])
         let raw = try String(contentsOf: dir.appendingPathComponent("history.json"), encoding: .utf8)
-        #expect(raw.components(separatedBy: "byAgent").count == 2)  // solo se codifica cuando es true
+        #expect(raw.components(separatedBy: "byAgent").count == 2)  // only encoded when true
     }
 }

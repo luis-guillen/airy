@@ -6,7 +6,7 @@ private let home = "/Users/ana"
 
 private func entry(_ id: String, _ risk: Risk, _ paths: [String], _ cleanup: CleanupMethod,
                    mustBeClosed: [String] = [], referenceCheck: String? = nil) -> CatalogEntry {
-    CatalogEntry(id: id, title: "Ficha \(id)", explanation: "", whoCreatesIt: "", regenerates: true, risk: risk,
+    CatalogEntry(id: id, title: "Entry \(id)", explanation: "", whoCreatesIt: "", regenerates: true, risk: risk,
                  kind: .caches, paths: paths, cleanup: cleanup, mustBeClosed: mustBeClosed,
                  referenceCheck: referenceCheck)
 }
@@ -34,10 +34,10 @@ private func item(_ id: String, paths: [String], bytes: Int64 = 100, risk: Risk 
 }
 
 private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AIAction? = nil) -> AIRecommendation {
-    AIRecommendation(id: path, path: path, verdict: verdict, reason: "porque sí", bytes: bytes, action: action)
+    AIRecommendation(id: path, path: path, verdict: verdict, reason: "because", bytes: bytes, action: action)
 }
 
-// MARK: - Rutas mencionadas
+// MARK: - Mentioned paths
 
 @Suite struct AssistantRoutesTests {
     let candidates = [
@@ -47,34 +47,34 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
     ]
 
     @Test func findsTildeAndAbsoluteForms() {
-        let text = "Lo que más ocupa es ~/.cache/uv. También /Library/Caches, que es del sistema."
+        let text = "What takes the most is ~/.cache/uv. Also /Library/Caches, which belongs to the system."
         #expect(AssistantRoutes.mentioned(in: text, candidates: candidates, home: home)
                 == ["/Users/ana/.cache/uv", "/Library/Caches"])
-        let absolute = "Mira /Users/ana/Library/Containers: ahí está todo."
+        let absolute = "Look at /Users/ana/Library/Containers: everything is there."
         #expect(AssistantRoutes.mentioned(in: absolute, candidates: candidates, home: home)
                 == ["/Users/ana/Library/Containers"])
     }
 
     @Test func longestMatchWinsAndPrefixesDoNotLeak() {
-        let text = "La carpeta ~/Library/Containers guarda datos de apps."
+        let text = "The ~/Library/Containers folder keeps app data."
         #expect(AssistantRoutes.mentioned(in: text, candidates: candidates, home: home)
                 == ["/Users/ana/Library/Containers"])
-        // "~/Library/Caches" no es candidata: no se convierte en "~/Library".
+        // "~/Library/Caches" is not a candidate: it does not turn into "~/Library".
         #expect(AssistantRoutes.mentioned(in: "Mira ~/Library/Caches/foo", candidates: candidates, home: home).isEmpty)
-        // "/Library/Caches" dentro de "~/Library/Caches" no cuenta como la del sistema.
-        #expect(AssistantRoutes.mentioned(in: "en ~/Library/Caches hay", candidates: candidates, home: home).isEmpty)
-        // Un nombre que sigue (".cache/uvx") no es la ruta.
+        // "/Library/Caches" inside "~/Library/Caches" does not count as the system one.
+        #expect(AssistantRoutes.mentioned(in: "in ~/Library/Caches there is", candidates: candidates, home: home).isEmpty)
+        // A name that continues (".cache/uvx") is not the path.
         #expect(AssistantRoutes.mentioned(in: "~/.cache/uvx y ~/.cache/uv.zip", candidates: candidates, home: home).isEmpty)
     }
 
     @Test func keepsSpacesUnicodeAndPunctuation() {
-        let text = "Revisa «~/Library/Application Support» y `~/Música/diseño/`, y ~/Library."
+        let text = "Check «~/Library/Application Support» and `~/Música/diseño/`, and ~/Library."
         #expect(AssistantRoutes.mentioned(in: text, candidates: candidates, home: home)
                 == ["/Users/ana/Library/Application Support", "/Users/ana/Música/diseño", "/Users/ana/Library"])
     }
 
     @Test func ignoresRootHomeAndDuplicatesAndRespectsLimit() {
-        let text = "En / y en ~ hay cosas; ~/.cache/uv otra vez ~/.cache/uv y /Users/ana/.cache/uv."
+        let text = "In / and in ~ there are things; ~/.cache/uv again ~/.cache/uv and /Users/ana/.cache/uv."
         #expect(AssistantRoutes.mentioned(in: text, candidates: candidates, home: home) == ["/Users/ana/.cache/uv"])
         let many = (0..<10).map { "/Users/ana/c\($0)" }
         let all = many.map { "~/c\($0.last!)" }.joined(separator: " ")
@@ -94,11 +94,11 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         #expect(paths.contains("/Users/ana/.cache/uv"))
         #expect(paths.contains("/Users/ana/Library/Caches/ms-playwright"))
         #expect(!paths.contains { $0.hasPrefix("~") })
-        #expect(AssistantRoutes.contextPaths("no es json", home: home).isEmpty)
+        #expect(AssistantRoutes.contextPaths("not json", home: home).isEmpty)
     }
 }
 
-// MARK: - Columnas del informe
+// MARK: - Report columns
 
 @Suite struct ReportColumnsTests {
     @Test func threeColumnsInRiskOrderSortedBySize() {
@@ -124,7 +124,7 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
     }
 }
 
-// MARK: - Botón de cada recomendación
+// MARK: - Button of each recommendation
 
 @Suite struct AssistantActionOfferTests {
     @Test func doNotTouchNeverHasButton() {
@@ -136,44 +136,44 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         let detected = item("docker-build-cache", paths: [], bytes: 5_000)
         let r = rec("docker-build-cache", .safe, bytes: 10, action: .runCatalogCommand(id: "docker-build-cache"))
         guard case .offer(let offer) = AssistantOffer.make(for: r, items: [detected], catalog: catalog, home: home),
-              case .perform(let target) = offer.action else { Issue.record("sin oferta"); return }
+              case .perform(let target) = offer.action else { Issue.record("no offer"); return }
         #expect(target.id == "docker-build-cache")
         #expect(offer.isCommand)
         #expect(!offer.needsSecondConfirmation)
-        #expect(offer.method == "Comando oficial: docker builder prune -a -f")
-        // "Cuánto" es lo que se limpia de verdad (el elemento), no la cifra de la IA.
+        #expect(offer.method == "Official command: docker builder prune -a -f")
+        // "How much" is what is really cleaned (the item), not the AI's figure.
         #expect(offer.bytes == 5_000)
     }
 
     @Test func catalogCommandOnTrashEntryIsShownAsTrash() {
-        // La IA puede pedir "runCatalogCommand" de una ficha que se limpia con Papelera.
+        // The AI may ask for "runCatalogCommand" of an entry that is cleaned with the Trash.
         let path = "/Users/ana/Library/Caches/ms-playwright"
         let detected = item("playwright", paths: [path])
         let r = rec(path, .safe, action: .runCatalogCommand(id: "playwright"))
         guard case .offer(let offer) = AssistantOffer.make(for: r, items: [detected], catalog: catalog, home: home)
-        else { Issue.record("sin oferta"); return }
+        else { Issue.record("no offer"); return }
         #expect(!offer.isCommand)
-        #expect(offer.method == "A la Papelera")
+        #expect(offer.method == "To the Trash")
     }
 
     @Test func safeCommandNotDetectedIsUnavailable() {
         let r = rec("/Users/ana/.cache/uv", .safe, action: .runCatalogCommand(id: "uv"))
         guard case .unavailable = AssistantOffer.make(for: r, items: [], catalog: catalog, home: home) else {
-            Issue.record("debería no estar disponible"); return
+            Issue.record("should be unavailable"); return
         }
     }
 
     @Test func safeCommandNeverFallsBackToAnUnrelatedItem() {
-        // Un elemento de la misma ficha pero de otra ruta no es lo que muestra la tarjeta.
+        // An item of the same entry but for another path is not what the card shows.
         let other = item("uv", paths: ["/Users/ana/otra/uv"], bytes: 9_999)
         let r = rec("/Users/ana/.cache/uv", .safe, action: .runCatalogCommand(id: "uv"))
         guard case .unavailable = AssistantOffer.make(for: r, items: [other], catalog: catalog, home: home) else {
-            Issue.record("no debe actuar sobre otro elemento"); return
+            Issue.record("must not act on another item"); return
         }
-        // Sí sirve el de esa misma ruta.
+        // The one for that same path does work.
         let same = item("uv", paths: ["/Users/ana/.cache/uv"], bytes: 700)
         guard case .offer(let offer) = AssistantOffer.make(for: r, items: [other, same], catalog: catalog, home: home),
-              case .perform(let target) = offer.action else { Issue.record("sin oferta"); return }
+              case .perform(let target) = offer.action else { Issue.record("no offer"); return }
         #expect(target.paths == ["/Users/ana/.cache/uv"])
         #expect(offer.bytes == 700)
     }
@@ -183,20 +183,20 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         let exact = item("user-logs", paths: [path], bytes: 900)
         let r = rec(path, .safe, bytes: 300, action: .trash(path: path))
         guard case .offer(let offer) = AssistantOffer.make(for: r, items: [exact], catalog: catalog, home: home),
-              case .perform(let target) = offer.action else { Issue.record("sin oferta"); return }
+              case .perform(let target) = offer.action else { Issue.record("no offer"); return }
         #expect(target.id == "user-logs")
         #expect(offer.bytes == 900)
-        #expect(offer.method == "A la Papelera")
+        #expect(offer.method == "To the Trash")
         #expect(!offer.isCommand)
-        // Un elemento con varias rutas (o ninguno) ⇒ la ruta suelta por `trashPaths`.
+        // An item with several paths (or none) ⇒ the loose path through `trashPaths`.
         let several = item("user-logs", paths: [path, "/Users/ana/Library/Logs/b"], bytes: 900)
         guard case .offer(let loose) = AssistantOffer.make(for: r, items: [several], catalog: catalog, home: home),
-              case .trashPaths(let paths) = loose.action else { Issue.record("sin oferta"); return }
+              case .trashPaths(let paths) = loose.action else { Issue.record("no offer"); return }
         #expect(paths == [path])
         #expect(loose.bytes == 300)
         #expect(!loose.needsSecondConfirmation)
         guard case .offer(let none) = AssistantOffer.make(for: r, items: [], catalog: catalog, home: home),
-              case .trashPaths = none.action else { Issue.record("sin oferta"); return }
+              case .trashPaths = none.action else { Issue.record("no offer"); return }
     }
 
     @Test func safeWithoutActionHasNoButton() {
@@ -207,19 +207,19 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         let path = "/Users/ana/Downloads/grande.iso"
         guard case .offer(let offer) = AssistantOffer.make(for: rec(path, .yourCall, bytes: 42), items: [],
                                                            catalog: catalog, home: home),
-              case .trashPaths(let paths) = offer.action else { Issue.record("sin oferta"); return }
+              case .trashPaths(let paths) = offer.action else { Issue.record("no offer"); return }
         #expect(paths == [path])
         #expect(offer.needsSecondConfirmation)
         #expect(offer.bytes == 42)
     }
 
     @Test func yourCallCatalogTrashAlsoGoesThroughTrashPaths() {
-        // `trashPaths` reúne las apps que deben cerrarse y las referencias de las fichas relacionadas.
+        // `trashPaths` gathers the apps that must be quit and the references of the related entries.
         let path = "/Users/ana/Library/Caches/com.spotify.client"
         for candidate in [path, path + "/Data"] {
             guard case .offer(let offer) = AssistantOffer.make(for: rec(candidate, .yourCall), items: [],
                                                                catalog: catalog, home: home),
-                  case .trashPaths(let paths) = offer.action else { Issue.record("sin oferta"); return }
+                  case .trashPaths(let paths) = offer.action else { Issue.record("no offer"); return }
             #expect(paths == [candidate])
             #expect(offer.needsSecondConfirmation)
         }
@@ -230,10 +230,10 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
                                     home: home) == .none)
         #expect(AssistantOffer.make(for: rec("/Users/ana/.ollama/models", .yourCall), items: [], catalog: catalog,
                                     home: home) == .none)
-        // Un id de elemento (sin ruta) tampoco.
+        // An item id (without a path) does not either.
         #expect(AssistantOffer.make(for: rec("docker-build-cache", .yourCall), items: [], catalog: catalog,
                                     home: home) == .none)
-        // Ni una carpeta que contiene una caché que se limpia con su comando.
+        // Nor a folder that contains a cache cleaned with its command.
         #expect(AssistantOffer.make(for: rec("/Users/ana/.cache", .yourCall),
                                     items: [item("uv", paths: ["/Users/ana/.cache/uv"])], catalog: catalog,
                                     home: home) == .none)
@@ -244,24 +244,24 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         let used = item("hf:models--a--b", paths: [path], risk: .yourCall, usedBy: ["/p/train.py"])
         guard case .unavailable(let reason) = AssistantOffer.make(for: rec(path, .yourCall), items: [used],
                                                                    catalog: catalog, home: home) else {
-            Issue.record("debería no estar disponible"); return
+            Issue.record("should be unavailable"); return
         }
         #expect(reason.contains("/p/train.py"))
-        // Sin detección, `trashPaths` vuelve a comprobar las referencias al ejecutar.
+        // Without detection, `trashPaths` checks the references again when running.
         guard case .offer(let offer) = AssistantOffer.make(for: rec(path, .yourCall), items: [], catalog: catalog,
                                                            home: home),
-              case .trashPaths = offer.action else { Issue.record("sin oferta"); return }
+              case .trashPaths = offer.action else { Issue.record("no offer"); return }
     }
 }
 
-// MARK: - Texto del chat
+// MARK: - Chat text
 
 @Suite struct ChatTextTests {
     @Test func linksAreStrippedButInlineStylesKept() {
-        let text = "Mira [esto](file:///tmp/x.command) y [web](https://example.com) o <x-app://abrir>, **ojo**\nfin"
+        let text = "Look at [this](file:///tmp/x.command) and [web](https://example.com) or <x-app://abrir>, **careful**\nend"
         let rendered = ChatText.rendered(text)
         #expect(!rendered.runs.contains { $0.link != nil })
-        #expect(String(rendered.characters).contains("esto"))
+        #expect(String(rendered.characters).contains("this"))
         #expect(String(rendered.characters).contains("\n"))
         #expect(rendered.runs.contains { $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true })
     }
@@ -273,27 +273,27 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
     }
 }
 
-// MARK: - Conversación
+// MARK: - Conversation
 
 @Suite struct ChatTranscriptTests {
     @Test func beginAppendsBubblesAndReturnsHistory() {
         var t = ChatTranscript()
-        let history = t.begin("¿Qué ocupa más?")
-        #expect(history == [ChatMessage(role: .user, text: "¿Qué ocupa más?")])
+        let history = t.begin("What takes the most?")
+        #expect(history == [ChatMessage(role: .user, text: "What takes the most?")])
         #expect(t.bubbles.count == 2)
         #expect(t.isStreaming)
         #expect(t.begin("otra") == nil)
-        t.append("Lo que ")
-        t.append("más ocupa")
+        t.append("What takes ")
+        t.append("the most")
         t.finish(routes: ["/a"])
         #expect(!t.isStreaming)
-        #expect(t.bubbles.last?.text == "Lo que más ocupa")
+        #expect(t.bubbles.last?.text == "What takes the most")
         #expect(t.bubbles.last?.routes == ["/a"])
         #expect(t.bubbles.last?.status == .done)
-        let next = t.begin("¿Y eso?")
-        #expect(next == [ChatMessage(role: .user, text: "¿Qué ocupa más?"),
-                         ChatMessage(role: .assistant, text: "Lo que más ocupa"),
-                         ChatMessage(role: .user, text: "¿Y eso?")])
+        let next = t.begin("And that?")
+        #expect(next == [ChatMessage(role: .user, text: "What takes the most?"),
+                         ChatMessage(role: .assistant, text: "What takes the most"),
+                         ChatMessage(role: .user, text: "And that?")])
     }
 
     @Test func emptyQuestionIsIgnoredAndTrimmed() {
@@ -307,15 +307,15 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         var t = ChatTranscript()
         _ = t.begin("uno")
         t.append("parcial")
-        t.fail("Claude tardó demasiado")
-        #expect(t.bubbles.last?.status == .failed("Claude tardó demasiado"))
+        t.fail("Claude took too long")
+        #expect(t.bubbles.last?.status == .failed("Claude took too long"))
         #expect(!t.isStreaming)
         let retry = t.retry()
         #expect(retry == [ChatMessage(role: .user, text: "uno")])
         #expect(t.bubbles.count == 2)
         #expect(t.bubbles.last?.text == "")
         #expect(t.isStreaming)
-        t.fail("otra vez")
+        t.fail("again")
         #expect(t.begin("dos") == [ChatMessage(role: .user, text: "dos")])
     }
 
@@ -331,7 +331,7 @@ private func rec(_ path: String, _ verdict: Risk, bytes: Int64 = 100, action: AI
         t.stop()
         #expect(t.bubbles.count == 3)
         #expect(t.bubbles.last?.role == .user)
-        // La pregunta sin respuesta no entra en el historial siguiente.
+        // The unanswered question does not go into the next history.
         #expect(t.begin("tres") == [ChatMessage(role: .user, text: "uno"),
                                     ChatMessage(role: .assistant, text: "algo"),
                                     ChatMessage(role: .user, text: "tres")])

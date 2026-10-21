@@ -21,7 +21,7 @@ import Testing
         return (paths, history)
     }
 
-    /// Ruta relativa → (bytes, mtime) de todo lo que hay bajo `dir`.
+    /// Relative path → (bytes, mtime) of everything under `dir`.
     private func snapshot(_ dir: URL) throws -> [String: String] {
         var result: [String: String] = [:]
         let fm = FileManager.default

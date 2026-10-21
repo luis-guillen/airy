@@ -35,7 +35,7 @@ import Foundation
         #expect(ScanBudget.current(.background).workers == 2)
     }
 
-    // MARK: - Cuándo reanalizar
+    // MARK: - When to rescan
 
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 

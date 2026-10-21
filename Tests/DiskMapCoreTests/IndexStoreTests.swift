@@ -46,8 +46,8 @@ import Testing
         #expect(try store.lastScanDate() == scannedAt)
     }
 
-    /// Una limpieza o la Papelera vuelven a guardar el árbol mostrado: la fecha del análisis no cambia
-    /// aunque cambie la del archivo.
+    /// A cleanup or the Trash save the displayed tree again: the scan date does not change
+    /// even if the file's does.
     @Test func resavingTheShownTreeKeepsTheScanDate() throws {
         let dir = tempDir()
         let store = IndexStore(directory: dir)
@@ -65,7 +65,7 @@ import Testing
                 == .scan(.background))
     }
 
-    /// Un índice v2 (sin fecha dentro) se sigue leyendo, con fecha desconocida: se reanaliza.
+    /// A v2 index (without a date inside) is still read, with an unknown date: it is rescanned.
     @Test func legacyIndexLoadsWithUnknownDate() throws {
         let dir = tempDir()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -138,7 +138,7 @@ import Testing
         let loaded = try #require(try store.loadScan())
         let t2 = clock.now
         print("IndexStore 200k nodes: save \(t1 - t0), load \(t2 - t1)")
-        // Desglose por fases.
+        // Breakdown by phases.
         let c0 = clock.now
         let flat = IndexStore.flatten(result)
         let c1 = clock.now

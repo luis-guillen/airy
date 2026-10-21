@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import DiskMapCore
 
-/// Riesgo de catálogo de las 26 fichas de la fase 1 (las de `catalog.json` antes del plan 3). En modo
-/// Prudente deben seguir dando exactamente este riesgo.
+/// Catalog risk of the 26 phase 1 entries (those in `catalog.json` before plan 3). In
+/// Careful mode they must still give exactly this risk.
 public enum Phase1Risks {
     public static let byID: [String: Risk] = [
         "docker-build-cache": .safe, "docker-volumes": .doNotTouch, "docker-images": .yourCall,
@@ -16,7 +16,7 @@ public enum Phase1Risks {
     ]
 }
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 private let fakeHome = "/Users/ana"
 private let xcrun = "/usr/bin/xcrun"
@@ -27,7 +27,7 @@ private func settings(_ mode: CleanupMode) -> AirySettings {
     return s
 }
 
-/// Rutas de muestra para los patrones de la ficha (como en `ClassifierTests`).
+/// Sample paths for the entry's patterns (as in `ClassifierTests`).
 private func samplePaths(_ entry: CatalogEntry) -> [String] {
     entry.paths.map { p in
         (p.hasPrefix("~/") ? fakeHome + p.dropFirst() : p).replacingOccurrences(of: "*", with: "muestra")
@@ -40,7 +40,7 @@ private func tempHome() -> String {
     return url.path
 }
 
-/// Carpeta con un fichero de 4 KB dentro y fecha de modificación `age` segundos en el pasado.
+/// Folder with a 4 KB file inside and a modification date `age` seconds in the past.
 private func makeFolder(_ path: String, age: TimeInterval = 0) {
     try! FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
     FileManager.default.createFile(atPath: path + "/datos", contents: Data(repeating: 1, count: 4096))
@@ -68,7 +68,7 @@ private func executor(_ runner: FakeRunner, home: String, catalog: Catalog) -> C
         processGuard: ProcessGuard(listing: NoProcesses()), processListing: NoProcesses())
 }
 
-// Runtimes de simulador de prueba: R1 huérfano, R2 con un simulador, R3 no borrable.
+// Test simulator runtimes: R1 orphaned, R2 with a simulator, R3 not deletable.
 private let r1 = "11111111-AAAA-4BBB-8CCC-111111111111"
 private let r2 = "22222222-AAAA-4BBB-8CCC-222222222222"
 private let r3 = "33333333-AAAA-4BBB-8CCC-333333333333"
@@ -98,16 +98,16 @@ private func devicesJSON(inUse: [String] = [ios18]) -> String {
 }
 
 private let xcodeSelect = "/usr/bin/xcode-select"
-private let goneMessage = "Ese entorno de simulador ya lo usa algún simulador o ya no está."
+private let goneMessage = "That simulator runtime is already used by a simulator or is gone."
 
-/// Carpeta «Developer» de un Xcode de prueba (existe de verdad: la puerta lo comprueba).
+/// "Developer" folder of a test Xcode (it really exists: the gate checks it).
 private let developerDir: String = {
     let path = tempHome() + "/Xcode.app/Contents/Developer"
     try! FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
     return path
 }()
 
-/// Home temporal con `~/Library/Developer/CoreSimulator` (la puerta de `SimulatorRuntimeSource`).
+/// Temporary home with `~/Library/Developer/CoreSimulator` (the gate of `SimulatorRuntimeSource`).
 private func simulatorHome() -> String {
     let home = tempHome()
     try! FileManager.default.createDirectory(atPath: home + "/Library/Developer/CoreSimulator",
@@ -125,7 +125,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
     ])
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct DevCatalogTests {
     @Test func phase1EntriesKeepPhase1RiskInPrudent() throws {
@@ -150,7 +150,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         }
     }
 
-    /// Spec §2.5: clasificación en modo Agresivo (con rutas de muestra, así cuentan protecciones y suelos).
+    /// Spec §2.5: classification in Aggressive mode (with sample paths, so protections and floors count).
     @Test func aggressiveClassificationTable() throws {
         let catalog = try Catalog.bundled()
         let c = RiskClassifier(catalog: catalog, settings: settings(.aggressive), home: fakeHome)
@@ -173,7 +173,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
             let v = try verdict(id)
             #expect(v.risk == .doNotTouch && !v.preselected, "\(id)")
         }
-        // Lo que no se regenera o tarda en volver se queda en ámbar sin marcar.
+        // What does not regenerate or takes a while to come back stays amber and unchecked.
         for id in ["gradle-caches", "jetbrains-caches", "xcode-orphan-runtimes", "xcode-archives", "dart-pub-cache"] {
             let v = try verdict(id)
             #expect(v.risk == .yourCall && !v.preselected, "\(id)")
@@ -186,23 +186,23 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         for e in catalog.entries {
             #expect(seen.insert(e.id).inserted, "id repetido: \(e.id)")
             if let aggressive = e.aggressiveRisk, aggressive < e.risk {
-                #expect(e.regenerates && e.risk != .doNotTouch, "\(e.id): baja en Agresivo sin regenerarse")
+                #expect(e.regenerates && e.risk != .doNotTouch, "\(e.id): lowered in Aggressive without regenerating")
             }
             if let rule = e.retention { #expect(rule.keepNewest >= 1, "\(e.id)") }
-            if Phase1Risks.byID[e.id] == nil { #expect(e.shortReason != nil, "\(e.id) sin shortReason") }
-            if case .info = e.cleanup, e.risk != .doNotTouch { #expect(e.reviewHint != nil, "\(e.id) sin reviewHint") }
+            if Phase1Risks.byID[e.id] == nil { #expect(e.shortReason != nil, "\(e.id) without shortReason") }
+            if case .info = e.cleanup, e.risk != .doNotTouch { #expect(e.reviewHint != nil, "\(e.id) without reviewHint") }
             #expect(!e.paths.contains { $0.contains(CleanupMethod.targetPlaceholder) }, "\(e.id)")
-            #expect(!e.paths.contains { $0.contains("{") || $0.contains("}") }, "\(e.id): llaves sin expandir")
+            #expect(!e.paths.contains { $0.contains("{") || $0.contains("}") }, "\(e.id): unexpanded braces")
             if case .command(let executable, let arguments, let probe) = e.cleanup {
                 #expect(!executable.contains("/") && !executable.isEmpty, "\(e.id)")
                 #expect(arguments.filter { $0.contains(CleanupMethod.targetPlaceholder) }.count <= 1, "\(e.id)")
                 #expect(arguments.allSatisfy { !$0.contains("{target}") || $0 == CleanupMethod.targetPlaceholder },
                         "\(e.id)")
-                // Solo la sonda de sqlite3 (espacio libre de la base) lleva `{target}`.
+                // Only the sqlite3 probe (free space of the database) carries `{target}`.
                 #expect(executable == "sqlite3" || !(probe ?? []).contains { $0.contains(CleanupMethod.targetPlaceholder) },
                         "\(e.id)")
                 if e.cleanup.usesTargets {
-                    #expect(e.discovery != nil || !e.paths.isEmpty, "\(e.id): {target} sin objetivos")
+                    #expect(e.discovery != nil || !e.paths.isEmpty, "\(e.id): {target} without targets")
                 }
             }
         }
@@ -237,7 +237,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
 
     @Test func newEntriesMatchTheTable() throws {
         let catalog = try Catalog.bundled()
-        // id: (riesgo, riesgo en Agresivo, se regenera, procesos)
+        // id: (risk, risk in Aggressive, regenerates, processes)
         let table: [String: (Risk, Risk?, Bool, [String])] = [
             "yarn": (.safe, nil, true, ["yarn"]), "yarn-berry": (.safe, nil, true, ["yarn"]),
             "bun": (.safe, nil, true, ["bun"]), "corepack": (.safe, nil, true, ["corepack"]),
@@ -281,9 +281,9 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         #expect(catalog.entry(id: "xcode-archives")?.cleanup == .info)
         #expect(catalog.entry(id: "expo-cache")?.except == ["state.json"])
         #expect(catalog.entry(id: "gradle-caches")?.shortReason
-            == "Gradle tarda en volver a bajarlo todo y no podrás compilar sin conexión hasta entonces.")
+            == "Gradle takes a while to download everything again, and until then you will not be able to build offline.")
         #expect(catalog.entry(id: "xcode-archives")?.reviewHint
-            == "Bórralos desde Xcode › Window › Organizer: ahí ves cuáles ya subiste.")
+            == "Delete them from Xcode › Window › Organizer: there you can see which ones you already uploaded.")
     }
 
     @Test func existingEntriesGainProfiles() throws {
@@ -309,7 +309,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         let items = await scan(FakeRunner(), home: home, catalog: try Catalog.bundled())
         let item = try #require(items.first { $0.id == "xcode-device-support" })
         #expect(item.paths == [base + "/15.0"])
-        #expect(item.details == ["Se conservan: 17.0, 16.0"])
+        #expect(item.details == ["Kept: 17.0, 16.0"])
         #expect(item.risk == .safe)
         #expect(item.bytes > 0)
     }
@@ -330,11 +330,11 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
 
         let act = simctl()
         guard case .freed = await executor(act, home: home, catalog: catalog).execute(item) else {
-            Issue.record("esperaba .freed"); return
+            Issue.record("expected .freed"); return
         }
         #expect(act.calls.last?.executable == xcrun)
         #expect(act.calls.last?.arguments == ["simctl", "runtime", "delete", r1])
-        // Directorio de trabajo neutro, nunca el heredado.
+        // Neutral working directory, never the inherited one.
         #expect(act.calls.last?.workingDirectory == "/")
         #expect(act.calls.filter { $0.arguments.contains("delete") }.count == 1)
     }
@@ -349,7 +349,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         #expect(outcome == .blocked(reason: goneMessage))
         #expect(!later.calls.contains { $0.arguments.contains("delete") })
 
-        // Ya no aparece en la lista (lo borró Xcode) ⇒ también se rechaza.
+        // It no longer appears in the list (Xcode deleted it) ⇒ it is rejected too.
         let gone = simctl(runtimes: "{}")
         #expect(await executor(gone, home: home, catalog: catalog).execute(item)
             == .blocked(reason: goneMessage))
@@ -370,11 +370,11 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
                 catalog: Catalog(entries: [entry]), home: simulatorHome(), runner: runner, processListing: NoProcesses(),
                 now: Date(), scan: nil))
         }
-        #expect(await discover(FakeRunner()).isEmpty) // sin xcrun
-        #expect(await discover(simctl(runtimes: "no es JSON")).isEmpty)
+        #expect(await discover(FakeRunner()).isEmpty) // without xcrun
+        #expect(await discover(simctl(runtimes: "not JSON")).isEmpty)
         #expect(await discover(simctl(devices: "[]")).isEmpty)
         #expect(await discover(simctl(runtimeStatus: 1)).isEmpty)
-        // Las sondas son exactamente estas dos, y nunca se borra nada al detectar.
+        // The probes are exactly these two, and nothing is ever deleted when detecting.
         let probe = simctl()
         let found = await discover(probe)
         #expect(found.map(\.idSuffix) == ["iOS 17.0"])
@@ -382,8 +382,8 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
                                                        ["simctl", "list", "devices", "-j"]])
     }
 
-    /// Sin CoreSimulator o sin Xcode no se lanza `xcrun` (en un Mac sin herramientas abriría el diálogo de
-    /// instalarlas, y con Xcode arranca CoreSimulatorService).
+    /// Without CoreSimulator or without Xcode `xcrun` is not launched (on a Mac without tools it would open the dialog to
+    /// install them, and with Xcode it starts CoreSimulatorService).
     @Test func noXcodeMeansXcrunIsNeverLaunched() async throws {
         let entry = try #require(try Catalog.bundled().entry(id: "xcode-orphan-runtimes"))
         let source = SimulatorRuntimeSource(systemRoots: [])
@@ -392,12 +392,12 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
                 catalog: Catalog(entries: [entry]), home: home, runner: runner, processListing: NoProcesses(),
                 now: Date(), scan: nil))
         }
-        // Sin carpeta de CoreSimulator: ni siquiera `xcode-select`.
+        // Without a CoreSimulator folder: not even `xcode-select`.
         let bare = simctl()
         #expect(await discover(bare, home: tempHome()).isEmpty)
         #expect(bare.calls.isEmpty)
         #expect(!bare.resolveCalls.contains("xcrun"))
-        // `xcode-select -p` falla, o apunta a las Command Line Tools, o a una carpeta que no existe.
+        // `xcode-select -p` fails, or points to the Command Line Tools, or to a folder that does not exist.
         let fail = CommandOutput(status: 2, stdout: "", stderr: "xcode-select: error: unable to get active developer directory")
         let clt = CommandOutput(status: 0, stdout: "/Library/Developer/CommandLineTools\n", stderr: "")
         let missing = CommandOutput(status: 0, stdout: tempHome() + "/NoExiste.app/Contents/Developer\n", stderr: "")
@@ -407,7 +407,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
             #expect(runner.calls.map(\.executable) == [xcodeSelect])
             #expect(!runner.resolveCalls.contains("xcrun"))
         }
-        // Al actuar, la misma puerta: sin Xcode se rechaza sin lanzar `xcrun`.
+        // When acting, the same gate: without Xcode it is rejected without launching `xcrun`.
         let item = CleanupItem(id: "xcode-orphan-runtimes:iOS 17.0", entry: entry, paths: [], bytes: 1, risk: .yourCall,
                                blockedByOpenApps: [], usedBy: [], targets: [r1])
         let later = simctl(select: clt)
@@ -424,7 +424,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         let fake = FakeRunner(resolved: ["yarn": "/opt/homebrew/bin/yarn"])
         let item = try #require(await scan(fake, home: home, catalog: catalog).first { $0.id == "yarn" })
         guard case .freed = await executor(fake, home: home, catalog: catalog).execute(item) else {
-            Issue.record("esperaba .freed"); return
+            Issue.record("expected .freed"); return
         }
         #expect(fake.calls.last?.arguments == ["cache", "clean"])
         #expect(fake.calls.last?.workingDirectory == CleanupExecutor.commandWorkingDirectory)
@@ -435,7 +435,7 @@ private func simctl(runtimes: String = runtimeJSON(), devices: String = devicesJ
         let home = tempHome()
         makeFolder(home + "/.expo/cache")
         makeFolder(home + "/.expo/versions-cache")
-        makeFolder(home + "/.expo/codesigning") // credenciales de firma: no es caché
+        makeFolder(home + "/.expo/codesigning") // signing credentials: not a cache
         FileManager.default.createFile(atPath: home + "/.expo/settings.json", contents: Data(repeating: 3, count: 4096))
         FileManager.default.createFile(atPath: home + "/.expo/state.json", contents: Data(repeating: 2, count: 4096))
         let item = try #require(await scan(FakeRunner(), home: home, catalog: try Catalog.bundled())

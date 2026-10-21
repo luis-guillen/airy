@@ -29,7 +29,7 @@ import Foundation
 
     @Test func globDoesNotCrossComponents() throws {
         let catalog = try Catalog.bundled()
-        // `*` solo cubre un componente: "install-" sin sufijo de carpeta anidada sigue dentro de la entrada
+        // `*` only covers one component: "install-" without a nested folder suffix stays inside the entry
         #expect(catalog.match(path: home + "/Library/Logs/a/b/c.log", home: home)?.id == "user-logs")
         #expect(catalog.match(path: home + "/.cache/codex-runtimes", home: home) == nil)
     }
@@ -45,7 +45,7 @@ import Foundation
     @Test func policyEntriesMatchBrief() throws {
         let catalog = try Catalog.bundled()
         #expect(catalog.entry(id: "docker-volumes")?.risk == .doNotTouch)
-        // El disco de Docker (Docker.raw, con todos los volúmenes) es "No tocar" por ruta.
+        // The Docker disk (Docker.raw, with every volume) is "Do not touch" by path.
         #expect(catalog.match(path: "/Users/x/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw",
                               home: "/Users/x")?.id == "docker-volumes")
         #expect(catalog.entry(id: "codex-runtime")?.risk == .doNotTouch)
@@ -61,7 +61,7 @@ import Foundation
         #expect(texe == "tmutil")
         #expect(targs == ["thinlocalsnapshots", "/", "999999999999", "4"])
         #expect(tprobe == ["listlocalsnapshots", "/"])
-        // R1: ejecutables siempre son nombres simples
+        // R1: executables are always bare names
         for e in catalog.entries {
             if case .command(let exe, _, _) = e.cleanup { #expect(!exe.contains("/"), "\(e.id)") }
         }
@@ -100,7 +100,7 @@ import Foundation
     @Test func unknownDefaultsToYourCall() {
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: nil) == .yourCall)
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: .safe, ai: nil) == .safe)
-        // Sin ficha, la IA no puede bajar de "Depende de ti"; solo subir.
+        // Without an entry, the AI cannot go below "Up to you"; only raise it.
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: .safe) == .yourCall)
         #expect(RiskPolicy.effectiveRisk(path: home + "/Library/Mail", home: home, catalog: nil, ai: .safe) == .yourCall)
         #expect(RiskPolicy.effectiveRisk(path: "/opt/x", home: home, catalog: nil, ai: .doNotTouch) == .doNotTouch)
@@ -147,7 +147,7 @@ import Foundation
         #expect(try #require(catalog.entry(id: "pip")).referenceNeedle(forMatchedFolder: "x") == nil)
     }
 
-    // Los comandos que solo quitan una parte se marcan: la interfaz muestra "hasta X".
+    // Commands that only remove part are marked: the UI shows "up to X".
     @Test func partialCommandsAreFlagged() throws {
         let catalog = try Catalog.bundled()
         for id in ["pnpm", "conda", "homebrew", "pip", "xcode-simulators"] {
@@ -160,7 +160,7 @@ import Foundation
         }
     }
 
-    // `pnpm store prune` nunca toca ~/Library/Caches/pnpm: va en su propia ficha, a la Papelera.
+    // `pnpm store prune` never touches ~/Library/Caches/pnpm: it goes in its own entry, to the Trash.
     @Test func pnpmCacheHasItsOwnTrashEntry() throws {
         let catalog = try Catalog.bundled()
         #expect(catalog.entry(id: "pnpm")?.paths == ["~/Library/pnpm/store"])
@@ -172,7 +172,7 @@ import Foundation
         #expect(catalog.match(path: home + "/Library/Caches/pnpm/metadata", home: home)?.id == "pnpm-cache")
     }
 
-    // Los simuladores tienen carpeta que medir (si no, la ficha no aparecía nunca).
+    // The simulators have a folder to measure (otherwise the entry would never appear).
     @Test func simulatorsHaveSizingPath() throws {
         let catalog = try Catalog.bundled()
         let sim = try #require(catalog.entry(id: "xcode-simulators"))
@@ -195,7 +195,7 @@ import Foundation
         #expect(catalog.entry(id: "playwright")?.regenerates == false)
         #expect(catalog.entry(id: "playwright")?.explanation.contains("npx playwright install") == true)
         #expect(catalog.entry(id: "spotify-cache")?.risk == .yourCall)
-        // Tarea 2 del plan 3: las imágenes se limpian con `image prune` y Docker las vuelve a bajar o construir.
+        // Task 2 of plan 3: images are cleaned with `image prune` and Docker downloads or builds them again.
         #expect(catalog.entry(id: "docker-images")?.regenerates == true)
     }
 }

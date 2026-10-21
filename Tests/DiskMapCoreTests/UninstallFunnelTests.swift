@@ -136,7 +136,7 @@ private struct UFixture {
 private let brewInfo = ["/opt/homebrew/bin/brew", "info", "--cask", "--json=v2", "foo"]
 private let brewUninstall = ["/opt/homebrew/bin/brew", "uninstall", "--cask", "foo"]
 
-/// Salida de `brew info --cask --json=v2 foo` con estos pasos de `uninstall` (y `zap`, que nunca se ejecuta).
+/// Output of `brew info --cask --json=v2 foo` with these `uninstall` steps (and `zap`, which never runs).
 private func caskJSON(uninstall: [String: Any], zap: [String: Any]? = nil, extra: [[String: Any]] = []) -> String {
     var artifacts: [[String: Any]] = [["uninstall": [uninstall]], ["app": ["Foo.app"]]]
     if let zap { artifacts.append(["zap": [zap]]) }
@@ -170,8 +170,8 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
     @Test func refusedPlanDoesNothing() async {
         let f = UFixture()
         let runner = FakeRunner(), priv = FakePrivileged()
-        let report = await f.executor(runner: runner, privileged: priv).uninstall(f.all(f.plan(refusal: "Es parte de macOS.")))
-        #expect(report.outcome == .blocked(reason: "Es parte de macOS."))
+        let report = await f.executor(runner: runner, privileged: priv).uninstall(f.all(f.plan(refusal: "It is part of macOS.")))
+        #expect(report.outcome == .blocked(reason: "It is part of macOS."))
         #expect(exists(f.app) && exists(f.caches) && runner.calls.isEmpty && priv.calls.isEmpty)
     }
 
@@ -190,7 +190,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         let quitter = FakeQuitter(running: ["com.example.foo"], result: .stillRunning)
         let report = await f.executor(runner: runner, quitter: quitter).uninstall(f.all(f.plan()))
         #expect(report.outcome == .blocked(
-            reason: "«Foo» sigue abierta (quizá te pide guardar algo). Ciérrala y vuelve a intentarlo."))
+            reason: "“Foo” is still open (maybe it is asking you to save something). Quit it and try again."))
         #expect(exists(f.app) && exists(f.caches) && exists(f.agent))
         #expect(runner.calls.isEmpty)
     }
@@ -200,7 +200,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         let runner = FakeRunner()
         let quitter = FakeQuitter(unknown: ["com.example.foo.helper"])
         let report = await f.executor(runner: runner, quitter: quitter).uninstall(f.all(f.plan()))
-        #expect(report.outcome == .blocked(reason: "No se pudo comprobar si «Foo» está abierta; Airy no sigue."))
+        #expect(report.outcome == .blocked(reason: "Could not check whether “Foo” is open; Airy does not go on."))
         #expect(exists(f.app) && runner.calls.isEmpty && quitter.calls.isEmpty)
     }
 
@@ -210,7 +210,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         _ = await f.executor(runner: runner).uninstall(f.all(f.plan()))
         #expect(runner.calls.map { [$0.executable] + $0.arguments }
             == [["/bin/launchctl", "bootout", "gui/\(getuid())/com.example.foo.helper"]])
-        // Sin seleccionarlo, no se detiene.
+        // Without selecting it, it is not stopped.
         let g = UFixture()
         let other = FakeRunner()
         let plan = g.plan()
@@ -231,7 +231,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         #expect(runner.calls.isEmpty && exists(f.app) && exists(f.caches))
     }
 
-    // MARK: Homebrew (nunca `--zap`; antes, revisión del cask)
+    // MARK: Homebrew (never `--zap`; before it, the cask review)
 
     @Test func cleanCaskUsesBrewWithoutZapThenBootsOut() async {
         let f = UFixture()
@@ -241,10 +241,10 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         #expect(calls.contains(brewInfo))
         #expect(calls.contains(brewUninstall))
         #expect(!calls.contains { $0.contains("--zap") })
-        // Homebrew primero; los agentes de inicio, solo después de que Homebrew termine bien.
+        // Homebrew first; the login agents only after Homebrew finishes well.
         #expect(calls.firstIndex { $0.first == "/bin/launchctl" }
                 == calls.firstIndex(of: brewUninstall).map { $0 + 1 })
-        // Brew falso: no borra nada, así que el `.app` va a la Papelera después.
+        // Fake brew: it deletes nothing, so the `.app` goes to the Trash afterwards.
         guard case .movedToTrash = report.outcome else { Issue.record("\(report)"); return }
         #expect(!exists(f.app))
     }
@@ -262,7 +262,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         #expect(!calls.contains { $0.contains("--zap") })
         #expect(report.notes.contains(CaskReview.unsafeReason))
         guard case .movedToTrash = report.outcome else { Issue.record("\(report)"); return }
-        // Camino normal: el `.app` a la Papelera, el perfil intacto.
+        // Normal path: the `.app` to the Trash, the profile intact.
         #expect(!exists(f.app) && exists(profile + "/Default/Bookmarks"))
         let last = try? f.log.records().last
         #expect(last?.command == nil)
@@ -334,7 +334,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
             guard case .movedToTrash = report.outcome else { Issue.record("\(report)"); continue }
             #expect(!exists(f.app))
         }
-        // Token raro: ni siquiera se consulta a Homebrew.
+        // Odd token: Homebrew is not even queried.
         let g = UFixture()
         let runner = FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"])
         _ = await g.executor(runner: runner).uninstall(g.all(g.plan(cask: "--force")))
@@ -349,7 +349,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         #expect(!exists(f.app))
     }
 
-    /// Con la lista dura estándar (sin las raíces de prueba): rutas del sistema o datos de otras apps ⇒ fallback.
+    /// With the standard hard list (without the test roots): system paths or other apps' data ⇒ fallback.
     @Test func standardProtectionsRejectSystemAndSharedPaths() {
         let home = NSHomeDirectory()
         let gate = PathGate(home: home, catalog: nil, userProtected: ProtectList(patterns: [], home: home))
@@ -384,7 +384,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         ])
         let priv = FakePrivileged()
         let report = await f.executor(runner: runner, privileged: priv).uninstall(f.all(f.plan(cask: "foo")))
-        #expect(report.outcome == .failed("Homebrew no pudo desinstalarla: boom"))
+        #expect(report.outcome == .failed("Homebrew could not uninstall it: boom"))
         #expect(report.notes.contains(CleanupExecutor.brewUnfinishedNote))
         #expect(exists(f.app) && exists(f.caches) && priv.calls.isEmpty)
         #expect(!runner.calls.contains { $0.executable == "/bin/launchctl" })
@@ -467,7 +467,7 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
                          [BrokenLinks.deleteCommand(directory: "/tmp", names: ["x"])],
                          [BrokenLinks.deleteCommand(directory: "/usr/local/bin", names: ["a/b"])],
                          [BrokenLinks.deleteCommand(directory: "/usr/local/bin", names: [])], []] {
-            #expect(await priv.run(commands, prompt: "p") == .failed("Orden no permitida."), "\(commands)")
+            #expect(await priv.run(commands, prompt: "p") == .failed("Command not allowed."), "\(commands)")
         }
         #expect(runner.calls.isEmpty)
         let ok = await priv.run([["/usr/sbin/pkgutil", "--forget", "com.example.foo.pkg"],

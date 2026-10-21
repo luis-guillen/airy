@@ -76,7 +76,7 @@ private func makeApp(_ path: String, id: String? = "com.example.foo", name: Stri
     let root = try makeTempDir()
     defer { try? FileManager.default.removeItem(atPath: root) }
     try FileManager.default.createDirectory(atPath: root + "/Bad.app/Contents", withIntermediateDirectories: true)
-    try Data("no es un plist".utf8).write(to: URL(fileURLWithPath: root + "/Bad.app/Contents/Info.plist"))
+    try Data("not a plist".utf8).write(to: URL(fileURLWithPath: root + "/Bad.app/Contents/Info.plist"))
     try makeApp(root + "/Good.app", id: "com.example.good")
     let snapshot = await AppInventory(roots: [root], usage: FakeAppUsage()).snapshot()
     #expect(!snapshot.complete)
@@ -86,7 +86,7 @@ private func makeApp(_ path: String, id: String? = "com.example.foo", name: Stri
 
 @Test func unreadableRootMakesSnapshotIncomplete() async throws {
     guard geteuid() != 0 else {
-        Issue.record("Prueba omitida: chmod 000 no bloquea al usuario root.")
+        Issue.record("Test skipped: chmod 000 does not block the root user.")
         return
     }
     let root = try makeTempDir()
@@ -184,7 +184,7 @@ private func makeApp(_ path: String, id: String? = "com.example.foo", name: Stri
 
 @Test func unlistableHelperFolderMakesSnapshotIncomplete() async throws {
     guard geteuid() != 0 else {
-        Issue.record("Prueba omitida: chmod 000 no bloquea al usuario root.")
+        Issue.record("Test skipped: chmod 000 does not block the root user.")
         return
     }
     let root = try makeTempDir()
@@ -234,7 +234,7 @@ private func makeApp(_ path: String, id: String? = "com.example.foo", name: Stri
 
 @Test func unreadableNestedFolderMakesSnapshotIncomplete() async throws {
     guard geteuid() != 0 else {
-        Issue.record("Prueba omitida: chmod 000 no bloquea al usuario root.")
+        Issue.record("Test skipped: chmod 000 does not block the root user.")
         return
     }
     let root = try makeTempDir()

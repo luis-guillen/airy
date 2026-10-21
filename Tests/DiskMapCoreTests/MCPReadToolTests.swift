@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Ayudas
+// MARK: - Helpers
 
 private struct ReadFixture {
     let home: String
@@ -44,7 +44,7 @@ private func entry(
     _ id: String, risk: Risk = .safe, paths: [String], title: String? = nil, regenerates: Bool = true
 ) -> CatalogEntry {
     CatalogEntry(
-        id: id, title: title ?? "Ficha \(id)", explanation: "Explicación de \(id).", whoCreatesIt: "Lo crea \(id).",
+        id: id, title: title ?? "Entry \(id)", explanation: "Explanation of \(id).", whoCreatesIt: "Created by \(id).",
         regenerates: regenerates, risk: risk, kind: .caches, paths: paths, cleanup: .trash)
 }
 
@@ -72,7 +72,7 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         let result = await f.call(GetDiskSummaryTool())
         #expect(!result.isError)
         #expect(result.structured?["scan_available"]?.boolValue == false)
-        #expect(result.text.contains("Aún no hay análisis guardado. Abre Airy o usa rescan."))
+        #expect(result.text.contains("There is no saved scan yet. Open Airy or use rescan."))
     }
 
     @Test func summaryReportsKindsAndDate() async throws {
@@ -92,12 +92,12 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         #expect(s["full_disk_access"]?.boolValue == true)
         guard case .array(let kinds)? = s["by_kind"] else { Issue.record("by_kind"); return }
         #expect(kinds.first?["kind"]?.stringValue == "video")
-        #expect(kinds.first?["title"]?.stringValue == "Vídeo")
+        #expect(kinds.first?["title"]?.stringValue == "Video")
         #expect(kinds.first?["bytes"]?.intValue == 200)
         #expect(kinds.count == 2)
         let date = try #require(s["last_scan"]?.stringValue)
         #expect(ISO8601DateFormatter().date(from: date) != nil)
-        #expect(GetDiskSummaryTool().description.contains("proceso del agente"))
+        #expect(GetDiskSummaryTool().description.contains("the agent's process"))
     }
 
     @Test func listLargestAndSummaryReportPartial() async throws {
@@ -154,7 +154,7 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         let result = await f.call(ListLargestTool(), ["path": .string("/Users/x")])
         guard case .array(let children)? = result.structured?["children"] else { Issue.record("children"); return }
         let others = try #require(children.last)
-        #expect(others["name"]?.stringValue == "Otros")
+        #expect(others["name"]?.stringValue == "Other")
         #expect(others["aggregated_count"]?.intValue == 40)
         #expect(others["path"] == .null)
         #expect(others["bytes"]?.intValue == 200)
@@ -166,12 +166,12 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         let schema = ListLargestTool().inputSchema
         #expect(MCPSchemaValidator.violation(of: .object(["limit": .number(500)]), against: schema) != nil)
         #expect(MCPSchemaValidator.violation(of: .object(["limit": .number(0)]), against: schema) != nil)
-        // Directo a la herramienta: también rechaza.
+        // Straight to the tool: it rejects too.
         let capped = await f.call(ListLargestTool(), ["path": .string("/Users/x"), "limit": .number(500)])
         #expect(capped.isError)
         let missing = await f.call(ListLargestTool(), ["path": .string("/Users/x/nope")])
         #expect(missing.isError)
-        #expect(missing.text == "Esa carpeta no está en el último análisis.")
+        #expect(missing.text == "That folder is not in the last scan.")
         let relative = await f.call(ListLargestTool(), ["path": .string("relativa/ruta")])
         #expect(relative.isError)
     }
@@ -186,13 +186,13 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
     }
 
     @Test func explainKnownCatalogPath() async throws {
-        let f = try fixture(entries: [entry("npm", paths: ["~/.npm/_cacache"], title: "Caché de npm")])
+        let f = try fixture(entries: [entry("npm", paths: ["~/.npm/_cacache"], title: "npm cache")])
         let result = await f.call(ExplainPathTool(), ["path": .string(f.home + "/.npm/_cacache")])
         let s = try #require(result.structured)
         #expect(s["known"]?.boolValue == true)
-        #expect(s["title"]?.stringValue == "Caché de npm")
-        #expect(s["explanation"]?.stringValue == "Explicación de npm.")
-        #expect(s["who_creates_it"]?.stringValue == "Lo crea npm.")
+        #expect(s["title"]?.stringValue == "npm cache")
+        #expect(s["explanation"]?.stringValue == "Explanation of npm.")
+        #expect(s["who_creates_it"]?.stringValue == "Created by npm.")
         #expect(s["regenerates"]?.boolValue == true)
         #expect(s["risk"]?.stringValue == "safe")
         #expect(s["exists"]?.boolValue == false)
@@ -204,7 +204,7 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         let result = await f.call(ExplainPathTool(), ["path": .string(f.home + "/Documents/x")])
         let s = try #require(result.structured)
         #expect(s["risk"]?.stringValue == "yourCall")
-        #expect(s["risk_label"]?.stringValue == "Tú decides")
+        #expect(s["risk_label"]?.stringValue == "Your call")
         #expect(s["protected_by"] == .null)
         #expect(s["known"]?.boolValue == false)
     }
@@ -214,7 +214,7 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         let result = await f.call(ExplainPathTool(), ["path": .string(f.home + "/Library/Keychains")])
         let s = try #require(result.structured)
         #expect(s["risk"]?.stringValue == "doNotTouch")
-        #expect(s["risk_label"]?.stringValue == "No borrar")
+        #expect(s["risk_label"]?.stringValue == "Don't delete")
         #expect(s["protected_by"]?.stringValue == "airy")
         guard case .array(let reasons)? = s["reasons"] else { Issue.record("reasons"); return }
         #expect(!reasons.isEmpty)
@@ -235,7 +235,7 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         let result = await f.call(ExplainPathTool(), ["path": .string("~/Downloads")])
         #expect(result.structured?["size_bytes"]?.intValue == 100)
         #expect(result.structured?["exists"]?.boolValue == true)
-        #expect(result.structured?["explanation"]?.stringValue == "Lo que has descargado.")
+        #expect(result.structured?["explanation"]?.stringValue == "What you have downloaded.")
         #expect(result.structured?["known"]?.boolValue == true)
     }
 
@@ -275,20 +275,20 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         guard case .array(let items)? = result.structured?["items"] else { Issue.record("items"); return }
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0["id"]!.stringValue!, $0) })
         let beta = try #require(byId["beta"])
-        #expect(beta["verdict"]?.stringValue == "Tú decides")
+        #expect(beta["verdict"]?.stringValue == "Your call")
         #expect(beta["review_only"]?.boolValue == false)
-        #expect(beta["why"]?.stringValue?.hasPrefix("Pierdes lo que hay dentro") == true)
-        #expect(byId["alpha"]?["verdict"]?.stringValue == "Sin problema")
-        #expect(byId["alpha"]?["why"]?.stringValue == "Se vuelve a crear sola.")
+        #expect(beta["why"]?.stringValue?.hasPrefix("You lose what is inside") == true)
+        #expect(byId["alpha"]?["verdict"]?.stringValue == "Safe to remove")
+        #expect(byId["alpha"]?["why"]?.stringValue == "It recreates itself.")
         #expect(beta["details"] == .array([]) && beta["size_note"] == .null && beta["short_reason"] == .null)
     }
 
     @Test func listCleanupItemsMarksReviewOnlyAndExplainsRealEntries() async throws {
         var info = entry("revisar", risk: .yourCall, paths: ["~/Library/Caches/revisar"])
         info.cleanup = .info
-        info.reviewHint = "Bórralo tú desde la app."
+        info.reviewHint = "Delete it yourself from the app."
         var images = entry("imagenes", risk: .yourCall, paths: ["~/Library/Caches/imagenes"])
-        images.shortReason = "Borra todas las imágenes sin usar; hay que volver a descargarlas."
+        images.shortReason = "It deletes every unused image; you have to download them again."
         let f = try fixture(entries: [info, images, entry("alpha", risk: .safe, paths: ["~/Library/Caches/alpha"])])
         for name in ["revisar", "imagenes", "alpha"] {
             let folder = f.home + "/Library/Caches/" + name
@@ -298,11 +298,11 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         let result = await f.call(ListCleanupItemsTool())
         guard case .array(let items)? = result.structured?["items"] else { Issue.record("items"); return }
         let ids = items.compactMap { $0["id"]?.stringValue }
-        #expect(ids.last == "revisar") // «Solo revisar» al final
+        #expect(ids.last == "revisar") // "Review only" at the end
         let byId = Dictionary(uniqueKeysWithValues: items.map { ($0["id"]!.stringValue!, $0) })
         #expect(byId["revisar"]?["review_only"]?.boolValue == true)
         #expect(byId["revisar"]?["actionable_by_agent"]?.boolValue == false)
-        #expect(byId["revisar"]?["why"]?.stringValue == "Bórralo tú desde la app.")
+        #expect(byId["revisar"]?["why"]?.stringValue == "Delete it yourself from the app.")
         #expect(byId["imagenes"]?["short_reason"]?.stringValue == images.shortReason)
         #expect(byId["imagenes"]?["why"]?.stringValue == images.shortReason)
     }

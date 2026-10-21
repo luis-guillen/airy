@@ -3,7 +3,7 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-/// Terminador simulado: nunca toca un proceso real. Anota cada petición y decide si el «proceso» muere.
+/// Fake terminator: it never touches a real process. It records every request and decides whether the "process" dies.
 private final class FakeTerminator: ProcessTerminating {
     enum Call: Equatable, Sendable {
         case request(Int32, isApp: Bool)
@@ -70,8 +70,8 @@ private final class FakeTerminator: ProcessTerminating {
         let log = tempLog()
         let g = group()
         let quitter = executor(fake, groups: [g], log: log)
-        #expect(await quitter.quit(g, context: .agent("claude-code")) == .blocked("Cerrar apps siempre lo decides tú en Airy."))
-        #expect(await quitter.forceQuit(g, context: .agent("claude-code")) == .blocked("Cerrar apps siempre lo decides tú en Airy."))
+        #expect(await quitter.quit(g, context: .agent("claude-code")) == .blocked("Quitting apps is always your decision, in Airy."))
+        #expect(await quitter.forceQuit(g, context: .agent("claude-code")) == .blocked("Quitting apps is always your decision, in Airy."))
         #expect(fake.calls.isEmpty)
         let records = try log.records()
         #expect(records.count == 2)
@@ -106,7 +106,7 @@ private final class FakeTerminator: ProcessTerminating {
         let g = group()
         let quitter = executor(fake, groups: [g])
         #expect(await quitter.quit(g, context: .user()) == .didNotClose)
-        #expect(await quitter.forceQuit(g, context: .user()) == .failed("No se pudo forzar el cierre."))
+        #expect(await quitter.forceQuit(g, context: .user()) == .failed("Could not force it to quit."))
         #expect(quitter.canForceQuit(g))
     }
 
@@ -115,7 +115,7 @@ private final class FakeTerminator: ProcessTerminating {
         let g = group()
         let quitter = executor(fake, groups: [g])
         #expect(await quitter.quit(g, context: .user()) == .didNotClose)
-        #expect(await quitter.forceQuit(g, context: .user()) == .failed("No se pudo forzar el cierre."))
+        #expect(await quitter.forceQuit(g, context: .user()) == .failed("Could not force it to quit."))
         #expect(quitter.canForceQuit(g))
     }
 
@@ -123,7 +123,7 @@ private final class FakeTerminator: ProcessTerminating {
         let fake = FakeTerminator()
         let g = group()
         let quitter = executor(fake, groups: [g])
-        #expect(await quitter.forceQuit(g, context: .user()) == .blocked("Primero hay que intentar cerrarla normalmente."))
+        #expect(await quitter.forceQuit(g, context: .user()) == .blocked("You first have to try quitting it normally."))
         #expect(fake.calls.isEmpty)
     }
 
@@ -132,14 +132,14 @@ private final class FakeTerminator: ProcessTerminating {
         let g = group()
         let reused = group(start: start.addingTimeInterval(60))
         let quitter = executor(fake, groups: [reused])
-        #expect(await quitter.quit(g, context: .user()) == .blocked("Ya no está abierta."))
+        #expect(await quitter.quit(g, context: .user()) == .blocked("It is no longer open."))
         #expect(fake.calls.isEmpty)
-        #expect(await executor(fake, groups: []).quit(g, context: .user()) == .blocked("Ya no está abierta."))
+        #expect(await executor(fake, groups: []).quit(g, context: .user()) == .blocked("It is no longer open."))
         #expect(fake.calls.isEmpty)
     }
 
     @Test func forceRechecksPIDToo() async {
-        // Una app que no respondió y luego se cerró sola: su PID lo reusa otro proceso. No se fuerza nada.
+        // An app that did not respond and then quit by itself: another process reuses its PID. Nothing is forced.
         let fake = FakeTerminator(diesOnRequest: false)
         let g = group()
         let quitter = executor(fake, groups: [g])
@@ -147,7 +147,7 @@ private final class FakeTerminator: ProcessTerminating {
         let later = QuitExecutor(terminator: fake, policy: policy,
                                  currentGroups: { [group(start: Date(timeIntervalSince1970: 1_800_000_000))] },
                                  wait: .milliseconds(300), poll: .milliseconds(20))
-        #expect(await later.forceQuit(g, context: .user()) == .blocked("Ya no está abierta."))
+        #expect(await later.forceQuit(g, context: .user()) == .blocked("It is no longer open."))
         #expect(fake.calls == [.request(10, isApp: true)])
     }
 
@@ -157,7 +157,7 @@ private final class FakeTerminator: ProcessTerminating {
         let now = group(bundle: "com.apple.finder")
         let quitter = executor(fake, groups: [now])
         guard case .blocked = await quitter.quit(g, context: .user()) else {
-            Issue.record("debía bloquearse")
+            Issue.record("should have been blocked")
             return
         }
         #expect(fake.calls.isEmpty)
@@ -184,14 +184,14 @@ private final class FakeTerminator: ProcessTerminating {
         #expect(records.allSatisfy { $0.itemID == g.id && $0.title == "Editor" && $0.paths.isEmpty
             && $0.bytes == 123_456 && $0.actor == .user && !$0.dryRun })
         #expect(records[0].proposedBy == "claude-code")
-        #expect(records[2].message == "Ya no está abierta.")
+        #expect(records[2].message == "It is no longer open.")
     }
 
     @Test func quitCallsOnlyInQuitExecutor() throws {
         let sources = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources")
-        // Preflight F1: lista exacta por llamada.
+        // Preflight F1: exact list per call.
         let allowed: [String: Set<String>] = [
             "forceTerminate(": ["QuitExecutor.swift"],
             "kill(": ["QuitExecutor.swift", "CommandRunner.swift"],

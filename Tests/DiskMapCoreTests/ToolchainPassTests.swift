@@ -3,11 +3,11 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-/// I3: la revalidación de versiones se hace una vez por tanda (vista previa o ejecución), no por fila.
+/// I3: version revalidation happens once per batch (preview or execution), not per row.
 @Suite struct ToolchainPassTests {
     private let pyenv = "/fake/bin/pyenv"
 
-    /// pyenv con 3.9.18 (global), 3.11.4 y 3.12.1.
+    /// pyenv with 3.9.18 (global), 3.11.4 and 3.12.1.
     private func home() -> String {
         let base = toolchainTempDir()
         let v = base + "/home/.pyenv/versions"
@@ -28,7 +28,7 @@ import Testing
             settings: { load }, processGuard: ProcessGuard(listing: listing), processListing: listing)
     }
 
-    /// Cuenta las detecciones completas mientras corre `body`.
+    /// Counts the full detections while `body` runs.
     private func counting(_ base: String, _ body: () async -> Void) async -> Int {
         let count = Mutex(0)
         await ToolchainSource.$rootsOverride.withValue({ _ in tcRoots(base) }) {
@@ -45,12 +45,12 @@ import Testing
         #expect(items.count == 2)
         let executor = executor(catalog, base: base, runner: runner)
 
-        // Sin tanda: una detección por fila (lo de antes).
+        // Without a batch: one detection per row (the old behaviour).
         let unshared = await counting(base) {
             for item in items { _ = await executor.preview(item, logged: false) }
         }
         #expect(unshared == 2)
-        // Hoja de confirmación: una sola detección para todas las filas.
+        // Confirmation sheet: a single detection for all the rows.
         let previewed = await counting(base) {
             let pass = RevalidationPass()
             for item in items {
@@ -60,7 +60,7 @@ import Testing
             }
         }
         #expect(previewed == 1)
-        // Ejecución: su propia tanda (una detección más), nunca la de la vista previa.
+        // Execution: its own batch (one more detection), never the preview's.
         let executed = await counting(base) {
             let pass = RevalidationPass()
             for item in items { #expect(await executor.execute(item, pass: pass) == .freed(0)) }
@@ -76,7 +76,7 @@ import Testing
         tcVersion(v + "/3.11.4", usedDaysAgo: 200)
         tcVersion(v + "/3.12.1", usedDaysAgo: 200)
         let catalog = try tcCatalog("toolchain-pyenv")
-        // El falso `pyenv uninstall` borra la carpeta (en la carpeta temporal de la prueba).
+        // The fake `pyenv uninstall` deletes the folder (in the test's temporary folder).
         let runner = FakeRunner(resolved: ["pyenv": pyenv], onRun: { call in
             if let version = call.arguments.last { try? FileManager.default.removeItem(atPath: v + "/" + version) }
         })
@@ -89,7 +89,7 @@ import Testing
             for item in items { outcomes.append(await executor.execute(item, pass: pass)) }
         }
         #expect(outcomes.first == .freed(0))
-        #expect(outcomes.last == .blocked(reason: "Ya no hay otra versión de la misma herramienta."))
+        #expect(outcomes.last == .blocked(reason: "There is no longer another version of the same tool."))
         #expect(runner.calls.count == 1)
     }
 
@@ -111,12 +111,12 @@ import Testing
         _ = await counting(base) {
             let pass = RevalidationPass()
             outcomes.append(await executor.execute(items[0], pass: pass))
-            // Entre filas arranca un proceso de la segunda versión: se ve aunque la detección sea de la tanda.
+            // Between rows a process of the second version starts: it is seen even though the detection belongs to the batch.
             listing.set([RunningProcess(pid: 7, name: "python3", executablePath: exe)])
             outcomes.append(await executor.execute(second, pass: pass))
         }
         #expect(outcomes.first == .freed(0))
-        #expect(outcomes.last == .blocked(reason: "Se está usando ahora."))
+        #expect(outcomes.last == .blocked(reason: "It is being used right now."))
     }
 
     @Test func brewUsesRunsOncePerFormulaPerBatch() async throws {
@@ -152,7 +152,7 @@ import Testing
         let catalog = try tcCatalog("toolchain-pyenv")
         let context = DiscoveryContext(catalog: catalog, home: h, runner: FakeRunner(resolved: ["pyenv": pyenv]),
                                        processListing: TCListing(), now: Date(), scan: nil)
-        // La búsqueda de proyectos se queda sin tiempo (su propio plazo).
+        // The project search runs out of time (its own time limit).
         let list = await ProjectArtifactSource(totalBudget: .zero).projectList(context: context)
         #expect(!list.complete)
         let source = ToolchainSource(roots: { _ in tcRoots(base) })
@@ -161,7 +161,7 @@ import Testing
         let amber = rows.filter { $0.floor == nil }
         #expect(amber.count == 2)
         #expect(amber.allSatisfy { $0.blockedReason == ToolchainSource.projectsIncompleteReason && !$0.preselectable })
-        // La revalidación con esa misma tanda también se niega, con el motivo.
+        // Revalidation with that same batch refuses too, with the reason.
         let item = CleanupItem(id: "toolchain-pyenv:python 3.11.4", entry: catalog.entries[0], paths: [h + "/.pyenv/versions/3.11.4"], bytes: 1,
                                risk: .yourCall, blockedByOpenApps: [], usedBy: [], targets: ["3.11.4"])
         let reason = await source.revalidate(catalog.entries[0], item: item, context: context)

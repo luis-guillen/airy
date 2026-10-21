@@ -3,7 +3,7 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Literales (solo en este archivo, para leer mejor los argumentos)
+// MARK: - Literals (only in this file, to read the arguments more easily)
 
 extension JSONValue: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral,
     ExpressibleByBooleanLiteral {
@@ -12,7 +12,7 @@ extension JSONValue: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral,
     public init(booleanLiteral value: Bool) { self = .bool(value) }
 }
 
-// MARK: - Dobles
+// MARK: - Doubles
 
 private final class SectionOpener: URLOpening, Sendable {
     private let state = Mutex<[URL]>([])
@@ -67,7 +67,7 @@ private func write(_ path: String, bytes: Int = 4096) {
     FileManager.default.createFile(atPath: path, contents: Data(repeating: 7, count: bytes))
 }
 
-/// Home temporal con `~/Applications` (Foo, Bar) y un `/System/Applications` falso con Safari.
+/// Temporary home with `~/Applications` (Foo, Bar) and a fake `/System/Applications` with Safari.
 private func makeSectionFixture(agents: Bool = true, extraRoots: [String] = [],
                                 lookup: FakeLookup = FakeLookup()) -> SectionFixture {
     let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("airy-sec-\(UUID().uuidString)").path
@@ -101,7 +101,7 @@ private func names(_ result: MCPToolResult) -> [String] {
     return apps.compactMap { $0["name"]?.stringValue }
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct MCPSectionToolTests {
     @Test func listAppsIsReadOnlyAndSorted() async {
@@ -115,7 +115,7 @@ private func names(_ result: MCPToolResult) -> [String] {
         #expect(names(await f.call(ListAppsTool(), ["sort": "last_used"])) == ["Bar", "Foo"])
         #expect(names(await f.call(ListAppsTool(), ["limit": 1])) == ["Foo"])
         guard case .array(let apps)? = bySize.structured?["apps"], let foo = apps.first else {
-            Issue.record("sin apps"); return
+            Issue.record("no apps"); return
         }
         #expect(foo["bundle_id"] == "com.example.foo")
         #expect(foo["can_uninstall"] == .bool(true))
@@ -131,10 +131,10 @@ private func names(_ result: MCPToolResult) -> [String] {
         write(f.home + "/Library/Application Support/com.example.foo/data", bytes: 3000)
         let result = await f.call(ExplainAppTool(), ["bundle_id": "com.example.foo"])
         #expect(!result.isError)
-        guard case .array(let leftovers)? = result.structured?["leftovers"] else { Issue.record("sin restos"); return }
+        guard case .array(let leftovers)? = result.structured?["leftovers"] else { Issue.record("no leftovers"); return }
         let labels = Set(leftovers.compactMap { $0["risk_label"]?.stringValue })
-        #expect(labels.contains("Sin problema"))
-        #expect(labels.contains("Tú decides"))
+        #expect(labels.contains("Safe to remove"))
+        #expect(labels.contains("Your call"))
         #expect(leftovers.allSatisfy { $0["preselected"] != nil && $0["reason"] != nil && $0["risk"] != nil })
         #expect(result.structured?["real_bytes"] != nil && result.structured?["leftover_bytes"] != nil)
     }
@@ -144,11 +144,11 @@ private func names(_ result: MCPToolResult) -> [String] {
         defer { try? FileManager.default.removeItem(atPath: f.tmp) }
         let result = await f.call(ExplainAppTool(), ["bundle_id": "com.example.nada"])
         #expect(result.isError)
-        #expect(result.text == "No hay ninguna app instalada con ese identificador.")
+        #expect(result.text == "There is no installed app with that identifier.")
     }
 
     @Test func listOrphansUndecidedWhenIncomplete() async {
-        // Una raíz que no es una carpeta: el inventario queda incompleto y no se decide nada.
+        // A root that is not a folder: the inventory is incomplete and nothing is decided.
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("airy-sec-file-\(UUID().uuidString)").path
         FileManager.default.createFile(atPath: tmp, contents: Data([1]))
         defer { try? FileManager.default.removeItem(atPath: tmp) }
@@ -197,7 +197,7 @@ private func names(_ result: MCPToolResult) -> [String] {
         let f = makeSectionFixture()
         defer { try? FileManager.default.removeItem(atPath: f.tmp) }
         let result = await f.call(ListLargeOldTool())
-        #expect(result.isError && result.text == "Aún no hay análisis guardado. Abre Airy o usa rescan.")
+        #expect(result.isError && result.text == "There is no saved scan yet. Open Airy or use rescan.")
     }
 
     @Test func listDuplicatesWithoutReport() async {
@@ -205,13 +205,13 @@ private func names(_ result: MCPToolResult) -> [String] {
         defer { try? FileManager.default.removeItem(atPath: f.tmp) }
         let result = await f.call(ListDuplicatesTool())
         #expect(result.isError)
-        #expect(result.text == "Aún no hay búsqueda de duplicados. Búscalos en Airy › Duplicados.")
+        #expect(result.text == "There is no duplicates search yet. Run one in Airy › Duplicates.")
     }
 
     @Test func listDuplicatesNeverExposesHashes() async throws {
         let f = makeSectionFixture()
         defer { try? FileManager.default.removeItem(atPath: f.tmp) }
-        // Una búsqueda real (con huellas en memoria) sobre dos copias idénticas.
+        // A real search (with in-memory fingerprints) over two identical copies.
         let a = f.home + "/a/x.bin", b = f.home + "/b/x.bin"
         write(a, bytes: 2_000_000)
         write(b, bytes: 2_000_000)
@@ -225,7 +225,7 @@ private func names(_ result: MCPToolResult) -> [String] {
 
         let result = await f.call(ListDuplicatesTool())
         #expect(!result.isError)
-        guard case .array(let groups)? = result.structured?["groups"] else { Issue.record("sin grupos"); return }
+        guard case .array(let groups)? = result.structured?["groups"] else { Issue.record("no groups"); return }
         #expect(groups.count == 1)
         #expect(groups[0]["copies"] != nil && groups[0]["keeper"] != nil)
         let hex = try Regex("[0-9a-fA-F]{64}")
@@ -238,7 +238,7 @@ private func names(_ result: MCPToolResult) -> [String] {
     @Test func proposeUninstallOpensURLOnly() async {
         let f = makeSectionFixture()
         defer { try? FileManager.default.removeItem(atPath: f.tmp) }
-        let result = await f.call(ProposeUninstallTool(), ["bundle_id": "com.example.foo", "reason": "No la usas"])
+        let result = await f.call(ProposeUninstallTool(), ["bundle_id": "com.example.foo", "reason": "You do not use it"])
         #expect(!result.isError, "\(result.text)")
         #expect(result.structured?["status"] == "pending_user_confirmation")
         #expect(f.opener.urls.count == 1)
@@ -252,7 +252,7 @@ private func names(_ result: MCPToolResult) -> [String] {
         #expect(f.records().last?.action == "propose")
 
         let dry = await f.call(ProposeUninstallTool(),
-                               ["bundle_id": "com.example.foo", "reason": "No la usas", "dry_run": true])
+                               ["bundle_id": "com.example.foo", "reason": "You do not use it", "dry_run": true])
         #expect(!dry.isError)
         #expect(f.opener.urls.count == 1)
     }
@@ -273,16 +273,16 @@ private func names(_ result: MCPToolResult) -> [String] {
         defer { try? FileManager.default.removeItem(atPath: f.tmp) }
         let result = await f.call(ProposeUninstallTool(), ["bundle_id": "com.apple.Safari", "reason": "x"])
         #expect(result.isError)
-        #expect(result.text.contains("Es parte de macOS."))
+        #expect(result.text.contains("It is part of macOS."))
         #expect(f.opener.urls.isEmpty)
         let unknown = await f.call(ProposeUninstallTool(), ["bundle_id": "com.example.nada", "reason": "x"])
-        #expect(unknown.isError && unknown.text == "No hay ninguna app instalada con ese identificador.")
+        #expect(unknown.isError && unknown.text == "There is no installed app with that identifier.")
     }
 
     @Test func sectionToolsAcceptNoArbitraryCommands() {
         for tool in MCPToolRegistry.sectionTools() {
             guard case .object(let properties)? = tool.inputSchema["properties"] else {
-                Issue.record("\(tool.name) sin properties"); continue
+                Issue.record("\(tool.name) without properties"); continue
             }
             for forbidden in ["command", "args", "paths", "path"] { #expect(properties[forbidden] == nil, "\(tool.name)") }
             #expect(tool.inputSchema["additionalProperties"] == .bool(false))
