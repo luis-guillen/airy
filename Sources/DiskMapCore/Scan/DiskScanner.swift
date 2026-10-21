@@ -327,23 +327,18 @@ public final class DiskScanner: Sendable {
     }
 
     fileprivate static func fileNode(name: String, size: Int64, modified: Date, kind: ContentKind) -> FileNode {
-        var kindBytes = Array(repeating: Int64(0), count: ContentKind.count)
-        kindBytes[kind.index] = size
-        return FileNode(name: name, isDirectory: false, allocatedSize: size, lastModified: modified,
-                        kind: kind, kindBytes: kindBytes)
+        FileNode(name: name, isDirectory: false, allocatedSize: size, lastModified: modified,
+                 kind: kind, kindBytes: KindBytes(kind, size))
     }
 
     /// Closes a folder: adds up sizes and kinds, decides its `kind` and groups the small children.
     private func close(_ directory: DirectoryEntry, children: [FileNode], small: SmallFiles) -> FileNode {
         let folderKind = FileKindClassifier.kind(forDirectoryPath: directory.path)
-        var kindBytes = Array(repeating: Int64(0), count: ContentKind.count)
-        kindBytes[(folderKind ?? .other).index] = directory.ownSize
+        var kindBytes = KindBytes(folderKind ?? .other, directory.ownSize)
         var descendants = small.count
-        if small.count > 0 {
-            for index in kindBytes.indices { kindBytes[index] += small.kindBytes[index] }
-        }
+        kindBytes.add(small.kindBytes)
         for child in children {
-            for index in kindBytes.indices { kindBytes[index] += child.kindBytes[index] }
+            kindBytes.add(child.kindBytes)
             descendants += 1 + child.descendantCount
         }
         // What is not recognized by extension takes the folder's meaning (binaries of an .app, Caches blobs…).
@@ -370,11 +365,11 @@ public final class DiskScanner: Sendable {
             if child.allocatedSize < threshold { small.append(child) } else { kept.append(child) }
         }
         if small.count + files.count >= 2 {
-            var kindBytes = files.count > 0 ? files.kindBytes : Array(repeating: Int64(0), count: ContentKind.count)
+            var kindBytes = files.kindBytes
             var hidden = 0
             var newest = files.newest
             for child in small {
-                for index in kindBytes.indices { kindBytes[index] += child.kindBytes[index] }
+                kindBytes.add(child.kindBytes)
                 hidden += child.descendantCount
                 if let modified = child.lastModified { newest = max(newest ?? modified, modified) }
             }
@@ -395,10 +390,8 @@ public final class DiskScanner: Sendable {
 
     /// Several roots hang from an unnamed node so that each one's `path` stays absolute.
     private static func combine(_ roots: [FileNode]) -> FileNode {
-        var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
-        for root in roots {
-            for index in kindBytes.indices { kindBytes[index] += root.kindBytes[index] }
-        }
+        var kindBytes = KindBytes()
+        for root in roots { kindBytes.add(root.kindBytes) }
         let node = FileNode(
             name: "", isDirectory: true, allocatedSize: kindBytes.reduce(0, +), kindBytes: kindBytes,
             children: roots.sorted { $0.allocatedSize > $1.allocatedSize },
@@ -509,15 +502,13 @@ struct SmallFiles: Sendable {
     }
 
     private(set) var count = 0
-    /// Per kind; empty while `count == 0`.
-    private(set) var kindBytes: [Int64] = []
+    private(set) var kindBytes = KindBytes()
     private(set) var newest: Date?
     private(set) var first: File?
 
     /// `name` is only called for the first one.
     mutating func add(size: Int64, modified: Date, kind: ContentKind, name: () -> String) {
         if count == 0 {
-            kindBytes = Array(repeating: 0, count: ContentKind.count)
             first = File(name: name(), size: size, modified: modified, kind: kind)
         }
         count += 1

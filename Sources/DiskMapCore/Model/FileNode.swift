@@ -71,19 +71,21 @@ public final class FileNode: @unchecked Sendable, Identifiable {
     /// Relaxed atomic: ids only need to be unique, and the scan threads create nodes at the same time.
     private static let nextID = Atomic<Int>(0)
 
+    // Declaration order is the memory layout: the one-byte fields go right after `lastModified`'s tag byte
+    // instead of each padding out to eight bytes (176 bytes per node instead of 192).
     public let id: Int
     public var name: String
     public weak var parent: FileNode?
     public var children: [FileNode]
-    public var isDirectory: Bool
     public var allocatedSize: Int64
-    public var lastModified: Date?
-    public var kind: ContentKind
     /// Bytes per kind; index = position in `ContentKind.allCases`.
-    public var kindBytes: [Int64]
+    public var kindBytes: KindBytes
     public var descendantCount: Int
     /// > 0 if the node is the "Other (N items)" aggregate.
     public var aggregatedCount: Int
+    public var lastModified: Date?
+    public var isDirectory: Bool
+    public var kind: ContentKind
 
     public init(
         name: String,
@@ -91,7 +93,7 @@ public final class FileNode: @unchecked Sendable, Identifiable {
         allocatedSize: Int64 = 0,
         lastModified: Date? = nil,
         kind: ContentKind = .other,
-        kindBytes: [Int64]? = nil,
+        kindBytes: KindBytes = KindBytes(),
         children: [FileNode] = [],
         descendantCount: Int = 0,
         aggregatedCount: Int = 0
@@ -102,11 +104,28 @@ public final class FileNode: @unchecked Sendable, Identifiable {
         self.allocatedSize = allocatedSize
         self.lastModified = lastModified
         self.kind = kind
-        self.kindBytes = kindBytes ?? Array(repeating: 0, count: ContentKind.allCases.count)
+        self.kindBytes = kindBytes
         self.children = children
         self.descendantCount = descendantCount
         self.aggregatedCount = aggregatedCount
         for child in children { child.parent = self }
+    }
+
+    /// The same with the breakdown as an array (missing values are 0, extra ones are ignored).
+    public convenience init(
+        name: String,
+        isDirectory: Bool,
+        allocatedSize: Int64 = 0,
+        lastModified: Date? = nil,
+        kind: ContentKind = .other,
+        kindBytes: [Int64]?,
+        children: [FileNode] = [],
+        descendantCount: Int = 0,
+        aggregatedCount: Int = 0
+    ) {
+        self.init(name: name, isDirectory: isDirectory, allocatedSize: allocatedSize, lastModified: lastModified,
+                  kind: kind, kindBytes: kindBytes.map { KindBytes($0) } ?? KindBytes(), children: children,
+                  descendantCount: descendantCount, aggregatedCount: aggregatedCount)
     }
 
     /// Full path, walking up through `parent`; the "/" root does not double the slash.
@@ -159,8 +178,7 @@ public final class FileNode: @unchecked Sendable, Identifiable {
         let oldKindBytes = kindBytes
         let oldSize = allocatedSize
         let oldDescendants = descendantCount
-        var newKindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
-        if let index = ContentKind.allCases.firstIndex(of: dominantKind) { newKindBytes[index] = newSize }
+        let newKindBytes = KindBytes(dominantKind, newSize)
         for child in children { child.parent = nil }
         children = []
         descendantCount = 0

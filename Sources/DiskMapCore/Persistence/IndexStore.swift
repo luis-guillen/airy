@@ -38,13 +38,16 @@ public struct CleanupRecord: Codable, Sendable {
     }
 }
 
-/// Persists the last index (`scan.plist`, binary plist, parallel arrays) and the
+/// Persists the last index (`scan.plist`, a compact binary file of parallel columns) and the
 /// cleanup history (`history.json`). The date of the last scan goes inside the index
 /// (`ScanResult.scannedAt`, v3 header): the file's modification date is useless, because
 /// every cleanup or move to the Trash saves the tree again. A v2 index is read with an unknown
-/// date (`nil`).
+/// date (`nil`). v4 (the one written) stores the per-kind breakdown sparsely and the counts and
+/// offsets in 32 bits: about a third of v3's size. v2 and v3 are still read, and rewritten as v4.
 public final class IndexStore: Sendable {
-    private static let currentVersion: UInt32 = 3
+    private static let currentVersion: UInt32 = 4
+    /// v3: the same header as v4, with every column at full width (`serializeV3`).
+    static let fullWidthVersion: UInt32 = 3
     /// v2: same as v3 without `scannedAt` (32-byte header instead of 40).
     private static let legacyVersion: UInt32 = 2
     private static let noDate = -1.0e18
@@ -65,6 +68,8 @@ public final class IndexStore: Sendable {
         var mtime: [Double] = []
         var descendantCount: [Int64] = []
         var aggregatedCount: [Int64] = []
+        /// Format it was read from (0 if it was not read).
+        var version: UInt32 = 0
     }
 
     private let directory: URL
@@ -100,6 +105,10 @@ public final class IndexStore: Sendable {
                 try? FileManager.default.removeItem(at: scanURL)
                 return nil
             }
+            // An older format is rewritten once in the compact one, with the same content.
+            if flat.version < Self.currentVersion {
+                try? Self.serialize(flat).write(to: scanURL, options: .atomic)
+            }
             return result
         }
     }
@@ -126,8 +135,9 @@ public final class IndexStore: Sendable {
 
     static func scannedAt(header data: Data) -> Date? {
         data.withUnsafeBytes { raw in
+            let version = raw.count >= 8 ? raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self) : 0
             guard raw.count >= 40, Array(raw[0..<4]) == magic,
-                  raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self) == currentVersion else { return nil }
+                  version == currentVersion || version == fullWidthVersion else { return nil }
             let value = raw.loadUnaligned(fromByteOffset: 32, as: Double.self)
             return value == noDate ? nil : Date(timeIntervalSinceReferenceDate: value)
         }
@@ -192,11 +202,7 @@ public final class IndexStore: Sendable {
             flat.isDirectory.append(node.isDirectory ? 1 : 0)
             flat.size.append(node.allocatedSize)
             flat.kind.append(kindIndex[node.kind] ?? 0)
-            var bytes = node.kindBytes
-            if bytes.count != kindCount {
-                bytes = Array((bytes + Array(repeating: 0, count: kindCount)).prefix(kindCount))
-            }
-            flat.kindBytes.append(contentsOf: bytes)
+            flat.kindBytes.append(contentsOf: node.kindBytes)
             flat.mtime.append(node.lastModified?.timeIntervalSinceReferenceDate ?? noDate)
             flat.descendantCount.append(Int64(node.descendantCount))
             flat.aggregatedCount.append(Int64(node.aggregatedCount))
@@ -207,9 +213,14 @@ public final class IndexStore: Sendable {
 
     // MARK: - Binary format
 
+    /// The compact format (v4) or, if some value does not fit in it, the full-width one (v3).
+    static func serialize(_ flat: FlatScan) -> Data {
+        serializeCompact(flat) ?? serializeV3(flat)
+    }
+
     /// Header: magic "DMIX", UInt32 version, UInt64 nodes, Double duration, UInt64 inaccessible;
     /// then fixed-width columns, string offsets (UInt64, n+1) and UTF-8 blobs.
-    static func serialize(_ flat: FlatScan) -> Data {
+    static func serializeV3(_ flat: FlatScan) -> Data {
         let count = flat.name.count
         var out = Data()
         out.reserveCapacity(count * 120)
@@ -231,7 +242,7 @@ public final class IndexStore: Sendable {
             put(blob)
         }
         out.append(contentsOf: magic)
-        putValue(currentVersion)
+        putValue(fullWidthVersion)
         putValue(UInt64(count))
         putValue(flat.duration)
         putValue(UInt64(flat.inaccessible.count))
@@ -243,6 +254,73 @@ public final class IndexStore: Sendable {
         put(flat.aggregatedCount); put(flat.kindBytes)
         putStrings(flat.name)
         putStrings(flat.inaccessible)
+        return out
+    }
+
+
+    /// Bit of `kindMask` meaning "a single kind, holding the whole `size`": no value is stored for it.
+    private static let wholeSizeFlag: UInt16 = 1 << 15
+
+    /// v4: the v3 header, then `parentIndex` (Int32), `isDirectory` and `kind` (UInt8), `kindMask` (UInt16: the
+    /// kinds with bytes, plus `wholeSizeFlag`), padding to 8, `size` (Int64), `mtime` (Double), `descendantCount`
+    /// and `aggregatedCount` (UInt32), padding to 8, the count of breakdown values (UInt64) and the values
+    /// (Int64, in node order, one per mask bit unless `wholeSizeFlag`), then names and inaccessible paths as
+    /// UInt32 offsets (n+1) and UTF-8 blobs. `nil` if a count, an offset or a breakdown does not fit.
+    static func serializeCompact(_ flat: FlatScan) -> Data? {
+        let count = flat.name.count
+        let kindCount = ContentKind.count
+        var masks: [UInt16] = []
+        masks.reserveCapacity(count)
+        var values: [Int64] = []
+        var descendants: [UInt32] = [], aggregated: [UInt32] = []
+        descendants.reserveCapacity(count)
+        aggregated.reserveCapacity(count)
+        for index in 0..<count {
+            guard let d = UInt32(exactly: flat.descendantCount[index]),
+                  let a = UInt32(exactly: flat.aggregatedCount[index]) else { return nil }
+            descendants.append(d)
+            aggregated.append(a)
+            var mask: UInt16 = 0
+            let base = index * kindCount
+            for kind in 0..<kindCount where flat.kindBytes[base + kind] != 0 { mask |= 1 << kind }
+            if mask.nonzeroBitCount == 1, flat.kindBytes[base + mask.trailingZeroBitCount] == flat.size[index] {
+                mask |= wholeSizeFlag
+            } else {
+                for kind in 0..<kindCount where mask & (1 << kind) != 0 { values.append(flat.kindBytes[base + kind]) }
+            }
+            masks.append(mask)
+        }
+        func strings(_ list: [String]) -> (offsets: [UInt32], blob: [UInt8])? {
+            var offsets: [UInt32] = [0]
+            offsets.reserveCapacity(list.count + 1)
+            var blob: [UInt8] = []
+            for string in list {
+                blob.append(contentsOf: string.utf8)
+                guard let end = UInt32(exactly: blob.count) else { return nil }
+                offsets.append(end)
+            }
+            return (offsets, blob)
+        }
+        guard let names = strings(flat.name), let inaccessible = strings(flat.inaccessible) else { return nil }
+
+        var out = Data()
+        out.reserveCapacity(count * 48 + values.count * 8 + names.blob.count)
+        func put<T>(_ array: [T]) { array.withUnsafeBytes { out.append(contentsOf: $0) } }
+        func putValue<T>(_ value: T) { withUnsafeBytes(of: value) { out.append(contentsOf: $0) } }
+        func align() { while out.count % 8 != 0 { out.append(0) } }
+        out.append(contentsOf: magic)
+        putValue(currentVersion)
+        putValue(UInt64(count))
+        putValue(flat.duration)
+        putValue(UInt64(flat.inaccessible.count))
+        putValue(flat.scannedAt?.timeIntervalSinceReferenceDate ?? noDate)
+        put(flat.parentIndex); put(flat.isDirectory); put(flat.kind); put(masks)
+        align()
+        put(flat.size); put(flat.mtime); put(descendants); put(aggregated)
+        align()
+        putValue(UInt64(values.count)); put(values)
+        put(names.offsets); put(names.blob)
+        put(inaccessible.offsets); put(inaccessible.blob)
         return out
     }
 
@@ -263,8 +341,9 @@ public final class IndexStore: Sendable {
                 pos += bytes
                 return array
             }
-            func strings(_ n: Int) -> [String]? {
-                guard let offsets = take(UInt64.self, n + 1), offsets[0] == 0 else { return nil }
+            /// `n` strings: offsets (`Offset`, n+1) and their UTF-8 blob.
+            func strings<Offset: FixedWidthInteger & BitwiseCopyable>(_ n: Int, _: Offset.Type = UInt64.self) -> [String]? {
+                guard let offsets = take(Offset.self, n + 1), offsets[0] == 0 else { return nil }
                 let total = Int(truncatingIfNeeded: offsets[n])
                 guard total >= 0, pos + total <= raw.count else { return nil }
                 let base = pos
@@ -283,8 +362,8 @@ public final class IndexStore: Sendable {
             }
             guard raw.count >= 32, Array(raw[0..<4]) == magic else { return nil }
             let version = raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self)
-            guard version == currentVersion || version == legacyVersion else { return nil }
-            let headerSize = version == currentVersion ? 40 : 32
+            guard version == currentVersion || version == fullWidthVersion || version == legacyVersion else { return nil }
+            let headerSize = version == legacyVersion ? 32 : 40
             guard raw.count >= headerSize else { return nil }
             let countU = raw.loadUnaligned(fromByteOffset: 8, as: UInt64.self)
             let inaccU = raw.loadUnaligned(fromByteOffset: 24, as: UInt64.self)
@@ -293,11 +372,57 @@ public final class IndexStore: Sendable {
             let inaccessibleCount = Int(inaccU)
             var flat = FlatScan()
             flat.duration = raw.loadUnaligned(fromByteOffset: 16, as: Double.self)
-            if version == currentVersion {
+            flat.version = version
+            if version != legacyVersion {
                 let value = raw.loadUnaligned(fromByteOffset: 32, as: Double.self)
                 flat.scannedAt = value == noDate ? nil : Date(timeIntervalSinceReferenceDate: value)
             }
             pos = headerSize
+            if version == currentVersion {
+                guard let parents = take(Int32.self, count),
+                      let dirs = take(UInt8.self, count),
+                      let kinds = take(UInt8.self, count),
+                      let masks = take(UInt16.self, count) else { return nil }
+                pos = (pos + 7) & ~7
+                guard let sizes = take(Int64.self, count),
+                      let mtimes = take(Double.self, count),
+                      let descendants = take(UInt32.self, count),
+                      let aggregated = take(UInt32.self, count) else { return nil }
+                pos = (pos + 7) & ~7
+                guard let valueCount = take(UInt64.self, 1)?.first, valueCount <= UInt64(count * kindCount),
+                      let values = take(Int64.self, Int(valueCount)) else { return nil }
+                // The breakdown back at full width, value by value in node order.
+                var kindBytes = [Int64](repeating: 0, count: count * kindCount)
+                var next = 0
+                for index in 0..<count {
+                    let mask = masks[index]
+                    let base = index * kindCount
+                    if mask & wholeSizeFlag != 0 {
+                        let kind = (mask & ~wholeSizeFlag).trailingZeroBitCount
+                        guard (mask & ~wholeSizeFlag).nonzeroBitCount == 1, kind < kindCount else { return nil }
+                        kindBytes[base + kind] = sizes[index]
+                        continue
+                    }
+                    guard mask >> kindCount == 0 else { return nil }
+                    var bits = mask
+                    while bits != 0 {
+                        guard next < values.count else { return nil }
+                        kindBytes[base + bits.trailingZeroBitCount] = values[next]
+                        next += 1
+                        bits &= bits - 1
+                    }
+                }
+                guard next == values.count,
+                      let names = strings(count, UInt32.self),
+                      let inaccessible = strings(inaccessibleCount, UInt32.self) else { return nil }
+                flat.parentIndex = parents; flat.isDirectory = dirs; flat.kind = kinds
+                flat.size = sizes; flat.mtime = mtimes
+                flat.descendantCount = descendants.map { Int64($0) }
+                flat.aggregatedCount = aggregated.map { Int64($0) }
+                flat.kindBytes = kindBytes
+                flat.name = names; flat.inaccessible = inaccessible
+                return flat
+            }
             guard let parents = take(Int32.self, count),
                   let dirs = take(UInt8.self, count),
                   let kinds = take(UInt8.self, count) else { return nil }
@@ -341,7 +466,7 @@ public final class IndexStore: Sendable {
                 allocatedSize: flat.size[i],
                 lastModified: mtime == noDate ? nil : Date(timeIntervalSinceReferenceDate: mtime),
                 kind: kinds[kindRaw],
-                kindBytes: Array(flat.kindBytes[(i * kindCount)..<((i + 1) * kindCount)]),
+                kindBytes: KindBytes(flat.kindBytes[(i * kindCount)..<((i + 1) * kindCount)]),
                 descendantCount: Int(flat.descendantCount[i]),
                 aggregatedCount: Int(flat.aggregatedCount[i]))
             if childCounts[i] > 0 { node.children.reserveCapacity(Int(childCounts[i])) }

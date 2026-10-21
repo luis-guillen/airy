@@ -13,6 +13,8 @@ private let benchRoot = ProcessInfo.processInfo.environment["AIRY_BENCH_ROOT"]
 @Suite(.serialized, .enabled(if: benchRoot != nil))
 struct PerfBenchmarks {
     static var root: String? { benchRoot }
+    /// Extra passes for profiling (`AIRY_BENCH_REPEAT`).
+    static var repeats: Int { Int(ProcessInfo.processInfo.environment["AIRY_BENCH_REPEAT"] ?? "") ?? 3 }
     static var filter: String { ProcessInfo.processInfo.environment["AIRY_BENCH_ONLY"] ?? "" }
 
     // MARK: Measuring helpers
@@ -45,6 +47,13 @@ struct PerfBenchmarks {
             }
         }
         return status == KERN_SUCCESS ? Double(info.phys_footprint) / 1_048_576 : -1
+    }
+
+    /// Bytes allocated with `malloc` and still alive (all zones).
+    static func liveHeapBytes() -> Int {
+        var stats = malloc_statistics_t()
+        malloc_zone_statistics(nil, &stats)
+        return stats.size_in_use
     }
 
     static func measure<T>(_ body: () async throws -> T) async rethrows -> (T, Sample) {
@@ -139,11 +148,13 @@ struct PerfBenchmarks {
     @Test func scanUnpruned() async throws {
         guard Self.enabled("scanUnpruned") else { return }
         _ = try await Self.scan(ScanBudget(workers: 4, qos: .utility), prune: 0)
-        let before = Self.footprintMB()
+        let before = Self.liveHeapBytes()
         let (result, sample) = try await Self.measure { try await Self.scan(ScanBudget(workers: 4, qos: .utility), prune: 0) }
-        let after = Self.footprintMB()
-        Self.log(String(format: "scan.unpruned wall=%.3fs cpu=%.3fs nodes=%d tree_footprint=%.1fMB peakRSS=%.1fMB",
-                        sample.wall, sample.cpu, Self.nodeCount(result.root), after - before, Self.peakRSSMB()))
+        let after = Self.liveHeapBytes()
+        let nodes = Self.nodeCount(result.root)
+        Self.log(String(format: "scan.unpruned wall=%.3fs cpu=%.3fs nodes=%d tree_heap=%.1fMB (%.0f B/node) peakRSS=%.1fMB",
+                        sample.wall, sample.cpu, nodes, Double(after - before) / 1_048_576,
+                        Double(after - before) / Double(nodes), Self.peakRSSMB()))
     }
 
     // MARK: Index
@@ -155,6 +166,11 @@ struct PerfBenchmarks {
             let directory = URL(fileURLWithPath: TestTemp.directory("bench-index"))
             let store = IndexStore(directory: directory)
             var saves: [Double] = [], loads: [Double] = []
+            try store.saveScan(result)
+            let heapBefore = Self.liveHeapBytes()
+            let kept = try store.loadScan()
+            let loadedHeap = Self.liveHeapBytes() - heapBefore
+            withExtendedLifetime(kept) {}
             for _ in 0..<5 {
                 let (_, save) = try await Self.measure { try store.saveScan(result) }
                 let (loaded, load) = try await Self.measure { try store.loadScan() }
@@ -162,9 +178,9 @@ struct PerfBenchmarks {
                 saves.append(save.wall); loads.append(load.wall)
             }
             let size = (try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("scan.plist").path)[.size] as? Int) ?? 0
-            Self.log(String(format: "index prune=%lld nodes=%d save_med=%.1fms load_med=%.1fms size=%.2fMB",
+            Self.log(String(format: "index prune=%lld nodes=%d save_med=%.1fms load_med=%.1fms size=%.2fMB loaded_tree_heap=%.1fMB",
                             prune, Self.nodeCount(result.root), saves.sorted()[2] * 1000, loads.sorted()[2] * 1000,
-                            Double(size) / 1_048_576))
+                            Double(size) / 1_048_576, Double(loadedHeap) / 1_048_576))
         }
     }
 
@@ -214,7 +230,7 @@ struct PerfBenchmarks {
             processListing: BenchNoProcesses(), scope: DiskScope(roots: [home]))
         var times: [Double] = [], cpus: [Double] = []
         var count = 0
-        for _ in 0..<3 {
+        for _ in 0..<max(3, Self.repeats) {
             let (items, sample) = await Self.measure { await scanner.findItems(scan: result.root) }
             times.append(sample.wall); cpus.append(sample.cpu); count = items.count
         }
