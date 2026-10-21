@@ -9,6 +9,6 @@ authors:
     alias: "luis-guillen"
 repository-code: "https://github.com/luis-guillen/airy"
 license: GPL-3.0-only
-version: 0.2.0
+version: 0.3.0
 date-released: 2026-10-21
 keywords: [macos, swiftui, disk-usage, disk-cleaner, mcp]

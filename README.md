@@ -155,7 +155,7 @@ The Xcode Command Line Tools are enough; full Xcode isn't required.
 ```bash
 git clone https://github.com/luis-guillen/airy.git && cd airy
 swift build                           # debug
-swift test --no-parallel              # ~950 tests
+swift test --no-parallel              # ~970 tests
 bash scripts/build-app.sh             # signed build/Airy.app
 bash scripts/build-app.sh --install   # also installs into /Applications
 ```

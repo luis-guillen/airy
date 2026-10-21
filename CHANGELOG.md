@@ -5,6 +5,8 @@ All notable changes to Airy are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-21
+
 ### Added
 - English localization. English is now the base language and Spanish a full translation; the app follows the macOS language.
 - **Settings** section (last in the sidebar, also ⌘,): language with restart, animations, Full Disk Access status, automatic rescan and its age, default disk, excluded folders (never scanned), cleanup mode, Protected by you, agents and MCP, an AI switch, Airy's data (delete scan index, clear operation log, reset all settings) and About.
@@ -12,6 +14,10 @@ All notable changes to Airy are documented here. The format follows
 ### Changed
 - Airy is open source under the **GPL-3.0** license.
 - Code comments, docs, design specs and repository content are in English.
+- The MCP server always answers in English; AI prompts ask Claude to reply in your language.
+
+### Fixed
+- Browser per-profile caches (e.g. Chrome `*/Code Cache`) are cleanable again while profile data stays protected.
 
 ## [0.2.0] - 2026-10-21
 
@@ -46,5 +52,6 @@ All notable changes to Airy are documented here. The format follows
 ### Added
 - First version (DiskMap): disk map, incremental index, basic catalog-driven cleanup to the Trash.
 
-[Unreleased]: https://github.com/luis-guillen/airy/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/luis-guillen/airy/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/luis-guillen/airy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/luis-guillen/airy/releases/tag/v0.2.0
