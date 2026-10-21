@@ -35,6 +35,29 @@ import Foundation
                 == .proposeQuit(app: "x", reason: "a b", agent: nil))
     }
 
+    @Test func uninstallURLRoundTrip() {
+        let commands: [AiryURLCommand] = [
+            .uninstall(bundleID: "com.example.foo", reason: "no la usas & «pesa»", agent: "claude-code"),
+            .uninstall(bundleID: "org.x-y_z.App2", reason: "", agent: nil),
+        ]
+        for command in commands { #expect(AiryURLCommand(url: command.url) == command, "\(command.url)") }
+        #expect(AiryURLCommand.uninstall(bundleID: "com.example.foo", reason: "x", agent: "test-client").url
+                == URL(string: "airy://uninstall?bundle=com.example.foo&reason=x&agent=test-client")!)
+        #expect(AiryURLCommand(url: URL(string: "airy://uninstall?bundle=a&reason=a%0Ab&agent=")!)
+                == .uninstall(bundleID: "a", reason: "a b", agent: nil))
+    }
+
+    @Test func uninstallURLRejectsHostileBundleID() {
+        let long = String(repeating: "a", count: 201)
+        for hostile in ["airy://uninstall", "airy://uninstall?bundle=", "airy://uninstall?bundle=../x",
+                        "airy://uninstall?bundle=a%20b", "airy://uninstall?bundle=a%0Ab", "airy://uninstall?bundle=\(long)",
+                        "airy://uninstall?bundle=.a", "airy://uninstall?bundle=a/b", "airy://uninstall?bundle=a&bundle=b",
+                        "airy://uninstall?reason=x"] {
+            #expect(AiryURLCommand(url: URL(string: hostile)!) == nil, "\(hostile)")
+        }
+        #expect(AiryURLCommand(url: URL(string: "airy://uninstall?bundle=\(String(repeating: "a", count: 200))")!) != nil)
+    }
+
     @Test func parsesDocumentedForms() {
         #expect(AiryURLCommand(url: URL(string: "airy://rescan")!) == .rescan)
         #expect(AiryURLCommand(url: URL(string: "airy://show?path=/Users")!) == .show(path: "/Users"))

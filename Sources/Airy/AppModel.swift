@@ -374,6 +374,37 @@ final class AppModel {
         case .proposeQuit:
             // Plan 4 Task 14 lo sustituye por la confirmación de cierre (ConfirmSheet → AppModel → QuitExecutor).
             report(.url, "Un agente propuso cerrar una app; esta versión de Airy aún no lo admite.")
+        case .uninstall(let bundleID, let reason, let agent):
+            // Solo prepara la confirmación: el usuario decide (y lo que se ejecuta queda como `.user(…, proposedBy:)`).
+            if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
+                report(.url, refusal)
+                return
+            }
+            section = .uninstaller
+            let inventory = await inventorySnapshot()
+            guard !Task.isCancelled else { return }
+            guard let app = inventory.apps.filter({ $0.bundleID.caseInsensitiveCompare(bundleID) == .orderedSame })
+                .sorted(by: { $0.path < $1.path }).first else {
+                report(.url, "Un agente propuso desinstalar «\(bundleID)», pero no está instalada.")
+                return
+            }
+            let plan = await uninstallPlan(for: app, inventory: inventory)
+            if let refusal = plan.refusal {
+                report(.url, "Un agente propuso desinstalar «\(app.name)», pero \(refusal.prefix(1).lowercased() + refusal.dropFirst())")
+                return
+            }
+            if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
+                report(.url, refusal)
+                return
+            }
+            let warning = CleanupFlow.ConfirmRequest.Warning(
+                title: URLProposalPolicy.warningTitle(),
+                subtitle: URLProposalPolicy.warningSubtitle(agent: agent, reason: reason),
+                reason: URLProposalPolicy.warningReason,
+                note: URLProposalPolicy.warningNote)
+            flow.requestUninstall([UninstallRequest(plan: plan, selected: plan.defaultSelection)], warning: warning,
+                                  proposedBy: URLProposalPolicy.claimedAgent(agent),
+                                  proposedVia: OperationContext.viaUnverifiedURL)
         case .propose(let target, let reason, let agent):
             // Nunca sustituye una hoja ya abierta (el usuario confirmaría otra cosa) ni una limpieza en curso.
             if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
