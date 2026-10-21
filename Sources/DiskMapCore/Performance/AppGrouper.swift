@@ -3,6 +3,9 @@ import Foundation
 /// R1: agrupa los procesos propios por la ruta del `.app` más externo.
 public enum AppGrouper {
     public static let systemPrefixes = ["/System/", "/usr/", "/sbin/", "/bin/", "/Library/Apple/", "/private/"]
+    /// Dentro de esos prefijos pero del usuario (M3): Homebrew de Intel e instaladores en `/usr/local`, y lo que se
+    /// ejecuta desde las carpetas temporales (`go run`, apps trasladadas por Gatekeeper).
+    public static let userPrefixes = ["/usr/local/", "/private/tmp/", "/private/var/folders/"]
 
     /// "/Applications/Google Chrome.app" para un helper anidado; nil si la ruta no está dentro de un `.app`.
     public static func outermostBundle(_ path: String?) -> String? {
@@ -15,6 +18,7 @@ public enum AppGrouper {
     /// Sin ruta conocida cuenta como sistema: nunca se ofrece cerrar algo que no se sabe qué es.
     private static func isSystem(_ path: String?) -> Bool {
         guard let path else { return true }
+        if userPrefixes.contains(where: { path.hasPrefix($0) }) { return false }
         return systemPrefixes.contains { path.hasPrefix($0) }
     }
 

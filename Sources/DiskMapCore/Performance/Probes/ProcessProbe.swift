@@ -113,8 +113,9 @@ public enum ProcessProbe {
             guard !name.isEmpty,
                   let pid = Int32(fields[0]), let ppid = Int32(fields[1]), let uid = UInt32(fields[2]),
                   let cpu = Double(fields[3].replacingOccurrences(of: ",", with: ".")),
-                  let rssKiB = Int64(fields[4]) else { return nil }
-            return SystemProcess(pid: pid, ppid: ppid, uid: uid, cpuPercent: cpu, rssBytes: rssKiB * 1024,
+                  let rssKiB = Int64(fields[4]), rssKiB >= 0 else { return nil }
+            let (bytes, overflow) = rssKiB.multipliedReportingOverflow(by: 1024)
+            return SystemProcess(pid: pid, ppid: ppid, uid: uid, cpuPercent: cpu, rssBytes: overflow ? .max : bytes,
                                  state: String(fields[5]), name: String(name))
         }
     }
@@ -123,13 +124,49 @@ public enum ProcessProbe {
 
     /// NSWorkspace.shared.runningApplications → RunningAppInfo.
     public static func runningApps() -> [RunningAppInfo] {
-        NSWorkspace.shared.runningApplications.compactMap { app in
-            guard app.processIdentifier > 0 else { return nil }
-            let name = app.localizedName ?? app.bundleURL?.deletingPathExtension().lastPathComponent
-                ?? app.executableURL?.lastPathComponent ?? ""
-            return RunningAppInfo(pid: app.processIdentifier, bundleID: app.bundleIdentifier, name: name,
-                                  bundlePath: app.bundleURL?.path, policy: policy(app.activationPolicy))
+        NSWorkspace.shared.runningApplications.compactMap(info)
+    }
+
+    /// `NSWorkspace` más lo que LaunchServices diga *ahora* de los `.app` que no conoce. En un proceso sin bucle
+    /// de AppKit (`airy-mcp`) la lista de `NSWorkspace` no se entera de las apps abiertas después de arrancar;
+    /// `NSRunningApplication(processIdentifier:)` sí se consulta al momento.
+    public static func runningApps(processes: [OwnProcess]) -> [RunningAppInfo] {
+        merge(workspace: runningApps(), processes: processes) { pid in
+            NSRunningApplication(processIdentifier: pid).flatMap(info)
         }
+    }
+
+    /// Para cada `.app` más externo del listado de procesos que `workspace` no conoce, consulta sus PIDs (de menor
+    /// a mayor) hasta dar con la app de ese mismo `.app`. Una app interior (un ayudante con su propio `.app`
+    /// dentro de otra) no cuenta: su ruta no es la del `.app` más externo.
+    static func merge(workspace: [RunningAppInfo], processes: [OwnProcess],
+                      lookup: (Int32) -> RunningAppInfo?) -> [RunningAppInfo] {
+        let knownBundles = Set(workspace.compactMap(\.bundlePath))
+        let knownPIDs = Set(workspace.map(\.pid))
+        var members: [String: [Int32]] = [:], order: [String] = []
+        for p in processes where !p.isZombie && !knownPIDs.contains(p.pid) {
+            guard let bundle = AppGrouper.outermostBundle(p.executablePath), !knownBundles.contains(bundle) else { continue }
+            if members[bundle] == nil { order.append(bundle) }
+            members[bundle, default: []].append(p.pid)
+        }
+        var result = workspace
+        for bundle in order {
+            for pid in (members[bundle] ?? []).sorted() {
+                if let app = lookup(pid), app.bundlePath == bundle {
+                    result.append(app)
+                    break
+                }
+            }
+        }
+        return result
+    }
+
+    private static func info(_ app: NSRunningApplication) -> RunningAppInfo? {
+        guard app.processIdentifier > 0 else { return nil }
+        let name = app.localizedName ?? app.bundleURL?.deletingPathExtension().lastPathComponent
+            ?? app.executableURL?.lastPathComponent ?? ""
+        return RunningAppInfo(pid: app.processIdentifier, bundleID: app.bundleIdentifier, name: name,
+                              bundlePath: app.bundleURL?.path, policy: policy(app.activationPolicy))
     }
 
     static func policy(_ p: NSApplication.ActivationPolicy) -> RunningAppInfo.Policy {

@@ -45,6 +45,33 @@ private let verdict = HealthVerdict(level: .fair, sentence: "Tu Mac va justo de 
         #expect(apps.count == 10 && apps.first?["name"] as? String == "App15")
     }
 
+    /// M2: Airy y airy-mcp nunca van en la lista de apps para Claude.
+    @Test func contextNeverIncludesAiry() throws {
+        let groups = [
+            group("Airy", memoryMB: 2000, pid: 90, bundlePath: "/Applications/Airy.app", bundleID: "local.airy.Airy"),
+            group("airy-mcp", memoryMB: 1500, pid: 91, kind: .looseProcess),
+            group("Safari", memoryMB: 100, pid: 92),
+        ]
+        let json = PerformanceAIContext.build(snapshot(groups), verdict: verdict)
+        let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let apps = try #require(object["apps"] as? [[String: Any]])
+        #expect(apps.compactMap { $0["name"] as? String } == ["Safari"])
+    }
+
+    /// M5: los nombres de los `.dmg` montados no se envían.
+    @Test func contextDropsDiskImageNames() throws {
+        let findings = [
+            Finding(id: "family-syspolicyd", level: .fair, sentence: "La comprobación de seguridad de apps (syspolicyd) está trabajando mucho."),
+            Finding(id: "disk-images", level: .fair,
+                    sentence: "Hay imágenes de disco montadas (Cliente-Secreto.dmg) que la hacen trabajar: expúlsalas en Finder si ya no las usas."),
+        ]
+        let json = PerformanceAIContext.build(snapshot([]), verdict: HealthVerdict(level: .fair, sentence: findings[0].sentence,
+                                                                                    findings: findings))
+        #expect(!json.contains("Cliente-Secreto") && !json.contains(".dmg"))
+        let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        #expect((object["findings"] as? [String])?.last == PerformanceAIContext.diskImagesSentence)
+    }
+
     @Test func explainSlownessUsesClosedInvocation() async throws {
         let lines = [
             #"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Cierra "}}}"#,

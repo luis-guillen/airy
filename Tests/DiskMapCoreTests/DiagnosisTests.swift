@@ -193,6 +193,13 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
             .findings.isEmpty)
     }
 
+    /// M2: airy-mcp se mide a sí mismo; nunca se señala como lo que más usa el procesador.
+    @Test func cpuBusyNeverNamesAiry() {
+        let groups = [group("Safari", cpu: 20), group("Airy", cpu: 300), group("airy-mcp", cpu: 250)]
+        let v = PerformanceDiagnosis.evaluate([snap(0, cpu: 90), snap(1.5, cpu: 85, groups: groups)], extras: .unknown)
+        #expect(v.sentence == "El procesador va al máximo: Safari es lo que más lo usa.")
+    }
+
     @Test func probesAreCalledOnlyWhenNeeded() async {
         // Nada lo pide: ninguna llamada.
         let idle = FakeRunner(resolved: ["docker": "/usr/local/bin/docker"])

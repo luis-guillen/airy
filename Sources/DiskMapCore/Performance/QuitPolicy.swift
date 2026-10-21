@@ -55,6 +55,13 @@ public struct QuitPolicy: Sendable {
         ["airy", "airy-mcp"].contains(p.name.lowercased()) || isInsideAiryBundle(p.executablePath)
     }
 
+    /// Un grupo que es el propio Airy o su `airy-mcp` (PID propio, dentro de `Airy.app` o por nombre). Se usa
+    /// para que Airy nunca se señale a sí misma en las frases ni en lo que se envía a Claude.
+    public static func isAiry(_ group: AppGroup, ownPID: Int32 = ProcessInfo.processInfo.processIdentifier) -> Bool {
+        group.leadPID == ownPID || group.pids.contains(ownPID) || isInsideAiryBundle(group.bundlePath)
+            || ([group.name] + group.processNames).contains { ["airy", "airy-mcp"].contains($0.lowercased()) }
+    }
+
     private static func isInsideAiryBundle(_ path: String?) -> Bool {
         guard let path else { return false }
         return (path + "/").contains("/Airy.app/")

@@ -173,7 +173,8 @@ public enum PerformanceDiagnosis {
 
         // Procesador al máximo.
         if history.count >= 2, history.suffix(2).allSatisfy({ ($0.cpu?.total ?? 0) >= busyCPU }) {
-            let top = last.groups.filter { ($0.cpuPercent ?? 0) > 0 }.max { ($0.cpuPercent ?? 0) < ($1.cpuPercent ?? 0) }
+            // Airy (y su airy-mcp, que se mide a sí mismo) nunca se señala.
+            let top = last.groups.filter { ($0.cpuPercent ?? 0) > 0 && !QuitPolicy.isAiry($0) }.max { ($0.cpuPercent ?? 0) < ($1.cpuPercent ?? 0) }
             let sentence = top.map { "El procesador va al máximo: \($0.name) es lo que más lo usa." }
                 ?? "El procesador va al máximo."
             findings.append(Finding(id: "cpu-busy", level: .fair, sentence: sentence))
@@ -194,11 +195,7 @@ public enum PerformanceDiagnosis {
 
     private static func memorySentence(_ snapshot: PerformanceSnapshot) -> String {
         // Airy nunca se señala a sí misma.
-        let ownPID = ProcessInfo.processInfo.processIdentifier
-        let top = snapshot.groups.filter {
-            $0.memory > 0 && !$0.pids.contains(ownPID)
-                && !(["airy", "airy-mcp"].contains($0.name.lowercased()) || ($0.bundlePath ?? "").hasSuffix("/Airy.app"))
-        }.sorted { $0.memory > $1.memory }.prefix(2)
+        let top = snapshot.groups.filter { $0.memory > 0 && !QuitPolicy.isAiry($0) }.sorted { $0.memory > $1.memory }.prefix(2)
         let used = snapshot.memory.used
         guard !top.isEmpty, used > 0 else { return "Tu Mac va justo de memoria." }
         let share = Int((Double(top.reduce(Int64(0)) { $0 + $1.memory }) / Double(used) * 100).rounded())

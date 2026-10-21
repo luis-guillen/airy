@@ -126,4 +126,39 @@ private func raw(_ n: Int = 0, cores: [CoreTicks] = [], topology: CoreTopology? 
         #expect(h.count == 6)
         #expect(h.last?.date == t0.addingTimeInterval(7))
     }
+
+    // MARK: - I2 / M1
+
+    /// Una propuesta llega con una instantánea vieja (de otra visita) en la que la app no estaba: se mide de
+    /// nuevo y la app aparece.
+    @Test func staleSnapshotIsNeverReusedForAProposal() async {
+        let spotify = OwnProcess(pid: 70, name: "Spotify", executablePath: "/Applications/Spotify.app/Contents/MacOS/Spotify")
+        let sampler = FakeSampler([raw(0), raw(3600, processes: [spotify])])
+        let monitor = PerformanceMonitor(sampler: sampler) { raw, _, _ in
+            raw.processes.map { p in
+                AppGroup(id: p.name, name: p.name, kind: .app, uid: 501, leadPID: p.pid, leadStart: p.startTime,
+                         pids: [p.pid], processNames: [p.name], memory: 0, cpuPercent: nil)
+            }
+        }
+        let old = await monitor.refresh()
+        #expect(old.groups.isEmpty)
+        // Pedida después de la vieja: mide otra vez.
+        let fresh = await monitor.snapshot(since: t0.addingTimeInterval(1))
+        #expect(sampler.calls == 2)
+        #expect(fresh.groups.map(\.name) == ["Spotify"])
+        // Ya hay una de después de la petición: se reutiliza sin medir.
+        let again = await monitor.snapshot(since: t0.addingTimeInterval(1))
+        #expect(sampler.calls == 2 && again == fresh)
+    }
+
+    @Test func resetForgetsHistory() async {
+        let monitor = PerformanceMonitor(sampler: FakeSampler([raw(0), raw(1), raw(2)]))
+        _ = await monitor.refresh()
+        _ = await monitor.refresh()
+        await monitor.reset()
+        #expect(await monitor.history.isEmpty)
+        let s = await monitor.refresh()
+        #expect(s.cpu == nil && s.processCPU.isEmpty)
+        #expect(await monitor.history.count == 1)
+    }
 }
