@@ -42,4 +42,4 @@ To add a language, add it to `Resources/Localizable.xcstrings` (app) and
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
+By contributing, you agree that your contributions are licensed under the [GPL-3.0](LICENSE).

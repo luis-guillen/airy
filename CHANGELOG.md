@@ -9,7 +9,7 @@ All notable changes to Airy are documented here. The format follows
 - English localization. English is now the base language and Spanish a full translation; the app follows the macOS language.
 
 ### Changed
-- Airy is open source under the **MIT License**.
+- Airy is open source under the **GPL-3.0** license.
 - Code comments, docs, design specs and repository content are in English.
 
 ## [0.2.0] - 2026-10-21

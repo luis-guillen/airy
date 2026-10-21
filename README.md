@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/luis-guillen/airy/actions/workflows/ci.yml"><img src="https://github.com/luis-guillen/airy/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/luis-guillen/airy/releases/latest"><img src="https://img.shields.io/github/v/release/luis-guillen/airy?color=2f8bff" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-0b1b3f?logo=apple" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Swift-6.3%2B-F05138?logo=swift&logoColor=white" alt="Swift 6.3+">
 </p>
@@ -240,6 +240,7 @@ code. The credit also appears in **About Airy**.
 
 ## License
 
-[MIT](LICENSE) © 2026 [Luis Guillén](https://github.com/luis-guillen).
+[GPL-3.0](LICENSE) © 2026 [Luis Guillén](https://github.com/luis-guillen).
 
-If you use Airy or its code in your own project, a link back to this repository is appreciated.
+You can use, study, modify and share Airy. If you distribute it or a derivative work, it must stay open
+source under the GPL-3.0 and keep the original copyright and credit.
