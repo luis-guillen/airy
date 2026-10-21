@@ -24,6 +24,8 @@ final class CleanupFlow {
             case quitApps([AppGroup])
             /// Forzar el cierre de lo que no respondió; siempre una segunda confirmación aparte.
             case forceQuitApps([AppGroup])
+            /// Duplicados: por grupo, la copia que se conserva y las que van a la Papelera (se verifican antes).
+            case duplicates([DuplicateRemoval])
         }
         /// Primer paso opcional ("Esto depende de ti" del asistente): la confirmación real llega
         /// solo tras "Sí, quiero moverlo…".
@@ -172,6 +174,12 @@ final class CleanupFlow {
         sheet = .confirm(ConfirmRequest(kind: .brokenLinks(links), onOutcome: onOutcome))
     }
 
+    func requestRemoveDuplicates(_ removals: [DuplicateRemoval],
+                                 onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
+        guard !removals.isEmpty, !isBusy else { return }
+        sheet = .confirm(ConfirmRequest(kind: .duplicates(removals), onOutcome: onOutcome))
+    }
+
     func cancelSheet() { sheet = nil }
 
     /// El usuario confirmó en la hoja. El estado "ocupado" se fija aquí mismo, antes de lanzar la
@@ -233,11 +241,28 @@ final class CleanupFlow {
             start(request)
             queuedIDs = groups.map(\.id)
             Task { await quit(groups, force: force, model: model, context: context) }
+        case .duplicates(let removals):
+            start(request)
+            duplicatesResult = nil
+            queuedIDs = ["duplicates"]
+            Task {
+                currentID = "duplicates"
+                let (outcome, notes) = await model.trashDuplicates(removals, context: context)
+                currentID = nil
+                queuedIDs = []
+                var summary = CleanupRunSummary()
+                summary.record(id: "duplicates", title: "Duplicados", outcome: outcome)
+                for note in notes { summary.problems.append(.init(title: "No se movió", message: note)) }
+                request.onOutcome?(outcome)
+                withAnimation(Theme.sectionSpring) { duplicatesResult = LastResult(summary: summary) }
+            }
         }
     }
 
     // MARK: Desinstalar
 
+    /// Resultado de la última tanda de Duplicados (con los motivos de lo que no se movió).
+    private(set) var duplicatesResult: LastResult?
     /// Resultado de la última tanda del Desinstalador (apps, huérfanos o enlaces).
     private(set) var uninstallResult: LastResult?
     /// Apps ya desinstaladas (ruta del `.app`): sus filas se van con el viento sin esperar a «Actualizar».
