@@ -4,38 +4,26 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>es</string>
-	<key>CFBundleLocalizations</key>
-	<array>
-		<string>es</string>
-	</array>
+	<key>CFBundleDisplayName</key>
+	<string>Airy</string>
 	<key>CFBundleExecutable</key>
+	<string>Airy</string>
+	<key>CFBundleIconFile</key>
 	<string>Airy</string>
 	<key>CFBundleIdentifier</key>
 	<string>local.airy.Airy</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>es</string>
+	</array>
 	<key>CFBundleName</key>
-	<string>Airy</string>
-	<key>CFBundleDisplayName</key>
-	<string>Airy</string>
-	<key>CFBundleIconFile</key>
 	<string>Airy</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.2.0</string>
-	<key>CFBundleVersion</key>
-	<string>2</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>15.0</string>
-	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.utilities</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>Airy usa Finder para vaciar la Papelera.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -47,5 +35,17 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>171</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Airy usa Finder para vaciar la Papelera.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>
