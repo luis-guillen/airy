@@ -71,6 +71,23 @@ private func file(_ id: String, _ risk: Risk, bytes: Int64 = 10, protected: Bool
 }
 
 @Suite struct LargeOldTests {
+    @Test func cancelledLookupStopsWalking() async {
+        let f = Fixture()
+        f.file("home/Downloads/big.bin", size: 200_000_000)
+        let finder = f.finder()
+        let root = f.root
+        let task = Task.detached { () -> [ActionableFile] in
+            withUnsafeCurrentTask { $0?.cancel() }
+            return finder.find(in: root, query: LargeOldQuery())
+        }
+        #expect(await task.value.isEmpty)
+        let types = Task.detached { () -> Int in
+            withUnsafeCurrentTask { $0?.cancel() }
+            return FileTypeBreakdown.items(of: .other, in: root).items.count
+        }
+        #expect(await types.value == 0)
+    }
+
     @Test func findsOnlyFilesAboveMinimum() {
         let f = Fixture()
         f.file("home/Downloads/big.bin", size: 200_000_000)

@@ -53,6 +53,13 @@ import Testing
         #expect(images.hiddenBytes == 0)
     }
 
+    @Test func gitAndBuildFoldersAreNeverListed() {
+        let git = Self.folder(".git", kind: .code, [Self.file("ORIG_HEAD", .code, 900), Self.file("hook.sh", .code, 5)])
+        let build = Self.folder(".build", kind: .code, [Self.file("main.swift", .code, 50)])
+        let root = Self.folder("/", [Self.folder("proj", [git, build, Self.file("app.swift", .code, 10)])])
+        #expect(FileTypeBreakdown.items(of: .code, in: root).items.map(\.name) == ["app.swift"])
+    }
+
     @Test func hiddenBytesAccountsForRest() {
         let files = (1...5).map { Self.file("f\($0).mov", .video, Int64($0) * 10) }
         let aggregate = FileNode(name: "Otros (9 elementos)", isDirectory: false, allocatedSize: 7, kind: .video,
