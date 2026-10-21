@@ -159,6 +159,11 @@ public struct LeftoverFinder: Sendable {
         }
     }
 
+    /// Por qué Airy no desinstalaría esta app (mismo texto que `plan(for:).refusal`), sin buscar restos.
+    public func refusal(for app: AppRecord) -> String? {
+        ProtectionWaiver.uninstall(app, appRoots: appRoots) == nil ? refusalText(for: app) : nil
+    }
+
     public func plan(for app: AppRecord, inventory: AppInventorySnapshot) async -> UninstallPlan {
         let waiver = ProtectionWaiver.uninstall(app, appRoots: appRoots)
         let refusal = waiver == nil ? refusalText(for: app) : nil

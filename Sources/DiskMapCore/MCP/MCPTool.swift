@@ -76,12 +76,18 @@ public struct MCPToolRegistry: Sendable {
     /// Herramientas de Airy. Task 12 añade las de lectura, Task 13 las de acción.
     /// Plan 4 añade las de Rendimiento (`performanceTools()`).
     public static func standard() -> MCPToolRegistry {
-        MCPToolRegistry(readTools() + actionTools() + performanceTools())
+        MCPToolRegistry(readTools() + actionTools() + performanceTools() + sectionTools())
     }
 
     /// Rendimiento (plan 4): leer y proponer; un agente nunca cierra una app.
     static func performanceTools() -> [any MCPTool] {
         [GetPerformanceTool(), ProposeQuitAppTool()]
+    }
+
+    /// Secciones de la fase 2: leer apps, huérfanos, grandes y duplicados, y proponer desinstalar.
+    static func sectionTools() -> [any MCPTool] {
+        [ListAppsTool(), ExplainAppTool(), ListOrphansTool(), ListLargeOldTool(), ListDuplicatesTool(),
+         ProposeUninstallTool()]
     }
 
     /// Herramientas de solo lectura (Task 12).

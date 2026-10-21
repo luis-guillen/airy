@@ -387,8 +387,10 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
     /// F11: el conjunto exacto, sin contar; cada plan añade sus nombres.
     @Test func registryHasExactToolSetAndNoArbitraryInput() {
         let tools = MCPToolRegistry.standard().tools
-        #expect(tools.map(\.name).sorted() == ["explain_path", "get_disk_summary", "get_performance", "list_cleanup_items", "list_largest",
-            "propose_cleanup", "propose_quit_app", "rescan", "run_safe_cleanup", "run_safe_cleanup_all", "show_in_app"])
+        #expect(tools.map(\.name).sorted() == ["explain_app", "explain_path", "get_disk_summary", "get_performance", "list_apps",
+            "list_cleanup_items", "list_duplicates", "list_large_old", "list_largest", "list_orphans",
+            "propose_cleanup", "propose_quit_app", "propose_uninstall", "rescan", "run_safe_cleanup",
+            "run_safe_cleanup_all", "show_in_app"])
         for tool in tools {
             guard case .object(let properties)? = tool.inputSchema["properties"] else {
                 Issue.record("\(tool.name) sin properties"); continue

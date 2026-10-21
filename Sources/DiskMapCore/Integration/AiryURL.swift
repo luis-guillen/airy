@@ -8,6 +8,7 @@ import Foundation
 /// - `airy://show?path=<p>`
 /// - `airy://rescan`
 /// - `airy://quit?app=<bundle id o nombre>&reason=<r>&agent=<a>` (solo prepara la confirmación de cierre)
+/// - `airy://uninstall?bundle=<id>&reason=<r>&agent=<a>` (solo prepara la confirmación de desinstalar)
 public enum AiryURLCommand: Sendable, Equatable {
     public enum ProposeTarget: Sendable, Equatable { case item(String), path(String) }
 
@@ -15,6 +16,7 @@ public enum AiryURLCommand: Sendable, Equatable {
     case show(path: String)
     case rescan
     case proposeQuit(app: String, reason: String, agent: String?)
+    case uninstall(bundleID: String, reason: String, agent: String?)
 
     public static let scheme = "airy"
     public static let maxReason = 500, maxAgent = 64, maxPath = 1024, maxItemID = 200
@@ -61,6 +63,11 @@ public enum AiryURLCommand: Sendable, Equatable {
             let agent = query["agent"].map { Self.sanitised($0, limit: Self.maxAgent) }
             self = .proposeQuit(app: app, reason: Self.sanitised(query["reason"] ?? "", limit: Self.maxReason),
                                 agent: (agent?.isEmpty ?? true) ? nil : agent)
+        case "uninstall":
+            guard let id = query["bundle"], Self.isSafeBundleID(id) else { return nil }
+            let agent = query["agent"].map { Self.sanitised($0, limit: Self.maxAgent) }
+            self = .uninstall(bundleID: id, reason: Self.sanitised(query["reason"] ?? "", limit: Self.maxReason),
+                              agent: (agent?.isEmpty ?? true) ? nil : agent)
         default:
             return nil
         }
@@ -86,6 +93,11 @@ public enum AiryURLCommand: Sendable, Equatable {
         case .proposeQuit(let app, let reason, let agent):
             host = "quit"
             items = [("app", app)]
+            if !reason.isEmpty { items.append(("reason", reason)) }
+            if let agent { items.append(("agent", agent)) }
+        case .uninstall(let id, let reason, let agent):
+            host = "uninstall"
+            items = [("bundle", id)]
             if !reason.isEmpty { items.append(("reason", reason)) }
             if let agent { items.append(("agent", agent)) }
         }
@@ -128,6 +140,15 @@ public enum AiryURLCommand: Sendable, Equatable {
         guard path.hasPrefix("/"), path.count <= maxPath,
               !path.unicodeScalars.contains(where: isControl) else { return false }
         return !path.split(separator: "/", omittingEmptySubsequences: true).contains("..")
+    }
+
+    /// `^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$`
+    static func isSafeBundleID(_ id: String) -> Bool {
+        guard let first = id.unicodeScalars.first, id.unicodeScalars.count <= 200 else { return false }
+        func alnum(_ s: Unicode.Scalar) -> Bool {
+            ("a"..."z").contains(s) || ("A"..."Z").contains(s) || ("0"..."9").contains(s)
+        }
+        return alnum(first) && id.unicodeScalars.allSatisfy { alnum($0) || $0 == "." || $0 == "_" || $0 == "-" }
     }
 
     private static func isSafeItemID(_ id: String) -> Bool {
