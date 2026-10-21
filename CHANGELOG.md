@@ -5,6 +5,19 @@ All notable changes to Airy are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Cleanup: **Old temporary files**, one row with the entries of your user temporary folder that nothing changed
+  in 3 days and no process has open (green in Aggressive, amber in Careful). `/private/tmp` stays protected.
+- Cleanup: **Archives already extracted**, `.zip`, `.dmg`, `.tar`, `.7z` and `.rar` files over 200 MB in
+  Downloads, Desktop and Documents next to a folder with the same name. Always "Your call".
+- Cleanup: **Merged git worktrees**, extra worktrees of your projects whose branch is merged and that have no
+  uncommitted changes. Never the main or a locked worktree. Always "Your call".
+- Map: **What changed** card with what grew and shrank since the previous scan; click a row to reveal it in
+  Finder. New read-only MCP tool `what_changed`.
+- A notice when free space drops by more than 10 GB within 10 minutes, with the largest deleted-but-open files.
+  `get_disk_summary` reports it as `recent_space_drop`. Airy never acts on it.
+
 ### Changed
 - Folders Airy protects only as a whole (`/Users`, your home, `~/Library`, `~/Documents`…) no longer show the red “Don't delete”: the Map card and the rows show a blue “Protected folder” and say that what's inside can still be cleaned. Locations sealed with their contents (`/System`, Mail, keychains, browser profiles…) keep “Don't delete” and say that nothing inside is touched either. `explain_path` gains `protection_scope` (`folder_only` / `folder_and_contents`) and `protection_scope_note`. Display only: what is protected doesn't change.
 
