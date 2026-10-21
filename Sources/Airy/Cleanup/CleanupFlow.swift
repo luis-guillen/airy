@@ -332,6 +332,8 @@ final class CleanupFlow {
 
     private func run(_ items: [CleanupItem], model: AppModel, context: OperationContext,
                      onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
+        // Una tanda de ejecución: la detección cara se repite una vez (no la de la vista previa), no por fila.
+        let pass = RevalidationPass()
         let summary = await CleanupBatch.run(items, onStart: { [weak self] index in
             guard let self else { return }
             self.currentID = items[index].id
@@ -344,7 +346,7 @@ final class CleanupFlow {
                 onOutcome?(gone)
                 return gone
             }
-            let outcome = await model.perform(current, context: context, refreshesCleanup: false)
+            let outcome = await model.perform(current, context: context, refreshesCleanup: false, pass: pass)
             switch outcome {
             case .freed, .movedToTrash:
                 self?.batchTally.add(outcome)

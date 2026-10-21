@@ -152,11 +152,12 @@ public struct CleanupExecutor: Sendable {
     /// Lo que haría `execute(item, context:)` ahora: mismo plan, sin mover ni ejecutar nada.
     /// `logged`: anotarla en el registro como simulación (`dry_run` pedido por un agente). La vista previa
     /// de la hoja de confirmación no es una operación y no se anota (`false`).
+    /// `pass`: la tanda a la que pertenece (una por hoja de confirmación): las filas comparten la detección cara.
     public func preview(_ item: CleanupItem, context: OperationContext = .user(),
-                        logged: Bool = true) async -> CleanupPreview {
+                        logged: Bool = true, pass: RevalidationPass? = nil) async -> CleanupPreview {
         let preview: CleanupPreview
         var title = item.title
-        switch await plan(item, context: context) {
+        switch await plan(item, context: context, pass: pass) {
         case .failure(let refusal):
             preview = .blocked(reason: refusal.reason)
         case .success(let planned):
@@ -182,13 +183,15 @@ public struct CleanupExecutor: Sendable {
         return preview
     }
 
-    public func execute(_ item: CleanupItem, context: OperationContext = .user()) async -> CleanupOutcome {
+    /// `pass`: la tanda a la que pertenece (una por ejecución confirmada); nunca la de la vista previa.
+    public func execute(_ item: CleanupItem, context: OperationContext = .user(),
+                        pass: RevalidationPass? = nil) async -> CleanupOutcome {
         let outcome: CleanupOutcome
         var title = item.title
         var paths = item.paths
         var command: [String]?
         var moved: [String] = [], movedBytes: Int64 = 0
-        switch await plan(item, context: context) {
+        switch await plan(item, context: context, pass: pass) {
         case .failure(let refusal):
             outcome = .blocked(reason: refusal.reason)
         case .success(let planned):
@@ -310,7 +313,8 @@ public struct CleanupExecutor: Sendable {
 
     /// Único camino de decisión para `preview` y `execute`. Orden: ajustes vivos → clasificador vivo →
     /// política de agente → bloqueos actuales → procesos → referencias → rutas (`PathGate`) → tamaños.
-    private func plan(_ item: CleanupItem, context: OperationContext) async -> Result<PlannedAction, PathRefusal> {
+    private func plan(_ item: CleanupItem, context: OperationContext,
+                      pass: RevalidationPass?) async -> Result<PlannedAction, PathRefusal> {
         let load = settings()
         if let refusal = policyRefusal(load, context: context) { return .failure(refusal) }
 
@@ -344,7 +348,7 @@ public struct CleanupExecutor: Sendable {
                 return .failure(PathRefusal(reason: "La ruta no corresponde a «\(live.title)»: \(path)."))
             }
             checkPaths = livePaths
-            if let reason = await revalidate(live, item: item) { return .failure(PathRefusal(reason: reason)) }
+            if let reason = await revalidate(live, item: item, pass: pass) { return .failure(PathRefusal(reason: reason)) }
         }
         let riskInputs = RiskInputs(entry: live, paths: checkPaths, ai: item.risk,
                                     itemDoNotTouch: item.entry.risk == .doNotTouch)
@@ -399,7 +403,7 @@ public struct CleanupExecutor: Sendable {
                 guardPaths: [], checkOpenFiles: false))
         case .trash:
             // La fuente de la ficha decide si las rutas siguen siendo suyas (patrones, versiones antiguas…).
-            if let reason = await revalidate(live, item: item) { return .failure(PathRefusal(reason: reason)) }
+            if let reason = await revalidate(live, item: item, pass: pass) { return .failure(PathRefusal(reason: reason)) }
             planned = await planTrash(item.paths, gate: gate(load), title: title, processNames: live.processNames,
                                       checkOpenFiles: true)
         }
@@ -555,9 +559,13 @@ public struct CleanupExecutor: Sendable {
     }
 
     /// La fuente de la ficha viva vuelve a comprobar el elemento (misma regla que al detectarlo).
-    private func revalidate(_ live: CatalogEntry, item: CleanupItem) async -> String? {
-        let context = DiscoveryContext(catalog: catalog, home: home, runner: runner, processListing: processListing,
-                                       now: now(), scan: nil)
+    /// Con `pass`, el contexto (y sus memorias) es el de la tanda; sin ella, uno nuevo para esta fila.
+    private func revalidate(_ live: CatalogEntry, item: CleanupItem, pass: RevalidationPass?) async -> String? {
+        let make = {
+            DiscoveryContext(catalog: catalog, home: home, runner: runner, processListing: processListing,
+                             now: now(), scan: nil)
+        }
+        let context = pass?.context(make) ?? make()
         return await CleanupTargets.source(for: live).revalidate(live, item: item, context: context)
     }
 

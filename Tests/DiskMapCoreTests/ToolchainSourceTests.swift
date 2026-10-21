@@ -265,13 +265,15 @@ private func pyenvHome() -> String {
         #expect(label(.goSDK, .go, "go1.21.0") == "Go 1.21.0 (~/sdk)")
     }
 
-    @Test func detectionBudgetExceededOffersNothing() async throws {
+    @Test func detectionBudgetExceededBlocksRowsWithAReason() async throws {
         let base = pyenvHome()
         let catalog = try tcCatalog("toolchain-pyenv")
         let source = ToolchainSource(roots: { _ in tcRoots(base) }, budget: .zero)
         let context = DiscoveryContext(catalog: catalog, home: base + "/home", runner: FakeRunner(),
                                        processListing: TCListing(), now: Date(), scan: nil)
-        #expect(await source.discover(catalog.entries[0], context: context).isEmpty)
+        let rows = await source.discover(catalog.entries[0], context: context)
+        #expect(rows.count == 3)
+        #expect(rows.allSatisfy { $0.blockedReason == ToolchainSource.incompleteReason && !$0.preselectable })
     }
 }
 
