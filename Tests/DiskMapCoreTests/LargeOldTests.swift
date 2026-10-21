@@ -25,7 +25,7 @@ private struct Fixture {
     private let homeNode: FileNode
 
     init() {
-        tmp = FileManager.default.temporaryDirectory.appendingPathComponent("lo-\(UUID().uuidString)").path
+        tmp = TestTemp.url("lo").path
         try! FileManager.default.createDirectory(atPath: tmp + "/home", withIntermediateDirectories: true)
         homeNode = FileNode(name: "home", isDirectory: true)
         root = FileNode(name: tmp, isDirectory: true, children: [homeNode])

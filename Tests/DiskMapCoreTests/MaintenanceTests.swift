@@ -26,7 +26,7 @@ private final class DelayRunner: CommandRunning, Sendable {
 }
 
 private func tempHome() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-maint-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-maint")
     try! FileManager.default.createDirectory(at: url.appendingPathComponent("Library/Preferences"),
                                              withIntermediateDirectories: true)
     return url.path

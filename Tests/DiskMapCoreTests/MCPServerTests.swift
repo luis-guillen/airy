@@ -49,7 +49,7 @@ func makeTestEnvironment(home: String) -> AiryEnvironment {
 }
 
 private func makeTempHome() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-mcp-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-mcp")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

@@ -11,7 +11,7 @@ private struct Fixture {
     var home: String { tmp + "/home" }
 
     init() {
-        tmp = FileManager.default.temporaryDirectory.appendingPathComponent("dup-\(UUID().uuidString)").path
+        tmp = TestTemp.url("dup").path
         try! FileManager.default.createDirectory(atPath: tmp + "/home", withIntermediateDirectories: true)
     }
 

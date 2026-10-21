@@ -70,7 +70,7 @@ private func write(_ path: String, bytes: Int = 4096) {
 /// Temporary home with `~/Applications` (Foo, Bar) and a fake `/System/Applications` with Safari.
 private func makeSectionFixture(agents: Bool = true, extraRoots: [String] = [],
                                 lookup: FakeLookup = FakeLookup()) -> SectionFixture {
-    let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("airy-sec-\(UUID().uuidString)").path
+    let tmp = TestTemp.url("airy-sec").path
     let home = tmp + "/home"
     makeApp(home + "/Applications/Foo.app", id: "com.example.foo", name: "Foo")
     write(home + "/Applications/Foo.app/Contents/MacOS/foo", bytes: 300_000)
@@ -149,7 +149,7 @@ private func names(_ result: MCPToolResult) -> [String] {
 
     @Test func listOrphansUndecidedWhenIncomplete() async {
         // A root that is not a folder: the inventory is incomplete and nothing is decided.
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("airy-sec-file-\(UUID().uuidString)").path
+        let tmp = TestTemp.url("airy-sec-file").path
         FileManager.default.createFile(atPath: tmp, contents: Data([1]))
         defer { try? FileManager.default.removeItem(atPath: tmp) }
         let lookup = FakeLookup()

@@ -35,7 +35,7 @@ private func runner(_ outputs: [String: CommandOutput]) -> FakeRunner {
 }
 
 private func tempDir() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-docker-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-docker")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

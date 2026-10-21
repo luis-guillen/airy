@@ -4,7 +4,7 @@ import Testing
 
 @Suite struct LoginItemsTests {
     private func makeDir(_ plists: [String: Any]) throws -> String {
-        let dir = NSTemporaryDirectory() + "airy-login-" + UUID().uuidString
+        let dir = TestTemp.path("airy-login")
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         for (name, value) in plists {
             let data = try PropertyListSerialization.data(fromPropertyList: value, format: .xml, options: 0)

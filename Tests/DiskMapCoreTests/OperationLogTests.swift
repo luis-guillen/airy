@@ -5,7 +5,7 @@ import Testing
 
 @Suite struct OperationLogTests {
     private func tempDir() -> URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("airy-oplog-\(UUID().uuidString)")
+        TestTemp.url("airy-oplog")
     }
 
     private func record(_ title: String = "t", actor: OperationActor = .user) -> OperationRecord {

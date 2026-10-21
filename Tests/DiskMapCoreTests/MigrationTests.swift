@@ -4,7 +4,7 @@ import Testing
 
 @Suite struct MigrationTests {
     private func makeRoot() -> URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("airy-migration-\(UUID().uuidString)")
+        TestTemp.url("airy-migration")
     }
 
     private func makePaths(_ root: URL, withLegacy: Bool = true) throws -> (AppPaths, Data) {

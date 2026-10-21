@@ -98,8 +98,7 @@ final class FakeFreeSpace: Sendable {
 // MARK: - Utilities
 
 private func makeTempDir(_ label: String = "airy-cleanup") -> String {
-    let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent("\(label)-\(UUID().uuidString)")
+    let url = TestTemp.url(label)
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url.path
 }

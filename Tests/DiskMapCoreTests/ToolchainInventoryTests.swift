@@ -3,7 +3,7 @@ import Testing
 @testable import DiskMapCore
 
 func toolchainTempDir() -> String {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-tc-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-tc")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return CleanupTargets.realPath(url.path) ?? url.path
 }

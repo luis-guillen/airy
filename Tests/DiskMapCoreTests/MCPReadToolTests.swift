@@ -20,7 +20,7 @@ private struct ReadFixture {
 }
 
 private func fixture(entries: [CatalogEntry] = [], protected: [String] = []) throws -> ReadFixture {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-read-\(UUID().uuidString)")
+    let url = TestTemp.url("airy-read")
     let home = url.appendingPathComponent("home", isDirectory: true).path
     try FileManager.default.createDirectory(atPath: home, withIntermediateDirectories: true)
     let support = url.appendingPathComponent("support", isDirectory: true)

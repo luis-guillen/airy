@@ -56,8 +56,7 @@ private final class FakeTerminator: ProcessTerminating {
     }
 
     func tempLog() -> OperationLog {
-        OperationLog(file: FileManager.default.temporaryDirectory
-            .appendingPathComponent("airy-quit-\(UUID().uuidString)/operations.jsonl"))
+        OperationLog(file: TestTemp.url("airy-quit").appendingPathComponent("operations.jsonl"))
     }
 
     fileprivate func executor(_ terminator: FakeTerminator, groups: [AppGroup], log: OperationLog? = nil) -> QuitExecutor {
