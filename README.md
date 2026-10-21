@@ -59,8 +59,8 @@ safe.
 
 | Section | What it does |
 |---|---|
-| **Map** | Zoomable disk treemap with color categories, real allocated sizes and an incremental saved index. |
-| **Cleanup** | Caches, logs and developer artifacts (`node_modules`, DerivedData, Docker…). Duplicate toolchain versions: pyenv, conda, rustup, Homebrew. Aggressive and Careful modes, multi-select and **Delete all** with a single confirmation. |
+| **Map** | Zoomable disk treemap with color categories, real allocated sizes and an incremental saved index. A **What changed** card shows what grew or shrank since the previous scan, and a notice warns when free space drops fast. |
+| **Cleanup** | Caches, logs, old temporary files and developer artifacts (`node_modules`, DerivedData, Docker, merged git worktrees…). Archives you already extracted. Duplicate toolchain versions: pyenv, conda, rustup, Homebrew. Aggressive and Careful modes, multi-select and **Delete all** with a single confirmation. |
 | **Performance** | Memory, CPU, thermal state and battery, plus the heaviest apps. Quit apps with confirmation, run reversible maintenance, and get an optional AI answer to **Why is it slow?** |
 | **AI assistant** | Report and chat about your disk through Claude. Metadata only, never file contents. |
 | **Uninstaller** | Removes apps and their leftovers. Uses Homebrew only when its uninstall steps are verifiably safe, otherwise the Trash. Also finds orphaned leftovers and broken symlinks. |
@@ -140,9 +140,9 @@ claude mcp add -s user airy -- /Applications/Airy.app/Contents/MacOS/airy-mcp
 
 Tools:
 
-- **Read:** `get_disk_summary`, `list_largest`, `explain_path`, `list_cleanup_items`,
-  `get_performance`, `list_apps`, `explain_app`, `list_orphans`, `list_large_old`, `list_duplicates`,
-  `scan_status`.
+- **Read:** `get_disk_summary` (with `recent_space_drop`), `list_largest`, `explain_path`,
+  `list_cleanup_items`, `what_changed`, `get_performance`, `list_apps`, `explain_app`, `list_orphans`,
+  `list_large_old`, `list_duplicates`, `scan_status`.
 - **Act:** `run_safe_cleanup`, `run_safe_cleanup_all` (green only, supports `dry_run`),
   `propose_cleanup`, `propose_quit_app`, `propose_uninstall`, `show_in_app`.
 
@@ -155,7 +155,7 @@ The Xcode Command Line Tools are enough; full Xcode isn't required.
 ```bash
 git clone https://github.com/luis-guillen/airy.git && cd airy
 swift build                           # debug
-swift test --no-parallel              # ~970 tests
+swift test --no-parallel              # ~1,000 tests
 bash scripts/build-app.sh             # signed build/Airy.app
 bash scripts/build-app.sh --install   # also installs into /Applications
 ```

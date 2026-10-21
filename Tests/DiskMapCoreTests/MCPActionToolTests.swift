@@ -390,7 +390,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         #expect(tools.map(\.name).sorted() == ["explain_app", "explain_path", "get_disk_summary", "get_performance", "list_apps",
             "list_cleanup_items", "list_duplicates", "list_large_old", "list_largest", "list_orphans",
             "propose_cleanup", "propose_quit_app", "propose_uninstall", "rescan", "run_safe_cleanup",
-            "run_safe_cleanup_all", "show_in_app"])
+            "run_safe_cleanup_all", "show_in_app", "what_changed"])
         for tool in tools {
             guard case .object(let properties)? = tool.inputSchema["properties"] else {
                 Issue.record("\(tool.name) without properties"); continue

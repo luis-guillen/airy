@@ -1221,6 +1221,16 @@
         }
       }
     },
+    "By kind: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por tipo: %@"
+          }
+        }
+      }
+    },
     "CPU %lld%%" : {
       "localizations" : {
         "es" : {
@@ -2587,6 +2597,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ocultar hasta la próxima vez"
+          }
+        }
+      }
+    },
+    "Hide until the next scan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar hasta el próximo análisis"
+          }
+        }
+      }
+    },
+    "Hide what changed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar qué ha cambiado"
           }
         }
       }
@@ -4761,6 +4791,16 @@
         }
       }
     },
+    "Show %@ in Finder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar %@ en el Finder"
+          }
+        }
+      }
+    },
     "Show Connection Instructions" : {
       "localizations" : {
         "es" : {
@@ -4797,6 +4837,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ver en el mapa"
+          }
+        }
+      }
+    },
+    "Since the scan %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desde el análisis de %@"
           }
         }
       }
@@ -5687,6 +5737,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "¿Qué puedo borrar sin riesgo?"
+          }
+        }
+      }
+    },
+    "What changed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qué ha cambiado"
           }
         }
       }

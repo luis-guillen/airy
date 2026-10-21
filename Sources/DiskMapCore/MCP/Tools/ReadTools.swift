@@ -87,7 +87,9 @@ public struct GetDiskSummaryTool: MCPTool {
     public var description: String {
         "Disk summary: capacity, free and purgeable space, scanned bytes and breakdown by kind, according to Airy's last "
             + "saved scan. `scan_complete` is false if some folders could not be accessed in that scan. "
-            + "`full_disk_access` is the permission of the agent's process (airy-mcp), not that of the Airy app."
+            + "`full_disk_access` is the permission of the agent's process (airy-mcp), not that of the Airy app. "
+            + "`recent_space_drop` is the last fast drop of free space the app noticed in the last 24 h (or null), "
+            + "with the largest deleted-but-open files; Airy never acts on it."
     }
     public var inputSchema: JSONValue { objectSchema() }
     public var annotations: MCPToolAnnotations { readOnly }
@@ -117,6 +119,7 @@ public struct GetDiskSummaryTool: MCPTool {
             "analyzed_bytes": MCPFormat.number(scan.root.allocatedSize),
             "by_kind": .array(kinds),
             "full_disk_access": .bool(env.probes.hasFullDiskAccess()),
+            "recent_space_drop": SpaceDropFormat.recent(env),
         ])
         let note = scan.inaccessible.isEmpty ? "" : " (incomplete scan: some folders could not be accessed)"
         return .ok(value, summary: "Disk summary from the last scan\(note).")

@@ -92,7 +92,7 @@ struct Volume: Identifiable, Hashable, Sendable {
 
 /// Non-blocking notice the UI shows as a dismissible banner.
 struct Notice: Identifiable, Equatable {
-    enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit, performance }
+    enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit, performance, spaceDrop }
     let kind: Kind
     let message: String
     var id: String { kind.rawValue }
@@ -131,6 +131,8 @@ final class AppModel {
     var navigation = MapNavigation()
     /// Date of the scan shown (the saved index's until the new one finishes).
     var lastScanDate: Date?
+    /// What grew and shrank between the last two finished scans of the shown volume (the Map's "What changed" card).
+    var scanChanges: ScanChanges?
     /// Error from the last scan. With no scan to show it fills the screen; otherwise it goes in `notices`.
     var scanError: String?
     /// Problems that don't stop the app from working but change what the numbers mean.
@@ -192,6 +194,8 @@ final class AppModel {
     /// Paths an action (Trash or cleanup) removed or changed, with their time. A scan that
     /// started earlier may have seen them as they were: when it is published, only those are re-measured.
     private var touchedPaths: [String: Date] = [:]
+    /// Free-space drop alert: checks once a minute at `.background` while Airy runs. It never acts.
+    @ObservationIgnored private var spaceDropTask: Task<Void, Never>?
 
     init() {
         let paths = AppPaths.standard()
@@ -225,6 +229,18 @@ final class AppModel {
         observeSystem()
         refreshSystemState()
         performance.model = self
+        startSpaceDropMonitor()
+    }
+
+    /// Watches free space once a minute (sleeping in between). On a fast drop it shows a
+    /// notice with the largest deleted-but-open file; the snapshot also reaches `airy-mcp` (`get_disk_summary`).
+    private func startSpaceDropMonitor() {
+        let monitor = SpaceDropMonitor(runner: runner, store: SpaceDropStore(directory: paths.support))
+        spaceDropTask = Task.detached(priority: .background) { [weak self] in
+            await monitor.run { snapshot in
+                await MainActor.run { self?.report(.spaceDrop, snapshot.message) }
+            }
+        }
     }
 
     // MARK: Settings
@@ -740,6 +756,9 @@ final class AppModel {
                 return (result, result.scannedAt)
             }.value
             guard generation == self.scanGeneration else { return }
+            let changeStore = self.changeStore(for: volume)
+            self.scanChanges = await Task.detached(priority: .utility) { changeStore.changes() }.value
+            guard generation == self.scanGeneration else { return }
             if let (result, date) = stored {
                 self.show(result, date: date, volume: volume)
             } else {
@@ -814,6 +833,7 @@ final class AppModel {
             self.progress = nil
             self.refreshSystemState()
             if let detection = self.detectionGate.scanFinished(trigger) { self.refreshCleanup(detection) }
+            await self.recordChanges(result, previousTree: stored?.0, store: changeStore, generation: generation)
             await self.saveIndex(result, to: store, key: volume.url.path)
         }
     }
@@ -877,6 +897,25 @@ final class AppModel {
 
     private enum SaveResult: Sendable { case saved, skipped, failed(String) }
 
+    /// Keeps a compact summary of the new scan and compares it with the previous one. Without a stored summary (an
+    /// index saved by an older Airy), the previous index read at launch is summarized instead. Only the summary file is
+    /// written; a failure only means there is no "What changed" this time.
+    private func recordChanges(_ result: ScanResult, previousTree: ScanResult?, store: ScanChangeStore,
+                               generation: Int) async {
+        #if DEBUG
+        guard ScanRootsOverride.allowsSaving(environment: ProcessInfo.processInfo.environment) else { return }
+        #endif
+        let changes = await treeGate.read(cancellable: false, priority: .utility) { () -> ScanChanges? in
+            let summary = ScanSummary.make(from: result)
+            // The previous tree is no longer shown: nobody changes it any more.
+            guard let record = try? store.record(summary, fallbackPrevious: { previousTree.map { ScanSummary.make(from: $0) } }),
+                  let previous = record.previous else { return nil }
+            return ScanChanges.compute(previous: previous, current: record.current)
+        }.value
+        guard generation == scanGeneration else { return }
+        scanChanges = changes
+    }
+
     func cancelScan() {
         scanTask?.cancel()
         scanGeneration += 1
@@ -911,8 +950,18 @@ final class AppModel {
     /// The startup disk uses the main store; each external one, its own folder.
     private func store(for volume: Volume) -> IndexStore {
         guard !volume.isStartup else { return store }
+        return IndexStore(directory: directory(for: volume))
+    }
+
+    private func directory(for volume: Volume) -> URL {
+        guard !volume.isStartup else { return appDirectory }
         let safeName = volume.url.path.replacingOccurrences(of: "/", with: "_")
-        return IndexStore(directory: appDirectory.appendingPathComponent("Volumes/\(safeName)", isDirectory: true))
+        return appDirectory.appendingPathComponent("Volumes/\(safeName)", isDirectory: true)
+    }
+
+    /// Scan summaries of a volume, next to its index.
+    private func changeStore(for volume: Volume) -> ScanChangeStore {
+        ScanChangeStore(directory: directory(for: volume))
     }
 
     // MARK: Cleanup

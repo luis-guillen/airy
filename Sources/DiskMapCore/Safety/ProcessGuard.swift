@@ -16,6 +16,13 @@ public protocol ProcessListing: Sendable {
     func processes() -> [RunningProcess]?
     /// Processes with some file open under `paths`. `nil` = unknown.
     func holders(ofPathsUnder paths: [String]) -> [RunningProcess]?
+    /// Every path some process has open under `roots` (as the kernel reports it, links resolved). `nil` = unknown.
+    func openPaths(under roots: [String]) -> Set<String>?
+}
+
+extension ProcessListing {
+    /// Listings that cannot tell which paths are open answer "unknown": callers fail closed.
+    public func openPaths(under roots: [String]) -> Set<String>? { nil }
 }
 
 /// Real reading through libproc. Excludes our own PID; processes that cannot be inspected (EPERM) are skipped.
@@ -38,6 +45,20 @@ public struct LibprocListing: ProcessListing {
                 roots.contains { open == $0 || open.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }
             }) {
                 result.append(process)
+            }
+        }
+        return result
+    }
+
+    public func openPaths(under roots: [String]) -> Set<String>? {
+        guard let pids = Self.allPIDs() else { return nil }
+        let prefixes = roots.filter { !$0.isEmpty }.map(RiskPolicy.canonical)
+        guard !prefixes.isEmpty else { return [] }
+        var result = Set<String>()
+        for pid in pids {
+            for open in Self.openPaths(of: pid) {
+                let canonical = RiskPolicy.canonical(open)
+                if prefixes.contains(where: { RiskPolicy.isInside(canonical, root: $0) }) { result.insert(open) }
             }
         }
         return result
