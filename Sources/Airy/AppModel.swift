@@ -786,18 +786,23 @@ final class AppModel {
         }
         var previews: [String: CleanupPreview] = [:]
         // La vista previa de la hoja no es una operación: no se anota en el registro.
-        for item in items { previews[item.id] = await executor.preview(item, context: context, logged: false) }
+        // Una tanda: la detección cara (versiones, proyectos, `brew uses`) se hace una vez para todas las filas.
+        let pass = RevalidationPass()
+        for item in items {
+            previews[item.id] = await executor.preview(item, context: context, logged: false, pass: pass)
+        }
         return previews
     }
 
     /// Ejecuta una limpieza del catálogo (con revalidación completa) y refresca los contadores.
     /// La interfaz es la que confirma antes de llamar aquí.
     /// `refreshesCleanup: false` para tandas: quien llama refresca la detección una sola vez al final.
+    /// `pass`: la tanda de ejecución (una por confirmación), compartida por todas sus filas.
     func perform(_ item: CleanupItem, context: OperationContext = .user(),
-                 refreshesCleanup: Bool = true) async -> CleanupOutcome {
+                 refreshesCleanup: Bool = true, pass: RevalidationPass? = nil) async -> CleanupOutcome {
         if let refusal = settingsRefusal() { return refusal }
         guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
-        let outcome = await executor.execute(item, context: context)
+        let outcome = await executor.execute(item, context: context, pass: pass)
         switch outcome {
         case .freed, .movedToTrash: await updateTree(afterTouching: item.paths)
         case .blocked, .failed: break

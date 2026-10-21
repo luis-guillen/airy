@@ -13,14 +13,24 @@ struct ToolchainDetection: Sendable {
     var complete: Bool
     /// Ruta de `brew`, si está instalado.
     var brew: String?
-
-    static let empty = ToolchainDetection(installs: [], usage: UsageReport(projectsComplete: false),
-                                          brewDependents: [:], processes: nil, complete: false, brew: nil)
 }
 
-/// Una detección por `DiscoveryContext` (mismo patrón que `ProjectWalkMemo`).
+/// Una detección por `DiscoveryContext` (mismo patrón que `ProjectWalkMemo`). Al revalidar, el contexto es el de
+/// la tanda (`RevalidationPass`): la detección y cada `brew uses` se hacen una vez para todas sus filas.
 final class ToolchainMemo: Sendable {
     private let state = Mutex<ToolchainDetection?>(nil)
+    private let brew = Mutex<[String: [String]?]>([:])
+
+    /// Dependientes de una fórmula (`nil` = no se pudo comprobar), una sola vez por contexto.
+    func brewDependents(_ formula: String, compute: () async -> [String]?) async -> [String]? {
+        if let done = brew.withLock({ $0[formula] }) { return done }
+        let fresh = await compute()
+        return brew.withLock { cache in
+            if let current = cache[formula] { return current }
+            cache[formula] = .some(fresh)
+            return fresh
+        }
+    }
 
     func detection(compute: () async -> ToolchainDetection) async -> ToolchainDetection {
         if let done = state.withLock({ $0 }) { return done }
@@ -40,6 +50,10 @@ public struct ToolchainSource: CleanupTargetSource {
     static let unusedAfter: TimeInterval = 90 * 86_400
     /// Solo pruebas: raíces para las fuentes creadas con `init()` (escáner y embudo).
     @TaskLocal static var rootsOverride: (@Sendable (String) -> ToolchainRoots)?
+    /// Solo pruebas: se llama con cada detección completa (no memorizada).
+    @TaskLocal static var onDetect: (@Sendable () -> Void)?
+    static let incompleteReason = "No se pudieron revisar las versiones a tiempo; vuelve a buscar."
+    static let projectsIncompleteReason = "No se pudo comprobar a tiempo si algún proyecto pide esta versión."
 
     private let roots: (@Sendable (String) -> ToolchainRoots)?
     private let budget: Duration
@@ -64,17 +78,24 @@ public struct ToolchainSource: CleanupTargetSource {
 
     // MARK: - Detección
 
-    func detection(_ context: DiscoveryContext) async -> ToolchainDetection {
-        await context.toolchains.detection { await detect(context) }
+    /// `checkBrew: false` (revalidación): sin la ronda de `brew uses`; cada fila pide solo su fórmula.
+    func detection(_ context: DiscoveryContext, checkBrew: Bool = true) async -> ToolchainDetection {
+        await context.toolchains.detection { await detect(context, checkBrew: checkBrew) }
     }
 
-    private func detect(_ context: DiscoveryContext) async -> ToolchainDetection {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: budget)
-        guard budget > .zero else { return .empty }
+    private func detect(_ context: DiscoveryContext, checkBrew: Bool) async -> ToolchainDetection {
+        Self.onDetect?()
         let roots = (self.roots ?? Self.rootsOverride ?? ToolchainRoots.standard)(context.home)
         let installs = ToolchainInventory.scan(roots)
+        // La lista de proyectos tiene su propio plazo (`ProjectArtifactSource`), fuera del de versiones; si no
+        // termina, `projectsComplete` es `false` y las filas se bloquean con su motivo.
         let projects = await ProjectArtifactSource().projectList(context: context)
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: budget)
+        guard budget > .zero, !Task.isCancelled else {
+            return ToolchainDetection(installs: installs, usage: UsageReport(projectsComplete: projects.complete),
+                                      brewDependents: [:], processes: nil, complete: false, brew: nil)
+        }
         let usage = await ToolchainUsage.report(installs: installs, roots: roots, projects: projects,
                                                 runner: context.runner)
         let listing = context.processListing
@@ -82,7 +103,9 @@ public struct ToolchainSource: CleanupTargetSource {
         var detection = ToolchainDetection(installs: installs, usage: usage, brewDependents: [:],
                                            processes: processes, complete: true, brew: nil)
         let formulas = installs.filter { $0.manager == .homebrew && Self.isDuplicate($0, in: installs) }
-        if !formulas.isEmpty, let brew = await context.runner.resolve("brew") {
+        if !formulas.isEmpty, !checkBrew {
+            detection.brew = await context.runner.resolve("brew")
+        } else if !formulas.isEmpty, let brew = await context.runner.resolve("brew") {
             detection.brew = brew
             var checked = 0
             // En secuencia (nunca en paralelo), solo las que no son ya rojas, como mucho `brewLimit`.
@@ -159,8 +182,6 @@ public struct ToolchainSource: CleanupTargetSource {
     public func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
         guard case .toolchains(let manager) = entry.discovery, manager != .system else { return [] }
         let d = await detection(context)
-        // Plazo agotado: lo que no se evaluó del todo no se ofrece.
-        guard d.complete else { return [] }
         if manager == .homebrew, d.brew == nil { return [] }
         let sizeDeadline = ContinuousClock().now.advanced(by: TimeBudget.sizeMeasure)
         var used = Set<String>()
@@ -183,7 +204,14 @@ public struct ToolchainSource: CleanupTargetSource {
                 target.floorReason = reason
                 target.preselectable = false
             case .blocked(let reason):
-                target.blockedReason = reason
+                // Plazo agotado: lo que no se evaluó del todo se enseña bloqueado y dice por qué.
+                target.blockedReason = d.complete ? reason : Self.incompleteReason
+                target.preselectable = false
+            case .amber where !d.complete:
+                target.blockedReason = Self.incompleteReason
+                target.preselectable = false
+            case .amber where !d.usage.projectsComplete:
+                target.blockedReason = Self.projectsIncompleteReason
                 target.preselectable = false
             case .amber:
                 target.preselectable = d.usage.projectsComplete && !d.usage.noPreselect.contains(install.language)
@@ -266,8 +294,13 @@ public struct ToolchainSource: CleanupTargetSource {
             }
             wanted = path
         }
-        let d = await detection(context)
+        // Inventario, uso y proyectos: una vez por tanda (el contexto es de la tanda). Lo que puede cambiar entre
+        // filas se vuelve a mirar aquí: qué sigue instalado, los procesos y `brew uses` de esta fórmula.
+        var d = await detection(context, checkBrew: false)
         guard d.complete else { return "No se pudo comprobar a tiempo si esta versión está en uso." }
+        d.installs = d.installs.filter { ProjectArtifactRules.exists($0.path) }
+        let listing = context.processListing
+        d.processes = await TimeBudget.run(TimeBudget.processScan, { listing.processes() }) ?? nil
         let match = d.installs.first { install in
             guard install.manager == manager, !install.informational else { return false }
             if byTarget {
@@ -279,6 +312,15 @@ public struct ToolchainSource: CleanupTargetSource {
         guard let install = match else { return gone }
         guard Self.isDuplicate(install, in: d.installs) else { return "Ya no hay otra versión de la misma herramienta." }
         if manager == .homebrew, d.brew == nil { return "No se encontró Homebrew en este Mac." }
+        if manager == .homebrew, let brew = d.brew, Self.preBrewVerdict(install, d) == nil,
+           Self.isSafeName(install.target) {
+            let formula = install.target, runner = context.runner, timeout = brewTimeout
+            d.brewDependents[formula] = await context.toolchains.brewDependents(formula) {
+                let output = try? await runner.run(brew, Self.brewUsesArguments + [formula], timeout: timeout)
+                guard let output, output.status == 0 else { return nil }
+                return ToolchainUsage.lines(output.stdout)
+            }
+        }
         switch Self.verdict(install, d) {
         case .red(let reason), .blocked(let reason): return reason
         case .amber: break
