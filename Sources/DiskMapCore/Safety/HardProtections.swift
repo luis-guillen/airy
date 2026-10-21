@@ -227,11 +227,26 @@ public struct HardProtections: Sendable {
     /// y `path` es esa ruta o está dentro de ella.
     private static func catalogDeclares(_ path: String, inside folder: String, catalog: Catalog, home: String) -> Bool {
         for entry in catalog.entries where entry.cleanup != .info {
-            for pattern in entry.paths where !pattern.contains("*") {
+            for pattern in entry.paths {
                 var expanded = pattern
                 if pattern == "~" { expanded = home } else if pattern.hasPrefix("~/") { expanded = home + pattern.dropFirst(1) }
                 let declared = RiskPolicy.canonical(expanded)
-                if declared != folder, RiskPolicy.isInside(declared, root: folder), RiskPolicy.isInside(path, root: declared) {
+                if !pattern.contains("*") {
+                    if declared != folder, RiskPolicy.isInside(declared, root: folder), RiskPolicy.isInside(path, root: declared) {
+                        return true
+                    }
+                    continue
+                }
+                // Con comodín (p. ej. «Chrome/*/Code Cache»): solo si el último componente es literal, para
+                // que el comodín nunca abarque la carpeta de un perfil entera.
+                let patternParts = components(declared)
+                let folderParts = components(folder)
+                guard let last = patternParts.last, !last.contains("*"),
+                      patternParts.count > folderParts.count + 1,
+                      Array(patternParts.prefix(folderParts.count)) == folderParts else { continue }
+                let parts = components(path)
+                if parts.count >= patternParts.count,
+                   zip(patternParts, parts).allSatisfy({ componentMatches($0, $1) }) {
                     return true
                 }
             }
