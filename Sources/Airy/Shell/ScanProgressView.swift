@@ -143,7 +143,8 @@ struct ScanRing<Center: View>: View {
                 .trim(from: 0, to: max(fraction, 0.02))
                 .stroke(Theme.Airy.logoGradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(Theme.counterSpring, value: fraction)
+                // Sin animación de SwiftUI: el avance llega cada 100 ms y un muelle encadenado tendría la
+                // ventana entera recalculando su disposición en cada fotograma durante todo el análisis.
             // Destello giratorio: indica actividad aunque la estimación avance despacio.
             if motion == .running {
                 SpinningGlint(lineWidth: lineWidth)
