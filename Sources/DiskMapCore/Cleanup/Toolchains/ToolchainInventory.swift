@@ -179,7 +179,7 @@ public enum ToolchainInventory {
 
     /// Hijos que son carpetas reales (no enlaces), ordenados por nombre: (nombre, ruta).
     static func realChildren(_ folder: String) -> [(String, String)] {
-        guard ProjectArtifactRules.isRealDirectory(folder),
+        guard DiskScope.allowsWalk(folder), ProjectArtifactRules.isRealDirectory(folder),
               let names = try? FileManager.default.contentsOfDirectory(atPath: folder) else { return [] }
         return names.filter { !$0.hasPrefix(".") }.sorted().compactMap { name in
             let path = folder + "/" + name

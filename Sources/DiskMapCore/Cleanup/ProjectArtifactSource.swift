@@ -244,7 +244,8 @@ public struct ProjectArtifactSource: CleanupTargetSource {
                                         skipped: skipped, deadline: deadline)
                 for folder in folders {
                     guard clock.now < deadline, !Task.isCancelled else { return result }
-                    let verdict = await inspect(folder, root: root, deadline: deadline, runner: context.runner)
+                    let verdict = await inspect(folder, root: root, deadline: deadline, runner: context.runner,
+                                                scan: context.scan)
                     // Sin tiempo total, lo que estaba a medias no se ofrece.
                     if case .blocked = verdict, clock.now >= deadline { return result }
                     result[ficha.id, default: []].append(
@@ -351,11 +352,20 @@ public struct ProjectArtifactSource: CleanupTargetSource {
     /// Guardias de una carpeta candidata: repositorio anidado, claves y, dentro de Git, que no guarde archivos
     /// y que esté ignorada. `TreeWalk.watched` tiene un máximo: cualquier entrada vigilada ya sube el riesgo,
     /// así que el orden de las comprobaciones solo elige el motivo.
+    /// `scan`: índice de la detección. Si tiene la carpeta, el tamaño sale de él y el disco solo se lee para
+    /// los nombres (sin `lstat`); la revalidación (sin índice) lo vuelve a medir todo en disco.
     private func inspect(_ folder: String, root: String, deadline: ContinuousClock.Instant,
-                         runner: any CommandRunning) async -> Verdict {
-        guard let summary = TreeWalk.summarize(folder, budget: budget(until: deadline), watch: {
-            $0 == ".git" || $0.hasSuffix("-keypair.json")
-        }) else {
+                         runner: any CommandRunning, scan: FileNode? = nil) async -> Verdict {
+        let isWatched: (String) -> Bool = { $0 == ".git" || $0.hasSuffix("-keypair.json") }
+        let walked: (bytes: Int64, watched: [String])?
+        if let scan, let node = CleanupScanner.node(at: folder, in: scan), node.allocatedSize > 0 {
+            walked = TreeWalk.watchedNames(folder, budget: budget(until: deadline), watch: isWatched)
+                .map { (node.allocatedSize, $0) }
+        } else {
+            walked = TreeWalk.summarize(folder, budget: budget(until: deadline), watch: isWatched)
+                .map { ($0.bytes, $0.watched) }
+        }
+        guard let summary = walked else {
             return .blocked("No se pudo revisar a tiempo.")
         }
         let watched = summary.watched.map { ($0 as NSString).lastPathComponent }
@@ -431,7 +441,8 @@ public struct ProjectArtifactSource: CleanupTargetSource {
         let homes = Set([home, CleanupTargets.realPath(home) ?? home].map(RiskPolicy.canonical))
         var result: [String] = []
         for candidate in searchRoots ?? ProjectArtifactRules.defaultSearchRoots(home: home) {
-            guard let real = CleanupTargets.realPath(candidate), ProjectArtifactRules.isRealDirectory(real) else {
+            guard let real = CleanupTargets.realPath(candidate), ProjectArtifactRules.isRealDirectory(real),
+                  DiskScope.allowsWalk(real) else {
                 continue
             }
             let canonical = RiskPolicy.canonical(real)

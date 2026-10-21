@@ -70,6 +70,8 @@ public struct CleanupScanner: Sendable {
     private let processListing: any ProcessListing
     private let referenceTimeout: TimeInterval
     private let measureBudget: Duration
+    /// Ámbito de disco de la detección (`AIRY_SCAN_ROOTS` en DEBUG); `nil` ⇒ el de la tarea que llama.
+    private let scope: DiskScope?
 
     /// `classifier`: `nil` ⇒ ajustes por defecto con este catálogo y este home. `measureBudget`: plazo para
     /// medir cada ruta que no está en el índice.
@@ -77,7 +79,8 @@ public struct CleanupScanner: Sendable {
                 references: ReferenceChecker, home: String = NSHomeDirectory(), classifier: RiskClassifier? = nil,
                 processListing: any ProcessListing = LibprocListing(),
                 referenceTimeout: TimeInterval = CleanupScanner.referenceTimeout,
-                measureBudget: Duration = TimeBudget.sizeMeasure) {
+                measureBudget: Duration = TimeBudget.sizeMeasure, scope: DiskScope? = nil) {
+        self.scope = scope
         self.processListing = processListing
         self.measureBudget = measureBudget
         self.referenceTimeout = referenceTimeout
@@ -98,7 +101,13 @@ public struct CleanupScanner: Sendable {
 
     /// `inaccessible`: carpetas que el análisis no pudo leer; un tamaño tomado del índice para una ruta con algo
     /// ilegible dentro es un mínimo (`sizeIsPartial`).
+    /// Una pasada cancelada devuelve `[]` en cuanto lo nota (deja de leer el disco): nunca se publica.
     public func findItems(scan: FileNode?, inaccessible: [String] = []) async -> [CleanupItem] {
+        guard let scope else { return await detect(scan: scan, inaccessible: inaccessible) }
+        return await DiskScope.$current.withValue(scope) { await detect(scan: scan, inaccessible: inaccessible) }
+    }
+
+    private func detect(scan: FileNode?, inaccessible: [String]) async -> [CleanupItem] {
         let partialIndex = PartialScanIndex(inaccessible: inaccessible)
         let running = probes.runningBundleIDs()
         // Una sola sonda de Docker por pasada para todas sus fichas.
@@ -115,6 +124,7 @@ public struct CleanupScanner: Sendable {
         var reviewDeadline: ContinuousClock.Instant?
         // El mantenimiento (Rendimiento) no es limpieza: lo detecta `MaintenanceScanner`.
         for entry in catalog.entries where entry.section != .maintenance {
+            if Task.isCancelled { return [] }
             for var target in await CleanupTargets.source(for: entry).discover(entry, context: context) {
                 let original = target.paths
                 if !original.isEmpty {
@@ -152,6 +162,7 @@ public struct CleanupScanner: Sendable {
             }
         }
 
+        if Task.isCancelled { return [] }
         let needles = candidates.compactMap(\.target.needle)
         let checked = needles.isEmpty
             ? (found: [String: [String]](), complete: true)
@@ -216,6 +227,8 @@ public struct CleanupScanner: Sendable {
         var total: Int64 = 0
         for path in paths {
             if let scan, let node = Self.node(at: path, in: scan) { total += node.allocatedSize; continue }
+            // Fuera del ámbito de la detección (DEBUG, `AIRY_SCAN_ROOTS`) es como si no existiera.
+            guard DiskScope.allowsWalk(path) else { continue }
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
             if let summary = TreeWalk.summarize(path, budget: budget) {
@@ -281,6 +294,7 @@ public struct CleanupScanner: Sendable {
 
     /// Expande `~` y `*` (dentro de un componente) contra el sistema de ficheros real.
     /// Devuelve rutas existentes (con `lstat`; un enlace roto también cuenta), ordenadas.
+    /// Con un ámbito (`DiskScope.current`) no lista ni devuelve nada fuera de él.
     static func expand(_ pattern: String, home: String) -> [String] {
         var full = pattern
         if pattern == "~" { full = home } else if pattern.hasPrefix("~/") { full = home + pattern.dropFirst(1) }
@@ -293,7 +307,7 @@ public struct CleanupScanner: Sendable {
                 if component.contains("*") {
                     var info = stat()
                     // Solo se lista dentro de carpetas reales, nunca a través de enlaces.
-                    guard lstat(base, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR,
+                    guard DiskScope.allowsList(base), lstat(base, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR,
                           let names = try? FileManager.default.contentsOfDirectory(atPath: base) else { continue }
                     for name in names.sorted() where fnmatch(component, name, 0) == 0 {
                         next.append(prefix + name)
@@ -307,6 +321,7 @@ public struct CleanupScanner: Sendable {
             current = next
         }
         return current.filter { path in
+            guard DiskScope.allowsWalk(path) else { return false }
             var info = stat()
             return lstat(path, &info) == 0
         }

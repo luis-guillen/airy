@@ -64,7 +64,8 @@ public struct AppSupportCacheSource: CleanupTargetSource {
     }
 
     private static func children(of folder: String) -> [String]? {
-        try? FileManager.default.contentsOfDirectory(atPath: folder)
+        guard DiskScope.allowsWalk(folder) else { return nil }
+        return try? FileManager.default.contentsOfDirectory(atPath: folder)
     }
 
     private static func isRealDirectory(_ path: String) -> Bool { ProjectArtifactRules.isRealDirectory(path) }
