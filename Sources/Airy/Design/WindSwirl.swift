@@ -2,13 +2,13 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Remolino de Rendimiento: los tres arcos del logo y sus hojas girando a `speed` vueltas por segundo,
-/// en el color `tint` (azul que se calienta con la temperatura). Lo gira el servidor de render
-/// (`RenderServerLayer`): el remolino se rasteriza una vez y la app no trabaja por fotograma. Un
-/// cambio de velocidad retoma el giro desde el ángulo que llevaba, sin saltos; sin movimiento
-/// ambiente se dibuja una vista estática (y la animación desaparece). Con «Reducir movimiento» el
-/// cambio de tinte es un fundido de 0,3 s.
-/// Uso: `WindSwirl(speed: WindMotion.swirlRevolutionsPerSecond(cpuLoad: carga),
+/// Performance swirl: the logo's three arcs and their leaves turning at `speed` revolutions per second,
+/// in the `tint` color (blue that warms up with the temperature). The render server turns it
+/// (`RenderServerLayer`): the swirl is rasterized once and the app doesn't work per frame. A
+/// speed change resumes the spin from the angle it had, without jumps; without ambient
+/// motion a static view is drawn (and the animation goes away). With "Reduce motion" the
+/// tint change is a 0.3 s fade.
+/// Usage: `WindSwirl(speed: WindMotion.swirlRevolutionsPerSecond(cpuLoad: load),
 ///                 tint: Theme.Airy.swirlTint(ProcessInfo.processInfo.thermalState))`.
 struct WindSwirl: View {
     let speed: Double
@@ -16,7 +16,7 @@ struct WindSwirl: View {
 
     @Environment(\.airyAmbientMotion) private var motion
     @Environment(\.displayScale) private var displayScale
-    /// Ángulo y velocidad vigentes; no observable: cambiarlos no redibuja nada.
+    /// Current angle and speed; not observable: changing them redraws nothing.
     @ViewState private var spin = SpinState()
 
     var body: some View {
@@ -31,22 +31,22 @@ struct WindSwirl: View {
         }
         .animation(.easeInOut(duration: 0.3), value: tint)
         .onChange(of: motion) { _, now in if now != .running { spin.stop() } }
-        // Velocidad 0 o no finita: se para limpio (el ángulo se conserva hasta la siguiente válida).
+        // Speed 0 or non-finite: it stops cleanly (the angle is kept until the next valid one).
         .onChange(of: speed) { _, now in if !(now > 0 && now.isFinite) { spin.stop() } }
         .accessibilityHidden(true)
     }
 }
 
-/// Estado del giro entre reconstrucciones de la capa (clase no observable).
+/// Spin state across layer rebuilds (a non-observable class).
 @MainActor
 final class SpinState {
     private var angle = 0.0
     private var speed = 0.0
     private var time: Double?
-    /// Capa que gira ahora (la rasterizada); un cambio de velocidad solo le cambia la animación.
+    /// Layer spinning now (the rasterized one); a speed change only changes its animation.
     private weak var layer: CALayer?
 
-    /// Ángulo al instante `now` con la velocidad que llevaba; deja `speed` como la vigente.
+    /// Angle at instant `now` with the speed it had; leaves `speed` as the current one.
     func angle(at now: Double, newSpeed: Double) -> Double {
         if let time { angle = (angle + 2 * .pi * speed * max(now - time, 0)).truncatingRemainder(dividingBy: 2 * .pi) }
         time = now
@@ -54,7 +54,7 @@ final class SpinState {
         return angle
     }
 
-    /// Al pararse el giro, el ángulo se conserva y la velocidad vuelve a empezar de cero.
+    /// When the spin stops, the angle is kept and the speed starts again from zero.
     func stop() {
         if let time { angle = (angle + 2 * .pi * speed * max(CACurrentMediaTime() - time, 0)).truncatingRemainder(dividingBy: 2 * .pi) }
         time = nil
@@ -62,23 +62,23 @@ final class SpinState {
         layer = nil
     }
 
-    /// Hace girar `layer` a `speed` desde el ángulo acumulado, sin rasterizar de nuevo.
+    /// Spins `layer` at `speed` from the accumulated angle, without rasterizing again.
     func spin(_ layer: CALayer, speed: Double) {
         self.layer = layer
         let start = angle(at: CACurrentMediaTime(), newSpeed: speed)
         let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-        // Con y hacia abajo, un ángulo positivo gira en sentido horario, como los arcos.
+        // With y pointing down, a positive angle turns clockwise, like the arcs.
         spin.fromValue = start
         spin.toValue = start + 2 * Double.pi
         spin.duration = 1 / speed
-        // Hasta 0,9 vueltas/s con carga alta: 60 fps como mucho, no los 120 Hz del panel.
+        // Up to 0.9 revolutions/s under high load: 60 fps at most, not the panel's 120 Hz.
         spin.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
         spin.repeatCount = .infinity
         spin.isRemovedOnCompletion = false
         layer.add(spin, forKey: "spin")
     }
 
-    /// Nueva velocidad para la capa que ya gira (si la hay).
+    /// New speed for the layer already spinning (if any).
     func respin(speed: Double) {
         guard let layer, speed > 0, speed.isFinite else { return }
         spin(layer, speed: speed)
@@ -92,7 +92,7 @@ private struct SpinningArt: View {
     let state: SpinState
 
     var body: some View {
-        // La velocidad no entra en la clave: el ráster no depende de ella (la carga llega continua).
+        // The speed isn't part of the key: the raster doesn't depend on it (the load arrives continuously).
         RenderServerLayer(key: [AnyHashable(tint), AnyHashable(scale)]) { container, size in
             let renderer = ImageRenderer(content: SwirlArt(tint: tint).frame(width: size.width, height: size.height))
             renderer.scale = scale
@@ -107,7 +107,7 @@ private struct SpinningArt: View {
     }
 }
 
-/// Arcos y hojas del logo (rejilla completa) en un solo color; ocupa todo el espacio que se le da.
+/// The logo's arcs and leaves (full grid) in a single color; it fills all the space it is given.
 private struct SwirlArt: View {
     let tint: Color
 

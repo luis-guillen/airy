@@ -1,14 +1,14 @@
 import SwiftUI
 import DiskMapCore
 
-/// En el SDK de macOS 27, `@State` se resuelve a una macro (`SwiftUIMacros.StateMacro`) cuyo plugin
-/// solo trae Xcode; con Command Line Tools no compila. Este alias apunta al *property wrapper*
-/// `SwiftUI.State` de siempre (mismo comportamiento) y evita la búsqueda de la macro.
+/// In the macOS 27 SDK, `@State` resolves to a macro (`SwiftUIMacros.StateMacro`) whose plugin
+/// only ships with Xcode; with Command Line Tools it doesn't compile. This alias points to the classic
+/// `SwiftUI.State` *property wrapper* (same behaviour) and skips the macro lookup.
 typealias ViewState = SwiftUI.State
 
 // MARK: - GlassCard
 
-/// Tarjeta de cristal: material translúcido, borde de luz fino y sombra suave.
+/// Glass card: translucent material, a thin light border and a soft shadow.
 struct GlassCard<Content: View>: View {
     var padding: CGFloat = Theme.padding
     var radius: CGFloat = Theme.cardRadius
@@ -38,8 +38,8 @@ struct GlassCard<Content: View>: View {
 
 // MARK: - RiskBadge
 
-/// Etiqueta de riesgo: «Sin problema», «Tú decides» o «No borrar». Texto e icono en la tinta AA del
-/// modo; el fondo y el borde llevan la señal de seguridad fija.
+/// Risk badge: "Safe to remove", "Your call" or "Don't delete". Text and icon in the mode's AA ink;
+/// the background and border carry the fixed safety signal.
 struct RiskBadge: View {
     let risk: Risk
     var compact = false
@@ -73,11 +73,11 @@ struct RiskBadge: View {
 
 // MARK: - BytesCounter
 
-/// Tamaño que cuenta hacia arriba al aparecer y rueda sus cifras en cada cambio.
+/// A size that counts up when it appears and rolls its digits on every change.
 struct BytesCounter: View {
     let bytes: Int64
     var font: Font = .system(.title, design: .rounded, weight: .semibold)
-    /// Si es `false`, empieza ya en el valor (útil en listas largas).
+    /// If `false`, it starts at the value already (useful in long lists).
     var countsUpOnAppear = true
 
     @ViewState private var shown: Int64?
@@ -105,19 +105,31 @@ struct BytesCounter: View {
 
 // MARK: - PrimaryButton
 
-/// Botón principal con degradado de marca; `.secondary` es la variante de cristal.
+/// Primary button with the brand gradient; `.secondary` is the glass variant.
 struct PrimaryButton: View {
     enum Style { case primary, secondary, destructive }
 
-    let title: String
+    let title: Text
     var systemImage: String?
     var style: Style = .primary
     var isBusy = false
     let action: () -> Void
 
-    init(_ title: String, systemImage: String? = nil, style: Style = .primary,
+    /// A literal title is a localization key (like SwiftUI's `Button`).
+    init(_ title: LocalizedStringKey, systemImage: String? = nil, style: Style = .primary,
          isBusy: Bool = false, action: @escaping () -> Void) {
-        self.title = title
+        self.title = Text(title)
+        self.systemImage = systemImage
+        self.style = style
+        self.isBusy = isBusy
+        self.action = action
+    }
+
+    /// A title already localized (a `String` value) is shown as is.
+    @_disfavoredOverload
+    init<S: StringProtocol>(_ title: S, systemImage: String? = nil, style: Style = .primary,
+                            isBusy: Bool = false, action: @escaping () -> Void) {
+        self.title = Text(title)
         self.systemImage = systemImage
         self.style = style
         self.isBusy = isBusy
@@ -132,7 +144,7 @@ struct PrimaryButton: View {
                 } else if let systemImage {
                     Image(systemName: systemImage).imageScale(.medium)
                 }
-                Text(title)
+                title
             }
             .font(.callout.weight(.semibold))
             .frame(maxWidth: .infinity)
@@ -150,7 +162,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
-/// Vista aparte porque el estado de hover necesita `@State`, que un `ButtonStyle` no conserva.
+/// A separate view because the hover state needs `@State`, which a `ButtonStyle` doesn't keep.
 private struct PrimaryButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let style: PrimaryButton.Style
@@ -197,9 +209,9 @@ private struct PrimaryButtonBody: View {
     }
 }
 
-// MARK: - Cabecera de sección
+// MARK: - Section header
 
-/// Título grande de cada sección con subtítulo atenuado.
+/// Large title of each section with a dimmed subtitle.
 struct SectionHeader<Accessory: View>: View {
     let title: String
     var subtitle: String?
@@ -229,10 +241,10 @@ extension SectionHeader where Accessory == EmptyView {
     }
 }
 
-// MARK: - Casilla
+// MARK: - Checkbox
 
-/// Casilla dibujada en SwiftUI. La `.checkbox` del sistema es un `NSButton` y, en listas que se
-/// reordenan con animación (Rendimiento cada 1,5 s), entraba en un bucle de restricciones que cerraba la app.
+/// Checkbox drawn in SwiftUI. The system `.checkbox` is an `NSButton` and, in lists that reorder
+/// with animation (Performance every 1.5 s), it fell into a constraint loop that crashed the app.
 struct AiryCheckboxStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         AiryCheckbox(configuration: configuration)

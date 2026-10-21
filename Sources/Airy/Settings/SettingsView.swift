@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Ajustes (⌘,): modo de limpieza, agentes y lo protegido por el usuario. Todo se guarda en
-/// `settings.json`, que también lee `airy-mcp`.
+/// Settings (⌘,): cleanup mode, agents and what the user protected. Everything is saved to
+/// `settings.json`, which `airy-mcp` reads too.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
@@ -15,7 +15,7 @@ struct SettingsView: View {
                         .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                     HStack {
                         Spacer()
-                        PrimaryButton("Restablecer ajustes", systemImage: "arrow.counterclockwise", style: .secondary) {
+                        PrimaryButton("Reset Settings", systemImage: "arrow.counterclockwise", style: .secondary) {
                             model.resetSettings()
                         }
                         .fixedSize()
@@ -25,26 +25,26 @@ struct SettingsView: View {
 
             Group {
                 SwiftUI.Section {
-                    Picker("Modo de limpieza", selection: modeBinding) {
+                    Picker("Cleanup Mode", selection: modeBinding) {
                         ForEach(CleanupMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 } header: {
-                    Text("Modo de limpieza")
+                    Text("Cleanup Mode")
                 } footer: {
                     Text(model.settings.mode == .aggressive
-                         ? "Borra también lo que se vuelve a descargar o reconstruir solo."
-                         : "Solo lo más evidente, sin nada «Depende de ti» preseleccionado.")
+                         ? "Also deletes what gets downloaded again or rebuilt by itself."
+                         : "Only the most obvious items, with nothing marked “Your call” preselected.")
                         .foregroundStyle(.secondary)
                 }
 
-                SwiftUI.Section("Agentes") {
-                    Toggle("Permitir que los agentes ejecuten limpiezas seguras", isOn: agentsBinding)
+                SwiftUI.Section("Agents") {
+                    Toggle("Allow agents to run safe cleanups", isOn: agentsBinding)
                 }
 
-                SwiftUI.Section("Protegido por ti") {
+                SwiftUI.Section("Protected by You") {
                     if model.settings.protectedPaths.isEmpty {
-                        Text("Nada todavía. Usa «Proteger esto» en el Mapa o en Limpieza.")
+                        Text("Nothing yet. Use “Protect This” in Map or Cleanup.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(model.settings.protectedPaths, id: \.self) { pattern in
@@ -60,21 +60,21 @@ struct SettingsView: View {
                                     Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                                 }
                                 .buttonStyle(.plain)
-                                .help("Dejar de proteger")
+                                .help("Stop Protecting")
                             }
                         }
                     }
                     HStack {
                         Spacer()
-                        Button("Añadir carpeta…", systemImage: "plus") { addFolder() }
+                        Button("Add Folder…", systemImage: "plus") { addFolder() }
                     }
                 }
             }
-            // Con `settings.json` ilegible no se guarda nada encima hasta restablecerlo.
+            // With an unreadable `settings.json` nothing is saved over it until it is reset.
             .disabled(model.settingsLoad.isUnreadable)
         }
         .formStyle(.grouped)
-        // Lo último del disco (otro proceso o una edición a mano) al abrir la ventana.
+        // The latest from disk (another process or a hand edit) when the window opens.
         .onAppear { model.reloadSettings() }
         .frame(width: 520)
         .frame(minHeight: 420)
@@ -94,8 +94,8 @@ struct SettingsView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = true
-        panel.prompt = "Proteger"
-        panel.message = "Airy y los agentes no tocarán nada de lo que elijas."
+        panel.prompt = String(localized: "Protect")
+        panel.message = String(localized: "Airy and agents won’t touch anything you choose.")
         guard panel.runModal() == .OK else { return }
         model.protect(paths: panel.urls.map(\.path))
     }

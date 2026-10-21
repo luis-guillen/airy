@@ -1,9 +1,9 @@
 import SwiftUI
 import DiskMapCore
 
-// MARK: - Qué se cuenta de cada tesela
+// MARK: - What is told about each tile
 
-/// Lo que la tarjeta flotante y el menú contextual cuentan de una tesela.
+/// What the floating card and the context menu tell about a tile.
 struct TileDetails: Equatable {
     let id: Int
     let title: String
@@ -15,19 +15,19 @@ struct TileDetails: Equatable {
     let kind: ContentKind?
     let isFolder: Bool
     let risk: Risk?
-    /// Protección (de Airy o del usuario) que la deja en «No tocar».
+    /// Protection (Airy's or the user's) that makes it "Don't delete".
     let protection: ProtectionMatch?
-    /// Por qué tiene esa etiqueta (`RiskExplanation`).
+    /// Why it has that label (`RiskExplanation`).
     let why: String?
-    /// El análisis no pudo leer todo lo que hay dentro: el tamaño es un mínimo («+»).
+    /// The scan couldn't read everything inside: the size is a minimum ("+").
     let sizeIsPartial: Bool
     let explanation: String
     let asksAssistant: Bool
     let isOthers: Bool
 
     @MainActor
-    /// `classify`: el clasificador de la app (`AppModel.classify(path:)`), el mismo que usa Limpieza.
-    /// `isPartial`: si el análisis dejó algo ilegible dentro de esa ruta (`AppModel.partialIndex`).
+    /// `classify`: the app's classifier (`AppModel.classify(path:)`), the same one Cleanup uses.
+    /// `isPartial`: whether the scan left something unreadable inside that path (`AppModel.partialIndex`).
     init(tile: MapTile, parent: FileNode?, catalog: Catalog?, classify: (String) -> Classification,
          isPartial: (String) -> Bool = { _ in false }, home: String = NSHomeDirectory()) {
         id = tile.id
@@ -35,10 +35,11 @@ struct TileDetails: Equatable {
         bytes = tile.bytes
         isOthers = tile.isOthers
         let share = Double(tile.bytes) / Double(max(parent?.allocatedSize ?? 0, 1))
-        let percent = share < 0.001 ? "< 0,1 %"
+        let percent = share < 0.001 ? "< " + 0.001.formatted(.percent.precision(.fractionLength(1)).locale(Theme.locale))
             : share.formatted(.percent.precision(.fractionLength(share < 0.1 ? 1 : 0)).locale(Theme.locale))
-        let parentName = parent.map { $0.parent == nil ? "lo analizado" : $0.name } ?? "la carpeta"
-        percentText = "\(percent) de \(parentName)"
+        let parentName = parent.map { $0.parent == nil ? String(localized: "what was scanned") : $0.name }
+            ?? String(localized: "the folder")
+        percentText = String(localized: "\(percent) of \(parentName)")
 
         if let node = tile.node, !tile.isOthers {
             let fullPath = node.path
@@ -62,7 +63,7 @@ struct TileDetails: Equatable {
                 explanation = known
                 asksAssistant = false
             } else {
-                explanation = "Pregúntale al asistente"
+                explanation = String(localized: "Ask the assistant")
                 asksAssistant = true
             }
         } else {
@@ -75,19 +76,19 @@ struct TileDetails: Equatable {
             protection = nil
             why = nil
             sizeIsPartial = false
-            explanation = "Archivos y carpetas pequeños agrupados"
+            explanation = String(localized: "Small files and folders grouped together")
             asksAssistant = false
         }
     }
 }
 
-// MARK: - Tarjeta
+// MARK: - Card
 
-/// Tarjeta de cristal con los datos de la tesela bajo el ratón.
+/// Glass card with the details of the tile under the pointer.
 struct HoverCard: View {
     let details: TileDetails
 
-    /// Glifo con contraste AA sobre los dos extremos del degradado del tipo.
+    /// Glyph with AA contrast on both ends of the kind's gradient.
     private var glyphInk: Color {
         let base = AiryPalette.kind(details.kind ?? .system)
         return Color(hex: AiryPalette.inkForFill([ColorMath.mix(base, 0xffffff, 0.18), base]))
@@ -122,7 +123,7 @@ struct HoverCard: View {
                 Text(Format.bytes(details.bytes, partial: details.sizeIsPartial))
                     .font(.system(.title2, design: .rounded, weight: .bold))
                     .monospacedDigit()
-                    .help(details.sizeIsPartial ? "Airy no pudo leer todo lo que hay dentro: puede ocupar más." : "")
+                    .help(details.sizeIsPartial ? "Airy couldn’t read everything inside: it may take up more." : "")
                 Text(details.percentText)
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -147,7 +148,7 @@ struct HoverCard: View {
 
             if let risk = details.risk {
                 RiskBadge(risk: risk, reason: details.why)
-                // Con protección ya lo dice la línea de abajo.
+                // With a protection, the line below already says it.
                 if let why = details.why, details.protection == nil {
                     Text(why)
                         .font(.caption.weight(.medium))
@@ -156,7 +157,7 @@ struct HoverCard: View {
                 }
             }
             if details.sizeIsPartial {
-                Text("Airy no pudo leer todo lo que hay dentro: puede ocupar más.")
+                Text("Airy couldn’t read everything inside: it may take up more.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -210,21 +211,21 @@ private struct TightLabelStyle: LabelStyle {
     }
 }
 
-// MARK: - Seguir al ratón
+// MARK: - Following the pointer
 
-/// Posición del ratón sobre el lienzo, aparte del resto del estado para que moverlo
-/// solo vuelva a dibujar la tarjeta, nunca el mapa.
+/// Pointer position over the canvas, kept apart from the rest of the state so moving it
+/// only redraws the card, never the map.
 @MainActor @Observable
 final class HoverTracker {
     var location: CGPoint = .zero
     var details: TileDetails?
-    /// Con un menú contextual abierto la tarjeta se aparta (los datos siguen para el menú).
+    /// With a context menu open the card steps aside (the details stay for the menu).
     var menuOpen = false
-    /// El puntero está sobre el lienzo (aunque ahora mismo no haya tarjeta, p. ej. durante un zoom).
+    /// The pointer is over the canvas (even if there is no card right now, e.g. during a zoom).
     @ObservationIgnored var pointerInside = false
 }
 
-/// Capa que coloca la tarjeta junto al puntero, sin salirse del lienzo.
+/// Layer that places the card next to the pointer, without leaving the canvas.
 struct HoverCardLayer: View {
     let tracker: HoverTracker
     let canvasSize: CGSize

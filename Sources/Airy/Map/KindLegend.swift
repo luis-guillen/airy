@@ -1,8 +1,8 @@
 import SwiftUI
 import DiskMapCore
 
-/// Chips por tipo con lo que ocupa cada uno en el nivel actual. Al pasar el ratón por un chip,
-/// el mapa atenúa las teselas de los demás tipos.
+/// Chips per kind with how much each one takes at the current level. Hovering a chip
+/// dims the map's tiles of the other kinds.
 struct KindLegend: View {
     let node: FileNode
     var onHighlight: (ContentKind?) -> Void
@@ -24,7 +24,7 @@ struct KindLegend: View {
                 }
             }
             .padding(.vertical, 2)
-            // Cada nivel trae su fila nueva, con entrada escalonada (sin chips que se crucen).
+            // Each level brings its new row, with a staggered entrance (no chips crossing each other).
             .id(node.id)
         }
         .scrollIndicators(.never)
@@ -72,7 +72,7 @@ struct KindLegend: View {
     }
 }
 
-/// Aparece desde abajo y transparente, 12 ms después del anterior.
+/// Appears from below and transparent, 12 ms after the previous one.
 private struct StaggeredAppear: ViewModifier {
     let index: Int
     @ViewState private var shown = false

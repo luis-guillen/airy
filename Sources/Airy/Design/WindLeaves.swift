@@ -1,16 +1,16 @@
 import SwiftUI
 import DiskMapCore
 
-/// Hojas de viento:
-/// - `.orbit(radius:)`: giran alrededor del centro de la vista (movimiento ambiente). El giro lo
-///   anima el servidor de render (`OrbitingLeaves`); en pausa quedan quietas y con «Reducir
-///   movimiento» no se dibujan.
-/// Las transitorias van en un único `Canvas` con un reloj que se pausa:
-/// - `.launch(start:)`: llegan en espiral y forman el logo centrado en la vista (transitorio).
-/// - `.burst(start:rect:)`: un rectángulo de la vista se deshace en hojas (transitorio). Con
-///   «Reducir movimiento», las hojas no vuelan: aparecen quietas en el rectángulo y se funden.
-/// Las transitorias no dibujan nada pasado su final; quien las muestra las retira (como `ParticleBurst`).
-/// Vista hoja: solo valores de entrada, nada observable.
+/// Wind leaves:
+/// - `.orbit(radius:)`: they circle the view's center (ambient motion). The render server
+///   animates the spin (`OrbitingLeaves`); when paused they stay still and with "Reduce
+///   motion" they aren't drawn.
+/// The transient ones go in a single `Canvas` with a clock that pauses:
+/// - `.launch(start:)`: they spiral in and form the logo centered in the view (transient).
+/// - `.burst(start:rect:)`: a rectangle of the view breaks up into leaves (transient). With
+///   "Reduce motion", the leaves don't fly: they appear still in the rectangle and fade out.
+/// The transient ones draw nothing after their end; whoever shows them removes them (like `ParticleBurst`).
+/// Leaf view: input values only, nothing observable.
 struct WindLeaves: View {
     enum Mode: Equatable {
         case orbit(radius: CGFloat)
@@ -18,7 +18,7 @@ struct WindLeaves: View {
         case burst(start: Date, rect: CGRect)
     }
 
-    /// Tamaño del logo que forman las hojas de `.launch`; la unidad normalizada es su mitad.
+    /// Size of the logo the `.launch` leaves form; the normalized unit is half of it.
     static let launchLogoSize: CGFloat = 120
 
     let mode: Mode
@@ -27,7 +27,7 @@ struct WindLeaves: View {
     @Environment(\.airyAmbientMotion) private var ambientMotion
     @Environment(\.airyTransientMotion) private var transientMotion
     @Environment(\.colorScheme) private var colorScheme
-    /// `.burst` terminada: el reloj desaparece aunque quien la muestra tarde en retirarla.
+    /// `.burst` finished: the clock goes away even if whoever shows it is slow to remove it.
     @ViewState private var burstEnded = false
 
     init(mode: Mode, count: Int = 7) {
@@ -39,7 +39,7 @@ struct WindLeaves: View {
         switch mode {
         case .orbit: return ambientMotion != .running
         case .launch: return transientMotion != .running
-        // Con «Reducir movimiento» el fundido también necesita reloj (acotado: se quita a `dissolveDuration`).
+        // With "Reduce motion" the fade also needs a clock (bounded: removed at `dissolveDuration`).
         case .burst: return transientMotion == .paused
         }
     }
@@ -56,7 +56,7 @@ struct WindLeaves: View {
                     OrbitingLeaves(radius: radius, count: count,
                                    colors: dark ? [0xffffff, AiryPalette.leafSky] : [tokens.accent, tokens.sky])
                 case .paused:
-                    // Quietas donde empieza la órbita: sin reloj.
+                    // Still where the orbit starts: no clock.
                     Canvas { canvas, size in
                         Self.draw(&canvas, size: size, mode: mode, count: count, date: Self.orbitEpoch, colors: colors)
                     }
@@ -88,7 +88,7 @@ struct WindLeaves: View {
         }
     }
 
-    /// Instante en que `orbitLeaf` vale lo mismo que la primera pose de `OrbitingLeaves`.
+    /// Instant at which `orbitLeaf` equals the first pose of `OrbitingLeaves`.
     private static let orbitEpoch = Date(timeIntervalSinceReferenceDate: 0)
 
     private static func draw(_ canvas: inout GraphicsContext, size: CGSize, mode: Mode, count: Int,
@@ -127,7 +127,7 @@ struct WindLeaves: View {
         paint(&canvas, poses: poses, leafScale: leafScale, colors: colors)
     }
 
-    /// Hojas quietas donde empieza `dissolveLeaf`, todas con la misma opacidad (solo fundido).
+    /// Still leaves where `dissolveLeaf` starts, all with the same opacity (fade only).
     static func stillLeaves(count: Int, in rect: CGRect, opacity: Double) -> [LeafPose] {
         (0..<count).map { index in
             var pose = WindMotion.dissolveLeaf(index: index, count: count, progress: 0, in: rect)
@@ -138,8 +138,8 @@ struct WindLeaves: View {
 
     private nonisolated static let leafPath = Path(AiryLogoGeometry.leafPath(length: 11, width: 5))
 
-    /// Pinta hojas en sus poses (puntos del lienzo), alternando `colors`. Lo comparten el borrado de
-    /// filas (`LeafAwayEffect`) y las ráfagas del mapa (`MapRenderer`).
+    /// Paints leaves at their poses (canvas points), alternating `colors`. Shared by row
+    /// deletion (`LeafAwayEffect`) and the map's gusts (`MapRenderer`).
     nonisolated static func paint(_ canvas: inout GraphicsContext, poses: [LeafPose], leafScale: CGFloat = 1,
                       colors: [Color]) {
         guard !colors.isEmpty else { return }
@@ -153,25 +153,25 @@ struct WindLeaves: View {
         }
     }
 
-    /// Colores de las hojas según el aspecto: blancas y celestes en oscuro, azules en claro.
+    /// Leaf colors by appearance: white and sky blue in dark mode, blue in light mode.
     static func colors(dark: Bool) -> [Color] {
         dark ? [.white, Theme.Airy.leafSky] : [Theme.Airy.accent, Theme.Airy.sky]
     }
 }
 
-// MARK: - Salir volando
+// MARK: - Fly away
 
 extension AnyTransition {
-    /// La vista se va con el viento: sale hacia la derecha girando y deshaciéndose en hojas.
-    /// Entra con un fundido. Sirve para «borrar una fila» y para la fila de una app que se cierra.
+    /// The view goes with the wind: it leaves to the right, turning and breaking up into leaves.
+    /// It enters with a fade. Used for "delete a row" and for the row of an app that quits.
     static var leafAway: AnyTransition {
         .asymmetric(insertion: .opacity,
                     removal: .modifier(active: LeafAwayEffect(progress: 1), identity: LeafAwayEffect(progress: 0)))
     }
 }
 
-/// Un paso de `.leafAway`. Sin reloj: lo redibuja la propia interpolación de `progress`.
-/// Sin movimiento transitorio (`airyTransientMotion != .running`), solo un fundido.
+/// One step of `.leafAway`. No clock: the interpolation of `progress` itself redraws it.
+/// Without transient motion (`airyTransientMotion != .running`), only a fade.
 struct LeafAwayEffect: ViewModifier, Animatable {
     var progress: Double
 
@@ -183,15 +183,15 @@ struct LeafAwayEffect: ViewModifier, Animatable {
     @Environment(\.airyTransientMotion) private var motion
     @Environment(\.colorScheme) private var colorScheme
 
-    /// Margen del lienzo de hojas alrededor de la vista: vuelan hasta 240 pt a la derecha y algo hacia arriba.
+    /// Margin of the leaf canvas around the view: they fly up to 240 pt to the right and a bit upwards.
     private static let spill = EdgeInsets(top: 40, leading: 0, bottom: 12, trailing: 260)
 
     func body(content: Content) -> some View {
         let running = motion == .running
         let p = min(max(progress, 0), 1)
         let away = WindMotion.leafAwayTransform(progress: running ? p : 0)
-        // Las hojas van en un `overlay` de la vista sin transformar: si fueran tras el desplazamiento
-        // se desplazarían dos veces. El `ZStack` conserva el tamaño de la vista.
+        // The leaves go in an `overlay` of the untransformed view: if they came after the offset
+        // they would be offset twice. The `ZStack` keeps the view's size.
         ZStack {
             content
                 .scaleEffect(away.scale)
@@ -200,7 +200,7 @@ struct LeafAwayEffect: ViewModifier, Animatable {
                 .opacity(running ? away.opacity : 1 - p)
         }
         .overlay(alignment: .topLeading) {
-            // En reposo (p = 0) no hay lienzo: las filas visibles no cargan con él.
+            // At rest (p = 0) there is no canvas: visible rows don't carry it.
             if running, p > 0 {
                 leaves(progress: p)
             }
@@ -226,9 +226,9 @@ struct LeafAwayEffect: ViewModifier, Animatable {
     }
 }
 
-/// Órbita que interpola el servidor de render (`RenderServerLayer`), como `WindMotion.orbitLeaf`:
-/// un disco gira a `orbitAngularSpeed` y cada hoja, tangente a la órbita, respira ±6 % de radio.
-/// La app no trabaja por fotograma; quien la usa la retira sin movimiento ambiente.
+/// Orbit interpolated by the render server (`RenderServerLayer`), like `WindMotion.orbitLeaf`:
+/// a disc turns at `orbitAngularSpeed` and each leaf, tangent to the orbit, breathes ±6% of the radius.
+/// The app doesn't work per frame; whoever uses it removes it without ambient motion.
 private struct OrbitingLeaves: View {
     let radius: CGFloat
     let count: Int
@@ -241,7 +241,7 @@ private struct OrbitingLeaves: View {
             disc.frame = CGRect(origin: .zero, size: size)
             let spin = CABasicAnimation(keyPath: "transform.rotation.z")
             spin.fromValue = 0
-            // Con y hacia abajo, un ángulo positivo gira en sentido horario, como `orbitLeaf`.
+            // With y pointing down, a positive angle turns clockwise, like `orbitLeaf`.
             spin.toValue = 2 * Double.pi
             spin.duration = 2 * Double.pi / WindMotion.orbitAngularSpeed
             spin.preferredFrameRateRange = CAAnimation.ambientFrameRate
@@ -251,7 +251,7 @@ private struct OrbitingLeaves: View {
 
             let leafPath = AiryLogoGeometry.leafPath(length: 11, width: 5)
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            // Media onda de `sin(0.7 t)` por tramo, con ida y vuelta suaves.
+            // Half a wave of `sin(0.7 t)` per segment, with smooth back and forth.
             let breathHalf = Double.pi / 0.7
             for index in 0..<n {
                 let arm = CALayer()

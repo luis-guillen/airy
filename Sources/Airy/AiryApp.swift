@@ -16,20 +16,20 @@ struct AiryApp: App {
                 .onAppear { DebugSnapshot.configure(model) }
                 #endif
         }
-        // Una URL `airy://` reutiliza la ventana abierta en vez de crear otra.
+        // An `airy://` URL reuses the open window instead of creating another.
         .handlesExternalEvents(matching: ["*"])
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1240, height: 800)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("Acerca de Airy") { AppDelegate.showAbout() }
+                Button("About Airy") { AppDelegate.showAbout() }
             }
             CommandGroup(replacing: .newItem) {}
-            CommandMenu("Análisis") {
-                Button("Analizar de nuevo") { model.startScan() }
+            CommandMenu("Scan") {
+                Button("Scan Again") { model.startScan() }
                     .keyboardShortcut("r")
-                Button("Detener análisis") { model.cancelScan() }
+                Button("Stop Scan") { model.cancelScan() }
                     .keyboardShortcut(".")
                     .disabled(!model.isScanning)
             }
@@ -42,7 +42,7 @@ struct AiryApp: App {
     }
 }
 
-/// Un ejecutable de SwiftPM arranca como proceso sin Dock: se convierte en app normal y se trae al frente.
+/// A SwiftPM executable starts as a process without a Dock icon: turn it into a regular app and bring it to the front.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
@@ -52,10 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.activate()
     }
 
-    /// Panel estándar con el crédito a Mole (GPL-3.0): se adaptan ideas y listas de rutas, no código.
+    /// Standard panel with the credit to Mole (GPL-3.0): ideas and path lists are adapted, not code.
     @MainActor static func showAbout() {
         let credits = NSAttributedString(
-            string: "Software libre bajo GPL-3.0 · github.com/luis-guillen/airy\nAiry adapta ideas y listas de rutas de Mole (github.com/tw93/Mole, GPL-3.0). No incluye código de Mole.",
+            string: String(localized: "Open source under the GPL-3.0 license · github.com/luis-guillen/airy\nAiry adapts ideas and path lists from Mole (github.com/tw93/Mole, GPL-3.0). It contains no Mole code."),
             attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
                          .foregroundColor: NSColor.secondaryLabelColor])
         NSApplication.shared.orderFrontStandardAboutPanel(options: [.applicationName: "Airy", .credits: credits])

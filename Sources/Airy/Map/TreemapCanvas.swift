@@ -3,18 +3,18 @@ import QuartzCore
 import Synchronization
 import DiskMapCore
 
-/// El mapa de bloques: un único `Canvas` (rasterizado con Metal por `drawingGroup`) que dibuja
-/// todas las teselas. Mientras hay animación, un `TimelineView(.animation)` pide un fotograma
-/// por refresco de pantalla; en reposo queda en pausa y no gasta nada.
+/// The block map: a single `Canvas` (rasterized with Metal by `drawingGroup`) that draws
+/// every tile. While there is animation, a `TimelineView(.animation)` requests one frame
+/// per screen refresh; at rest it stays paused and spends nothing.
 struct TreemapCanvas: View {
     let scene: MapScene
 
     var body: some View {
-        // Se lee aquí (en `body`) para que Observation sepa qué redibujar; el lienzo recibe valores.
+        // Read here (in `body`) so Observation knows what to redraw; the canvas receives values.
         let frame = MapFrame(layout: scene.layout, transition: scene.transition,
                              hover: scene.hover, dim: scene.dim, bursts: scene.bursts)
         TimelineView(.animation(minimumInterval: nil, paused: !scene.isAnimating)) { timeline in
-            // El lienzo depende de la fecha del fotograma: si no, SwiftUI no lo vuelve a pintar.
+            // The canvas depends on the frame date: otherwise SwiftUI doesn't repaint it.
             let tick = timeline.date
             Canvas { context, size in
                 _ = tick
@@ -28,7 +28,7 @@ struct TreemapCanvas: View {
     }
 }
 
-/// Todo lo que el lienzo necesita para pintar un fotograma.
+/// Everything the canvas needs to paint a frame.
 struct MapFrame {
     let layout: MapLayout?
     let transition: MapTransition?
@@ -37,15 +37,15 @@ struct MapFrame {
     var bursts: [MapLeafBurst] = []
 }
 
-// MARK: - Paleta de las teselas
+// MARK: - Tile palette
 
 private struct TilePalette {
     let gradient: Gradient
     let text: Color
     let secondaryText: Color
 
-    /// Degradado de la tesela y tinta de mayor contraste; el tamaño se distingue por el peso de la
-    /// fuente, no por transparencia.
+    /// Tile gradient and highest-contrast ink; size is told apart by font weight,
+    /// not by transparency.
     init(base: UInt32) {
         gradient = Gradient(colors: AiryPalette.tileStops(base).map { Color(hex: $0) })
         text = Color(hex: AiryPalette.tileInk(base))
@@ -64,15 +64,15 @@ private struct TilePalette {
     }
 }
 
-// MARK: - Dibujo
+// MARK: - Drawing
 
 enum MapRenderer {
     private static var spring: SpringCurve { Theme.springCurve }
 
     private static func clamp(_ x: Double) -> Double { min(max(x, 0), 1) }
 
-    /// Los rótulos que se van desaparecen antes que sus teselas (a 0 al 35 % del muelle),
-    /// para que dos niveles de texto no se crucen a mitad de zoom.
+    /// Outgoing labels disappear before their tiles (at 0 by 35% of the spring),
+    /// so two levels of text don't cross halfway through a zoom.
     private static func labelFadeOut(_ s: Double) -> Double { 1 - clamp(s / 0.35) }
 
     static func draw(_ context: inout GraphicsContext, size: CGSize, frame: MapFrame, now: Double) {
@@ -89,7 +89,7 @@ enum MapRenderer {
         drawBursts(frame.bursts, context: &context, now: now)
     }
 
-    /// Hojas de las teselas que se deshacen, por encima de todo, en la tinta clara de las teselas.
+    /// Leaves of the tiles that break up, above everything, in the tiles' light ink.
     private static let burstColors: [Color] = [.white, Theme.Airy.leafSky]
 
     private static func drawBursts(_ bursts: [MapLeafBurst], context: inout GraphicsContext, now: Double) {
@@ -103,7 +103,7 @@ enum MapRenderer {
         }
     }
 
-    /// Si el lienzo cambió de tamaño y el layout nuevo aún no ha llegado, se estira el anterior.
+    /// If the canvas changed size and the new layout hasn't arrived yet, the previous one is stretched.
     private static func fitter(_ layout: MapLayout, _ canvas: CGRect) -> (CGRect) -> CGRect {
         guard layout.bounds.size != canvas.size, layout.bounds.width > 0 else { return { $0 } }
         return { RectMath.map($0, from: layout.bounds, to: canvas) }
@@ -117,7 +117,7 @@ enum MapRenderer {
             if let to = t.to { drawEntrance(to, window: canvas, t: t, context: context, frame: frame, now: now) }
 
         case .zoomIn:
-            // La tesela pulsada crece hasta ocupar el lienzo; las demás se escalan con ella y se apagan.
+            // The clicked tile grows to fill the canvas; the others scale with it and fade out.
             let window = RectMath.lerp(t.focusRect, canvas, s)
             var origins: [Int: CGRect] = [:]
             if let from = t.from {
@@ -131,7 +131,7 @@ enum MapRenderer {
                     }
                 }
                 if let focus = from.tile(id: t.focusID ?? .min) {
-                    // Su vista previa son los hijos: cada uno crecerá desde ahí hasta su sitio.
+                    // Its preview is the children: each one will grow from there to its place.
                     for inner in focus.inner {
                         origins[inner.id] = RectMath.map(inner.rect, from: focus.rect, to: window)
                     }
@@ -148,10 +148,10 @@ enum MapRenderer {
             }
 
         case .zoomOut:
-            // Lo inverso: el nivel actual se encoge hasta su tesela (cada hijo vuelve a su sitio
-            // en la vista previa) y el padre vuelve a su escala.
+            // The reverse: the current level shrinks to its tile (each child returns to its place
+            // in the preview) and the parent returns to its scale.
             let window = RectMath.lerp(canvas, t.focusRect, s)
-            let settle = clamp((s - 0.86) / 0.14)   // relevo final: hijos → vista previa
+            let settle = clamp((s - 0.86) / 0.14)   // final handover: children → preview
             var targets: [Int: CGRect] = [:]
             if let to = t.to {
                 let appear = clamp(s * 1.3)
@@ -210,9 +210,9 @@ enum MapRenderer {
         }
     }
 
-    /// Cada tesela de `layout` aparece con escala 0,85→1 y opacidad 0→1, del centro hacia fuera,
-    /// colocada dentro de `window` (el lienzo, o la tesela que está creciendo en un zoom).
-    /// Las que ya se veían en la vista previa (`origins`) no aparecen: crecen desde allí.
+    /// Each tile of `layout` appears with scale 0.85→1 and opacity 0→1, from the center outwards,
+    /// placed inside `window` (the canvas, or the tile growing during a zoom).
+    /// Those already visible in the preview (`origins`) don't appear: they grow from there.
     private static func drawEntrance(_ layout: MapLayout, window: CGRect, t: MapTransition,
                                      context: GraphicsContext, frame: MapFrame, now: Double,
                                      origins: [Int: CGRect] = [:]) {
@@ -233,7 +233,7 @@ enum MapRenderer {
         }
     }
 
-    // MARK: Una tesela
+    // MARK: One tile
 
     private static func drawTile(_ tile: MapTile, in rect: CGRect, context: GraphicsContext,
                                  opacity: Double, labelOpacity: Double,
@@ -242,7 +242,7 @@ enum MapRenderer {
         guard rect.width >= 0.5, rect.height >= 0.5, opacity > 0.002 else { return }
         let palette = TilePalette.of(tile.style)
 
-        // Leyenda: los tipos que no se resaltan se atenúan.
+        // Legend: kinds that aren't highlighted are dimmed.
         let kindOfTile: ContentKind? = if case .kind(let k) = tile.style { k } else { nil }
         let dimFactor = dimming(kindOfTile, frame: frame, now: now)
         let glow = hoverable ? frame.hover.weight(of: tile.id, at: now) : 0
@@ -253,7 +253,7 @@ enum MapRenderer {
         let shortSide = min(rect.width, rect.height)
         let radius = min(shortSide < 60 ? 4 : 8, shortSide / 2)
 
-        // Diminutas: un relleno plano basta (y ahorra miles de degradados).
+        // Tiny ones: a flat fill is enough (and saves thousands of gradients).
         if shortSide < 3 {
             c.fill(Path(rect), with: .color(Theme.color(for: kindOfTile ?? .system).opacity(tile.isOthers ? 0.6 : 1)))
             return
@@ -281,7 +281,7 @@ enum MapRenderer {
         }
 
         if glow > 0.01 {
-            // +8 % de brillo al pasar el ratón.
+            // +8% brightness on hover.
             c.fill(path, with: .color(.white.opacity(0.08 * glow)))
         }
 
@@ -296,13 +296,13 @@ enum MapRenderer {
         }
     }
 
-    /// Atenuación por la leyenda: 1 si el tipo está resaltado (o no hay ninguno), 0,18 si no.
+    /// Legend dimming: 1 if the kind is highlighted (or none is), 0.18 otherwise.
     private static func dimming(_ kind: ContentKind?, frame: MapFrame, now: Double) -> Double {
         let lit = min(frame.dim.weight(of: nil, at: now) + (kind.map { frame.dim.weight(of: $0, at: now) } ?? 0), 1)
         return 0.18 + 0.82 * lit
     }
 
-    /// Vista previa anidada: los hijos de la carpeta, más pequeños, dentro de su tesela.
+    /// Nested preview: the folder's children, smaller, inside its tile.
     private static func drawPreview(_ tile: MapTile, in rect: CGRect, context: GraphicsContext,
                                     frame: MapFrame, now: Double) {
         let same = rect == tile.rect
@@ -373,11 +373,11 @@ enum MapRenderer {
     }
 }
 
-// MARK: - Contador de FPS (solo Debug con AIRY_FPS=1)
+// MARK: - FPS counter (Debug only with AIRY_FPS=1)
 
 #if DEBUG
-/// Cuenta los fotogramas que dibuja el lienzo durante cada animación y los escribe en stderr.
-/// Fuera de Debug, o sin `AIRY_FPS=1`, cada llamada sale en la primera línea.
+/// Counts the frames the canvas draws during each animation and writes them to stderr.
+/// Outside Debug, or without `AIRY_FPS=1`, every call returns on its first line.
 final class FPSMeter: Sendable {
     static let shared = FPSMeter()
 
@@ -397,7 +397,7 @@ final class FPSMeter: Sendable {
     func begin(_ label: String) {
         guard Self.isEnabled else { return }
         end()
-        Self.log("[anim] empieza \(label)")
+        Self.log("[anim] begins \(label)")
         state.withLock { s in
             s.label = label; s.frames = 0; s.start = CACurrentMediaTime(); s.last = s.start; s.longestGap = 0
         }
@@ -423,13 +423,13 @@ final class FPSMeter: Sendable {
             defer { s.label = nil }
             let duration = s.last - s.start
             guard duration > 0 else { return nil }
-            return String(format: "[fps] %@: %d fotogramas en %.3f s = %.1f fps (hueco máx. %.1f ms)",
+            return String(format: "[fps] %@: %d frames in %.3f s = %.1f fps (max gap %.1f ms)",
                           label, s.frames, duration, Double(s.frames) / duration, s.longestGap * 1000)
         }
         if let line { Self.log(line) }
     }
 
-    /// Fotogramas dibujados en el último segundo.
+    /// Frames drawn in the last second.
     var currentFPS: Int {
         let now = CACurrentMediaTime()
         return state.withLock { s in s.recent.filter { now - $0 <= 1 }.count }
