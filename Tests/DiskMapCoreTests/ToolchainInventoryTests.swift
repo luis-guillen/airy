@@ -17,7 +17,7 @@ func tcWrite(_ path: String, _ text: String = "x") {
     FileManager.default.createFile(atPath: path, contents: Data(text.utf8))
 }
 
-/// `atime`/`mtime` de `path` hace tantos días (sin seguir enlaces).
+/// `atime`/`mtime` of `path` that many days ago (without following links).
 func tcSetTimes(_ path: String, accessDaysAgo: Double, modifiedDaysAgo: Double) {
     let now = Date().timeIntervalSince1970
     func tv(_ days: Double) -> timeval { timeval(tv_sec: Int(now - days * 86_400), tv_usec: 0) }
@@ -25,7 +25,7 @@ func tcSetTimes(_ path: String, accessDaysAgo: Double, modifiedDaysAgo: Double) 
     _ = lutimes(path, &times)
 }
 
-/// Raíces de prueba: todo dentro de `base` (home en `base/home`).
+/// Test roots: everything inside `base` (home in `base/home`).
 func tcRoots(_ base: String) -> ToolchainRoots {
     ToolchainRoots(home: base + "/home", cellars: [base + "/Cellar"], applications: base + "/Applications",
                    libraryJava: base + "/Java", libraryPython: base + "/Python", xcodeSelectLink: base + "/xcode_link")
@@ -132,7 +132,7 @@ func tcRoots(_ base: String) -> ToolchainRoots {
         let found = ToolchainInventory.scan(tcRoots(base))
         #expect(found.map(\.name).sorted() == ["3.11", "Xcode-beta.app", "Xcode.app", "x.jdk"])
         #expect(found.allSatisfy { $0.informational && $0.manager == .system })
-        // Un solo Xcode no es «duplicado».
+        // A single Xcode is not a "duplicate".
         let single = toolchainTempDir()
         tcMakeDir(single + "/Applications/Xcode.app")
         #expect(ToolchainInventory.scan(tcRoots(single)).isEmpty)

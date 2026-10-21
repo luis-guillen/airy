@@ -1,15 +1,15 @@
 import Foundation
 
-/// Un fichero que el usuario puede revisar y mandar a la Papelera (Grandes y viejos, Tipos de archivo).
+/// A file the user can review and send to the Trash (Large and old, File types).
 public struct ActionableFile: Sendable, Equatable, Identifiable {
     public let path: String, name: String, bytes: Int64, kind: ContentKind
     public let lastModified: Date?, lastOpened: Date?
     public let risk: Risk, protection: ProtectionMatch?, reasons: [String]
-    /// `true` si Spotlight no contestó a tiempo: la fecha de último uso se desconoce (no es «antiguo»).
+    /// `true` if Spotlight did not answer in time: the last-used date is unknown (it is not "old").
     public let openDateUnknown: Bool
     public var id: String { path }
     public var canSelect: Bool { risk != .doNotTouch && protection == nil }
-    /// La más reciente de `lastModified` y `lastOpened`.
+    /// The most recent of `lastModified` and `lastOpened`.
     public var lastActivity: Date? {
         switch (lastModified, lastOpened) {
         case let (a?, b?): max(a, b)
@@ -27,8 +27,8 @@ public struct ActionableFile: Sendable, Equatable, Identifiable {
         self.openDateUnknown = openDateUnknown
     }
 
-    /// risk = classifier.classify(path:).risk; si la ficha del catálogo no existe o no `regenerates`, al menos
-    /// `.yourCall`; `gate.validate` falla ⇒ `.doNotTouch` con la protección y los motivos del rechazo.
+    /// risk = classifier.classify(path:).risk; if the catalog entry does not exist or does not `regenerates`, at least
+    /// `.yourCall`; `gate.validate` fails ⇒ `.doNotTouch` with the protection and the refusal reasons.
     public static func make(node: FileNode, classifier: RiskClassifier, catalog: Catalog?, gate: PathGate,
                             lastOpened: Date?, home: String = NSHomeDirectory(),
                             openDateUnknown: Bool = false) -> ActionableFile {
@@ -47,14 +47,14 @@ public struct ActionableFile: Sendable, Equatable, Identifiable {
             reasons.append(refusal.reason)
         }
         if protection != nil { risk = .doNotTouch }
-        if openDateUnknown { reasons.append("No se pudo saber cuándo se abrió por última vez.") }
+        if openDateUnknown { reasons.append(String(localized: "Could not tell when it was last opened.", bundle: .airyCore)) }
         return ActionableFile(path: path, name: node.name, bytes: node.allocatedSize, kind: node.kind,
                               lastModified: node.lastModified, lastOpened: lastOpened, risk: risk,
                               protection: protection, reasons: reasons, openDateUnknown: openDateUnknown)
     }
 }
 
-/// Selección compartida por las secciones de ficheros: nunca contiene rojo ni protegido.
+/// Selection shared by the file sections: it never contains red or protected items.
 public struct FileSelection: Sendable, Equatable {
     public private(set) var ids: Set<String>
     public init() { ids = [] }
@@ -68,14 +68,14 @@ public struct FileSelection: Sendable, Equatable {
         for file in files where file.canSelect && file.risk == .safe { ids.insert(file.id) }
     }
 
-    /// Verde + ámbar seleccionable.
+    /// Green + selectable amber.
     public mutating func selectAll(_ files: [ActionableFile]) {
         for file in files where file.canSelect && file.risk != .doNotTouch { ids.insert(file.id) }
     }
 
     public mutating func clear() { ids = [] }
 
-    /// Quita lo que ya no está en `files` o ya no se puede marcar.
+    /// Removes what is no longer in `files` or can no longer be checked.
     public mutating func prune(to files: [ActionableFile]) {
         let valid = Set(files.filter(\.canSelect).map(\.id))
         ids.formIntersection(valid)
@@ -89,7 +89,7 @@ public struct FileSelection: Sendable, Equatable {
         selected(in: files).reduce(0) { $0 + $1.bytes }
     }
 
-    /// Verde, ámbar y rojo, sin grupos vacíos.
+    /// Green, amber and red, without empty groups.
     public static func groups(_ files: [ActionableFile]) -> [(risk: Risk, files: [ActionableFile])] {
         [Risk.safe, .yourCall, .doNotTouch].compactMap { risk in
             let group = files.filter { $0.risk == risk }

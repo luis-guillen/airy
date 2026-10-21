@@ -1,6 +1,6 @@
 import Foundation
 
-/// Elemento de inicio (LaunchAgent) cuyo programa ya no existe. Solo se informa.
+/// Login item (LaunchAgent) whose program no longer exists. Report only.
 public struct BrokenLoginItem: Sendable, Equatable, Identifiable {
     public var id: String { plistPath }
     public var label: String
@@ -14,7 +14,7 @@ public struct BrokenLoginItem: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Auditoría de solo lectura: nunca borra, mueve ni descarga nada.
+/// Read-only audit: it never deletes, moves or downloads anything.
 public enum LoginItemsAudit {
     public static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!
 
@@ -24,8 +24,8 @@ public enum LoginItemsAudit {
         [home + "/Library/LaunchAgents", "/Library/LaunchAgents"]
     }
 
-    /// Lee cada *.plist (≤ 1 MB); programa = Program ?? ProgramArguments[0]; solo rutas absolutas;
-    /// bajo /Volumes/<X> con <X> inexistente (disco desmontado) no cuenta.
+    /// Reads each *.plist (≤ 1 MB); program = Program ?? ProgramArguments[0]; absolute paths only;
+    /// under /Volumes/<X> with a non-existent <X> (unmounted disk) it does not count.
     public static func broken(
         in directories: [String],
         fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
@@ -58,8 +58,8 @@ public enum LoginItemsAudit {
         return result
     }
 
-    /// Solo ficheros regulares (se siguen enlaces simbólicos con stat, pero se rechazan FIFO y
-    /// dispositivos); lectura acotada a maxPlistBytes. Nil si no es válido o supera el límite.
+    /// Regular files only (symbolic links are followed with stat, but FIFOs and
+    /// devices are rejected); reading bounded to maxPlistBytes. Nil if invalid or over the limit.
     private static func readBoundedRegularFile(_ path: String) -> Data? {
         var st = stat()
         guard stat(path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG,

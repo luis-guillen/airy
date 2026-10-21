@@ -6,7 +6,7 @@ public struct CleanupRecord: Codable, Sendable {
     public var title: String
     public var bytes: Int64
     public var wentToTrash: Bool
-    /// `true` si la limpieza la pidió un agente (MCP). Se codifica solo cuando es `true`.
+    /// `true` if an agent (MCP) asked for the cleanup. Only encoded when `true`.
     public var byAgent: Bool
 
     public init(date: Date, title: String, bytes: Int64, wentToTrash: Bool, byAgent: Bool = false) {
@@ -38,19 +38,19 @@ public struct CleanupRecord: Codable, Sendable {
     }
 }
 
-/// Persiste el último índice (`scan.plist`, plist binario, arrays paralelos) y el
-/// historial de limpiezas (`history.json`). La fecha del último análisis va dentro del índice
-/// (`ScanResult.scannedAt`, cabecera v3): la fecha de modificación del archivo no sirve, porque
-/// cada limpieza o envío a la Papelera vuelve a guardar el árbol. Un índice v2 se lee con fecha
-/// desconocida (`nil`).
+/// Persists the last index (`scan.plist`, binary plist, parallel arrays) and the
+/// cleanup history (`history.json`). The date of the last scan goes inside the index
+/// (`ScanResult.scannedAt`, v3 header): the file's modification date is useless, because
+/// every cleanup or move to the Trash saves the tree again. A v2 index is read with an unknown
+/// date (`nil`).
 public final class IndexStore: Sendable {
     private static let currentVersion: UInt32 = 3
-    /// v2: igual que v3 sin `scannedAt` (cabecera de 32 bytes en vez de 40).
+    /// v2: same as v3 without `scannedAt` (32-byte header instead of 40).
     private static let legacyVersion: UInt32 = 2
     private static let noDate = -1.0e18
     private static let magic: [UInt8] = Array("DMIX".utf8)
 
-    /// Columnas paralelas del árbol aplanado (BFS: los padres preceden a los hijos).
+    /// Parallel columns of the flattened tree (BFS: parents precede children).
     struct FlatScan {
         var duration: Double = 0
         var scannedAt: Date?
@@ -60,7 +60,7 @@ public final class IndexStore: Sendable {
         var isDirectory: [UInt8] = []
         var size: [Int64] = []
         var kind: [UInt8] = []
-        /// `kindBytes` de todos los nodos concatenados (10 por nodo).
+        /// `kindBytes` of every node concatenated (10 per node).
         var kindBytes: [Int64] = []
         var mtime: [Double] = []
         var descendantCount: [Int64] = []
@@ -81,7 +81,7 @@ public final class IndexStore: Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
-    // MARK: - Índice
+    // MARK: - Index
 
     public func saveScan(_ result: ScanResult) throws {
         let data = Self.serialize(Self.flatten(result))
@@ -91,7 +91,7 @@ public final class IndexStore: Sendable {
         }
     }
 
-    /// `nil` si no existe; si está corrupto, se borra y devuelve `nil`.
+    /// `nil` if it does not exist; if it is corrupt, it is deleted and `nil` is returned.
     public func loadScan() throws -> ScanResult? {
         try lock.withLock { _ in
             guard FileManager.default.fileExists(atPath: scanURL.path) else { return nil }
@@ -104,7 +104,7 @@ public final class IndexStore: Sendable {
         }
     }
 
-    /// Fecha del análisis guardado (solo lee la cabecera). `nil` si no hay índice o no se sabe.
+    /// Date of the saved scan (only reads the header). `nil` if there is no index or it is unknown.
     public func lastScanDate() throws -> Date? {
         try lock.withLock { _ in
             guard let handle = FileHandle(forReadingAtPath: scanURL.path) else { return nil }
@@ -123,12 +123,12 @@ public final class IndexStore: Sendable {
         }
     }
 
-    // MARK: - Historial
+    // MARK: - History
 
     public func append(_ record: CleanupRecord) throws {
         try lock.withLock { _ in
             try ensureDirectory()
-            // Candado entre procesos (app y airy-mcp): leer-modificar-escribir en exclusiva.
+            // Cross-process lock (app and airy-mcp): exclusive read-modify-write.
             let fd = open(directory.appendingPathComponent("history.lock").path, O_RDWR | O_CREAT, 0o600)
             guard fd >= 0 else { throw CocoaError(.fileWriteUnknown) }
             defer { close(fd) }
@@ -146,7 +146,7 @@ public final class IndexStore: Sendable {
         try lock.withLock { _ in try readHistory() }
     }
 
-    /// Solo lo liberado de verdad: lo enviado a la Papelera no cuenta hasta vaciarla.
+    /// Only what was really freed: what was sent to the Trash does not count until it is emptied.
     public func totalFreed() throws -> Int64 {
         try history().filter { !$0.wentToTrash }.reduce(0) { $0 + $1.bytes }
     }
@@ -158,7 +158,7 @@ public final class IndexStore: Sendable {
         return try decoder.decode([CleanupRecord].self, from: Data(contentsOf: historyURL))
     }
 
-    // MARK: - Aplanado iterativo
+    // MARK: - Iterative flattening
 
     static func flatten(_ result: ScanResult) -> FlatScan {
         var flat = FlatScan()
@@ -170,7 +170,7 @@ public final class IndexStore: Sendable {
         var kindIndex: [ContentKind: UInt8] = [:]
         for (i, k) in kinds.enumerated() { kindIndex[k] = UInt8(i) }
 
-        // Cola BFS: el índice de un hijo siempre es mayor que el de su padre.
+        // BFS queue: a child's index is always greater than its parent's.
         var queue: [(node: FileNode, parent: Int)] = [(result.root, -1)]
         var head = 0
         while head < queue.count {
@@ -195,10 +195,10 @@ public final class IndexStore: Sendable {
         return flat
     }
 
-    // MARK: - Formato binario
+    // MARK: - Binary format
 
-    /// Cabecera: magic "DMIX", versión UInt32, nodos UInt64, duración Double, inaccesibles UInt64;
-    /// luego columnas de ancho fijo, offsets de cadenas (UInt64, n+1) y blobs UTF-8.
+    /// Header: magic "DMIX", UInt32 version, UInt64 nodes, Double duration, UInt64 inaccessible;
+    /// then fixed-width columns, string offsets (UInt64, n+1) and UTF-8 blobs.
     static func serialize(_ flat: FlatScan) -> Data {
         let count = flat.name.count
         var out = Data()
@@ -227,7 +227,7 @@ public final class IndexStore: Sendable {
         putValue(UInt64(flat.inaccessible.count))
         putValue(flat.scannedAt?.timeIntervalSinceReferenceDate ?? noDate)
         put(flat.parentIndex); put(flat.isDirectory); put(flat.kind)
-        // Alinear a 8 bytes para las columnas anchas.
+        // Align to 8 bytes for the wide columns.
         while out.count % 8 != 0 { out.append(0) }
         put(flat.size); put(flat.mtime); put(flat.descendantCount)
         put(flat.aggregatedCount); put(flat.kindBytes)

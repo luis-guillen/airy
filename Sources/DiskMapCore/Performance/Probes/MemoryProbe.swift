@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-/// Memoria como el Monitor de Actividad (R4). Solo APIs públicas: `host_statistics64` y `sysctl`.
+/// Memory like Activity Monitor (R4). Public APIs only: `host_statistics64` and `sysctl`.
 public enum MemoryProbe {
     public static func read() -> MemoryStats? {
         var vm = vm_statistics64()
@@ -52,10 +52,10 @@ public enum MemoryProbe {
     }
 }
 
-/// Puerto del host obtenido una sola vez: `mach_host_self()` añade una referencia en cada llamada y nunca se libera.
+/// Host port obtained only once: `mach_host_self()` adds a reference on every call and it is never released.
 let machHost: mach_port_t = mach_host_self()
 
-/// Lee un entero de `sysctlbyname` (nil si no existe).
+/// Reads an integer from `sysctlbyname` (nil if it does not exist).
 func sysctlValue<T: FixedWidthInteger>(_ name: String, as: T.Type) -> T? {
     var value: T = 0
     var size = MemoryLayout<T>.size

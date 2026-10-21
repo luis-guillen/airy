@@ -17,7 +17,7 @@ private func touch(_ path: String) {
     FileManager.default.createFile(atPath: path, contents: Data("x".utf8))
 }
 
-/// `.app` falso con su `Contents/Info.plist` y un ejecutable.
+/// Fake `.app` with its `Contents/Info.plist` and an executable.
 private func makeBundle(_ path: String, id: String) {
     mkdir(path + "/Contents/MacOS")
     touch(path + "/Contents/MacOS/" + ((path as NSString).lastPathComponent as NSString).deletingPathExtension)
@@ -53,7 +53,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
                  protections: HardProtections(criticalRoots: criticalRoots, sealedSystemLocations: [apps]))
     }
 
-    // MARK: - El `.app` exacto
+    // MARK: - The exact `.app`
 
     @Test func bundlePassesOnlyWithItsOwnWaiver() throws {
         let gate = gate()
@@ -64,12 +64,12 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         let validated = try gate.validate(foo, waiver: waiver).get()
         #expect(validated.path == foo)
         #expect(gate.confirmUnchanged(validated) == nil)
-        // Otra app, la carpeta de apps y lo de dentro del `.app`: nunca cuentan como el `.app`.
+        // Another app, the apps folder and what is inside the `.app`: they never count as the `.app`.
         for path in [apps + "/Other.app", apps, foo + "/Contents", foo + "/Contents/Info.plist",
                      foo + "/Contents/MacOS/Foo"] {
             #expect(gate.validate(path, waiver: waiver).failure != nil, "\(path)")
         }
-        // La dispensa de la otra app tampoco abre Foo.
+        // The other app's waiver does not open Foo either.
         let other = try #require(ProtectionWaiver.uninstall(record("com.example.other", "Other", apps + "/Other.app"),
                                                             appRoots: [apps]))
         #expect(gate.validate(foo, waiver: other).failure != nil)
@@ -79,7 +79,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
     @Test func caseVariantsAndTraversalOfTheBundleRefused() throws {
         let gate = gate()
         let waiver = try #require(fooWaiver)
-        // En APFS sin mayúsculas son el mismo archivo, pero no es la ruta elegida: se aplica la lista dura entera.
+        // On case-insensitive APFS they are the same file, but it is not the chosen path: the whole hard list applies.
         for path in [apps + "/foo.app", apps + "/FOO.APP", apps + "/Foo.App", foo + "/", foo + "/.",
                      foo + "/Contents/..", apps + "/./Foo.app", apps + "//Foo.app", apps + "/Other/../Foo.app"] {
             #expect(gate.validate(path, waiver: waiver).failure != nil, "\(path)")
@@ -91,38 +91,38 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         let waiver = try #require(fooWaiver)
         #expect(gate.validate(foo, waiver: waiver).failure == nil)
         writeInfoPlist(foo, id: "com.example.impostor")
-        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "Ya no es la app que elegiste.")
-        writeInfoPlist(foo, id: "COM.EXAMPLE.FOO")                                  // ni en otra caja
-        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "Ya no es la app que elegiste.")
-        try FileManager.default.removeItem(atPath: foo + "/Contents/Info.plist")    // sin Info.plist
-        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "Ya no es la app que elegiste.")
-        try Data("no es un plist".utf8).write(to: URL(fileURLWithPath: foo + "/Contents/Info.plist"))
-        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "Ya no es la app que elegiste.")
+        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "It is no longer the app you chose.")
+        writeInfoPlist(foo, id: "COM.EXAMPLE.FOO")                                  // not in another case either
+        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "It is no longer the app you chose.")
+        try FileManager.default.removeItem(atPath: foo + "/Contents/Info.plist")    // without Info.plist
+        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "It is no longer the app you chose.")
+        try Data("not a plist".utf8).write(to: URL(fileURLWithPath: foo + "/Contents/Info.plist"))
+        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "It is no longer the app you chose.")
     }
 
     @Test func symlinkBundleRefused() throws {
         let gate = gate()
-        // Un enlace con forma de `.app` que apunta a la app de verdad.
+        // A link shaped like an `.app` that points to the real app.
         try FileManager.default.createSymbolicLink(atPath: apps + "/Link.app", withDestinationPath: foo)
         let linkWaiver = try #require(ProtectionWaiver.uninstall(record("com.example.foo", "Foo Bar", apps + "/Link.app"),
                                                                 appRoots: [apps]))
-        #expect(gate.validate(apps + "/Link.app", waiver: linkWaiver).failure?.reason == "Ya no es la app que elegiste.")
-        // Un enlace a otra carpeta protegida, con un Info.plist falso dentro del destino.
+        #expect(gate.validate(apps + "/Link.app", waiver: linkWaiver).failure?.reason == "It is no longer the app you chose.")
+        // A link to another protected folder, with a fake Info.plist inside the target.
         let keychains = h + "/Library/Keychains/Evil.app"
         makeBundle(keychains, id: "com.example.evil")
         try FileManager.default.createSymbolicLink(atPath: apps + "/Evil.app", withDestinationPath: keychains)
         let evil = try #require(ProtectionWaiver.uninstall(record("com.example.evil", "Evil", apps + "/Evil.app"),
                                                           appRoots: [apps]))
         #expect(gate.validate(apps + "/Evil.app", waiver: evil).failure != nil)
-        // La app elegida se cambia por un enlace después de crear la dispensa.
+        // The chosen app is swapped for a link after the waiver is created.
         let waiver = try #require(fooWaiver)
         try FileManager.default.moveItem(atPath: foo, toPath: apps + "/Real.app")
         try FileManager.default.createSymbolicLink(atPath: foo, withDestinationPath: apps + "/Real.app")
-        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "Ya no es la app que elegiste.")
+        #expect(gate.validate(foo, waiver: waiver).failure?.reason == "It is no longer the app you chose.")
     }
 
     @Test func onlyTheAppRootSealIsWaived() throws {
-        // Una raíz de apps dentro de otra ubicación sellada: el sello de fuera no se dispensa.
+        // An apps root inside another sealed location: the outer seal is not waived.
         let system = tmp + "/System"
         let inner = system + "/Applications/Calc.app"
         makeBundle(inner, id: "com.example.calc")
@@ -130,20 +130,20 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
                             protections: HardProtections(criticalRoots: [], sealedSystemLocations: [apps, system]))
         let waiver = try #require(ProtectionWaiver.uninstall(record("com.example.calc", "Calc", inner),
                                                             appRoots: [system + "/Applications"]))
-        #expect(gate.validate(inner, waiver: waiver).failure?.reason == "Ubicación protegida por Airy: \(system).")
-        // Y la raíz «/» nunca vale como raíz de apps.
+        #expect(gate.validate(inner, waiver: waiver).failure?.reason == "Location protected by Airy: \(system).")
+        // And the "/" root never counts as an apps root.
         #expect(ProtectionWaiver.uninstall(record("com.example.foo", "Foo", foo), appRoots: ["/"]) == nil)
     }
 
     @Test func onlyApplicationsRootsAccepted() {
-        // Una raíz que no se llama «Applications» nunca da dispensa, aunque la app cuelgue de ella.
+        // A root not called "Applications" never gives a waiver, even if the app hangs from it.
         for (root, path) in [("/Library", "/Library/X.app"), ("/usr", "/usr/X.app"), ("/opt/homebrew", "/opt/homebrew/X.app"),
                              ("/private", "/private/X.app"), ("/System", "/System/X.app"), ("/", "/X.app"),
                              (h + "/Library/Keychains", h + "/Library/Keychains/X.app"), (tmp + "/Apps", tmp + "/Apps/X.app"),
                              ("/Applications/Utilities", "/Applications/Utilities/A/B/X.app")] {
             #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", path), appRoots: [root]) == nil, "\(root)")
         }
-        // Mayúsculas aparte, «Applications» sí vale (y la de producción).
+        // Case aside, "Applications" does count (and so does the production one).
         #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", tmp + "/APPLICATIONS/Foo.app"),
                                            appRoots: [tmp + "/APPLICATIONS"]) != nil)
         #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", foo),
@@ -151,8 +151,8 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
     }
 
     @Test func libraryRootNeverOpensItsSeal() throws {
-        // Aunque alguien llamara «Applications» a una carpeta dentro de un sello del sistema, solo el sello
-        // cuyo patrón es la raíz de apps se dispensa; el de fuera sigue rechazando.
+        // Even if someone named a folder inside a system seal "Applications", only the seal
+        // whose pattern is the apps root is waived; the outer one still rejects.
         let lib = tmp + "/Library"
         let inner = lib + "/Applications/X.app"
         makeBundle(inner, id: "com.example.x")
@@ -161,35 +161,35 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", inner), appRoots: [lib]) == nil)
         let waiver = try #require(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", inner),
                                                             appRoots: [lib + "/Applications"]))
-        #expect(gate.validate(inner, waiver: waiver).failure?.reason == "Ubicación protegida por Airy: \(lib).")
+        #expect(gate.validate(inner, waiver: waiver).failure?.reason == "Location protected by Airy: \(lib).")
     }
 
     @Test func systemnessRecomputedNotTrusted() throws {
-        // `isSystem: false` del llamante no basta: un enlace hacia /System se resuelve y se rechaza.
+        // The caller's `isSystem: false` is not enough: a link towards /System is resolved and rejected.
         let calculator = "/System/Applications/Calculator.app"
         if FileManager.default.fileExists(atPath: calculator) {
             try FileManager.default.createSymbolicLink(atPath: apps + "/Calc.app", withDestinationPath: calculator)
             #expect(ProtectionWaiver.uninstall(record("com.example.calc", "Calc", apps + "/Calc.app"), appRoots: [apps]) == nil)
         } else {
-            Issue.record("No hay \(calculator) para probar el enlace hacia /System.")
+            Issue.record("There is no \(calculator) to test the link towards /System.")
         }
-        // Carpeta de apps enlazada dentro de /System.
+        // An apps folder linked inside /System.
         try FileManager.default.createSymbolicLink(atPath: tmp + "/SysLink", withDestinationPath: "/System")
         #expect(ProtectionWaiver.uninstall(record("com.example.calc", "Calc", tmp + "/SysLink/Applications/Calculator.app"),
                                            appRoots: [tmp + "/SysLink/Applications"]) == nil)
-        // Identificador imprescindible del sistema, en el registro o en el disco.
+        // An essential system identifier, in the record or on disk.
         #expect(ProtectionWaiver.uninstall(record("com.apple.Finder", "Finder", apps + "/Finder.app"), appRoots: [apps]) == nil)
         makeBundle(apps + "/Fake.app", id: "com.apple.Safari")
         #expect(ProtectionWaiver.uninstall(record("com.example.fake", "Fake", apps + "/Fake.app"), appRoots: [apps]) == nil)
         makeBundle(apps + "/Falcon.app", id: "com.crowdstrike.falcon")
         #expect(ProtectionWaiver.uninstall(record("com.example.falcon", "Falcon", apps + "/Falcon.app"), appRoots: [apps]) == nil)
-        // Ni sin carpeta padre resoluble.
+        // Nor without a resolvable parent folder.
         #expect(ProtectionWaiver.uninstall(record("com.example.x", "Xenon", tmp + "/Nada/Applications/X.app"),
                                            appRoots: [tmp + "/Nada/Applications"]) == nil)
     }
 
     @Test func wrappedIOSAppPassesWithItsWaiver() throws {
-        // App de iOS/iPadOS: sin Contents/Info.plist; el identificador está en Wrapper/<nombre>.app/Info.plist.
+        // iOS/iPadOS app: without Contents/Info.plist; the identifier is in Wrapper/<name>.app/Info.plist.
         let wrapped = apps + "/Juego.app"
         mkdir(wrapped + "/Wrapper/Juego.app")
         func writeWrapped(_ id: String) {
@@ -204,26 +204,26 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(gate.validate(wrapped, waiver: waiver).failure == nil)
         #expect(gate.validate(wrapped + "/Wrapper/Juego.app", waiver: waiver).failure != nil)
         writeWrapped("com.example.otro")
-        #expect(gate.validate(wrapped, waiver: waiver).failure?.reason == "Ya no es la app que elegiste.")
+        #expect(gate.validate(wrapped, waiver: waiver).failure?.reason == "It is no longer the app you chose.")
     }
 
     @Test func criticalRootNeverWaived() throws {
         let waiver = try #require(fooWaiver)
         #expect(gate(criticalRoots: [foo]).validate(foo, waiver: waiver).failure != nil)
-        // Solo por el texto (la raíz no existía al crear el embudo, así que su inodo no está registrado).
+        // Only by the text (the root did not exist when the funnel was created, so its inode is not registered).
         let late = apps + "/Late.app"
         let lateGate = gate(criticalRoots: [late])
         makeBundle(late, id: "com.example.late")
         let lateWaiver = try #require(ProtectionWaiver.uninstall(record("com.example.late", "Late", late), appRoots: [apps]))
-        #expect(lateGate.validate(late, waiver: lateWaiver).failure?.reason == "Carpeta crítica del sistema.")
-        // Una «raíz de apps» dentro de una ubicación sellada del home: el sello del home no se dispensa.
+        #expect(lateGate.validate(late, waiver: lateWaiver).failure?.reason == "Critical system folder.")
+        // An "apps root" inside a sealed home location: the home seal is not waived.
         let keychainApp = h + "/Library/Keychains/Applications/Evil.app"
         makeBundle(keychainApp, id: "com.example.evil")
         let keychainWaiver = try #require(ProtectionWaiver.uninstall(record("com.example.evil", "Evil", keychainApp),
                                                                     appRoots: [h + "/Library/Keychains/Applications"]))
         #expect(gate().validate(keychainApp, waiver: keychainWaiver).failure?.reason
-            == "Ubicación protegida por Airy: Llaveros.")
-        // La lista dura real: /Applications/Safari.app es raíz crítica, con o sin dispensa.
+            == "Location protected by Airy: Keychains.")
+        // The real hard list: /Applications/Safari.app is a critical root, with or without a waiver.
         let safari = ProtectionWaiver.uninstall(record("com.apple.Safari", "Safari", "/Applications/Safari.app"),
                                                 appRoots: ProtectionWaiver.productionAppRoots(home: h))
         let real = PathGate(home: h, catalog: nil, userProtected: ProtectList(patterns: [], home: h))
@@ -236,14 +236,14 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
 
     @Test func bundleFragmentWaivedOnlyInItsOwnName() throws {
         let gate = gate()
-        // El nombre del `.app` contiene un fragmento (1password): se puede desinstalar con su dispensa.
+        // The `.app` name contains a fragment (1password): it can be uninstalled with its waiver.
         let onePassword = apps + "/1Password.app"
         makeBundle(onePassword, id: "com.1password.1password")
         let opWaiver = try #require(ProtectionWaiver.uninstall(record("com.1password.1password", "1Password", onePassword),
                                                               appRoots: [apps]))
         #expect(gate.validate(onePassword, waiver: nil).failure != nil)
         #expect(gate.validate(onePassword, waiver: opWaiver).failure == nil)
-        // El fragmento en una carpeta superior no se dispensa (aunque el nombre del `.app` también lo tenga).
+        // The fragment in a parent folder is not waived (even if the `.app` name has it too).
         let nested = apps + "/Keychain Tools/Keychain Foo.app"
         makeBundle(nested, id: "com.example.foo")
         let sibling = apps + "/Keychain Foo.app"
@@ -256,7 +256,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(gate.validate(nested, waiver: nestedWaiver).failure != nil)
     }
 
-    // MARK: - Quién puede tener dispensa
+    // MARK: - Who can have a waiver
 
     @Test func noWaiverForSystemOfficialUninstallerOrAiry() {
         #expect(ProtectionWaiver.uninstall(record("com.example.foo", "Foo Bar", foo, system: true), appRoots: [apps]) == nil)
@@ -264,7 +264,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
                    "local.airy.Airy", "LOCAL.AIRY.Airy", ""] {
             #expect(ProtectionWaiver.uninstall(record(id, "Foo Bar", foo), appRoots: [apps]) == nil, "\(id)")
         }
-        // Profundidad 1 y 2 sí; 0, 3 o fuera de las raíces, no.
+        // Depth 1 and 2 yes; 0, 3 or outside the roots, no.
         mkdir(apps + "/Utilidades")
         #expect(ProtectionWaiver.uninstall(fooApp, appRoots: [apps]) != nil)
         #expect(ProtectionWaiver.uninstall(record("com.example.foo", "Foo", apps + "/Utilidades/Foo.app"),
@@ -275,7 +275,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
             #expect(ProtectionWaiver.uninstall(record("com.example.foo", "Foo", path), appRoots: [apps]) == nil, "\(path)")
         }
         #expect(ProtectionWaiver.productionAppRoots(home: "/Users/ana") == ["/Applications", "/Users/ana/Applications"])
-        // Lo que guarda la dispensa.
+        // What the waiver keeps.
         let waiver = ProtectionWaiver.uninstall(
             record("com.Example.Foo", "Foo Bar", foo, helpers: ["com.Example.Foo.Helper"]), appRoots: [apps])
         #expect(waiver?.bundlePath == RiskPolicy.canonical(foo))
@@ -283,7 +283,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(waiver?.ownedNames == ["com.example.foo", "com.example.foo.helper", "foo bar", "foobar", "foo_bar", "foo-bar"])
     }
 
-    // MARK: - Datos de la app
+    // MARK: - The app's data
 
     @Test func sensitiveDataWaivedOnlyForOwner() throws {
         let gate = gate()
@@ -297,20 +297,20 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
                                                            appRoots: [apps]))
         let discord = try #require(ProtectionWaiver.uninstall(record("com.hnc.Discord", "Discord", apps + "/Discord.app"),
                                                              appRoots: [apps]))
-        #expect(gate.validate(slackFolder, waiver: nil).failure?.reason == "Datos de una app sensible (Slack).")
+        #expect(gate.validate(slackFolder, waiver: nil).failure?.reason == "Data of a sensitive app (Slack).")
         #expect(gate.validate(slackFolder, waiver: slack).failure == nil)
         #expect(gate.validate(container, waiver: slack).failure == nil)
         #expect(gate.validate(slackFolder, waiver: discord).failure != nil)
         #expect(gate.validate(container, waiver: discord).failure != nil)
-        // Solo la carpeta de datos en sí; lo de dentro y sus superiores siguen protegidos.
+        // Only the data folder itself; what is inside and its parents stay protected.
         #expect(gate.validate(slackFolder + "/data", waiver: slack).failure != nil)
         #expect(gate.validate(container + "/Data/Documents/x", waiver: slack).failure != nil)
-        touch(slackFolder + "/Slack/x")                                             // dentro, con el mismo nombre
+        touch(slackFolder + "/Slack/x")                                             // inside, with the same name
         touch(container + "/Data/com.tinyspeck.slackmacgap/x")
         #expect(gate.validate(slackFolder + "/Slack", waiver: slack).failure != nil)
         #expect(gate.validate(container + "/Data/com.tinyspeck.slackmacgap", waiver: slack).failure != nil)
         #expect(gate.validate(support, waiver: slack).failure != nil)
-        // Una carpeta sensible de otra app con un nombre que solo se parece.
+        // A sensitive folder of another app with a name that only looks similar.
         touch(support + "/SlackHelperTool/x")
         #expect(gate.validate(support + "/SlackHelperTool", waiver: slack).failure != nil)
     }
@@ -328,7 +328,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         ]
         for (path, name) in expected {
             touch(path + "/Default/Cookies")
-            #expect(gate.validate(path, waiver: nil).failure?.reason == "Datos de una app sensible (\(name)).", "\(path)")
+            #expect(gate.validate(path, waiver: nil).failure?.reason == "Data of a sensitive app (\(name)).", "\(path)")
             #expect(gate.validate(path + "/Default/Cookies", waiver: nil).failure != nil, "\(path)")
         }
         touch(support + "/Google/Chrome/Default/Login Data")
@@ -338,7 +338,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
                      support + "/Firefox/Profiles/abc.default", support + "/BraveSoftware/Brave-Browser"] {
             #expect(gate.validate(path, waiver: nil).failure != nil, "\(path)")
         }
-        // Solo con la dispensa de su propia app, y solo la carpeta en sí.
+        // Only with its own app's waiver, and only the folder itself.
         let signal = try #require(ProtectionWaiver.uninstall(
             record("org.whispersystems.signal-desktop", "Signal", apps + "/Signal.app"), appRoots: [apps]))
         let firefox = try #require(ProtectionWaiver.uninstall(record("org.mozilla.firefox", "Firefox", apps + "/Firefox.app"),
@@ -353,7 +353,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(gate.validate(support + "/Firefox", waiver: signal).failure != nil)
         #expect(gate.validate(support + "/Firefox/Profiles/abc.default", waiver: firefox).failure != nil)
         #expect(gate.validate(support + "/Mozilla", waiver: firefox).failure != nil)
-        // Las cachés de los navegadores (fuera de las raíces de datos, y la que declara el catálogo) siguen limpiables.
+        // The browsers' caches (outside the data roots, and the one the catalog declares) stay cleanable.
         for path in [h + "/Library/Caches/Google/Chrome/Default/Cache/data_0",
                      h + "/Library/Caches/Google/Chrome/Default/Code Cache/js/x",
                      h + "/Library/Caches/Google/Chrome/Default/GPUCache/x",
@@ -367,7 +367,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(gate.validate(h + "/Library/Caches/Google/Chrome", waiver: nil).failure == nil)
     }
 
-    /// M5: con el catálogo incluido, los datos de perfil nunca pasan aunque haya fichas con comodín al lado.
+    /// M5: with the bundled catalog, profile data never gets through even if there are wildcard entries next to it.
     @Test func bundledCatalogNeverOpensProfileData() throws {
         let gate = gate()
         let paths = [support + "/Google/Chrome/Default", support + "/Google/Chrome/Default/Service Worker",
@@ -380,7 +380,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         }
     }
 
-    /// I2: Safari, Arc, Opera y Chromium, igual que Chrome, Brave, Firefox, Vivaldi, Edge y Signal.
+    /// I2: Safari, Arc, Opera and Chromium, just like Chrome, Brave, Firefox, Vivaldi, Edge and Signal.
     @Test func moreBrowserProfilesProtectedAndTheirCachesStillAllowed() throws {
         let gate = gate()
         let containers = h + "/Library/Containers"
@@ -399,12 +399,12 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         ]
         for (path, name) in protected {
             touch(path + "/x")
-            #expect(gate.validate(path, waiver: nil).failure?.reason == "Datos de una app sensible (\(name)).", "\(path)")
+            #expect(gate.validate(path, waiver: nil).failure?.reason == "Data of a sensitive app (\(name)).", "\(path)")
         }
-        // History.db: nunca a la Papelera (es de un comando oficial y está en ~/Library/Safari).
+        // History.db: never to the Trash (it belongs to an official command and lives in ~/Library/Safari).
         touch(h + "/Library/Safari/History.db")
         #expect(gate.validate(h + "/Library/Safari/History.db", waiver: nil).failure != nil)
-        // Pero sí como `{target}` de su propia ficha (`sqlite3 … VACUUM`), y solo esa ruta.
+        // But it does as the `{target}` of its own entry (`sqlite3 … VACUUM`), and only that path.
         let bundled = try Catalog.bundled()
         let compact = try #require(bundled.entry(id: "safari-compact"))
         let targetGate = PathGate(home: h, catalog: Catalog(entries: bundled.entries.filter { $0.id != compact.id }),
@@ -414,7 +414,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(targetGate.validate(h + "/Library/Safari/History.db").failure == nil)
         #expect(targetGate.validate(h + "/Library/Safari/Bookmarks.plist").failure != nil)
         #expect(targetGate.validate(h + "/Library/Safari").failure != nil)
-        // Las cachés que declara el catálogo (literales y por perfil) siguen limpiables.
+        // The caches the catalog declares (literal and per profile) stay cleanable.
         for path in [support + "/Arc/User Data/Cache/x", support + "/Arc/User Data/Default/Cache/x",
                      support + "/Arc/User Data/Profile 1/Code Cache/js/x",
                      support + "/Arc/User Data/Default/Service Worker/CacheStorage/x",
@@ -445,7 +445,7 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         for path in [docker, group, h + "/.ssh", h + "/Library/Containers", h, h + "/Applications"] {
             #expect(gate.validate(path, waiver: waiver).failure != nil, "\(path)")
         }
-        // Ni con una app que diga llamarse como la carpeta.
+        // Not even with an app that claims to be named like the folder.
         let ssh = try #require(ProtectionWaiver.uninstall(record(".ssh", ".ssh tool", apps + "/SSH.app"), appRoots: [apps]))
         #expect(gate.validate(h + "/.ssh", waiver: ssh).failure != nil)
     }
@@ -473,10 +473,10 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
                                                            appRoots: [apps]))
         let waiver = try #require(fooWaiver)
         let gate = gate(protected: [foo, "~/Library/Application Support/Slack"])
-        #expect(gate.validate(foo, waiver: waiver).failure?.reason.hasPrefix("Lo has protegido tú") == true)
-        #expect(gate.validate(slackFolder, waiver: slack).failure?.reason.hasPrefix("Lo has protegido tú") == true)
-        // Proteger la carpeta de apps entera también protege la app.
-        #expect(self.gate(protected: [apps]).validate(foo, waiver: waiver).failure?.reason.hasPrefix("Lo has protegido tú") == true)
+        #expect(gate.validate(foo, waiver: waiver).failure?.reason.hasPrefix("You protected it") == true)
+        #expect(gate.validate(slackFolder, waiver: slack).failure?.reason.hasPrefix("You protected it") == true)
+        // Protecting the whole apps folder also protects the app.
+        #expect(self.gate(protected: [apps]).validate(foo, waiver: waiver).failure?.reason.hasPrefix("You protected it") == true)
     }
 
     @Test func plainLeftoversUnaffectedByWaiver() throws {

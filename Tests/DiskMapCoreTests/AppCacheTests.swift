@@ -74,7 +74,7 @@ private let support = "/Library/Application Support"
         #expect(edge.paths.contains("~/Library/Application Support/Microsoft Edge/*/Service Worker/CacheStorage"))
         #expect(edge.paths.contains("~/Library/Application Support/Microsoft Edge/Crashpad/completed"))
         #expect(edge.paths.contains("~/Library/Caches/com.microsoft.edgemac"))
-        // Nunca datos de perfil.
+        // Never profile data.
         for id in bundles.keys {
             let paths = try #require(all.entry(id: id)).paths
             #expect(!paths.contains { $0.contains("Cookies") || $0.contains("Login Data") || $0.contains("Local Storage")
@@ -92,13 +92,13 @@ private let support = "/Library/Application Support"
         let items = await scan(try catalog("chrome-cache", "app-support-caches"), home: home)
         let app = try #require(items.first { $0.id == "app-support-caches:FooApp" })
         #expect(Set(app.paths) == [home + support + "/FooApp/GPUCache", home + support + "/FooApp/Cache"])
-        #expect(app.entry.title == "Cachés regenerables de una app")
+        #expect(app.entry.title == "Regenerable caches of an app")
         let crash = try #require(items.first { $0.id == "app-support-caches:Otra" })
         #expect(crash.paths == [home + support + "/Otra/Crashpad/completed"])
-        // Chrome lo reclama su ficha, no la heurística.
+        // Chrome is claimed by its own entry, not by the heuristic.
         #expect(!items.contains { $0.id == "app-support-caches:Google/Chrome" })
         #expect(items.contains { $0.id == "chrome-cache" })
-        // Prudente: ámbar; Agresivo: verde.
+        // Careful: amber; Aggressive: green.
         let all = try Catalog.bundled()
         let entry = try #require(all.entry(id: "app-support-caches"))
         var settings = AirySettings()
@@ -111,7 +111,7 @@ private let support = "/Library/Application Support"
     @Test func heuristicDropsHardProtectedApps() async throws {
         let home = tempHome()
         writeFile(home + support + "/1Password/GPUCache/a")
-        writeFile(home + support + "/Code/GPUCache/b") // «code» es sensible
+        writeFile(home + support + "/Code/GPUCache/b") // "code" is sensitive
         #expect(await scan(try catalog("app-support-caches"), home: home).isEmpty)
     }
 
@@ -139,12 +139,12 @@ private let support = "/Library/Application Support"
         var other = item
         other.paths = [home + support + "/FooApp/Data"]
         writeFile(home + support + "/FooApp/Data/c")
-        #expect(await source.revalidate(entry, item: other, context: context)?.hasPrefix("No es una carpeta de caché conocida") == true)
+        #expect(await source.revalidate(entry, item: other, context: context)?.hasPrefix("It is not a known cache folder") == true)
         try FileManager.default.removeItem(atPath: home + support + "/FooApp/GPUCache")
         writeFile(home + support + "/FooApp/Cache/x")
         var cache = item
         cache.paths = [home + support + "/FooApp/Cache"]
-        #expect(await source.revalidate(entry, item: cache, context: context)?.hasPrefix("La app ya no tiene") == true)
+        #expect(await source.revalidate(entry, item: cache, context: context)?.hasPrefix("The app no longer has") == true)
     }
 
     @Test func sensitiveAppCachesPassThroughCatalogException() throws {
@@ -197,7 +197,7 @@ private let support = "/Library/Application Support"
         #expect(try #require(all.entry(id: "adobe-media-cache")).processNames
             == ["Adobe Premiere Pro", "After Effects", "Adobe Media Encoder"])
         #expect(try #require(all.entry(id: "office-caches")).paths.count == 4)
-        // La última de Limpieza (las de mantenimiento van detrás y el escáner de Limpieza las salta).
+        // The last one in Cleanup (the maintenance ones go after it and the Cleanup scanner skips them).
         #expect(all.entries.last { $0.section == .cleanup }?.id == "app-support-caches")
     }
 
@@ -217,7 +217,7 @@ private let support = "/Library/Application Support"
         let context = DiscoveryContext(catalog: all, home: home, runner: FakeRunner(), processListing: NoListing(),
                                        now: Date(), scan: nil)
         #expect(await StaticPatternSource().discover(entry, context: context).count == 3)
-        // Sin tiempo no se ofrece nada (no se sabe si están sin usar).
+        // Without time nothing is offered (it is not known whether they are unused).
         #expect(await StaticPatternSource(measureBudget: .zero).discover(entry, context: context).isEmpty)
     }
 }

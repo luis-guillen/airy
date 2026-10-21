@@ -13,16 +13,16 @@ struct SpringCurveTests {
         #expect(abs(spring.value(at: spring.settlingDuration) - 1) < 0.002)
     }
 
-    /// Mismo oscilador amortiguado que `.spring(response:dampingFraction:)` desde reposo.
+    /// The same damped oscillator as `.spring(response:dampingFraction:)` from rest.
     @Test func matchesDampedOscillatorClosedForm() {
-        // ω0 = 2π/0,45; ζ = 0,82 → x(0,1) ≈ 0,4513 (calculado a mano).
+        // ω0 = 2π/0.45; ζ = 0.82 → x(0.1) ≈ 0.4513 (computed by hand).
         #expect(abs(spring.value(at: 0.1) - 0.4513) < 0.002)
     }
 
     @Test func overshootIsSmallAndRealistic() {
         let samples = stride(from: 0.0, through: 1.5, by: 0.002).map { spring.value(at: $0) }
         let peak = samples.max() ?? 0
-        #expect(peak > 1.0)        // subamortiguado: pasa un pelo
+        #expect(peak > 1.0)        // underdamped: it overshoots a hair
         #expect(peak < 1.02)       // ζ = 0,82 → ≈ 1,1 %
     }
 
@@ -84,8 +84,8 @@ struct TileHitIndexTests {
         #expect(index.hit(CGPoint(x: 50, y: 50)) == 0)
         #expect(index.hit(CGPoint(x: 150, y: 10)) == 1)
         #expect(index.hit(CGPoint(x: 199, y: 199)) == 2)
-        #expect(index.hit(CGPoint(x: 101, y: 50)) == nil)   // hueco
-        #expect(index.hit(CGPoint(x: -5, y: 50)) == nil)    // fuera
+        #expect(index.hit(CGPoint(x: 101, y: 50)) == nil)   // gap
+        #expect(index.hit(CGPoint(x: -5, y: 50)) == nil)    // outside
         #expect(index.hit(CGPoint(x: 500, y: 500)) == nil)
     }
 
@@ -114,15 +114,15 @@ struct TileHitIndexTests {
 struct EntranceOrderTests {
     @Test func centerFirstThenOutwards() {
         let bounds = CGRect(x: 0, y: 0, width: 300, height: 300)
-        let rects = [CGRect(x: 0, y: 0, width: 100, height: 100),      // esquina
-                     CGRect(x: 100, y: 100, width: 100, height: 100),  // centro
-                     CGRect(x: 100, y: 0, width: 100, height: 100),    // borde
-                     CGRect(x: 200, y: 200, width: 100, height: 100)]  // esquina opuesta
+        let rects = [CGRect(x: 0, y: 0, width: 100, height: 100),      // corner
+                     CGRect(x: 100, y: 100, width: 100, height: 100),  // centre
+                     CGRect(x: 100, y: 0, width: 100, height: 100),    // edge
+                     CGRect(x: 200, y: 200, width: 100, height: 100)]  // opposite corner
         let ranks = EntranceOrder.ranks(for: rects, in: bounds)
         #expect(ranks[1] == 0)
         #expect(ranks[2] == 1)
         #expect(Set(ranks) == Set(0..<4))
-        // Empate de distancia: decide el índice (determinista).
+        // Distance tie: the index decides (deterministic).
         #expect(ranks[0] == 2 && ranks[3] == 3)
     }
 }
@@ -145,7 +145,7 @@ struct FileNodeRemovalTests {
         #expect(movies.allocatedSize == 300 && root.allocatedSize == 800)
         #expect(movies.kindBytes[videoIndex] == 0 && root.kindBytes[videoIndex] == 0)
         #expect(movies.descendantCount == 1 && root.descendantCount == 2)
-        // Quitar algo que ya no tiene padre no hace nada.
+        // Removing something that no longer has a parent does nothing.
         movie.removeFromParent()
         #expect(root.allocatedSize == 800)
     }

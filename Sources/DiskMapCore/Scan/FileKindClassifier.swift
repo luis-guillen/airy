@@ -1,6 +1,6 @@
 import Foundation
 
-/// Asigna un `ContentKind` a archivos (por extensión) y a carpetas conocidas (por nombre o ruta).
+/// Assigns a `ContentKind` to files (by extension) and to well-known folders (by name or path).
 public enum FileKindClassifier {
     private static let extensionKinds: [String: ContentKind] = {
         var map: [String: ContentKind] = [:]
@@ -32,7 +32,7 @@ public enum FileKindClassifier {
         return extensionKinds[ext] ?? .other
     }
 
-    /// Variante con contexto: un `.raw` dentro de `com.docker.docker` es el disco de la VM, no una foto.
+    /// Variant with context: a `.raw` inside `com.docker.docker` is the VM's disk, not a photo.
     static func kind(forFileNamed name: String, inDirectoryPath directory: String) -> ContentKind {
         if (name as NSString).pathExtension.lowercased() == "raw",
            directory.split(separator: "/").contains(Substring(dockerDirectory)) {

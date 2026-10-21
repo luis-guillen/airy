@@ -17,7 +17,7 @@ public struct MCPToolResult: Sendable, Equatable {
         self.text = text; self.structured = structured; self.isError = isError
     }
 
-    /// `text` = resumen + salto de línea + el valor como JSON con sangría.
+    /// `text` = summary + line break + the value as indented JSON.
     public static func ok(_ value: JSONValue, summary: String) -> MCPToolResult {
         MCPToolResult(text: summary + "\n" + value.prettyString(), structured: value, isError: false)
     }
@@ -29,7 +29,7 @@ public struct MCPToolResult: Sendable, Equatable {
 
 public struct MCPCallContext: Sendable {
     public let environment: AiryEnvironment
-    /// Nombre del cliente MCP (`clientInfo.name` saneado), para el registro de operaciones.
+    /// Name of the MCP client (sanitized `clientInfo.name`), for the operation log.
     public let client: String
 
     public init(environment: AiryEnvironment, client: String) {
@@ -38,10 +38,10 @@ public struct MCPCallContext: Sendable {
     }
 }
 
-/// Una herramienta MCP de Airy. El servidor valida los argumentos contra `inputSchema` antes de llamarla.
+/// An Airy MCP tool. The server validates the arguments against `inputSchema` before calling it.
 public protocol MCPTool: Sendable {
     var name: String { get }
-    /// En español.
+    /// Always in English (agents work best with stable English).
     var description: String { get }
     /// `type: object`, `additionalProperties: false`.
     var inputSchema: JSONValue { get }
@@ -52,13 +52,13 @@ public protocol MCPTool: Sendable {
 public struct MCPToolRegistry: Sendable {
     public private(set) var tools: [any MCPTool]
 
-    /// Si dos herramientas comparten nombre, gana la última.
+    /// If two tools share a name, the last one wins.
     public init(_ tools: [any MCPTool]) {
         self.tools = []
         for tool in tools { self = self.adding(tool) }
     }
 
-    /// Añade (o sustituye, si ya hay una con ese nombre) una herramienta.
+    /// Adds (or replaces, if there is already one with that name) a tool.
     public func adding(_ tool: any MCPTool) -> MCPToolRegistry {
         var copy = self
         if let index = copy.tools.firstIndex(where: { $0.name == tool.name }) {
@@ -73,55 +73,55 @@ public struct MCPToolRegistry: Sendable {
         tools.first { $0.name == name }
     }
 
-    /// Herramientas de Airy. Task 12 añade las de lectura, Task 13 las de acción.
-    /// Plan 4 añade las de Rendimiento (`performanceTools()`).
+    /// Airy's tools. Task 12 adds the read tools, Task 13 the action tools.
+    /// Plan 4 adds the Performance ones (`performanceTools()`).
     public static func standard() -> MCPToolRegistry {
         MCPToolRegistry(readTools() + actionTools() + performanceTools() + sectionTools())
     }
 
-    /// Rendimiento (plan 4): leer y proponer; un agente nunca cierra una app.
+    /// Performance (plan 4): read and propose; an agent never quits an app.
     static func performanceTools() -> [any MCPTool] {
         [GetPerformanceTool(), ProposeQuitAppTool()]
     }
 
-    /// Secciones de la fase 2: leer apps, huérfanos, grandes y duplicados, y proponer desinstalar.
+    /// Phase 2 sections: read apps, orphans, large files and duplicates, and propose uninstalling.
     static func sectionTools() -> [any MCPTool] {
         [ListAppsTool(), ExplainAppTool(), ListOrphansTool(), ListLargeOldTool(), ListDuplicatesTool(),
          ProposeUninstallTool()]
     }
 
-    /// Herramientas de solo lectura (Task 12).
+    /// Read-only tools (Task 12).
     static func readTools() -> [any MCPTool] {
         [GetDiskSummaryTool(), ListLargestTool(), ExplainPathTool(), ListCleanupItemsTool()]
     }
 
-    /// Herramientas de acción, siempre tras el embudo de seguridad (Task 13).
+    /// Action tools, always behind the safety funnel (Task 13).
     static func actionTools() -> [any MCPTool] {
         [RunSafeCleanupTool(), RunSafeCleanupAllTool(), ProposeCleanupTool(), ShowInAppTool(), RescanTool()]
     }
 }
 
-/// Validación de argumentos contra el subconjunto de JSON Schema que usan las herramientas de Airy:
+/// Validation of arguments against the subset of JSON Schema that Airy's tools use:
 /// `type`, `properties`, `required`, `additionalProperties: false`, `enum`, `items`, `minimum`, `maximum`,
-/// `minLength`, `maxLength`, `maxItems`. Devuelve el primer problema, en español, o `nil`.
+/// `minLength`, `maxLength`, `maxItems`. Returns the first problem, in English, or `nil`.
 enum MCPSchemaValidator {
-    static func violation(of value: JSONValue, against schema: JSONValue, at path: String = "argumentos") -> String? {
+    static func violation(of value: JSONValue, against schema: JSONValue, at path: String = "arguments") -> String? {
         if let type = schema["type"]?.stringValue, !matches(value, type: type) {
-            return "\(path): se esperaba \(typeName(type))."
+            return "\(path): expected \(typeName(type))."
         }
         if case .array(let options)? = schema["enum"], !options.contains(value) {
-            return "\(path): valor no permitido."
+            return "\(path): value not allowed."
         }
         if case .number(let n) = value {
-            if case .number(let min)? = schema["minimum"], n < min { return "\(path): debe ser como mínimo \(format(min))." }
-            if case .number(let max)? = schema["maximum"], n > max { return "\(path): debe ser como máximo \(format(max))." }
+            if case .number(let min)? = schema["minimum"], n < min { return "\(path): must be at least \(format(min))." }
+            if case .number(let max)? = schema["maximum"], n > max { return "\(path): must be at most \(format(max))." }
         }
         if case .string(let s) = value {
-            if let min = schema["minLength"]?.intValue, s.count < min { return "\(path): demasiado corto." }
-            if let max = schema["maxLength"]?.intValue, s.count > max { return "\(path): demasiado largo (máximo \(max))." }
+            if let min = schema["minLength"]?.intValue, s.count < min { return "\(path): too short." }
+            if let max = schema["maxLength"]?.intValue, s.count > max { return "\(path): too long (maximum \(max))." }
         }
         if case .array(let items) = value {
-            if let max = schema["maxItems"]?.intValue, items.count > max { return "\(path): como máximo \(max) elementos." }
+            if let max = schema["maxItems"]?.intValue, items.count > max { return "\(path): at most \(max) items." }
             if let itemSchema = schema["items"] {
                 for (i, item) in items.enumerated() {
                     if let problem = violation(of: item, against: itemSchema, at: "\(path)[\(i)]") { return problem }
@@ -133,12 +133,12 @@ enum MCPSchemaValidator {
             if case .object(let p)? = schema["properties"] { properties = p } else { properties = [:] }
             if case .array(let required)? = schema["required"] {
                 for key in required.compactMap(\.stringValue) where object[key] == nil {
-                    return "\(path): falta «\(key)»."
+                    return "\(path): missing “\(key)”."
                 }
             }
             if schema["additionalProperties"] == .bool(false) {
                 for key in object.keys.sorted() where properties[key] == nil {
-                    return "\(path): parámetro desconocido «\(key)»."
+                    return "\(path): unknown parameter “\(key)”."
                 }
             }
             for key in object.keys.sorted() {
@@ -162,12 +162,12 @@ enum MCPSchemaValidator {
 
     private static func typeName(_ type: String) -> String {
         switch type {
-        case "object": "un objeto"
-        case "array": "una lista"
-        case "string": "un texto"
-        case "boolean": "true o false"
-        case "integer": "un número entero"
-        case "number": "un número"
+        case "object": "an object"
+        case "array": "a list"
+        case "string": "a string"
+        case "boolean": "true or false"
+        case "integer": "an integer"
+        case "number": "a number"
         default: type
         }
     }

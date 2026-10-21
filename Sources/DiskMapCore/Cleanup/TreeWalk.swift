@@ -1,12 +1,12 @@
 import Foundation
 
-/// Resumen de un paseo acotado por una carpeta (o un fichero).
+/// Summary of a bounded walk through a folder (or a file).
 public struct TreeSummary: Sendable, Equatable {
-    /// Tamaño asignado (`st_blocks * 512`), enlaces duros una sola vez.
+    /// Allocated size (`st_blocks * 512`), hard links only once.
     public var bytes: Int64
-    /// El `mtime` más reciente de lo recorrido (la raíz incluida), o `nil` si no hay ninguno.
+    /// The most recent `mtime` of what was walked (the root included), or `nil` if there is none.
     public var latestModification: Date?
-    /// Rutas relativas a la raíz de las entradas que cumplen `watch` (máx. `TreeWalk.maxWatched`).
+    /// Root-relative paths of the entries that match `watch` (max `TreeWalk.maxWatched`).
     public var watched: [String]
 
     public init(bytes: Int64, latestModification: Date?, watched: [String]) {
@@ -14,27 +14,27 @@ public struct TreeSummary: Sendable, Equatable {
     }
 }
 
-/// Paseo síncrono por disco con plazo: `lstat` (nunca sigue enlaces), enlaces duros contados una vez y el
-/// reloj mirado en cada entrada. No crea tareas. Se para (devuelve `nil`) si la tarea se cancela, y no sale
-/// del ámbito de la tarea (`DiskScope.current`).
+/// Synchronous disk walk with a time limit: `lstat` (never follows links), hard links counted once and the
+/// clock checked at each entry. It creates no tasks. It stops (returns `nil`) if the task is cancelled, and does not leave
+/// the task's scope (`DiskScope.current`).
 public enum TreeWalk {
     public static let maxWatched = 10
 
     public enum Kind: Sendable, Equatable {
-        /// `summarize`: `lstat` de cada entrada (tamaño y fechas).
+        /// `summarize`: `lstat` of each entry (size and dates).
         case full
-        /// `watchedNames`: solo nombres (`readdir`), sin `lstat`.
+        /// `watchedNames`: names only (`readdir`), without `lstat`.
         case names
     }
 
-    /// Solo para pruebas: se llama al empezar cada paseo (ruta raíz y tipo).
+    /// Tests only: called at the start of each walk (root path and kind).
     @TaskLocal public static var observer: (@Sendable (String, Kind) -> Void)?
 
-    /// Cada cuántas entradas se mira si la tarea se canceló.
+    /// How many entries between checks for task cancellation.
     static let cancellationStride = 128
 
-    /// `nil` si se agota `budget` o la raíz no se puede leer. `prune(nombre, rutaRelativa)` ⇒ no entrar (ni
-    /// se cuenta su tamaño ni su fecha). Una raíz que es fichero (o enlace) devuelve su tamaño y su `mtime`.
+    /// `nil` if `budget` runs out or the root cannot be read. `prune(name, relativePath)` ⇒ do not enter (neither
+    /// its size nor its date is counted). A root that is a file (or link) returns its size and its `mtime`.
     public static func summarize(_ root: String, budget: Duration,
                                  prune: (String, String) -> Bool = { _, _ in false },
                                  watch: (String) -> Bool = { _ in false }) -> TreeSummary? {
@@ -54,9 +54,9 @@ public enum TreeWalk {
         }, watched: walker.watched)
     }
 
-    /// Las rutas relativas de las entradas que cumplen `watch` (máx. `maxWatched`), con el mismo recorrido que
-    /// `summarize` (sin seguir enlaces) pero solo con `readdir`: para cuando el tamaño ya sale del índice.
-    /// `nil` si se agota `budget`, se cancela o la raíz no se puede leer.
+    /// The relative paths of the entries that match `watch` (max `maxWatched`), with the same walk as
+    /// `summarize` (without following links) but only with `readdir`: for when the size already comes from the index.
+    /// `nil` if `budget` runs out, it is cancelled or the root cannot be read.
     public static func watchedNames(_ root: String, budget: Duration, watch: (String) -> Bool) -> [String]? {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: budget)
@@ -67,7 +67,7 @@ public enum TreeWalk {
         observer?(root, .names)
         var watched: [String] = []
         var visited = 0
-        /// `false` si se agotó el plazo, se canceló o la raíz no se pudo abrir.
+        /// `false` if the time limit ran out, it was cancelled or the root could not be opened.
         func walk(_ path: String, relative: String, isRoot: Bool) -> Bool {
             guard let dir = opendir(path) else { return !isRoot }
             defer { closedir(dir) }
@@ -128,7 +128,7 @@ public enum TreeWalk {
             }
         }
 
-        /// `false` si se agotó el plazo o la raíz no se pudo abrir.
+        /// `false` if the time limit ran out or the root could not be opened.
         mutating func walk(_ path: String, relative: String, isRoot: Bool,
                            prune: (String, String) -> Bool, watch: (String) -> Bool) -> Bool {
             guard let dir = opendir(path) else { return !isRoot }

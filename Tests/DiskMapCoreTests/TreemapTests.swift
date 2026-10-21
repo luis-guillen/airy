@@ -85,7 +85,7 @@ struct TreemapTests {
 }
 
 struct TreemapStabilityTests {
-    /// Hermanos del mismo tamaño: el orden (y por tanto la posición) no depende del orden de entrada.
+    /// Siblings of the same size: the order (and therefore the position) does not depend on the input order.
     @Test func equalSizedSiblingsKeepStableOrder() {
         let kids = (0..<8).map { FileNode(name: "k\($0)", isDirectory: true, allocatedSize: 1_000_000) }
         let big = FileNode(name: "big", isDirectory: true, allocatedSize: 9_000_000)
@@ -99,11 +99,11 @@ struct TreemapStabilityTests {
         #expect(first.map(\.id) == second.map(\.id))
         #expect(first.map(\.id) == third.map(\.id))
         #expect(first.map(\.rect) == third.map(\.rect))
-        // Empates: por id ascendente, tras el mayor.
+        // Ties: by ascending id, after the largest.
         #expect(first.map(\.id) == [big.id] + kids.map(\.id).sorted())
     }
 
-    /// El agregado "Otros" empata con un hijo real: también orden determinista.
+    /// The "Other" aggregate ties with a real child: deterministic order too.
     @Test func othersTileTiesAreDeterministic() {
         let a = FileNode(name: "a", isDirectory: false, allocatedSize: 1_000_000_000)
         let tiny = (0..<10).map { FileNode(name: "t\($0)", isDirectory: false, allocatedSize: 10) }
@@ -115,7 +115,7 @@ struct TreemapStabilityTests {
         #expect(ids1 == ids2)
     }
 
-    /// La instantánea (tomada en el hilo principal) da el mismo resultado que leer el nodo.
+    /// The snapshot (taken on the main thread) gives the same result as reading the node.
     @Test func snapshotLayoutMatchesNodeLayout() {
         let kids = (1...30).map { FileNode(name: "f\($0)", isDirectory: $0 % 2 == 0, allocatedSize: Int64($0 * $0) * 1000) }
         let root = FileNode(name: "r", isDirectory: true, allocatedSize: 9_455_000, children: kids)

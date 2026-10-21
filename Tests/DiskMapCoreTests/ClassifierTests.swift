@@ -61,9 +61,9 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
     }
 
     @Test func riskLabels() {
-        #expect(Risk.safe.label == "Sin problema")
-        #expect(Risk.yourCall.label == "Tú decides")
-        #expect(Risk.doNotTouch.label == "No borrar")
+        #expect(Risk.safe.label == "Safe to remove")
+        #expect(Risk.yourCall.label == "Your call")
+        #expect(Risk.doNotTouch.label == "Don't delete")
     }
 
     @Test func aggressiveLowersOnlyRegenerableEntries() {
@@ -71,7 +71,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(classifier(.aggressive).classify(entry: e, paths: [cache]).risk == .safe)
         #expect(classifier(.prudent).classify(entry: e, paths: [cache]).risk == .yourCall)
         #expect(classifier(.aggressive).classify(entry: e.with(regenerates: false), paths: [cache]).risk == .yourCall)
-        // Subir siempre se puede, aunque no se regenere.
+        // Raising is always allowed, even if it does not regenerate.
         let up = entry(risk: .safe, aggressiveRisk: .yourCall, regenerates: false)
         #expect(classifier(.aggressive).classify(entry: up, paths: [cache]).risk == .yourCall)
     }
@@ -123,7 +123,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(c.classify(entry: e, paths: [cache], ai: .safe).risk == .yourCall)
         #expect(c.classify(entry: e, paths: [cache], ai: .doNotTouch).risk == .doNotTouch)
         #expect(c.classify(entry: entry(risk: .safe), paths: [cache], ai: .yourCall).risk == .yourCall)
-        // Ruta sin ficha: al menos «Tú decides», aunque la IA diga «sin riesgo».
+        // A path without an entry: at least "Your call", even if the AI says "safe".
         #expect(c.classify(path: home + "/random/thing", ai: .safe).risk == .yourCall)
         #expect(c.classify(path: home + "/random/thing", ai: .doNotTouch).risk == .doNotTouch)
     }
@@ -136,12 +136,12 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(red.protection?.source == .user)
         #expect(red.keptPaths.isEmpty)
         #expect(red.preselected == false)
-        // Por ruta: la propia, algo de dentro o una carpeta superior de algo protegido.
+        // By path: the path itself, something inside, or a parent folder of something protected.
         #expect(c.classify(path: cache).risk == .doNotTouch)
         #expect(c.classify(path: cache + "/sub/file").protection?.source == .user)
         #expect(c.classify(path: home + "/Work/keep").risk == .doNotTouch)
         #expect(c.classify(path: home + "/Work/other").risk == .yourCall)
-        // Fichas de comando: cualquier protección relacionada la deja en rojo.
+        // Command entries: any related protection leaves them red.
         let command = entry("cmd", risk: .safe, paths: ["~/Work"],
                             cleanup: .command(executable: "tool", arguments: ["clean"], sizeProbe: nil))
         let commandResult = c.classify(entry: command, paths: [home + "/Work"])
@@ -158,7 +158,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(result.risk == .safe)
         #expect(result.protection == nil)
         #expect(result.preselected)
-        // Lo mismo con una protección del usuario.
+        // The same with a protection from the user.
         let user = classifier(.prudent, protected: ["~/Library/Logs/app"]).classify(entry: logs, paths: [a, cloud])
         #expect(user.keptPaths.isEmpty)
         #expect(user.risk == .doNotTouch)
@@ -175,7 +175,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
             #expect(result.protection?.source == .airy)
             #expect(result.preselected == false)
             #expect(c.classify(path: home + "/Library/Keychains/login.keychain-db", ai: .safe).risk == .doNotTouch)
-            // Carpeta superior de algo protegido.
+            // Parent folder of something protected.
             #expect(c.classify(path: home + "/Library").risk == .doNotTouch)
         }
         let command = entry("cmd", risk: .safe, paths: ["~/Library/Mobile Documents"],
@@ -219,7 +219,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(logsItem.bytes == (AllocatedSize.of(home + "/Library/Logs/app") ?? -1))
         #expect(logsItem.risk == .safe)
 
-        // Sin clasificador: ajustes por defecto (Agresivo), igual que el clasificador por defecto.
+        // Without a classifier: default settings (Aggressive), same as the default classifier.
         let defaults = await CleanupScanner(
             catalog: catalog, runner: FakeRunner(), probes: FakeProbes(), references: ReferenceChecker(roots: []),
             home: home
@@ -232,15 +232,15 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
     @Test func bundledCatalogDecodesWithDefaults() throws {
         let catalog = try Catalog.bundled()
         #expect(!catalog.entries.isEmpty)
-        // Los nombres de proceso de la tarea 6 se rellenan solo en las fichas con herramienta propia.
+        // The process names of task 6 are only filled in for entries with their own tool.
         #expect(catalog.entries.first { $0.id == "pip" }?.processNames == ["pip", "pip3"])
         #expect(catalog.entries.first { $0.id == "docker-volumes" }?.processNames == [])
         let json = """
         {"entries":[{"id":"x","title":"X","explanation":"","whoCreatesIt":"","regenerates":true,"risk":"yourCall",
         "kind":"caches","paths":["~/x"],"cleanup":{"type":"trash"},"aggressiveRisk":"safe",
         "preselectInAggressive":true,"profiles":["developer","futureProfile"],"processNames":["x-agent"],
-        "shortReason":"Se regenera.","perMatch":true,"except":[".DS_Store"],"staleAfterDays":90,"minimumBytes":1000,
-        "retention":{"keepNewest":1},"reviewHint":"Míralo tú."}]}
+        "shortReason":"It regenerates.","perMatch":true,"except":[".DS_Store"],"staleAfterDays":90,"minimumBytes":1000,
+        "retention":{"keepNewest":1},"reviewHint":"Look at it yourself."}]}
         """
         let decoded = try #require(try Catalog.decode(Data(json.utf8)).entries.first)
         #expect(decoded.aggressiveRisk == .safe)
@@ -250,21 +250,21 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         let again = try JSONDecoder().decode(CatalogEntry.self, from: JSONEncoder().encode(decoded))
         #expect(again.aggressiveRisk == .safe && again.preselectInAggressive && again.profiles == [.developer]
                 && again.processNames == ["x-agent"])
-        #expect(again.shortReason == "Se regenera." && again.perMatch && again.except == [".DS_Store"]
+        #expect(again.shortReason == "It regenerates." && again.perMatch && again.except == [".DS_Store"]
                 && again.staleAfterDays == 90 && again.minimumBytes == 1000
                 && again.retention == RetentionRule(keepNewest: 1) && again.discovery == nil
-                && again.reviewHint == "Míralo tú.")
+                && again.reviewHint == "Look at it yourself.")
         let bad = json.replacingOccurrences(of: "\"aggressiveRisk\":\"safe\"", with: "\"aggressiveRisk\":\"meh\"")
         #expect(throws: DecodingError.self) { try Catalog.decode(Data(bad.utf8)) }
     }
 
-    /// Tras las protecciones duras, ninguna ficha del catálogo incluido queda menos estricta que en la
-    /// fase 1 (`RiskPolicy.effectiveRisk` con el riesgo de la ficha), en ningún modo. Las que pasan a
-    /// «No tocar» o pierden rutas son las esperadas (lista fija: si cambia, hay que revisarla).
+    /// After the hard protections, no entry of the bundled catalog is less strict than in
+    /// phase 1 (`RiskPolicy.effectiveRisk` with the entry's risk), in any mode. The ones that become
+    /// "Do not touch" or lose paths are the expected ones (fixed list: if it changes, it has to be reviewed).
     @Test func bundledCatalogIsNeverLessStrictThanPhaseOne() throws {
         let catalog = try Catalog.bundled()
         var becameRed: Set<String> = [], dropped: Set<String> = [], lowered: Set<String> = []
-        // Plan 3: el modo Agresivo baja a propósito lo que se regenera (`aggressiveRisk`); lista fija.
+        // Plan 3: Aggressive mode deliberately lowers what regenerates (`aggressiveRisk`); fixed list.
         let expectedAggressiveLowerings: Set<String> = ["docker-images", "go-mod-cache", "app-support-caches"]
         for mode in CleanupMode.allCases {
             let c = RiskClassifier(catalog: catalog, settings: settings(mode), home: home)
@@ -287,7 +287,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         }
         #expect(lowered == expectedAggressiveLowerings, "Bajadas en Agresivo: \(lowered.sorted())")
         #expect(becameRed == expectedRedAfterHardProtections, "Nuevas en rojo: \(becameRed.sorted())")
-        #expect(dropped == expectedDroppedAfterHardProtections, "Con rutas quitadas: \(dropped.sorted())")
+        #expect(dropped == expectedDroppedAfterHardProtections, "With paths removed: \(dropped.sorted())")
     }
 
     @Test func retiredProfileNoLongerReordersGroups() {
@@ -306,10 +306,10 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         var it = CleanupItem(id: "foo", entry: entry(), paths: [cache], bytes: 1, risk: .safe,
                              blockedByOpenApps: [], usedBy: [])
         #expect(CleanupBoard.canSelect(it))
-        it.blockedReason = "Spotify está abierto"
+        it.blockedReason = "Spotify is open"
         #expect(!CleanupBoard.canSelect(it) && CleanupBoard.showsCheckbox(it))
         it.blockedReason = nil
-        it.protection = ProtectionMatch(source: .user, pattern: "~/x", reason: "Protegido por ti.")
+        it.protection = ProtectionMatch(source: .user, pattern: "~/x", reason: "Protected by you.")
         #expect(!CleanupBoard.canSelect(it) && !CleanupBoard.showsCheckbox(it))
     }
 
@@ -322,7 +322,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         let tree = FileNode(name: home, isDirectory: true, allocatedSize: 5_000, children: [library])
         let context = AIContextBuilder.context(scan: tree, items: [], catalog: catalog, home: home)
         let raw = AIReport(summary: "", recommendations: [
-            AIRecommendation(id: cache, path: cache, verdict: .safe, reason: "caché", bytes: 0,
+            AIRecommendation(id: cache, path: cache, verdict: .safe, reason: "cache", bytes: 0,
                              action: .trash(path: cache)),
         ], reclaimableBytes: 0)
         let plain = AIAssistant(claudePath: "/opt/claude", runner: FakeRunner(), catalog: catalog, home: home)
@@ -337,11 +337,11 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
     }
 }
 
-/// Fichas del catálogo incluido que las protecciones duras dejan en «No tocar» (antes no lo estaban).
-/// Las «Solo revisar» bajo `/Library`, `/private` y `/Applications` (plan 3, tarea 5): informativas, sin acción.
+/// Entries of the bundled catalog that the hard protections leave as "Do not touch" (they were not before).
+/// The "Review only" ones under `/Library`, `/private` and `/Applications` (plan 3, task 5): informational, without an action.
 private let expectedRedAfterHardProtections: Set<String> = [
     "system-diagnostic-reports", "system-logs", "system-caches", "macos-installers", "chrome-old-frameworks",
     "brave-old-frameworks", "edge-old-frameworks", "music-sound-libraries",
 ]
-/// Fichas de Papelera a las que las protecciones duras quitan alguna ruta.
+/// Trash entries from which the hard protections remove some path.
 private let expectedDroppedAfterHardProtections: Set<String> = []

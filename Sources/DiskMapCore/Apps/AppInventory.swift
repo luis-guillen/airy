@@ -38,7 +38,7 @@ public struct AppInventorySnapshot: Sendable, Equatable {
         self.problems = problems
     }
 
-    /// Identificadores de todas las apps y sus ayudantes, en minúsculas.
+    /// Identifiers of every app and its helpers, in lowercase.
     public var installedIDs: Set<String> {
         var ids = Set<String>()
         for app in apps {
@@ -53,7 +53,7 @@ public protocol AppUsageReading: Sendable {
     func lastUsed(bundlePath: String) -> Date?
 }
 
-/// Último uso según Spotlight (`kMDItemLastUsedDate`), sin lanzar procesos.
+/// Last use according to Spotlight (`kMDItemLastUsedDate`), without launching processes.
 public struct SpotlightUsage: AppUsageReading {
     public init() {}
 
@@ -85,7 +85,7 @@ public struct AppInventory: Sendable {
         "notes", "mail", "music", "photos", "preview", "books", "news", "home", "files", "app", "helper",
     ]
 
-    /// Profundidad máxima de búsqueda de `*.app` bajo cada raíz.
+    /// Maximum search depth for `*.app` under each root.
     private static let maxDepth = 3
 
     private let roots: [String]
@@ -109,7 +109,7 @@ public struct AppInventory: Sendable {
         guard let walk = outcome, !walk.cancelled else {
             return AppInventorySnapshot(
                 apps: [], complete: false,
-                problems: ["El inventario de apps no terminó a tiempo."])
+                problems: [String(localized: "The app inventory did not finish in time.", bundle: .airyCore)])
         }
         let apps = walk.apps.sorted {
             let order = $0.name.localizedStandardCompare($1.name)
@@ -118,8 +118,8 @@ public struct AppInventory: Sendable {
         return AppInventorySnapshot(apps: apps, complete: walk.problems.isEmpty, problems: walk.problems)
     }
 
-    /// Tal cual, sin espacios, espacios → "_", espacios → "-", y en minúsculas; vacío si el nombre tiene
-    /// menos de 4 caracteres o es genérico.
+    /// As is, without spaces, spaces → "_", spaces → "-", and lowercased; empty if the name has
+    /// fewer than 4 characters or is generic.
     public static func nameVariants(_ name: String) -> [String] {
         guard name.count >= 4, !genericNames.contains(name.lowercased()) else { return [] }
         let base = [
@@ -135,7 +135,7 @@ public struct AppInventory: Sendable {
         return result
     }
 
-    // MARK: - Recorrido
+    // MARK: - Walk
 
     private struct Walk: Sendable {
         var apps: [AppRecord] = []
@@ -156,7 +156,7 @@ public struct AppInventory: Sendable {
 
     private enum EntryKind {
         case directory
-        /// Enlace simbólico; `true` si apunta a una carpeta.
+        /// Symbolic link; `true` if it points to a folder.
         case link(toDirectory: Bool)
         case other
         case failed(Int32)
@@ -174,7 +174,7 @@ public struct AppInventory: Sendable {
         }
     }
 
-    /// Nombres de un directorio, o el `errno` con el que falló (al abrir o a mitad de la lectura).
+    /// Names in a directory, or the `errno` it failed with (when opening or halfway through reading).
     private static func listing(_ path: String) -> Result<[String], POSIXError> {
         guard let dir = opendir(path) else { return .failure(POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)) }
         defer { closedir(dir) }
@@ -197,7 +197,7 @@ public struct AppInventory: Sendable {
         switch listing(directory) {
         case .success(let found): names = found
         case .failure(let error):
-            if error.code != .ENOENT { walk.problems.append("No se pudo leer «\(directory)».") }
+            if error.code != .ENOENT { walk.problems.append(String(localized: "Could not read “\(directory)”.", bundle: .airyCore)) }
             return
         }
         for name in names.sorted() {
@@ -215,19 +215,19 @@ public struct AppInventory: Sendable {
                     if walk.cancelled { return }
                 }
             case .link(let toDirectory):
-                // Las carpetas enlazadas no se siguen; una app enlazada se incluye si apunta a una carpeta.
+                // Linked folders are not followed; a linked app is included if it points to a folder.
                 guard isApp else { continue }
                 if toDirectory {
                     let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
                     guard seen.insert(real).inserted else { continue }
                     record(app: path, usage: usage, casks: casks, walk: &walk)
                 } else {
-                    walk.problems.append("El enlace «\(name)» no apunta a una app legible.")
+                    walk.problems.append(String(localized: "The link “\(name)” does not point to a readable app.", bundle: .airyCore))
                 }
             case .other:
                 continue
             case .failed(let code):
-                if code != ENOENT { walk.problems.append("No se pudo examinar «\(path)».") }
+                if code != ENOENT { walk.problems.append(String(localized: "Could not examine “\(path)”.", bundle: .airyCore)) }
             }
         }
     }
@@ -239,19 +239,19 @@ public struct AppInventory: Sendable {
         return dict
     }
 
-    /// `CFBundleIdentifier` del `.app` leído ahora mismo (también de apps de iOS envueltas), o `nil`.
+    /// `CFBundleIdentifier` of the `.app` read right now (also of wrapped iOS apps), or `nil`.
     static func bundleIdentifier(ofApp path: String) -> String? {
         guard let id = infoPlist(ofApp: path)?["CFBundleIdentifier"] as? String, !id.isEmpty else { return nil }
         return id
     }
 
-    /// Parte de macOS: dentro de `/System` o con un identificador imprescindible del sistema.
+    /// Part of macOS: inside `/System` or with an essential system identifier.
     static func isSystemApp(path: String, bundleID: String) -> Bool {
         RiskPolicy.isInside(RiskPolicy.canonical(path), root: "/system")
             || systemCriticalBundleIDs.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
     }
 
-    /// `Contents/Info.plist`; si falta y es una app de iOS, el del envoltorio `Wrapper/*.app`.
+    /// `Contents/Info.plist`; if missing and it is an iOS app, the one of the `Wrapper/*.app` wrapper.
     static func infoPlist(ofApp path: String) -> [String: Any]? {
         let main = path + "/Contents/Info.plist"
         if FileManager.default.fileExists(atPath: main) { return readPlist(main) }
@@ -265,7 +265,7 @@ public struct AppInventory: Sendable {
         return nil
     }
 
-    /// Identificadores de los ayudantes; cualquier fallo de lectura se anota en `problems`.
+    /// Identifiers of the helpers; any read failure is recorded in `problems`.
     private static func helperIDs(ofApp path: String, problems: inout [String]) -> [String] {
         var ids: [String] = []
         let fileName = (path as NSString).lastPathComponent
@@ -276,7 +276,7 @@ public struct AppInventory: Sendable {
             case .success(let found): names = found
             case .failure(let error):
                 if error.code != .ENOENT && error.code != .ENOTDIR {
-                    problems.append("No se pudo leer «\(folder)» de «\(fileName)».")
+                    problems.append(String(localized: "Could not read “\(folder)” of “\(fileName)”.", bundle: .airyCore))
                 }
                 continue
             }
@@ -284,7 +284,7 @@ public struct AppInventory: Sendable {
                 let base = path + "/" + folder + "/" + name
                 let plist = readPlist(base + "/Contents/Info.plist") ?? readPlist(base + "/Info.plist")
                 guard let id = plist?["CFBundleIdentifier"] as? String, !id.isEmpty else {
-                    problems.append("No se pudo leer el ayudante «\(name)» de «\(fileName)».")
+                    problems.append(String(localized: "Could not read the helper “\(name)” of “\(fileName)”.", bundle: .airyCore))
                     continue
                 }
                 if !ids.contains(id) { ids.append(id) }
@@ -297,11 +297,11 @@ public struct AppInventory: Sendable {
                                walk: inout Walk) {
         let fileName = (path as NSString).lastPathComponent
         guard let plist = infoPlist(ofApp: path) else {
-            walk.problems.append("No se pudo leer el Info.plist de «\(fileName)».")
+            walk.problems.append(String(localized: "Could not read the Info.plist of “\(fileName)”.", bundle: .airyCore))
             return
         }
         guard let bundleID = plist["CFBundleIdentifier"] as? String, !bundleID.isEmpty else {
-            walk.problems.append("«\(fileName)» no tiene identificador de paquete.")
+            walk.problems.append(String(localized: "“\(fileName)” has no bundle identifier.", bundle: .airyCore))
             return
         }
         let fallback = (fileName as NSString).deletingPathExtension

@@ -8,16 +8,16 @@ public enum ContentKind: String, Codable, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .video: "Vídeo"
-        case .images: "Imágenes"
-        case .apps: "Apps"
-        case .code: "Código y proyectos"
-        case .caches: "Cachés"
-        case .aiModels: "Modelos de IA"
-        case .containers: "Contenedores y VM"
-        case .documents: "Documentos"
-        case .system: "Sistema"
-        case .other: "Otros"
+        case .video: String(localized: "Video", bundle: .airyCore)
+        case .images: String(localized: "Images", bundle: .airyCore)
+        case .apps: String(localized: "Apps", bundle: .airyCore)
+        case .code: String(localized: "Code and projects", bundle: .airyCore)
+        case .caches: String(localized: "Caches", bundle: .airyCore)
+        case .aiModels: String(localized: "AI models", bundle: .airyCore)
+        case .containers: String(localized: "Containers and VMs", bundle: .airyCore)
+        case .documents: String(localized: "Documents", bundle: .airyCore)
+        case .system: String(localized: "System", bundle: .airyCore)
+        case .other: String(localized: "Other", bundle: .airyCore)
         }
     }
 }
@@ -27,29 +27,29 @@ public enum Risk: Int, Codable, Comparable, Sendable {
 
     public var title: String {
         switch self {
-        case .safe: "Borrar sin riesgo"
-        case .yourCall: "Depende de ti"
-        case .doNotTouch: "No tocar"
+        case .safe: String(localized: "Safe to delete", bundle: .airyCore)
+        case .yourCall: String(localized: "Up to you", bundle: .airyCore)
+        case .doNotTouch: String(localized: "Do not touch", bundle: .airyCore)
         }
     }
 
-    /// Etiqueta corta del semáforo.
+    /// Short traffic-light label.
     public var label: String {
         switch self {
-        case .safe: "Sin problema"
-        case .yourCall: "Tú decides"
-        case .doNotTouch: "No borrar"
+        case .safe: String(localized: "Safe to remove", bundle: .airyCore)
+        case .yourCall: String(localized: "Your call", bundle: .airyCore)
+        case .doNotTouch: String(localized: "Don't delete", bundle: .airyCore)
         }
     }
 
     public static func < (a: Risk, b: Risk) -> Bool { a.rawValue < b.rawValue }
 
-    /// Devuelve el riesgo más estricto de los dos.
+    /// Returns the stricter of the two risks.
     public static func strictest(_ a: Risk, _ b: Risk) -> Risk { max(a, b) }
 }
 
-/// Nodo del árbol de ficheros analizado. Se construye en un solo hilo y se publica
-/// después de forma inmutable en la práctica, de ahí `@unchecked Sendable`.
+/// A node of the scanned file tree. It is built on a single thread and then published,
+/// effectively immutable from then on, hence `@unchecked Sendable`.
 public final class FileNode: @unchecked Sendable, Identifiable {
     private static let nextID = Mutex(0)
 
@@ -61,10 +61,10 @@ public final class FileNode: @unchecked Sendable, Identifiable {
     public var allocatedSize: Int64
     public var lastModified: Date?
     public var kind: ContentKind
-    /// Bytes por tipo; índice = posición en `ContentKind.allCases`.
+    /// Bytes per kind; index = position in `ContentKind.allCases`.
     public var kindBytes: [Int64]
     public var descendantCount: Int
-    /// > 0 si el nodo es el agregado "Otros (N elementos)".
+    /// > 0 if the node is the "Other (N items)" aggregate.
     public var aggregatedCount: Int
 
     public init(
@@ -94,7 +94,7 @@ public final class FileNode: @unchecked Sendable, Identifiable {
         for child in children { child.parent = self }
     }
 
-    /// Ruta completa subiendo por `parent`; la raíz "/" no duplica la barra.
+    /// Full path, walking up through `parent`; the "/" root does not double the slash.
     public var path: String {
         var parts: [String] = []
         var node: FileNode? = self
@@ -107,16 +107,16 @@ public final class FileNode: @unchecked Sendable, Identifiable {
         return joined
     }
 
-    /// Tipo con más bytes en `kindBytes`; si no hay desglose, el propio `kind`.
+    /// Kind with the most bytes in `kindBytes`; without a breakdown, the node's own `kind`.
     public var dominantKind: ContentKind {
         guard let maxBytes = kindBytes.max(), maxBytes > 0,
               let index = kindBytes.firstIndex(of: maxBytes) else { return kind }
         return ContentKind.allCases[index]
     }
 
-    /// Lo saca del árbol (p. ej. tras enviarlo a la Papelera) y descuenta su tamaño, su desglose
-    /// por tipo y sus descendientes de todos los antepasados. Sin padre no hace nada.
-    /// Como el resto del árbol, solo debe llamarse desde el hilo dueño (el principal).
+    /// Removes it from the tree (e.g. after moving it to the Trash) and subtracts its size, its per-kind
+    /// breakdown and its descendants from every ancestor. Does nothing without a parent.
+    /// Like the rest of the tree, it must only be called from the owning thread (the main one).
     public func removeFromParent() {
         guard let parent else { return }
         parent.children.removeAll { $0 === self }
@@ -133,11 +133,11 @@ public final class FileNode: @unchecked Sendable, Identifiable {
         }
     }
 
-    /// Sustituye lo que se sabía del nodo por un tamaño medido de nuevo (p. ej. tras limpiar una
-    /// caché con su comando oficial, que deja la carpeta con menos dentro). Como no se sabe qué hijos
-    /// quedan, se quitan (el próximo análisis los vuelve a mostrar) y todo el tamaño pasa al tipo
-    /// dominante. Corrige tamaño, desglose y descendientes de todos los antepasados.
-    /// Solo desde el hilo dueño del árbol (el principal, a través de `TreeGate.mutate`).
+    /// Replaces what was known about the node with a freshly measured size (e.g. after cleaning a
+    /// cache with its official command, which leaves the folder with less inside). Since we don't know which
+    /// children remain, they are removed (the next scan shows them again) and the whole size goes to the
+    /// dominant kind. Fixes size, breakdown and descendants of every ancestor.
+    /// Only from the thread that owns the tree (the main one, through `TreeGate.mutate`).
     public func replaceContents(measuredSize: Int64) {
         let newSize = max(measuredSize, 0)
         guard newSize != allocatedSize else { return }

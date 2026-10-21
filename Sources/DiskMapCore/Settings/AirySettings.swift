@@ -2,31 +2,31 @@ import Foundation
 
 public enum CleanupMode: String, Codable, Sendable, CaseIterable {
     case aggressive, prudent
-    public var title: String { self == .aggressive ? "Agresivo" : "Prudente" }
+    public var title: String { self == .aggressive ? String(localized: "Aggressive", bundle: .airyCore) : String(localized: "Careful", bundle: .airyCore) }
 }
 
 public enum UsageProfile: String, Codable, Sendable, CaseIterable {
     case developer, creative, localAI, gaming, music, basic
     public var title: String {
         switch self {
-        case .developer: "Programo"
-        case .creative: "Diseño, foto o vídeo"
-        case .localAI: "Uso IA en local"
-        case .gaming: "Juego"
-        case .music: "Música y audio"
-        case .basic: "Uso básico"
+        case .developer: String(localized: "I write code", bundle: .airyCore)
+        case .creative: String(localized: "Design, photo or video", bundle: .airyCore)
+        case .localAI: String(localized: "I run AI locally", bundle: .airyCore)
+        case .gaming: String(localized: "Gaming", bundle: .airyCore)
+        case .music: String(localized: "Music and audio", bundle: .airyCore)
+        case .basic: String(localized: "Basic use", bundle: .airyCore)
         }
     }
 }
 
-/// Ajustes compartidos entre la app y `airy-mcp` (`settings.json`).
+/// Settings shared between the app and `airy-mcp` (`settings.json`).
 public struct AirySettings: Codable, Sendable, Equatable {
     public static let currentVersion = 1
     public var version = 1
     public var mode: CleanupMode = .aggressive
     public var profiles: Set<UsageProfile> = []
     public var agentsEnabled = true
-    /// Forma normalizada de `ProtectList.normalise`.
+    /// Normalized form from `ProtectList.normalise`.
     public var protectedPaths: [String] = []
     public static let defaults = AirySettings()
 
@@ -53,7 +53,7 @@ public struct AirySettings: Codable, Sendable, Equatable {
         try c.encode(protectedPaths, forKey: .protectedPaths)
     }
 
-    /// `false` si la ruta no es válida o ya estaba protegida.
+    /// `false` if the path is not valid or was already protected.
     public mutating func protect(_ path: String, home: String) -> Bool {
         guard let normal = ProtectList.normalise(path, home: home),
               !protectedPaths.contains(where: { $0.caseInsensitiveCompare(normal) == .orderedSame }) else { return false }
@@ -66,8 +66,8 @@ public struct AirySettings: Codable, Sendable, Equatable {
     }
 }
 
-/// Resultado de leer `settings.json`. `unreadable` falla cerrado: los agentes quedan desactivados
-/// y la app debe bloquear las acciones destructivas hasta que el usuario lo restablezca.
+/// Result of reading `settings.json`. `unreadable` fails closed: agents are disabled
+/// and the app must block destructive actions until the user resets it.
 public enum SettingsLoad: Sendable, Equatable {
     case missing, loaded(AirySettings), unreadable(String)
 

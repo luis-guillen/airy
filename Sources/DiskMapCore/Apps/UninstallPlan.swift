@@ -1,23 +1,23 @@
 import Foundation
 
-/// Un resto de una app: una ruta de su carpeta personal (o de `/Library`, solo informativa) o un recibo de
-/// instalación.
+/// A leftover of an app: a path in its home folder (or in `/Library`, informational only) or an install
+/// receipt.
 public struct Leftover: Sendable, Equatable, Identifiable {
     public enum Kind: String, Sendable, CaseIterable {
         case appSupport, caches, containers, preferences, byHost, savedState, httpStorage, logs, launchAgent, webKit,
              cookies, applicationScripts, autosave, syncedPreferences, plugin, receipt, systemLocation
     }
 
-    /// En `.receipt`: el identificador del paquete (`pkgid`).
+    /// For `.receipt`: the package identifier (`pkgid`).
     public let path: String
     public let kind: Kind
     public let bytes: Int64
     public let risk: Risk
     public let preselected: Bool
     public let matchedByName: Bool
-    /// Por qué esta etiqueta (español).
+    /// Why this label (localized).
     public let reason: String
-    /// Solo `.launchAgent`: el `Label` del plist.
+    /// `.launchAgent` only: the plist's `Label`.
     public let launchLabel: String?
     public var id: String { kind.rawValue + ":" + path }
     public var canSelect: Bool { risk != .doNotTouch }
@@ -28,7 +28,7 @@ public struct Leftover: Sendable, Equatable, Identifiable {
         self.kind = kind
         self.bytes = bytes
         self.risk = risk
-        // Lo rojo nunca sale seleccionado.
+        // Red is never selected by default.
         self.preselected = preselected && risk != .doNotTouch
         self.matchedByName = matchedByName
         self.reason = reason
@@ -36,17 +36,17 @@ public struct Leftover: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Lo que costaría desinstalar una app: el `.app` y sus restos, con el tamaño real.
+/// What uninstalling an app would cost: the `.app` and its leftovers, with the real size.
 public struct UninstallPlan: Sendable, Equatable, Identifiable {
     public let app: AppRecord
     public let appBytes: Int64
-    /// Ordenados por riesgo ascendente, bytes descendentes y ruta.
+    /// Sorted by ascending risk, descending bytes and path.
     public let leftovers: [Leftover]
-    /// Por qué Airy no desinstala esta app, o `nil`.
+    /// Why Airy does not uninstall this app, or `nil`.
     public let refusal: String?
-    /// Ruta de otra copia instalada con el mismo identificador (sus restos quedan solo informativos).
+    /// Path of another installed copy with the same identifier (its leftovers stay informational only).
     public let sharedWith: String?
-    /// `false` si se agotó el tiempo de medir: lo no medido queda con 0 bytes.
+    /// `false` if measuring ran out of time: what was not measured is left with 0 bytes.
     public let sizeComplete: Bool
     public var id: String { app.path }
 
@@ -64,19 +64,19 @@ public struct UninstallPlan: Sendable, Equatable, Identifiable {
         self.sizeComplete = sizeComplete
     }
 
-    /// Bytes de los restos que se pueden seleccionar.
+    /// Bytes of the leftovers that can be selected.
     public var leftoverBytes: Int64 {
         leftovers.filter(\.canSelect).reduce(0) { $0 + $1.bytes }
     }
 
-    /// El `.app` más todos los restos seleccionables.
+    /// The `.app` plus every selectable leftover.
     public var realBytes: Int64 { appBytes + leftoverBytes }
 
     public var defaultSelection: Set<String> {
         Set(leftovers.filter { $0.preselected && $0.canSelect }.map(\.id))
     }
 
-    /// El `.app` más los restos seleccionados que se pueden seleccionar (lo rojo nunca suma).
+    /// The `.app` plus the selected leftovers that can be selected (red never adds up).
     public func bytes(selected: Set<String>) -> Int64 {
         appBytes + leftovers.filter { $0.canSelect && selected.contains($0.id) }.reduce(0) { $0 + $1.bytes }
     }

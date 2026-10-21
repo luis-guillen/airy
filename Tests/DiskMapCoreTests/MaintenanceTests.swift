@@ -8,7 +8,7 @@ private struct QuietListing: ProcessListing {
     func holders(ofPathsUnder paths: [String]) -> [RunningProcess]? { [] }
 }
 
-/// Ejecutor de órdenes con retardos por llamada (solo para medir Spotlight).
+/// Command runner with per-call delays (only to measure Spotlight).
 private final class DelayRunner: CommandRunning, Sendable {
     private let delays: Mutex<[Double]>
     let status: String
@@ -36,7 +36,7 @@ private let defaultsPath = "/usr/bin/defaults"
 
 private func readKey(_ args: [String]) -> String { ([defaultsPath] + args).joined(separator: " ") }
 
-/// Salidas de `defaults read`: las claves indicadas valen «1»; el resto no existe (código 1).
+/// `defaults read` outputs: the given keys are "1"; the rest do not exist (code 1).
 private func runner(ones: [[String]] = [], zeros: [[String]] = []) -> FakeRunner {
     var outputs: [String: CommandOutput] = [:]
     for args in MaintenanceScanner.defaultsChecks.values.map(\.args) {
@@ -112,14 +112,14 @@ private let skipVerify = ["read", "com.apple.frameworks.diskimages", "skip-verif
             .findItems(spotlight: nil, onACPower: true)
         let ids = Set(items.map(\.id))
         #expect(ids.contains("maintenance-legacy-appnap"))
-        #expect(!ids.contains("maintenance-legacy-skipverify"))          // «0»
-        #expect(!ids.contains("maintenance-legacy-skipverify-locked"))   // ausente
+        #expect(!ids.contains("maintenance-legacy-skipverify"))          // "0"
+        #expect(!ids.contains("maintenance-legacy-skipverify-locked"))   // missing
     }
 
     @Test func corruptPlistDetectedButAppleAndValidSkipped() async throws {
         let home = tempHome()
         let prefs = home + "/Library/Preferences/"
-        FileManager.default.createFile(atPath: prefs + "bad.plist", contents: Data("no es un plist".utf8))
+        FileManager.default.createFile(atPath: prefs + "bad.plist", contents: Data("not a plist".utf8))
         FileManager.default.createFile(atPath: prefs + "com.apple.bad.plist", contents: Data("basura".utf8))
         let ok = try PropertyListSerialization.data(fromPropertyList: ["a": 1], format: .xml, options: 0)
         FileManager.default.createFile(atPath: prefs + "ok.plist", contents: ok)
@@ -139,12 +139,12 @@ private let skipVerify = ["read", "com.apple.frameworks.diskimages", "skip-verif
     }
 
     @Test func spotlightCheckTiming() async {
-        // A escala: umbral 0,03 s (≈ 3 s), retardos 0,035 y 0,04 (≈ 3,5 y 4 s).
+        // Scaled down: threshold 0.03 s (≈ 3 s), delays 0.035 and 0.04 (≈ 3.5 and 4 s).
         let slow = await SpotlightCheck(runner: DelayRunner(delays: [0.035, 0.04]), threshold: 0.03, queryTimeout: 1).run()
-        guard case .slow(let seconds) = slow else { Issue.record("esperaba .slow: \(slow)"); return }
+        guard case .slow(let seconds) = slow else { Issue.record("expected .slow: \(slow)"); return }
         #expect(seconds >= 0.04)
         let fine = await SpotlightCheck(runner: DelayRunner(delays: [0.001, 0.001]), threshold: 0.03, queryTimeout: 1).run()
-        guard case .fine = fine else { Issue.record("esperaba .fine: \(fine)"); return }
+        guard case .fine = fine else { Issue.record("expected .fine: \(fine)"); return }
         let timedOut = await SpotlightCheck(runner: DelayRunner(delays: [5, 5]), threshold: 0.03, queryTimeout: 0.5).run()
         #expect(timedOut == .slow(seconds: 0.5))
         let disabled = await SpotlightCheck(runner: DelayRunner(delays: [], status: "/:\n\tIndexing disabled.")).run()
@@ -181,17 +181,17 @@ private let skipVerify = ["read", "com.apple.frameworks.diskimages", "skip-verif
             timeout: CleanupExecutor.defaultCommandTimeout, workingDirectory: CleanupExecutor.commandWorkingDirectory))
         #expect(try log.records().contains { $0.itemID == "maintenance-dsstore-network" && $0.action == "clean" })
 
-        // Preferencia dañada: a la Papelera por el embudo; si se arregla antes de confirmar, no se toca.
+        // Damaged preference: to the Trash through the funnel; if it gets fixed before confirming, it is not touched.
         let path = home + "/Library/Preferences/bad.plist"
         FileManager.default.createFile(atPath: path, contents: Data("<plist><dict><key>".utf8))
         let plist = try #require(try await scanner(r, home: home).findItems(spotlight: nil, onACPower: true)
             .first { $0.id == "maintenance-corrupt-plist:bad.plist" })
         let ok = try PropertyListSerialization.data(fromPropertyList: ["a": 1], format: .xml, options: 0)
         FileManager.default.createFile(atPath: path, contents: ok)
-        #expect(await exec.execute(plist) == .blocked(reason: "Ya no está dañado."))
+        #expect(await exec.execute(plist) == .blocked(reason: "It is no longer damaged."))
         #expect(FileManager.default.fileExists(atPath: path))
         FileManager.default.createFile(atPath: path, contents: Data("<plist><dict><key>".utf8))
-        guard case .movedToTrash = await exec.execute(plist) else { Issue.record("no fue a la Papelera"); return }
+        guard case .movedToTrash = await exec.execute(plist) else { Issue.record("it did not go to the Trash"); return }
         #expect(!FileManager.default.fileExists(atPath: path))
     }
 
@@ -203,7 +203,7 @@ private let skipVerify = ["read", "com.apple.frameworks.diskimages", "skip-verif
         let exec = try executor(r, home: home)
         for item in items {
             guard case .blocked = await exec.execute(item, context: .agent("test")) else {
-                Issue.record("\(item.id) no se bloqueó"); continue
+                Issue.record("\(item.id) was not blocked"); continue
             }
         }
         #expect(items.contains { $0.id == "maintenance-spotlight-reindex" })

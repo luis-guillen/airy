@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-/// Ticks por núcleo, topología P/E y arranque. Solo APIs públicas.
+/// Ticks per core, P/E topology and boot time. Public APIs only.
 public enum CPUProbe {
     public static func ticks() -> [CoreTicks]? {
         var cpuCount: natural_t = 0
@@ -22,7 +22,7 @@ public enum CPUProbe {
         }
     }
 
-    /// `hw.perflevel0` = rendimiento, `hw.perflevel1` = eficiencia (R3). nil si no hay perflevel0.
+    /// `hw.perflevel0` = performance, `hw.perflevel1` = efficiency (R3). nil if there is no perflevel0.
     public static func topology() -> CoreTopology? {
         guard let p = sysctlValue("hw.perflevel0.logicalcpu", as: Int32.self) else { return nil }
         let e = sysctlValue("hw.perflevel1.logicalcpu", as: Int32.self) ?? 0

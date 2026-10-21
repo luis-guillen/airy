@@ -3,9 +3,9 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Doble de prueba
+// MARK: - Test double
 
-/// Runner que devuelve una salida fija (o lanza) y registra argumentos, stdin y directorio.
+/// Runner that returns a fixed output (or throws) and records arguments, stdin and directory.
 final class AIFakeRunner: CommandRunning, Sendable {
     struct Call: Sendable {
         var executable: String
@@ -61,7 +61,7 @@ final class AIFakeRunner: CommandRunning, Sendable {
     func resolve(_ executable: String) async -> String? { nil }
 }
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 private func tempDir(_ label: String = "airy-ai") -> String {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(label)-\(UUID().uuidString)")
@@ -72,16 +72,16 @@ private func tempDir(_ label: String = "airy-ai") -> String {
 private let home = "/Users/prueba"
 
 private let uvEntry = CatalogEntry(
-    id: "uv", title: "Caché de uv", explanation: "Paquetes de Python descargados.", whoCreatesIt: "uv",
+    id: "uv", title: "uv cache", explanation: "Downloaded Python packages.", whoCreatesIt: "uv",
     regenerates: true, risk: .safe, kind: .caches, paths: ["~/.cache/uv"],
     cleanup: .command(executable: "uv", arguments: ["cache", "clean"], sizeProbe: nil))
 
 private let snapshotsEntry = CatalogEntry(
-    id: "snapshots", title: "Instantáneas", explanation: "", whoCreatesIt: "Time Machine",
+    id: "snapshots", title: "Snapshots", explanation: "", whoCreatesIt: "Time Machine",
     regenerates: false, risk: .yourCall, kind: .system, paths: [], cleanup: .info)
 
 private let xCacheEntry = CatalogEntry(
-    id: "xcache", title: "Caché de X", explanation: "", whoCreatesIt: "X", regenerates: true,
+    id: "xcache", title: "X cache", explanation: "", whoCreatesIt: "X", regenerates: true,
     risk: .safe, kind: .caches, paths: ["~/Library/Caches/x"], cleanup: .trash)
 
 private let homebrewEntry = CatalogEntry(
@@ -90,12 +90,12 @@ private let homebrewEntry = CatalogEntry(
     cleanup: .command(executable: "brew", arguments: ["cleanup"], sizeProbe: nil))
 
 private let dockerBuildEntry = CatalogEntry(
-    id: "docker-build-cache", title: "Caché de compilación de Docker", explanation: "", whoCreatesIt: "Docker",
+    id: "docker-build-cache", title: "Docker build cache", explanation: "", whoCreatesIt: "Docker",
     regenerates: true, risk: .safe, kind: .containers, paths: [],
     cleanup: .command(executable: "docker", arguments: ["builder", "prune", "-a", "-f"], sizeProbe: nil))
 
 private let dockerVolumesEntry = CatalogEntry(
-    id: "docker-volumes", title: "Volúmenes de Docker", explanation: "", whoCreatesIt: "Docker",
+    id: "docker-volumes", title: "Docker volumes", explanation: "", whoCreatesIt: "Docker",
     regenerates: false, risk: .doNotTouch, kind: .containers,
     paths: ["~/Library/Containers/com.docker.docker"], cleanup: .info)
 
@@ -103,7 +103,7 @@ private let testCatalog = Catalog(entries: [
     uvEntry, snapshotsEntry, xCacheEntry, homebrewEntry, dockerBuildEntry, dockerVolumesEntry,
 ])
 
-/// Árbol: /Users/prueba → .cache/uv (5 GB), Documents/a.pdf (1 GB), Library/Caches/x (2 GB),
+/// Tree: /Users/prueba → .cache/uv (5 GB), Documents/a.pdf (1 GB), Library/Caches/x (2 GB),
 /// Library/Containers/com.docker.docker (3 GB), Library/Mobile Documents (4 GB).
 private func sampleTree() -> FileNode {
     let uv = FileNode(name: "uv", isDirectory: true, allocatedSize: 5_000_000_000, kind: .caches)
@@ -128,7 +128,7 @@ private func sampleContext() -> String {
     return AIContextBuilder.context(scan: sampleTree(), items: [item, build], catalog: testCatalog, home: home)
 }
 
-/// Salida de `claude -p --output-format json --json-schema …` con `structured_output` dado.
+/// Output of `claude -p --output-format json --json-schema …` with the given `structured_output`.
 private func claudeResult(_ structured: String) -> String {
     """
     {"type":"result","subtype":"success","is_error":false,"result":"","total_cost_usd":0.01,\
@@ -144,8 +144,8 @@ private func parse(_ json: String) throws -> [String: Any] {
     try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
 }
 
-/// Muestra real recortada de `--output-format stream-json --verbose --include-partial-messages`
-/// (Claude Code 2.1.304), con los textos sustituidos por "Ho", "la", "!".
+/// Real trimmed sample of `--output-format stream-json --verbose --include-partial-messages`
+/// (Claude Code 2.1.304), with the texts replaced by "Ho", "la", "!".
 private let streamFixture = [
     #"{"type":"system","subtype":"init","cwd":"/tmp/x","session_id":"s","tools":[],"mcp_servers":[],"model":"claude-opus-5-5"}"#,
     #"{"type":"system","subtype":"status","status":"requesting","session_id":"s"}"#,
@@ -163,7 +163,7 @@ private let streamFixture = [
 ]
 
 @Suite struct AITests {
-    // MARK: Localizador
+    // MARK: Locator
 
     @Test func candidatesInOrder() {
         #expect(ClaudeLocator.candidates(home: "/Users/a") == [
@@ -198,11 +198,11 @@ private let streamFixture = [
         let other = dir + "/claude"
         FileManager.default.createFile(atPath: other, contents: Data("#!/bin/sh\n".utf8),
                                        attributes: [.posixPermissions: 0o755])
-        let runner = FakeRunner(outputs: ["\(other) --version": CommandOutput(status: 0, stdout: "1.0 otra", stderr: "")])
+        let runner = FakeRunner(outputs: ["\(other) --version": CommandOutput(status: 0, stdout: "1.0 other", stderr: "")])
         #expect(await ClaudeLocator.locate(override: other, runner: runner, home: dir + "/nadie") == nil)
     }
 
-    // MARK: Invocación
+    // MARK: Invocation
 
     @Test func invokesWithoutTools() async throws {
         let runner = AIFakeRunner(stdout: claudeResult(#"{"summary":"ok","recommendations":[],"reclaimableBytes":0}"#))
@@ -223,24 +223,24 @@ private let streamFixture = [
         #expect(schemaJSON["type"] as? String == "object")
         #expect(args[schema + 1].contains("doNotTouch"))
         let system = try #require(args.firstIndex(of: "--system-prompt"))
-        #expect(args[system + 1].contains("Responde en español de España"))
-        // Los totales los calcula Airy: el resumen de Claude no los da.
-        #expect(args[system + 1].contains("no des totales"))
-        // El prompt va por stdin, no como argumento; nunca dentro de un directorio del usuario.
+        #expect(args[system + 1].contains("Always reply in English"))
+        // Airy computes the totals: Claude's summary does not give them.
+        #expect(args[system + 1].contains("do not give totals"))
+        // The prompt goes through stdin, not as an argument; never inside a user directory.
         #expect(call.stdin?.contains("~/.cache/uv") == true)
         #expect(!args.contains { $0.contains("~/.cache/uv") })
         #expect(call.timeout == 120)
         let cwd = try #require(call.workingDirectory)
         #expect(cwd.hasPrefix(FileManager.default.temporaryDirectory.path) || cwd.hasPrefix("/private/var") || cwd.hasPrefix("/var"))
-        #expect(!FileManager.default.fileExists(atPath: cwd))  // se borra al terminar
+        #expect(!FileManager.default.fileExists(atPath: cwd))  // deleted at the end
     }
 
-    // MARK: Contexto
+    // MARK: Context
 
     @Test func contextHasNoFileContents() async throws {
         let dir = tempDir()
         let file = dir + "/nota.txt"
-        FileManager.default.createFile(atPath: file, contents: Data(String(repeating: "SECRETO ", count: 2000).utf8))
+        FileManager.default.createFile(atPath: file, contents: Data(String(repeating: "SECRET ", count: 2000).utf8))
         let scan = try await DiskScanner(options: ScanOptions(roots: [URL(fileURLWithPath: dir)], pruneThreshold: 0))
             .scan { _ in }
         let context = AIContextBuilder.context(scan: scan.root, items: [], catalog: testCatalog, home: home)
@@ -273,7 +273,7 @@ private let streamFixture = [
         let context = AIContextBuilder.context(scan: root, items: [], catalog: testCatalog, home: home)
         let nodes = try #require(try parse(context)["nodes"] as? [[String: Any]])
         #expect(nodes.count <= 400)
-        #expect(nodes.contains { $0["path"] as? String == "/datos/f9999" })  // los más grandes
+        #expect(nodes.contains { $0["path"] as? String == "/datos/f9999" })  // the largest ones
         #expect(!nodes.contains { $0["path"] as? String == "/datos/f0" })
     }
 
@@ -302,12 +302,12 @@ private let streamFixture = [
         #expect(uv["kind"] as? String == "caches")
     }
 
-    // MARK: Post-validación del informe
+    // MARK: Post-validation of the report
 
     @Test func reportDropsUnknownPaths() async throws {
         let runner = AIFakeRunner(stdout: claudeResult("""
         {"summary":"s","reclaimableBytes":99999999999,"recommendations":[
-          {"path":"~/.cache/uv","verdict":"safe","reason":"caché","bytes":5000000000,
+          {"path":"~/.cache/uv","verdict":"safe","reason":"cache","bytes":5000000000,
            "action":{"type":"runCatalogCommand","id":"uv"}},
           {"path":"~/inventada","verdict":"safe","reason":"x","bytes":1,"action":{"type":"trash","path":"~/inventada"}},
           {"path":"/etc","verdict":"safe","reason":"x","bytes":1}
@@ -317,7 +317,7 @@ private let streamFixture = [
         #expect(report.recommendations.map(\.path) == [home + "/.cache/uv"])
         #expect(report.recommendations.first?.action == .runCatalogCommand(id: "uv"))
         #expect(report.recommendations.first?.verdict == .safe)
-        #expect(report.reclaimableBytes == 5_000_000_000)  // recalculado, no el de la IA
+        #expect(report.reclaimableBytes == 5_000_000_000)  // recomputed, not the AI's
     }
 
     @Test func reportDropsUnknownCatalogIds() async throws {
@@ -330,7 +330,7 @@ private let streamFixture = [
         """))
         let report = try await assistant(runner).report(context: sampleContext())
         #expect(report.recommendations.count == 2)
-        #expect(report.recommendations.allSatisfy { $0.action == nil })  // id inexistente o de tipo info
+        #expect(report.recommendations.allSatisfy { $0.action == nil })  // nonexistent id or info kind
     }
 
     @Test func reportDropsTrashOfPathNotInContext() async throws {
@@ -343,13 +343,13 @@ private let streamFixture = [
         """))
         let report = try await assistant(runner).report(context: sampleContext())
         #expect(report.recommendations.count == 3)
-        #expect(report.recommendations[0].action == nil)  // ~/Library está en el contexto, pero no es la ruta recomendada
-        #expect(report.recommendations[1].action == nil)  // ruta inexistente en el contexto
+        #expect(report.recommendations[0].action == nil)  // ~/Library is in the context, but it is not the recommended path
+        #expect(report.recommendations[1].action == nil)  // path not present in the context
         #expect(report.recommendations[1].verdict == .yourCall)
         let x = report.recommendations[2]
-        #expect(x.action == .trash(path: home + "/Library/Caches/x"))  // ficha de Papelera, sin riesgo
+        #expect(x.action == .trash(path: home + "/Library/Caches/x"))  // Trash entry, safe
         #expect(x.verdict == .safe)
-        #expect(x.bytes == 2_000_000_000)  // tamaño del contexto, no el de la IA
+        #expect(x.bytes == 2_000_000_000)  // the context's size, not the AI's
         #expect(report.reclaimableBytes == 2_000_000_000)
     }
 
@@ -371,7 +371,7 @@ private let streamFixture = [
             #expect(rec.action == nil, "\(rec.path)")
             #expect(rec.verdict != .safe, "\(rec.path)")
         }
-        #expect(report.recommendations[1].verdict == .doNotTouch)  // ficha docker-volumes
+        #expect(report.recommendations[1].verdict == .doNotTouch)  // docker-volumes entry
         #expect(report.reclaimableBytes == 0)
     }
 
@@ -382,7 +382,7 @@ private let streamFixture = [
         ]}
         """))
         let rec = try #require(try await assistant(runner).report(context: sampleContext()).recommendations.first)
-        #expect(rec.action == nil)  // uv se limpia solo con `uv cache clean`
+        #expect(rec.action == nil)  // uv is only cleaned with `uv cache clean`
         #expect(rec.verdict == .safe)
     }
 
@@ -409,7 +409,7 @@ private let streamFixture = [
     @Test func reportCannotLowerRisk() async throws {
         let runner = AIFakeRunner(stdout: claudeResult("""
         {"summary":"s","reclaimableBytes":1000000000,"recommendations":[
-          {"path":"~/Documents/a.pdf","verdict":"safe","reason":"viejo","bytes":1000000000,
+          {"path":"~/Documents/a.pdf","verdict":"safe","reason":"old","bytes":1000000000,
            "action":{"type":"trash","path":"~/Documents/a.pdf"}}
         ]}
         """))
@@ -476,9 +476,9 @@ private let streamFixture = [
     @Test func chatStreamsDeltas() async throws {
         let runner = AIFakeRunner(lines: streamFixture)
         let history = [
-            ChatMessage(role: .user, text: "¿Qué ocupa más?"),
-            ChatMessage(role: .assistant, text: "La caché de uv."),
-            ChatMessage(role: .user, text: "¿Puedo borrarla?"),
+            ChatMessage(role: .user, text: "What takes the most space?"),
+            ChatMessage(role: .assistant, text: "The uv cache."),
+            ChatMessage(role: .user, text: "Can I delete it?"),
         ]
         var received: [String] = []
         for try await chunk in assistant(runner).chat(history: history, context: sampleContext()) {
@@ -494,11 +494,11 @@ private let streamFixture = [
         let tools = try #require(call.arguments.firstIndex(of: "--tools"))
         #expect(call.arguments[tools + 1] == "")
         let stdin = try #require(call.stdin)
-        // Historial completo con turnos etiquetados, y el contexto.
-        for text in ["¿Qué ocupa más?", "La caché de uv.", "¿Puedo borrarla?", "~/.cache/uv"] {
+        // Full history with labelled turns, and the context.
+        for text in ["What takes the most space?", "The uv cache.", "Can I delete it?", "~/.cache/uv"] {
             #expect(stdin.contains(text))
         }
-        #expect(stdin.contains("Usuario:") && stdin.contains("Asistente:"))
+        #expect(stdin.contains("User:") && stdin.contains("Assistant:"))
         #expect(call.timeout == 120)
     }
 
@@ -531,16 +531,16 @@ private let streamFixture = [
         #expect(received == ["Ho"])
     }
 
-    // MARK: ProcessRunner (stdin, directorio y streaming)
+    // MARK: ProcessRunner (stdin, directory and streaming)
 
     @Test func processRunnerPassesStdinAndDirectory() async throws {
         let dir = tempDir()
         let output = try await ProcessRunner().run(
-            "/bin/sh", ["-c", "pwd; cat"], stdin: "línea con ñ y \"comillas\"\n", workingDirectory: dir, timeout: 5)
+            "/bin/sh", ["-c", "pwd; cat"], stdin: "line with ñ and \"quotes\"\n", workingDirectory: dir, timeout: 5)
         let lines = output.stdout.split(separator: "\n").map(String.init)
         #expect(lines.first.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
                 == URL(fileURLWithPath: dir).resolvingSymlinksInPath().path)
-        #expect(lines.last == "línea con ñ y \"comillas\"")
+        #expect(lines.last == "line with ñ and \"quotes\"")
     }
 
     @Test func processRunnerStreamsLines() async throws {
@@ -565,7 +565,7 @@ private let streamFixture = [
         for try await line in ProcessRunner().stream(
             "/bin/sh", ["-c", "echo $$; exec /bin/sleep 30"], stdin: nil, workingDirectory: nil, timeout: 60) {
             pid = pid_t(line) ?? 0
-            break  // el consumidor deja de leer: se cancela el stream
+            break  // the consumer stops reading: the stream is cancelled
         }
         #expect(pid > 0)
         var alive = true
@@ -589,7 +589,7 @@ private let streamFixture = [
     }
 
     @Test func defaultRunnerRejectsStdinAndDirectory() async throws {
-        // Un ejecutor que solo implementa `run` básico (el `FakeRunner` de limpieza ya admite directorio).
+        // A runner that only implements the basic `run` (the cleanup `FakeRunner` already supports a directory).
         struct BasicRunner: CommandRunning {
             func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
                 CommandOutput(status: 0, stdout: "", stderr: "")
@@ -605,7 +605,7 @@ private let streamFixture = [
         _ = try await BasicRunner().run("/bin/cat", [], stdin: nil, workingDirectory: nil, timeout: 1)
     }
 
-    // MARK: Pruebas reales (AIRY_REAL=1)
+    // MARK: Real tests (AIRY_REAL=1)
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["AIRY_REAL"] == "1"))
     func realClaudeReport() async throws {
@@ -616,11 +616,11 @@ private let streamFixture = [
         let started = Date()
         let report = try await ai.report(context: sampleContext())
         print("realClaudeReport: \(String(format: "%.1f", Date().timeIntervalSince(started))) s; "
-              + "resumen: \(report.summary); recomendaciones: "
+              + "summary: \(report.summary); recommendations: "
               + report.recommendations.map { "\($0.path) → \($0.verdict.jsonName) \(String(describing: $0.action))" }
-                .joined(separator: " | ") + "; recuperable: \(report.reclaimableBytes)")
+                .joined(separator: " | ") + "; reclaimable: \(report.reclaimableBytes)")
         #expect(!report.summary.isEmpty)
-        // Rutas del contexto, o el id de un elemento de limpieza sin rutas.
+        // Context paths, or the id of a cleanup item without paths.
         #expect(report.recommendations.allSatisfy { $0.path.hasPrefix(home) || $0.path == "docker-build-cache" })
         #expect(!report.recommendations.contains { $0.path.contains("Documents") && $0.verdict == .safe })
     }
@@ -631,11 +631,11 @@ private let streamFixture = [
         let path = try #require(await ClaudeLocator.locate(override: nil, runner: runner))
         let ai = AIAssistant(claudePath: path, runner: runner, catalog: try Catalog.bundled(), home: home)
         var chunks: [String] = []
-        for try await chunk in ai.chat(history: [ChatMessage(role: .user, text: "¿Qué ocupa más? Una frase.")],
+        for try await chunk in ai.chat(history: [ChatMessage(role: .user, text: "What takes the most space? One sentence.")],
                                        context: sampleContext()) {
             chunks.append(chunk)
         }
-        print("realClaudeChat: \(chunks.count) fragmentos: \(chunks.joined())")
+        print("realClaudeChat: \(chunks.count) chunks: \(chunks.joined())")
         #expect(!chunks.joined().isEmpty)
     }
 }

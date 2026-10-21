@@ -1,6 +1,6 @@
 import Foundation
 
-/// Lista «Proteger esto»: rutas (con `*` por componente) que ni la app ni los agentes tocan.
+/// The "Protect this" list: paths (with `*` per component) that neither the app nor agents touch.
 public struct ProtectList: Sendable, Equatable {
     private let entries: [(stored: String, components: [String])]
 
@@ -15,8 +15,8 @@ public struct ProtectList: Sendable, Equatable {
         }
     }
 
-    /// Recorta, expande `~`, exige absoluta, rechaza `..`/`.`/control, colapsa `//`, quita la `/` final;
-    /// devuelve la forma guardada con `~/` si está bajo home.
+    /// Trims, expands `~`, requires an absolute path, rejects `..`/`.`/control characters, collapses `//`, drops the trailing `/`;
+    /// returns the stored form with `~/` if it is under home.
     public static func normalise(_ raw: String, home: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
@@ -33,8 +33,8 @@ public struct ProtectList: Sendable, Equatable {
         return "/" + parts.joined(separator: "/")
     }
 
-    /// Patrón que cubre `path` (lo iguala o lo contiene) o que está dentro de `path` (es carpeta superior);
-    /// sin distinguir mayúsculas; `*` dentro de un componente (fnmatch).
+    /// Pattern that covers `path` (equals or contains it) or that lies inside `path` (it is a parent folder);
+    /// case-insensitive; `*` within a component (fnmatch).
     public func match(_ path: String) -> String? {
         let target = Self.components(of: path)
         guard !target.isEmpty else { return nil }
@@ -56,7 +56,7 @@ public struct ProtectList: Sendable, Equatable {
     }
 
     private static func componentMatches(_ pattern: String, _ name: String) -> Bool {
-        // Solo `*` es comodín: `[`, `?` y `\` se tratan como texto literal.
+        // Only `*` is a wildcard: `[`, `?` and `\` are treated as literal text.
         var escaped = ""
         for ch in pattern {
             if ch == "[" || ch == "?" || ch == "\\" { escaped.append("\\") }

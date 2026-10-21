@@ -1,9 +1,9 @@
 import CoreGraphics
 import Foundation
 
-/// Geometría del logo de Airy («remolino de viento con hojas»), en la rejilla de 1024 del icono.
-/// Ángulos en grados, 0 = +x, con y hacia abajo (sentido horario en pantalla).
-/// `scripts/make-icon.swift` copia estos números; la prueba de la huella los mantiene sincronizados.
+/// Geometry of the Airy logo ("wind swirl with leaves"), on the icon's 1024 grid.
+/// Angles in degrees, 0 = +x, with y pointing down (clockwise on screen).
+/// `scripts/make-icon.swift` copies these numbers; the fingerprint test keeps them in sync.
 public enum AiryLogoGeometry {
     public enum Variant: Sendable { case full, small }
 
@@ -20,7 +20,7 @@ public enum AiryLogoGeometry {
     public static let squircleInset = 100.0
     public static let squircleRadius = 185.0
     public static let center = 512.0
-    /// Mitad del squircle: 1 unidad normalizada.
+    /// Half of the squircle: 1 normalized unit.
     public static let unit = 412.0
 
     public static func arcs(_ variant: Variant) -> [Arc] {
@@ -47,7 +47,7 @@ public enum AiryLogoGeometry {
 
     public static func variant(forPixelSize px: Double) -> Variant { px <= 64 ? .small : .full }
 
-    /// Hoja centrada en el origen a lo largo de +x.
+    /// Leaf centred on the origin along +x.
     public static func leafPath(length: Double, width: Double) -> CGPath {
         let l = CGFloat(length), w = CGFloat(width)
         let p = CGMutablePath()
@@ -63,16 +63,16 @@ public enum AiryLogoGeometry {
         return CGPoint(x: center + radius * cos(a), y: center + radius * sin(a))
     }
 
-    /// Centro de la hoja en coordenadas de la rejilla.
+    /// Centre of the leaf in grid coordinates.
     public static func leafCenter(_ leaf: Leaf) -> CGPoint {
         point(radius: leaf.radius, degrees: leaf.angleDegrees)
     }
 
-    /// Giro de la hoja: tangente al arco, en sentido horario con y hacia abajo.
+    /// Rotation of the leaf: tangent to the arc, clockwise with y pointing down.
     public static func leafRotationDegrees(_ leaf: Leaf) -> Double { leaf.angleDegrees + 90 }
 
-    /// Puntos en unidades normalizadas (centro 0, y hacia abajo): primero los centros de las hojas
-    /// y luego puntos repartidos por igual a lo largo de los arcos.
+    /// Points in normalized units (centre 0, y pointing down): first the leaf centres
+    /// and then points spread evenly along the arcs.
     public static func launchTargets(count: Int) -> [CGPoint] {
         func normalized(_ p: CGPoint) -> CGPoint { CGPoint(x: (p.x - center) / unit, y: (p.y - center) / unit) }
         var result = leaves(.full).prefix(max(count, 0)).map { normalized(leafCenter($0)) }
@@ -95,7 +95,7 @@ public enum AiryLogoGeometry {
         return result
     }
 
-    /// Huella estable de la geometría; `make-icon.swift` la lleva en un comentario.
+    /// Stable fingerprint of the geometry; `make-icon.swift` carries it in a comment.
     public static var fingerprint: String {
         func n(_ v: Double) -> String { String(format: "%g", v) }
         let parts = [Variant.full, .small].flatMap { variant -> [String] in

@@ -10,6 +10,7 @@ let testingPluginFlags: [SwiftSetting] = ProcessInfo.processInfo.environment["AI
 
 let package = Package(
     name: "Airy",
+    defaultLocalization: "en",
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "DiskMapCore", targets: ["DiskMapCore"]),
@@ -20,7 +21,10 @@ let package = Package(
         .target(
             name: "DiskMapCore",
             path: "Sources/DiskMapCore",
-            resources: [.process("Resources/catalog.json"), .process("Resources/apps.json")]
+            resources: [
+                .process("Resources/catalog.json"), .process("Resources/apps.json"),
+                .process("Resources/Localizable.xcstrings"),
+            ]
         ),
         .executableTarget(
             name: "Airy",

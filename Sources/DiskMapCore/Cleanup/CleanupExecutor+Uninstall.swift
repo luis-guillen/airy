@@ -2,7 +2,7 @@ import Foundation
 
 public struct UninstallRequest: Sendable, Equatable, Identifiable {
     public let plan: UninstallPlan
-    /// Ids de `Leftover`.
+    /// `Leftover` ids.
     public let selected: Set<String>
     public var id: String { plan.id }
 
@@ -13,11 +13,11 @@ public struct UninstallRequest: Sendable, Equatable, Identifiable {
 }
 
 public struct UninstallReport: Sendable, Equatable {
-    /// `.movedToTrash(trashed)` si algo fue a la Papelera; si no, `.freed(freed)`; o `.blocked`/`.failed`.
+    /// `.movedToTrash(trashed)` if something went to the Trash; otherwise `.freed(freed)`; or `.blocked`/`.failed`.
     public var outcome: CleanupOutcome
     public var trashedBytes: Int64
     public var freedBytes: Int64
-    /// Pasos que fallaron sin parar el resto (español).
+    /// Steps that failed without stopping the rest (localized).
     public var notes: [String]
 
     public init(outcome: CleanupOutcome, trashedBytes: Int64 = 0, freedBytes: Int64 = 0, notes: [String] = []) {
@@ -29,16 +29,16 @@ public struct UninstallReport: Sendable, Equatable {
 }
 
 extension CleanupExecutor {
-    static let agentsCannotUninstall = "Los agentes no pueden desinstalar apps; solo proponerlo en Airy."
+    static var agentsCannotUninstall: String { String(localized: "Agents cannot uninstall apps; they can only propose it in Airy.", bundle: .airyCore) }
     static let quitTimeout: Duration = .seconds(30)
     static let launchctlTimeout: TimeInterval = 15
     static let brewTimeout: TimeInterval = 600
-    static let brewUnfinishedNote = "Homebrew no pudo terminar (quizá pidió contraseña)."
-    static let receiptCancelledNote = "Cancelaste la contraseña: el registro de instalación se queda."
+    static var brewUnfinishedNote: String { String(localized: "Homebrew could not finish (maybe it asked for a password).", bundle: .airyCore) }
+    static var receiptCancelledNote: String { String(localized: "You cancelled the password: the install receipt stays.", bundle: .airyCore) }
 
-    /// Desinstala una app por el embudo. Orden: todas las comprobaciones (agente, plan, dispensa, `.app`,
-    /// cerrar, `.app` otra vez, restos, revisión del cask) y solo después, en orden: Homebrew (sin `--zap`) →
-    /// `launchctl bootout` → Papelera del `.app` → restos → recibos. Cada `blocked` deja todo como estaba.
+    /// Uninstalls an app through the funnel. Order: every check (agent, plan, waiver, `.app`,
+    /// quit, `.app` again, leftovers, cask review) and only then, in order: Homebrew (without `--zap`) →
+    /// `launchctl bootout` → `.app` to the Trash → leftovers → receipts. Each `blocked` leaves everything as it was.
     public func uninstall(_ request: UninstallRequest, context: OperationContext = .user()) async -> UninstallReport {
         let app = request.plan.app
         var notes: [String] = []
@@ -69,14 +69,14 @@ extension CleanupExecutor {
             return UninstallReport(outcome: final, trashedBytes: trashedBytes, freedBytes: freedBytes, notes: notes)
         }
 
-        // 1–3. Agentes, plan, dispensa y el `.app`.
+        // 1–3. Agents, plan, waiver and the `.app`.
         if context.isAgent { return finish(.blocked(reason: Self.agentsCannotUninstall)) }
         let load = settings()
         if load.isUnreadable { return finish(.blocked(reason: Self.unreadableSettingsReason)) }
         if let refusal = request.plan.refusal { return finish(.blocked(reason: refusal)) }
         let roots = appRoots ?? ProtectionWaiver.productionAppRoots(home: home)
         guard let waiver = ProtectionWaiver.uninstall(app, appRoots: roots) else {
-            return finish(.blocked(reason: "Airy no puede desinstalar «\(app.name)»."))
+            return finish(.blocked(reason: String(localized: "Airy cannot uninstall “\(app.name)”.", bundle: .airyCore)))
         }
         let validatedApp: ValidatedPath
         switch gate(load).validate(app.path, waiver: waiver) {
@@ -84,12 +84,12 @@ extension CleanupExecutor {
         case .success(let ok): validatedApp = ok
         }
 
-        // 4. Cerrar (normal, nunca forzado).
+        // 4. Quit (normally, never forced).
         let quitIDs = uniqueIDs([app.bundleID] + app.helperBundleIDs)
         var open: [String] = []
         for id in quitIDs {
             guard let running = quitter.isRunning(bundleID: id) else {
-                return finish(.blocked(reason: "No se pudo comprobar si «\(app.name)» está abierta; Airy no sigue."))
+                return finish(.blocked(reason: String(localized: "Could not check whether “\(app.name)” is open; Airy does not go on.", bundle: .airyCore)))
             }
             if running { open.append(id) }
         }
@@ -98,11 +98,11 @@ extension CleanupExecutor {
             case .notRunning, .quit: continue
             case .stillRunning, .unknown:
                 return finish(.blocked(
-                    reason: "«\(app.name)» sigue abierta (quizá te pide guardar algo). Ciérrala y vuelve a intentarlo."))
+                    reason: String(localized: "“\(app.name)” is still open (maybe it is asking you to save something). Quit it and try again.", bundle: .airyCore)))
             }
         }
 
-        // Comprobaciones tras cerrar, antes de tocar nada (F6): el `.app` y cada resto seleccionado.
+        // Checks after quitting, before touching anything (F6): the `.app` and each selected leftover.
         let gateNow = gate(settings())
         if case .failure(let refusal) = gateNow.validate(app.path, waiver: waiver) {
             return finish(.blocked(reason: refusal.reason))
@@ -114,21 +114,21 @@ extension CleanupExecutor {
         var toTrash: [(leftover: Leftover, validated: ValidatedPath)] = []
         for leftover in pathLeftovers where exists(leftover.path) {
             switch gateNow.validate(leftover.path, waiver: waiver) {
-            case .failure(let refusal): notes.append("No se toca \(leftover.path): \(refusal.reason)")
+            case .failure(let refusal): notes.append(String(localized: "Not touching \(leftover.path): \(refusal.reason)", bundle: .airyCore))
             case .success(let ok): toTrash.append((leftover, ok))
             }
         }
 
-        // Homebrew: nunca `--zap` (los restos solo salen de la lista de Airy, ya validada, a la Papelera). Antes
-        // de usar `brew uninstall --cask`, Airy lee qué haría el cask (solo lectura); si hay algo que no puede
-        // comprobar, o no puede leerlo, la app sigue el camino normal: el `.app` a la Papelera con la dispensa.
+        // Homebrew: never `--zap` (leftovers only come from Airy's list, already validated, to the Trash). Before
+        // using `brew uninstall --cask`, Airy reads what the cask would do (read-only); if there is something it cannot
+        // check, or it cannot read it, the app takes the normal path: the `.app` to the Trash with the waiver.
         var brew: String?
         if let review = await reviewCask(app, gate: gateNow) {
             brew = review.brew
             if case .fallback(let reason) = review.verdict { notes.append(reason) }
         }
 
-        // 5. Homebrew (borra el `.app` directamente, sin Papelera, y ejecuta los pasos ya revisados del cask).
+        // 5. Homebrew (deletes the `.app` directly, without the Trash, and runs the already reviewed cask steps).
         if let brew, let token = app.caskToken {
             let arguments = ["uninstall", "--cask", token]
             if let reason = CommandPolicy.refusal(executable: brew, arguments: arguments) {
@@ -141,22 +141,22 @@ extension CleanupExecutor {
             }
             let output: CommandOutput
             do {
-                // Sin entrada estándar (`/dev/null`): si pide contraseña, falla en vez de esperar.
+                // No standard input (`/dev/null`): if it asks for a password, it fails instead of waiting.
                 output = try await runner.run(brew, arguments, timeout: Self.brewTimeout)
             } catch {
                 notes.append(Self.brewUnfinishedNote)
-                return finish(.failed("Homebrew no pudo desinstalarla: \(String(String(describing: error).prefix(300)))"))
+                return finish(.failed(String(localized: "Homebrew could not uninstall it: \(String(String(describing: error).prefix(300)))", bundle: .airyCore)))
             }
             guard output.status == 0 else {
                 notes.append(Self.brewUnfinishedNote)
                 let detail = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines).prefix(300)
-                return finish(.failed("Homebrew no pudo desinstalarla: \(detail)"))
+                return finish(.failed(String(localized: "Homebrew could not uninstall it: \(String(detail))", bundle: .airyCore)))
             }
             freedBytes = measured.filter { !exists($0.key) }.values.reduce(0, +)
         }
 
-        // 6. Detener los agentes de inicio seleccionados (solo los que pasaron la validación). Después de
-        // Homebrew: si Homebrew falla, la app sigue instalada con sus agentes en marcha.
+        // 6. Stop the selected login agents (only those that passed validation). After
+        // Homebrew: if Homebrew fails, the app stays installed with its agents running.
         for item in toTrash where item.leftover.kind == .launchAgent {
             guard let label = item.leftover.launchLabel, !label.isEmpty else { continue }
             do {
@@ -164,14 +164,14 @@ extension CleanupExecutor {
                                                   timeout: Self.launchctlTimeout)
                 if output.status != 0 {
                     let detail = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-                    notes.append("No se pudo detener \(label): \(detail).")
+                    notes.append(String(localized: "Could not stop \(label): \(detail).", bundle: .airyCore))
                 }
             } catch {
-                notes.append("No se pudo detener \(label): \(error).")
+                notes.append(String(localized: "Could not stop \(label): \(String(describing: error)).", bundle: .airyCore))
             }
         }
 
-        // 7. El `.app` a la Papelera (si sigue ahí), comprobado otra vez justo antes.
+        // 7. The `.app` to the Trash (if it is still there), checked again right before.
         if exists(app.path) {
             beforeMove?(app.path)
             let gateLast = gate(settings())
@@ -183,50 +183,50 @@ extension CleanupExecutor {
                 trashedBytes += try trashValidated(validatedApp)
                 trashed.append(app.path)
             } catch {
-                return finish(.failed("No se pudo mover \(app.path) a la Papelera: \(error.localizedDescription)"))
+                return finish(.failed(String(localized: "Could not move \(app.path) to the Trash: \(error.localizedDescription)", bundle: .airyCore)))
             }
         }
 
-        // 8. Restos seleccionados que aún existan.
+        // 8. Selected leftovers that still exist.
         for item in toTrash where exists(item.leftover.path) {
             let path = item.leftover.path
             beforeMove?(path)
             let gateLast = gate(settings())
             if case .failure(let refusal) = gateLast.validate(path, waiver: waiver) {
-                notes.append("No se toca \(path): \(refusal.reason)")
+                notes.append(String(localized: "Not touching \(path): \(refusal.reason)", bundle: .airyCore))
                 continue
             }
             if let refusal = gateLast.confirmUnchanged(item.validated) {
-                notes.append("No se toca \(path): \(refusal.reason)")
+                notes.append(String(localized: "Not touching \(path): \(refusal.reason)", bundle: .airyCore))
                 continue
             }
             do {
                 trashedBytes += try trashValidated(item.validated)
                 trashed.append(path)
             } catch {
-                notes.append("No se pudo mover \(path) a la Papelera: \(error.localizedDescription)")
+                notes.append(String(localized: "Could not move \(path) to the Trash: \(error.localizedDescription)", bundle: .airyCore))
             }
         }
 
-        // 9. Recibos: una sola petición de contraseña.
+        // 9. Receipts: a single password prompt.
         let receipts = selected.filter { $0.kind == .receipt }.map(\.path)
         if !receipts.isEmpty {
             let outcome = await privileged.run(
                 receipts.map { ["/usr/sbin/pkgutil", "--forget", $0] },
-                prompt: "Airy necesita tu contraseña para borrar el registro de instalación de «\(app.name)».")
+                prompt: String(localized: "Airy needs your password to delete the install receipt of “\(app.name)”.", bundle: .airyCore))
             switch outcome {
             case .ok: break
             case .cancelled: notes.append(Self.receiptCancelledNote)
-            case .failed(let reason): notes.append("No se pudo borrar el registro de instalación: \(reason)")
+            case .failed(let reason): notes.append(String(localized: "Could not delete the install receipt: \(reason)", bundle: .airyCore))
             }
         }
 
-        // 10. Registro.
+        // 10. Log.
         return finish(.freed(freedBytes))
     }
 
-    /// Revisión del cask antes de usar Homebrew; `nil` si la app no viene de Homebrew. `brew` es la ruta de
-    /// Homebrew solo si el veredicto es `.useBrew`.
+    /// Cask review before using Homebrew; `nil` if the app does not come from Homebrew. `brew` is Homebrew's
+    /// path only if the verdict is `.useBrew`.
     func reviewCask(_ app: AppRecord, gate: PathGate) async -> (verdict: CaskVerdict, brew: String?)? {
         guard let token = app.caskToken, !token.isEmpty else { return nil }
         let unreadable = (verdict: CaskVerdict.fallback(reason: CaskReview.unreadableReason), brew: String?.none)
@@ -248,8 +248,8 @@ extension CleanupExecutor {
         return (verdict, verdict.usesBrew ? brew : nil)
     }
 
-    /// Para la hoja de confirmación: qué hará Airy con una app de Homebrew (`nil` si no viene de Homebrew).
-    /// El ejecutor lo vuelve a decidir al desinstalar.
+    /// For the confirmation sheet: what Airy will do with a Homebrew app (`nil` if it does not come from Homebrew).
+    /// The executor decides it again when uninstalling.
     public func caskVerdict(for app: AppRecord) async -> CaskVerdict? {
         let load = settings()
         guard app.caskToken?.isEmpty == false else { return nil }
@@ -257,11 +257,11 @@ extension CleanupExecutor {
         return await reviewCask(app, gate: gate(load))?.verdict
     }
 
-    // MARK: - Enlaces rotos
+    // MARK: - Broken links
 
-    /// Agentes ⇒ `.blocked`. Vuelve a llamar a `BrokenLinks.find` y solo actúa sobre los que siguen rotos con el
-    /// mismo destino (nombres sin "/", fuera de «Proteger esto»). Si alguno necesita permisos: una sola petición
-    /// de contraseña; si no, el `find` normal. Resultado `.freed(0)`; registro `"remove_broken_links"`.
+    /// Agents ⇒ `.blocked`. Calls `BrokenLinks.find` again and only acts on the ones still broken with the
+    /// same target (names without "/", outside "Protect this"). If any needs privileges: a single password
+    /// prompt; otherwise, the normal `find`. Result `.freed(0)`; record `"remove_broken_links"`.
     public func removeBrokenLinks(_ links: [BrokenLink], context: OperationContext = .user()) async -> CleanupOutcome {
         await removeBrokenLinks(links, directory: BrokenLinks.directory, context: context)
     }
@@ -279,13 +279,13 @@ extension CleanupExecutor {
             case .failed: "failed"
             default: "freed"
             }
-            appendLog(context, action: "remove_broken_links", itemID: nil, title: "Enlaces rotos",
+            appendLog(context, action: "remove_broken_links", itemID: nil, title: String(localized: "Broken links", bundle: .airyCore),
                       paths: chosen.map(\.path), command: nil, dryRun: false, outcome: name, bytes: 0,
                       message: message)
             return outcome
         }
         if context.isAgent {
-            return finish(.blocked(reason: "Los agentes no pueden quitar enlaces; solo el usuario, desde Airy."))
+            return finish(.blocked(reason: String(localized: "Agents cannot remove links; only the user can, from Airy.", bundle: .airyCore)))
         }
         let load = settings()
         if load.isUnreadable { return finish(.blocked(reason: Self.unreadableSettingsReason)) }
@@ -299,24 +299,24 @@ extension CleanupExecutor {
                   !chosen.contains(where: { $0.path == now.path }) else { continue }
             chosen.append(now)
         }
-        guard !chosen.isEmpty else { return finish(.failed("No quedan enlaces rotos que quitar.")) }
+        guard !chosen.isEmpty else { return finish(.failed(String(localized: "There are no broken links left to remove.", bundle: .airyCore))) }
         let command = BrokenLinks.deleteCommand(directory: directory,
                                                 names: chosen.map { ($0.path as NSString).lastPathComponent })
         if chosen.contains(where: \.needsAdmin) {
-            switch await privileged.run([command], prompt: "Airy necesita tu contraseña para quitar enlaces rotos de /usr/local/bin.") {
+            switch await privileged.run([command], prompt: String(localized: "Airy needs your password to remove broken links from /usr/local/bin.", bundle: .airyCore)) {
             case .ok: return finish(.freed(0))
-            case .cancelled: return finish(.blocked(reason: "Cancelaste la contraseña: los enlaces se quedan."))
-            case .failed(let reason): return finish(.failed("No se pudieron quitar los enlaces: \(reason)"))
+            case .cancelled: return finish(.blocked(reason: String(localized: "You cancelled the password: the links stay.", bundle: .airyCore)))
+            case .failed(let reason): return finish(.failed(String(localized: "Could not remove the links: \(reason)", bundle: .airyCore)))
             }
         }
         do {
             let output = try await runner.run(command[0], Array(command.dropFirst()), timeout: 30)
             guard output.status == 0 else {
                 let detail = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines).prefix(300)
-                return finish(.failed("No se pudieron quitar los enlaces: \(detail)"))
+                return finish(.failed(String(localized: "Could not remove the links: \(String(detail))", bundle: .airyCore)))
             }
         } catch {
-            return finish(.failed("No se pudieron quitar los enlaces: \(error)"))
+                return finish(.failed(String(localized: "Could not remove the links: \(String(describing: error))", bundle: .airyCore)))
         }
         return finish(.freed(0))
     }

@@ -2,9 +2,9 @@ import Darwin
 import Foundation
 import IOKit
 
-/// Contadores acumulados de disco (IOKit) y red (sysctl). Solo APIs públicas.
+/// Accumulated disk (IOKit) and network (sysctl) counters. Public APIs only.
 public enum IOProbe {
-    /// Σ «Statistics» de cada `IOBlockStorageDriver`: «Bytes (Read)» y «Bytes (Write)».
+    /// Σ "Statistics" of each `IOBlockStorageDriver`: "Bytes (Read)" and "Bytes (Write)".
     public static func disk() -> IOCounters? {
         var iterator: io_iterator_t = 0
         guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOBlockStorageDriver"),
@@ -24,7 +24,7 @@ public enum IOProbe {
         return found ? IOCounters(read: read, written: written) : nil
     }
 
-    /// `NET_RT_IFLIST2` con contadores de 64 bits (`if_data64`): ibytes = bajada, obytes = subida.
+    /// `NET_RT_IFLIST2` with 64-bit counters (`if_data64`): ibytes = down, obytes = up.
     public static func network() -> IOCounters? {
         var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0]
         var length = 0
@@ -55,7 +55,7 @@ public enum IOProbe {
         return IOCounters(read: down, written: up)
     }
 
-    /// Fuera `lo*`, `utun*` e `ipsec*`: el túnel ya cuenta en su interfaz portadora.
+    /// Out with `lo*`, `utun*` and `ipsec*`: the tunnel already counts on its carrier interface.
     static func countsInterface(name: String, isLoopback: Bool) -> Bool {
         if isLoopback || name.hasPrefix("lo") { return false }
         return !(name.hasPrefix("utun") || name.hasPrefix("ipsec"))

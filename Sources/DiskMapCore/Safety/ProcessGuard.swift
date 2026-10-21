@@ -12,13 +12,13 @@ public struct RunningProcess: Sendable, Equatable {
 }
 
 public protocol ProcessListing: Sendable {
-    /// `nil` = no se pudo leer la lista.
+    /// `nil` = the list could not be read.
     func processes() -> [RunningProcess]?
-    /// Procesos con algún fichero abierto bajo `paths`. `nil` = no se sabe.
+    /// Processes with some file open under `paths`. `nil` = unknown.
     func holders(ofPathsUnder paths: [String]) -> [RunningProcess]?
 }
 
-/// Lectura real con libproc. Excluye el PID propio; los procesos que no se pueden inspeccionar (EPERM) se saltan.
+/// Real reading through libproc. Excludes our own PID; processes that cannot be inspected (EPERM) are skipped.
 public struct LibprocListing: ProcessListing {
     public init() {}
 
@@ -61,7 +61,7 @@ public struct LibprocListing: ProcessListing {
         let path = pathLength > 0 ? String(cString: pathBuffer) : nil
         var name = nameLength > 0 ? String(cString: nameBuffer) : ""
         if name.isEmpty, let path { name = (path as NSString).lastPathComponent }
-        guard !name.isEmpty else { return nil } // no inspeccionable o ya terminó
+        guard !name.isEmpty else { return nil } // not inspectable or already exited
         return RunningProcess(pid: pid, name: name, executablePath: path)
     }
 
@@ -89,17 +89,17 @@ public struct LibprocListing: ProcessListing {
 
 public enum GuardState: Sendable, Equatable {
     case stopped
-    /// Nombre del proceso encontrado.
+    /// Name of the process found.
     case running(String)
-    /// Motivo técnico por el que no se pudo comprobar.
+    /// Technical reason why it could not be checked.
     case unknown(String)
 
-    /// Texto para la interfaz cuando no se puede limpiar; `nil` si está parado.
+    /// UI text when it cannot be cleaned; `nil` if it is stopped.
     public var blockedReason: String? {
         switch self {
         case .stopped: nil
-        case .running(let name): "Está en marcha: \(name). Ciérralo antes de limpiar."
-        case .unknown: "No se pudo comprobar si está en uso; Airy no lo toca."
+        case .running(let name): String(localized: "It is running: \(name). Quit it before cleaning.", bundle: .airyCore)
+        case .unknown: String(localized: "Could not check whether it is in use; Airy does not touch it.", bundle: .airyCore)
         }
     }
 }
@@ -113,16 +113,16 @@ public struct ProcessGuard: Sendable {
         self.budget = budget
     }
 
-    /// Nombres sin distinguir mayúsculas contra `name` y el último componente de `executablePath`.
-    /// `checkOpenFiles`: además, ¿algún proceso tiene abierto un fichero bajo `paths` (caché viva, SQLite)?
-    /// Cualquier fallo o exceso de tiempo ⇒ `.unknown` (falla cerrado).
+    /// Names compared case-insensitively against `name` and the last component of `executablePath`.
+    /// `checkOpenFiles`: also, does any process have a file open under `paths` (live cache, SQLite)?
+    /// Any failure or timeout ⇒ `.unknown` (fails closed).
     public func check(processNames: [String], paths: [String], checkOpenFiles: Bool) async -> GuardState {
         if !processNames.isEmpty {
             let listing = self.listing
             guard let outcome = await TimeBudget.run(budget, { listing.processes() }) else {
-                return .unknown("el listado de procesos tardó demasiado")
+                return .unknown("the process list took too long")
             }
-            guard let processes = outcome else { return .unknown("no se pudo leer el listado de procesos") }
+            guard let processes = outcome else { return .unknown("could not read the process list") }
             if case .running(let name) = Self.state(processNames: processNames, among: processes) {
                 return .running(name)
             }
@@ -130,18 +130,18 @@ public struct ProcessGuard: Sendable {
         if checkOpenFiles, !paths.isEmpty {
             let listing = self.listing
             guard let outcome = await TimeBudget.run(budget, { listing.holders(ofPathsUnder: paths) }) else {
-                return .unknown("la búsqueda de ficheros abiertos tardó demasiado")
+                return .unknown("the open-files search took too long")
             }
-            guard let holders = outcome else { return .unknown("no se pudo saber quién usa los ficheros") }
+            guard let holders = outcome else { return .unknown("could not tell who is using the files") }
             if let first = holders.first { return .running(first.name) }
         }
         return .stopped
     }
 
-    /// Coincidencia pura por nombre contra un listado ya obtenido (`nil` = listado desconocido).
+    /// Pure name match against an already obtained list (`nil` = unknown list).
     public static func state(processNames: [String], among processes: [RunningProcess]?) -> GuardState {
         guard !processNames.isEmpty else { return .stopped }
-        guard let processes else { return .unknown("no se pudo leer el listado de procesos") }
+        guard let processes else { return .unknown("could not read the process list") }
         let wanted = Set(processNames.map { $0.lowercased() })
         for process in processes {
             let last = process.executablePath.map { ($0 as NSString).lastPathComponent.lowercased() }

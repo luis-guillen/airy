@@ -51,24 +51,24 @@ private func link(_ path: String, to target: String) {
         for p in [h, "/Users/Shared", "/Users/" + NSUserName()] {
             #expect(gate.validate(p).failure != nil, "\(p)")
         }
-        // También la forma resuelta del home (/private/var/… frente a /var/…).
+        // The resolved form of the home too (/private/var/… versus /var/…).
         let real = String(cString: realpath(h, nil))
         #expect(gate.validate(real).failure != nil)
     }
 
     @Test func rejectsAliasOfCriticalRootByInode() throws {
-        // La raíz crítica inyectada se declara a través de un enlace: el texto no coincide con la ruta real,
-        // solo `(st_dev, st_ino)` puede reconocerla.
+        // The injected critical root is declared through a link: the text does not match the real path,
+        // only `(st_dev, st_ino)` can recognize it.
         let realRoot = tmp + "/raiz-real"
         mkdir(realRoot)
         link(tmp + "/raiz-declarada", to: realRoot)
         let protections = HardProtections(criticalRoots: HardProtections.standard.criticalRoots + [tmp + "/raiz-declarada"])
         let gate = gate(protections: protections)
         let refusal = try #require(gate.validate(realRoot).failure)
-        #expect(refusal.reason.contains("la misma que"), "\(refusal.reason)")
-        // Sin la raíz inyectada, la misma carpeta se acepta: lo que la rechaza es el inodo.
+        #expect(refusal.reason.contains("the same as"), "\(refusal.reason)")
+        // Without the injected root, the same folder is accepted: what rejects it is the inode.
         #expect(self.gate().validate(realRoot).failure == nil)
-        // Alias del sistema: misma carpeta que /Users.
+        // System alias: the same folder as /Users.
         #expect(gate.validate("/System/Volumes/Data/Users").failure != nil)
     }
 
@@ -79,9 +79,9 @@ private func link(_ path: String, to target: String) {
     }
 
     @Test func unresolvableParentFailsClosed() {
-        // La ruta literal es corta y `lstat` funciona, pero la real pasa de PATH_MAX: `realpath` falla con
-        // ENAMETOOLONG. Sin resolverla no se sabe que está dentro de ~/Library/Mail: se rechaza.
-        // tmp/l1 → ~/Library/Mail;  ~/Library/Mail/l2 → "aaa…/bbb…/ccc…/ddd…" (relativo);  x dentro.
+        // The literal path is short and `lstat` works, but the real one goes past PATH_MAX: `realpath` fails with
+        // ENAMETOOLONG. Without resolving it we do not know it is inside ~/Library/Mail: it is rejected.
+        // tmp/l1 → ~/Library/Mail;  ~/Library/Mail/l2 → "aaa…/bbb…/ccc…/ddd…" (relative);  x inside.
         let mail = h + "/Library/Mail"
         mkdir(mail)
         link(tmp + "/l1", to: mail)
@@ -103,8 +103,8 @@ private func link(_ path: String, to target: String) {
         #expect(lstat(tail + "/x", &info) == 0)
         #expect(realpath(tail, nil) == nil)
         let refusal = gate().validate(tail + "/x").failure
-        #expect(refusal?.reason == "No se puede resolver la ruta real; no se toca.")
-        // Enlace roto: se sigue aceptando (el destino no existe; se comprueba su texto).
+        #expect(refusal?.reason == "The real path cannot be resolved; it is not touched.")
+        // Broken link: still accepted (the target does not exist; its text is checked).
         link(tmp + "/roto", to: tmp + "/no-existe")
         #expect(gate().validate(tmp + "/roto").failure == nil)
         link(tmp + "/roto-mail", to: h + "/Library/Mail/no-existe")
@@ -137,11 +137,11 @@ private func link(_ path: String, to target: String) {
         touch(h + "/Library/Caches/Otra/x")
         let gate = gate(protected: ["~/Library/Caches/Foo/Bar"])
         let inside = gate.validate(h + "/Library/Caches/Foo/Bar/x").failure
-        #expect(inside?.reason == "Lo has protegido tú (~/Library/Caches/Foo/Bar).")
-        #expect(gate.validate(h + "/Library/Caches/Foo").failure != nil)   // superior: solo la regla del usuario
+        #expect(inside?.reason == "You protected it (~/Library/Caches/Foo/Bar).")
+        #expect(gate.validate(h + "/Library/Caches/Foo").failure != nil)   // parent: only the user's rule
         #expect(gate.validate(h + "/Library/Caches").failure != nil)
         #expect(gate.validate(h + "/Library/Caches/Otra/x").failure == nil)
-        // Por un enlace a la carpeta protegida, también.
+        // Through a link to the protected folder, too.
         link(tmp + "/alias", to: h + "/Library/Caches/Foo")
         #expect(gate.validate(tmp + "/alias/Bar").failure != nil)
     }
@@ -150,7 +150,7 @@ private func link(_ path: String, to target: String) {
         touch(h + "/Library/Keychains/x")
         touch(h + "/.ssh/id_ed25519")
         let gate = gate(protected: [])
-        #expect(gate.validate(h + "/Library/Keychains/x").failure?.reason == "Ubicación protegida por Airy: Llaveros.")
+        #expect(gate.validate(h + "/Library/Keychains/x").failure?.reason == "Location protected by Airy: Keychains.")
         #expect(gate.validate(h + "/.ssh/id_ed25519").failure != nil)
     }
 
@@ -161,11 +161,11 @@ private func link(_ path: String, to target: String) {
                   h + "/Library/Containers/com.tinyspeck.slackmacgap/Data/Library/Caches/x",
                   h + "/Library/Containers/com.tinyspeck.slackmacgap/Data/Documents/x"] { touch(p) }
         let gate = gate()
-        #expect(gate.validate(app + "/1Password/data").failure?.reason == "Datos de una app sensible (1Password).")
-        #expect(gate.validate(app + "/Claude/vm_bundles").failure == nil)   // catálogo real
+        #expect(gate.validate(app + "/1Password/data").failure?.reason == "Data of a sensitive app (1Password).")
+        #expect(gate.validate(app + "/Claude/vm_bundles").failure == nil)   // real catalog
         #expect(gate.validate(app + "/Claude/otra").failure != nil)
         #expect(gate.validate(app + "/Claude").failure != nil)
-        #expect(gate.validate(app + "/Code/User/x").failure != nil)          // nombre corto (igualdad)
+        #expect(gate.validate(app + "/Code/User/x").failure != nil)          // short name (equality)
         #expect(gate.validate(app + "/Normal App/x").failure == nil)
         #expect(gate.validate(h + "/Library/Containers/com.tinyspeck.slackmacgap/Data/Library/Caches/x").failure == nil)
         #expect(gate.validate(h + "/Library/Containers/com.tinyspeck.slackmacgap/Data/Documents/x").failure != nil)
@@ -174,7 +174,7 @@ private func link(_ path: String, to target: String) {
     @Test func fragmentsAnywhere() {
         for p in [h + "/Library/Caches/com.apple.FontRegistry", h + "/Library/Caches/com.crowdstrike.x",
                   tmp + "/MiSpotlightIndex/x",
-                  // 1Password 7: contenedor y contenedor de grupo de AgileBits.
+                  // 1Password 7: AgileBits' container and group container.
                   h + "/Library/Containers/com.agilebits.onepassword7/Data/x",
                   h + "/Library/Group Containers/2BUA8C4S2C.com.agilebits/x"] {
             touch(p)
@@ -188,16 +188,16 @@ private func link(_ path: String, to target: String) {
         #expect(result.failure == nil)
         let validated = try? result.get()
         #expect(validated?.forms.contains(RiskPolicy.canonical(String(cString: realpath(tmp, nil)) + "/borrable")) == true)
-        // La carpeta temporal en sí, no (y no por la sintaxis: sin la barra final).
+        // The temporary folder itself, no (and not because of the syntax: without the trailing slash).
         var temp = NSTemporaryDirectory()
         if temp.hasSuffix("/") { temp.removeLast() }
         let refusal = gate().validate(temp).failure
         #expect(refusal != nil)
-        #expect(refusal?.reason.hasPrefix("Ubicación protegida por Airy") == true, "\(String(describing: refusal))")
+        #expect(refusal?.reason.hasPrefix("Location protected by Airy") == true, "\(String(describing: refusal))")
     }
 
     @Test func catalogRulesMovedFromExecutor() {
-        // Fichas "No tocar" y cachés que solo se limpian con su comando oficial.
+        // "Do not touch" entries and caches that are only cleaned with their official command.
         touch(h + "/.cache/codex-runtimes/codex-primary-runtime/bin/tool")
         touch(h + "/.npm/_cacache/x")
         let gate = gate()

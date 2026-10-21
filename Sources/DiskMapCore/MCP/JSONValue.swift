@@ -1,6 +1,6 @@
 import Foundation
 
-/// Valor JSON arbitrario para los mensajes JSON-RPC del servidor MCP.
+/// Arbitrary JSON value for the MCP server's JSON-RPC messages.
 public indirect enum JSONValue: Codable, Sendable, Equatable {
     case null, bool(Bool), number(Double), string(String), array([JSONValue]), object([String: JSONValue])
 
@@ -12,7 +12,7 @@ public indirect enum JSONValue: Codable, Sendable, Equatable {
         if let s = try? c.decode(String.self) { self = .string(s); return }
         if let a = try? c.decode([JSONValue].self) { self = .array(a); return }
         if let o = try? c.decode([String: JSONValue].self) { self = .object(o); return }
-        throw DecodingError.dataCorruptedError(in: c, debugDescription: "Valor JSON no válido.")
+        throw DecodingError.dataCorruptedError(in: c, debugDescription: "Invalid JSON value.")
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -21,7 +21,7 @@ public indirect enum JSONValue: Codable, Sendable, Equatable {
         case .null: try c.encodeNil()
         case .bool(let b): try c.encode(b)
         case .number(let n):
-            // Los enteros se escriben sin decimales (ids JSON-RPC, tamaños en bytes).
+            // Integers are written without decimals (JSON-RPC ids, sizes in bytes).
             if n.rounded() == n, abs(n) < 9.0e15 { try c.encode(Int64(n)) } else { try c.encode(n) }
         case .string(let s): try c.encode(s)
         case .array(let a): try c.encode(a)
@@ -39,7 +39,7 @@ public indirect enum JSONValue: Codable, Sendable, Equatable {
         return nil
     }
 
-    /// Solo números enteros exactos.
+    /// Exact integers only.
     public var intValue: Int? {
         if case .number(let n) = self, n.rounded() == n, abs(n) < 9.0e15 { return Int(n) }
         return nil
@@ -50,12 +50,12 @@ public indirect enum JSONValue: Codable, Sendable, Equatable {
         return nil
     }
 
-    /// Una línea, claves ordenadas (salida JSON-RPC).
+    /// One line, sorted keys (JSON-RPC output).
     public func compactString() -> String {
         Self.encoded(self, formatting: [.sortedKeys, .withoutEscapingSlashes])
     }
 
-    /// Con sangría y claves ordenadas (texto legible de los resultados).
+    /// Indented, with sorted keys (readable text of the results).
     public func prettyString() -> String {
         Self.encoded(self, formatting: [.sortedKeys, .withoutEscapingSlashes, .prettyPrinted])
     }

@@ -31,22 +31,22 @@ import Testing
 
     @Test func ownPIDNeverEvenIfRenamed() {
         let g = app(bundle: "com.otra.app", name: "Otra", pid: ownPID)
-        #expect(policy.eligibility(g) == .never("Es el propio Airy."))
+        #expect(policy.eligibility(g) == .never("It is Airy itself."))
     }
 
     @Test func airyMCPInsideBundleIsNever() {
         let g = app(name: "airy-mcp", kind: .looseProcess,
                     path: "/Applications/Airy.app/Contents/MacOS/airy-mcp")
-        #expect(policy.eligibility(g) == .never("Es el propio Airy."))
+        #expect(policy.eligibility(g) == .never("It is Airy itself."))
         let bundle = app(bundle: "x.y", name: "Z", path: "/Applications/Airy.app")
-        #expect(policy.eligibility(bundle) == .never("Es el propio Airy."))
+        #expect(policy.eligibility(bundle) == .never("It is Airy itself."))
     }
 
     @Test func otherUsersAndSystemNever() {
-        #expect(policy.eligibility(app(name: "Algo", uid: 0)) == .never("Es de otro usuario o del sistema."))
-        #expect(policy.eligibility(app(name: "Algo", kind: .system)) == .never("Es parte de macOS."))
+        #expect(policy.eligibility(app(name: "Algo", uid: 0)) == .never("It belongs to another user or to the system."))
+        #expect(policy.eligibility(app(name: "Algo", kind: .system)) == .never("It is part of macOS."))
         #expect(policy.eligibility(app(name: "Algo", kind: .background))
-                == .never("Es un proceso de fondo; macOS lo vuelve a abrir solo."))
+                == .never("It is a background process; macOS reopens it by itself."))
     }
 
     @Test func looseProcessesAreAmber() {
@@ -63,6 +63,6 @@ import Testing
 
     @Test func neverWinsOverEverything() {
         let g = app(bundle: "com.apple.finder", name: "Cualquiera")
-        #expect(policy.eligibility(g) == .never("macOS lo necesita para funcionar."))
+        #expect(policy.eligibility(g) == .never("macOS needs it to work."))
     }
 }

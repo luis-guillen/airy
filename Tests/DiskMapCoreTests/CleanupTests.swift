@@ -3,7 +3,7 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Dobles de prueba
+// MARK: - Test doubles
 
 final class FakeRunner: CommandRunning, Sendable {
     struct Call: Equatable, Sendable {
@@ -16,10 +16,10 @@ final class FakeRunner: CommandRunning, Sendable {
     private let state = Mutex<(calls: [Call], resolveCalls: [String])>(([], []))
     let resolved: [String: String]
     let outputs: [String: CommandOutput]
-    /// Solo para pruebas: se llama tras anotar cada ejecución (p. ej. para cambiar los ajustes a mitad de tanda).
+    /// Tests only: called after recording each run (e.g. to change the settings halfway through a batch).
     let onRun: (@Sendable (Call) -> Void)?
 
-    /// `outputs` se indexa por "ejecutable argumentos…" (ruta resuelta y argumentos unidos por espacios).
+    /// `outputs` is keyed by "executable arguments…" (resolved path and arguments joined by spaces).
     init(resolved: [String: String] = [:], outputs: [String: CommandOutput] = [:],
          onRun: (@Sendable (Call) -> Void)? = nil) {
         self.resolved = resolved
@@ -61,7 +61,7 @@ final class FakeProbes: SystemProbing, Sendable {
     let running: Set<String>
     let trash: Int64
     let trashReadable: Bool
-    /// `true`: la lectura al momento de las apps abiertas falla (`currentRunningBundleIDs` = `nil`).
+    /// `true`: the on-the-spot reading of the open apps fails (`currentRunningBundleIDs` = `nil`).
     let currentUnknown: Bool
     private let emptied = Mutex(0)
 
@@ -86,7 +86,7 @@ final class FakeProbes: SystemProbing, Sendable {
     func localSnapshots() async -> [String] { [] }
 }
 
-/// Espacio libre simulado: devuelve los valores en orden (el último se repite).
+/// Fake free space: returns the values in order (the last one repeats).
 final class FakeFreeSpace: Sendable {
     private let values: Mutex<[Int64]>
     init(_ values: [Int64]) { self.values = Mutex(values) }
@@ -95,7 +95,7 @@ final class FakeFreeSpace: Sendable {
     }
 }
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 private func makeTempDir(_ label: String = "airy-cleanup") -> String {
     let url = FileManager.default.temporaryDirectory
@@ -163,7 +163,7 @@ private let dockerEntry: CatalogEntry = {
     return e
 }()
 
-/// Docker en marcha (`DockerProbe`): versión, `df` y listados vacíos de contenedores y redes.
+/// Docker running (`DockerProbe`): version, `df` and empty listings of containers and networks.
 private func dockerRunning(df: CommandOutput = CommandOutput(status: 0, stdout: dockerJSON, stderr: "")) -> FakeRunner {
     let d = "/usr/local/bin/docker"
     return FakeRunner(resolved: ["docker": d], outputs: [
@@ -186,7 +186,7 @@ private func executor(
     home: String, freeSpace: FakeFreeSpace = FakeFreeSpace([0]), entries: [CatalogEntry] = [],
     roots: [String] = []
 ) -> CleanupExecutor {
-    // La caché de uv existe en el home de prueba: un comando solo se ejecuta si su carpeta está en el disco.
+    // The uv cache exists in the test home: a command only runs if its folder is on disk.
     makeDir(home + "/.cache/uv")
     return CleanupExecutor(
         runner: runner, probes: probes, store: store,
@@ -195,7 +195,7 @@ private func executor(
         freeSpace: { freeSpace.next() }, trashSettleDelay: .zero, settings: { .missing })
 }
 
-// MARK: - Tests del brief
+// MARK: - Brief tests
 
 @Suite struct CleanupTests {
     @Test func commandArgumentsAreNotShellInterpolated() async throws {
@@ -203,7 +203,7 @@ private func executor(
         let runner = FakeRunner(resolved: ["uv": "/opt/homebrew/bin/uv"])
         let exec = executor(runner: runner, store: makeStore(), home: home)
         let outcome = await exec.execute(item(uvEntry, paths: [home + "/.cache/uv"]))
-        guard case .freed = outcome else { Issue.record("esperaba .freed, hubo \(outcome)"); return }
+        guard case .freed = outcome else { Issue.record("expected .freed, got \(outcome)"); return }
         #expect(runner.calls.map { [$0.executable] + $0.arguments } == [["/opt/homebrew/bin/uv", "cache", "clean"]])
     }
 
@@ -229,7 +229,7 @@ private func executor(
 
         let store = makeStore()
         let outcome = await executor(probes: probes, store: store, home: home, entries: [spotify]).execute(items[0])
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(folder))
         #expect(try store.history().isEmpty)
     }
@@ -242,7 +242,7 @@ private func executor(
         let e = entry("playwright", paths: [folder], cleanup: .trash)
         let outcome = await executor(store: store, home: home, entries: [e]).execute(item(e, paths: [folder]))
         guard case .movedToTrash(let n) = outcome else {
-            Issue.record("esperaba .movedToTrash, hubo \(outcome)"); return
+            Issue.record("expected .movedToTrash, got \(outcome)"); return
         }
         #expect(n > 0)
         #expect(!exists(folder))
@@ -257,7 +257,7 @@ private func executor(
         let store = makeStore()
         let outcome = await executor(runner: runner, store: store, home: makeTempDir())
             .execute(item(uvEntry, risk: .doNotTouch))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(runner.calls.isEmpty)
         #expect(runner.resolveCalls.isEmpty)
         #expect(try store.history().isEmpty)
@@ -271,12 +271,12 @@ private func executor(
         let e = entry("ollama-models", risk: .yourCall, paths: ["~/.ollama/models"], cleanup: .info)
         let outcome = await executor(runner: runner, store: makeStore(), home: home, entries: [e])
             .execute(item(e, paths: [folder]))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(runner.calls.isEmpty)
         #expect(exists(folder))
     }
 
-    // Tarea 2 del plan 3: la sonda es de `DockerProbe` (versión primero, luego `df`) y la ficha es discovery docker.
+    // Task 2 of plan 3: the probe belongs to `DockerProbe` (version first, then `df`) and the entry is discovery docker.
     @Test func dockerProbeParsesReclaimable() async throws {
         let runner = dockerRunning()
         let items = await scanner([dockerEntry], home: makeTempDir(), runner: runner).findItems(scan: nil)
@@ -335,15 +335,15 @@ private func executor(
     }
 }
 
-// MARK: - Reglas de seguridad del ejecutor
+// MARK: - Executor safety rules
 
 @Suite struct CleanupSafetyTests {
-    // Regla 1: revalidación justo antes de actuar.
+    // Rule 1: revalidation right before acting.
     @Test func recheckBlocksCommandWhosePathIsSystem() async throws {
         let runner = FakeRunner(resolved: ["uv": "/opt/homebrew/bin/uv"])
         let outcome = await executor(runner: runner, store: makeStore(), home: makeTempDir())
             .execute(item(uvEntry, paths: ["/System/Library/Caches"], risk: .safe))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(runner.calls.isEmpty)
     }
 
@@ -351,7 +351,7 @@ private func executor(
         let e = entry("raro", paths: ["/System/Library/Caches"], cleanup: .trash)
         let outcome = await executor(store: makeStore(), home: makeTempDir(), entries: [e])
             .execute(item(e, paths: ["/System/Library/Caches"], risk: .safe))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists("/System/Library/Caches"))
     }
 
@@ -362,10 +362,10 @@ private func executor(
         let live = entry("codex-runtime", risk: .doNotTouch, paths: [folder], cleanup: .trash)
         var stale = live
         stale.risk = .safe
-        // El elemento llega con una ficha y un riesgo obsoletos: manda la ficha viva del catálogo.
+        // The item arrives with an outdated entry and risk: the catalog's live entry rules.
         let outcome = await executor(store: makeStore(), home: home, entries: [live])
             .execute(item(stale, paths: [folder], risk: .safe))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(folder))
     }
 
@@ -376,7 +376,7 @@ private func executor(
         let e = entry("huggingface-model", risk: .yourCall, paths: [folder], cleanup: .trash)
         let outcome = await executor(store: makeStore(), home: home, entries: [e])
             .execute(item(e, paths: [folder], risk: .yourCall, usedBy: ["/x/config.toml"]))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(folder))
     }
 
@@ -384,16 +384,16 @@ private func executor(
         let runner = FakeRunner(resolved: ["uv": "/opt/homebrew/bin/uv"])
         var live = uvEntry
         live.mustBeClosed = ["com.example.app"]
-        // El elemento no lista la app; la ficha viva sí.
+        // The item does not list the app; the live entry does.
         let outcome = await executor(
             runner: runner, probes: FakeProbes(running: ["com.example.app"]), store: makeStore(),
             home: makeTempDir(), entries: [live]
         ).execute(item(uvEntry))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(runner.calls.isEmpty)
     }
 
-    // Regla 2: validación de rutas para la Papelera.
+    // Rule 2: path validation for the Trash.
     @Test func trashRefusesUnsafePaths() async throws {
         let base = makeTempDir()
         let home = base + "/casa"
@@ -415,7 +415,7 @@ private func executor(
             home + "/./Library",
             home + "/Library//Caches/x",
             home + "/no-existe",
-            base, // ancestro de home
+            base, // ancestor of home
             "/System/Library/Caches",
             "/System",
             "/Users",
@@ -423,7 +423,7 @@ private func executor(
         ]
         for path in refused {
             let outcome = await exec.trashPaths([path], title: "x")
-            guard case .blocked = outcome else { Issue.record("debió bloquear \(path), hubo \(outcome)"); continue }
+            guard case .blocked = outcome else { Issue.record("should have blocked \(path), got \(outcome)"); continue }
         }
         #expect(exists(home + "/Documents"))
         #expect(exists(inside))
@@ -435,7 +435,7 @@ private func executor(
         let target = home + "/Library/Caches/DiskMapTest-\(UUID().uuidString)"
         writeFile(target + "/f")
         let outcome = await executor(store: makeStore(), home: home).trashPaths([target], title: "x")
-        guard case .movedToTrash = outcome else { Issue.record("esperaba .movedToTrash, hubo \(outcome)"); return }
+        guard case .movedToTrash = outcome else { Issue.record("expected .movedToTrash, got \(outcome)"); return }
         #expect(!exists(target))
     }
 
@@ -444,7 +444,7 @@ private func executor(
         let ok = home + "/Library/Caches/ok"
         writeFile(ok + "/f")
         let outcome = await executor(store: makeStore(), home: home).trashPaths([ok, "/"], title: "x")
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(ok))
     }
 
@@ -456,7 +456,7 @@ private func executor(
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: target)
         let store = makeStore()
         let outcome = await executor(store: store, home: makeTempDir()).trashPaths([link], title: "Enlace")
-        guard case .movedToTrash = outcome else { Issue.record("esperaba .movedToTrash, hubo \(outcome)"); return }
+        guard case .movedToTrash = outcome else { Issue.record("expected .movedToTrash, got \(outcome)"); return }
         #expect(!exists(link))
         #expect(exists(target + "/keep.bin"))
     }
@@ -470,7 +470,7 @@ private func executor(
         let exec = executor(store: makeStore(), home: home, entries: [codex])
         for path in [runtime, runtime + "/bin", home + "/.cache/codex-runtimes", home + "/.cache"] {
             let outcome = await exec.trashPaths([path], title: "x")
-            guard case .blocked = outcome else { Issue.record("debió bloquear \(path), hubo \(outcome)"); continue }
+            guard case .blocked = outcome else { Issue.record("should have blocked \(path), got \(outcome)"); continue }
         }
         #expect(exists(runtime + "/bin/tool"))
     }
@@ -487,7 +487,7 @@ private func executor(
             writeFile(location + "/hijo/f")
             for path in [location, location + "/hijo", location + "/hijo/f", (location as NSString).deletingLastPathComponent] {
                 let outcome = await exec.trashPaths([path], title: "x")
-                guard case .blocked = outcome else { Issue.record("debió bloquear \(path), hubo \(outcome)"); continue }
+                guard case .blocked = outcome else { Issue.record("should have blocked \(path), got \(outcome)"); continue }
             }
             #expect(exists(location + "/hijo/f"))
         }
@@ -503,7 +503,7 @@ private func executor(
         for path in ["/Users/prueba/Library/Caches/x", "/Users/prueba/.cache/whisper", "/opt/otra/x"] {
             #expect(RiskPolicy.trashRefusal(forCanonicalPath: RiskPolicy.canonical(path), homes: homes) == nil, "\(path)")
         }
-        // La carpeta temporal del usuario (dentro de /private) sí admite su contenido.
+        // The user's temporary folder (inside /private) does accept its contents.
         let temp = RiskPolicy.userTemporaryDirectory
         #expect(RiskPolicy.trashRefusal(forCanonicalPath: temp + "/x", homes: homes) == nil)
         #expect(RiskPolicy.trashRefusal(forCanonicalPath: temp, homes: homes) != nil)
@@ -512,10 +512,10 @@ private func executor(
     @Test func trashPathsRefusesFoldersOfCommandCleanups() async throws {
         let home = makeTempDir()
         writeFile(home + "/.cache/uv/wheels/f")
-        let exec = executor(store: makeStore(), home: home)  // uv: solo con `uv cache clean`
+        let exec = executor(store: makeStore(), home: home)  // uv: only with `uv cache clean`
         for path in [home + "/.cache/uv", home + "/.cache/uv/wheels", home + "/.cache"] {
             let outcome = await exec.trashPaths([path], title: "x")
-            guard case .blocked = outcome else { Issue.record("debió bloquear \(path), hubo \(outcome)"); continue }
+            guard case .blocked = outcome else { Issue.record("should have blocked \(path), got \(outcome)"); continue }
         }
         #expect(exists(home + "/.cache/uv/wheels/f"))
     }
@@ -527,18 +527,18 @@ private func executor(
         let codex = entry("codex-runtime", risk: .doNotTouch,
                           paths: ["~/.cache/codex-runtimes/codex-primary-runtime"], cleanup: .info)
         let outcome = await executor(store: makeStore(), home: home, entries: [codex]).trashPaths([parent], title: "x")
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(parent))
     }
 
-    // C1: nunca se ejecuta algo que no sea la ficha viva del catálogo.
+    // C1: nothing that is not the catalog's live entry ever runs.
     @Test func unknownCatalogIdIsBlocked() async throws {
         let home = makeTempDir()
         writeFile(home + "/precioso.txt")
         let runner = FakeRunner(resolved: ["rm": "/bin/rm"])
         let forged = entry("x", cleanup: .command(executable: "rm", arguments: ["-rf", home], sizeProbe: nil))
         let outcome = await executor(runner: runner, store: makeStore(), home: home).execute(item(forged))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(runner.calls.isEmpty)
         #expect(runner.resolveCalls.isEmpty)
         #expect(exists(home + "/precioso.txt"))
@@ -572,7 +572,7 @@ private func executor(
         let pw = entry("playwright", paths: ["~/Library/Caches/ms-playwright"], cleanup: .trash)
         let outcome = await executor(store: makeStore(), home: home, entries: [pw])
             .execute(item(pw, paths: [foreign]))
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(foreign))
     }
 
@@ -586,11 +586,11 @@ private func executor(
                              risk: .yourCall, blockedByOpenApps: [], usedBy: [])
         let store = makeStore()
         let outcome = await executor(store: store, home: home, entries: [hf]).execute(it)
-        guard case .movedToTrash = outcome else { Issue.record("esperaba .movedToTrash, hubo \(outcome)"); return }
+        guard case .movedToTrash = outcome else { Issue.record("expected .movedToTrash, got \(outcome)"); return }
         #expect(try store.history().first?.title == "Prueba huggingface-model: models--a--b")
     }
 
-    // I1: las referencias se vuelven a comprobar al ejecutar.
+    // I1: references are checked again when running.
     @Test func referencesAreRecheckedBeforeTrashing() async throws {
         let home = makeTempDir()
         let hub = home + "/.cache/huggingface/hub"
@@ -600,22 +600,22 @@ private func executor(
         let hf = entry("huggingface-model", risk: .yourCall, paths: ["~/.cache/huggingface/hub/models--*"],
                        cleanup: .trash, referenceCheck: "{name}")
         let exec = executor(store: makeStore(), home: home, entries: [hf], roots: [home + "/Projects"])
-        // Desde el mapa (sin elemento), la carpeta, algo dentro y la carpeta superior.
+        // From the map (without an item), the folder, something inside and the parent folder.
         for path in [folder, folder + "/w", hub] {
             let outcome = await exec.trashPaths([path], title: "x")
-            guard case .blocked(let reason) = outcome else { Issue.record("debió bloquear \(path), hubo \(outcome)"); continue }
-            #expect(reason.contains("Lo usa"))
+            guard case .blocked(let reason) = outcome else { Issue.record("should have blocked \(path), got \(outcome)"); continue }
+            #expect(reason.contains("Used by"))
         }
-        // Un elemento detectado antes de que existiera la referencia (usedBy vacío).
+        // An item detected before the reference existed (empty usedBy).
         let it = CleanupItem(id: "huggingface-model:models--org--modelo", entry: hf, paths: [folder], bytes: 10,
                              risk: .yourCall, blockedByOpenApps: [], usedBy: [])
         let outcome = await exec.execute(it)
-        guard case .blocked = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
+        guard case .blocked = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
         #expect(exists(folder + "/w"))
     }
 
-    // Defensa en profundidad: también las fichas con comando oficial y `referenceCheck` vuelven a
-    // comprobar referencias al ejecutar (un `usedBy` vacío puede venir de una detección cancelada).
+    // Defence in depth: entries with an official command and a `referenceCheck` also check
+    // references again when running (an empty `usedBy` may come from a cancelled detection).
     @Test func referencesAreRecheckedBeforeRunningACommand() async throws {
         let home = makeTempDir()
         let folder = home + "/.cache/toolcache"
@@ -627,29 +627,29 @@ private func executor(
         let runner = FakeRunner(resolved: ["tool": "/opt/homebrew/bin/tool"])
         let used = executor(runner: runner, store: makeStore(), home: home, entries: [tool], roots: [home + "/Projects"])
         let outcome = await used.execute(item(tool, paths: [folder], usedBy: []))
-        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
-        #expect(reason.contains("Lo usa"))
+        guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
+        #expect(reason.contains("Used by"))
         #expect(runner.calls.isEmpty)
 
-        // Sin referencias, el comando sí se ejecuta.
+        // Without references, the command does run.
         let free = executor(runner: runner, store: makeStore(), home: home, entries: [tool], roots: [home + "/Vacío"])
         _ = await free.execute(item(tool, paths: [folder], usedBy: []))
         #expect(runner.calls.count == 1)
     }
 
-    // I5: revalidación de cada ruta justo antes de moverla.
+    // I5: revalidation of each path right before moving it.
     @Test func eachPathIsRevalidatedRightBeforeMoving() async throws {
         let home = makeTempDir()
         let outer = home + "/Library/Caches/DiskMapTest-\(UUID().uuidString)"
         let inner = outer + "/dentro"
         writeFile(inner + "/f")
-        // Al mover `outer`, `inner` deja de existir: debe detectarse antes de intentar moverla.
+        // When `outer` is moved, `inner` stops existing: it must be detected before trying to move it.
         let outcome = await executor(store: makeStore(), home: home).trashPaths([outer, inner], title: "x")
-        guard case .blocked(let reason) = outcome else { Issue.record("esperaba .blocked, hubo \(outcome)"); return }
-        #expect(reason.contains("No existe"))
+        guard case .blocked(let reason) = outcome else { Issue.record("expected .blocked, got \(outcome)"); return }
+        #expect(reason.contains("exist"))
     }
 
-    // Regla 3: comandos con array de argumentos y timeout.
+    // Rule 3: commands with an argument array and a timeout.
     @Test func commandUsesDefaultTimeoutOf600Seconds() async throws {
         let runner = FakeRunner(resolved: ["uv": "/opt/homebrew/bin/uv"])
         _ = await executor(runner: runner, store: makeStore(), home: makeTempDir()).execute(item(uvEntry))
@@ -666,7 +666,7 @@ private func executor(
     }
 
     @Test func processRunnerReturnsWhenGrandchildHoldsOutput() async throws {
-        // /bin/sh como ejecutable solo en la prueba, para crear un nieto que hereda stdout.
+        // /bin/sh as the executable only in the test, to create a grandchild that inherits stdout.
         let start = Date()
         let output = try await ProcessRunner().run("/bin/sh", ["-c", "sleep 30 & echo hola"], timeout: 1)
         #expect(Date().timeIntervalSince(start) < 3)
@@ -709,7 +709,7 @@ private func executor(
         #expect(await runner.resolve("inexistente-airy") == nil)
     }
 
-    // Sin shell de login: el PATH sale de /etc/paths, /etc/paths.d, el entorno de la app y el respaldo.
+    // No login shell: the PATH comes from /etc/paths, /etc/paths.d, the app's environment and the fallback.
     @Test func systemSearchPathReadsEtcPathsWithoutShell() throws {
         let dir = makeTempDir()
         writeFile(dir + "/paths", text: "/usr/local/bin\n/usr/bin\n\n  /bin  \nrelativa/bin\n")
@@ -725,14 +725,14 @@ private func executor(
         #expect(dirs.contains("/Users/prueba/anaconda3/bin"))
         #expect(dirs.contains("/Users/prueba/Library/pnpm"))
         #expect(Set(dirs).count == dirs.count)
-        // Sin ficheros ni entorno, al menos el respaldo.
+        // Without files or environment, at least the fallback.
         let bare = ProcessRunner.systemSearchPath(home: "/Users/prueba", environmentPath: nil,
                                                   etcPaths: dir + "/no", etcPathsDirectory: dir + "/no.d")
         #expect(bare == ProcessRunner.fallbackDirectories(home: "/Users/prueba"))
     }
 
     @Test func processRunnerResolvesSystemToolsByDefault() async throws {
-        // /etc/paths siempre trae /bin en macOS.
+        // /etc/paths always carries /bin on macOS.
         #expect(await ProcessRunner().resolve("ls") == "/bin/ls")
     }
 
@@ -747,7 +747,7 @@ private func executor(
         let runner = FakeRunner(resolved: [:])
         let store = makeStore()
         let outcome = await executor(runner: runner, store: store, home: makeTempDir()).execute(item(uvEntry))
-        guard case .failed = outcome else { Issue.record("esperaba .failed, hubo \(outcome)"); return }
+        guard case .failed = outcome else { Issue.record("expected .failed, got \(outcome)"); return }
         #expect(runner.calls.isEmpty)
         #expect(try store.history().isEmpty)
     }
@@ -758,18 +758,18 @@ private func executor(
             outputs: ["/opt/homebrew/bin/uv cache clean": CommandOutput(status: 2, stdout: "", stderr: "boom")])
         let store = makeStore()
         let outcome = await executor(runner: runner, store: store, home: makeTempDir()).execute(item(uvEntry))
-        guard case .failed = outcome else { Issue.record("esperaba .failed, hubo \(outcome)"); return }
+        guard case .failed = outcome else { Issue.record("expected .failed, got \(outcome)"); return }
         #expect(try store.history().isEmpty)
     }
 
-    // Regla 4: liberado = diferencia de espacio libre del volumen, con suelo 0.
+    // Rule 4: freed = difference in the volume's free space, with a floor of 0.
     @Test func freedIsVolumeDelta() async throws {
         let runner = FakeRunner(resolved: ["uv": "/opt/homebrew/bin/uv"])
         let store = makeStore()
         let outcome = await executor(
             runner: runner, store: store, home: makeTempDir(), freeSpace: FakeFreeSpace([1_000, 1_250])
         ).execute(item(uvEntry))
-        guard case .freed(let bytes) = outcome else { Issue.record("esperaba .freed, hubo \(outcome)"); return }
+        guard case .freed(let bytes) = outcome else { Issue.record("expected .freed, got \(outcome)"); return }
         #expect(bytes == 250)
         #expect(try store.history().first?.bytes == 250)
     }
@@ -779,17 +779,17 @@ private func executor(
         let outcome = await executor(
             runner: runner, store: makeStore(), home: makeTempDir(), freeSpace: FakeFreeSpace([1_000, 400])
         ).execute(item(uvEntry))
-        guard case .freed(let bytes) = outcome else { Issue.record("esperaba .freed, hubo \(outcome)"); return }
+        guard case .freed(let bytes) = outcome else { Issue.record("expected .freed, got \(outcome)"); return }
         #expect(bytes == 0)
     }
 
-    // Regla 5: historial.
+    // Rule 5: history.
     @Test func emptyTrashRecordsAsFreed() async throws {
         let store = makeStore()
         let probes = FakeProbes(trash: 4_096)
         let outcome = await executor(probes: probes, store: store, home: makeTempDir(),
                                      freeSpace: FakeFreeSpace([10_000, 14_096])).emptyTrash()
-        guard case .freed(let bytes) = outcome else { Issue.record("esperaba .freed, hubo \(outcome)"); return }
+        guard case .freed(let bytes) = outcome else { Issue.record("expected .freed, got \(outcome)"); return }
         #expect(bytes == 4_096)
         #expect(probes.emptyCount == 1)
         let history = try store.history()
@@ -798,18 +798,18 @@ private func executor(
         #expect(try store.totalFreed() == 4_096)
     }
 
-    // Lo anotado al vaciar es la subida medida del espacio libre (como la celebración), no lo que
-    // ocupaba la Papelera: con instantáneas locales, macOS retiene parte.
+    // What is recorded when emptying is the measured rise in free space (like the celebration), not what
+    // the Trash took up: with local snapshots, macOS holds part of it.
     @Test func emptyTrashRecordsMeasuredFreeSpaceRise() async throws {
         let store = makeStore()
         let probes = FakeProbes(trash: 10_000)
-        // Antes 1 000; después 2 000 y, tras esperar, 3 000 (se queda ahí).
+        // Before 1,000; after 2,000 and, after waiting, 3,000 (it stays there).
         let outcome = await executor(probes: probes, store: store, home: makeTempDir(),
                                      freeSpace: FakeFreeSpace([1_000, 2_000, 3_000])).emptyTrash()
-        guard case .freed(let bytes) = outcome else { Issue.record("esperaba .freed, hubo \(outcome)"); return }
+        guard case .freed(let bytes) = outcome else { Issue.record("expected .freed, got \(outcome)"); return }
         #expect(bytes == 2_000)
         #expect(try store.totalFreed() == 2_000)
-        #expect(try store.history().first?.title == "Vaciar Papelera")
+        #expect(try store.history().first?.title == "Empty Trash")
     }
 
     @Test func wouldRefuseTrashMatchesExecutorRules() async throws {
@@ -818,21 +818,21 @@ private func executor(
         writeFile(home + "/Library/Caches/otra/x")
         writeFile(home + "/Documents/informe.txt")
         let exec = executor(store: makeStore(), home: home)
-        // Caché con comando oficial: solo con su comando.
+        // A cache with an official command: only with its command.
         #expect(exec.wouldRefuseTrash(path: home + "/.cache/uv"))
         #expect(exec.wouldRefuseTrash(path: home + "/.cache/uv/blob"))
-        // Carpetas protegidas hacia arriba y rutas que no existen.
+        // Upward-protected folders and paths that do not exist.
         #expect(exec.wouldRefuseTrash(path: home + "/Library"))
         #expect(exec.wouldRefuseTrash(path: home + "/Documents"))
         #expect(exec.wouldRefuseTrash(path: home + "/no-existe"))
         #expect(exec.wouldRefuseTrash(path: "/System/Library"))
-        // Lo demás sí puede ir a la Papelera (con confirmación).
+        // The rest can go to the Trash (with confirmation).
         #expect(!exec.wouldRefuseTrash(path: home + "/Library/Caches/otra"))
         #expect(!exec.wouldRefuseTrash(path: home + "/Documents/informe.txt"))
     }
 }
 
-// MARK: - Detección
+// MARK: - Detection
 
 @Suite struct CleanupScannerTests {
     @Test func globAggregatesMatchesIntoOneItem() async throws {
@@ -885,11 +885,11 @@ private func executor(
         #expect(items.count == 1)
         #expect((items.first?.bytes ?? 0) >= 40_000)
         #expect(items.first?.paths == [home + "/.cache/uv"])
-        #expect(runner.calls.isEmpty) // detectar nunca ejecuta la limpieza
+        #expect(runner.calls.isEmpty) // detecting never runs the cleanup
     }
 
-    // Tarea 2 del plan 3: las imágenes pasan a ser un comando (`image prune -a -f`) medido por `Reclaimable`;
-    // los volúmenes siguen siendo solo informativos y nunca se ejecutan.
+    // Task 2 of plan 3: images become a command (`image prune -a -f`) measured by `Reclaimable`;
+    // volumes stay informational only and never run.
     @Test func dockerImagesAndVolumesAppearAsInfo() async throws {
         let catalog = try Catalog.bundled()
         let ids = ["docker-build-cache", "docker-images", "docker-volumes"]
@@ -909,11 +909,11 @@ private func executor(
         let exec = CleanupExecutor(
             runner: runner, probes: FakeProbes(), store: makeStore(), catalog: catalog,
             references: ReferenceChecker(roots: []), home: makeTempDir(), settings: { .missing })
-        guard case .blocked = await exec.execute(volumes) else { Issue.record("volúmenes no bloqueados"); return }
+        guard case .blocked = await exec.execute(volumes) else { Issue.record("volumes not blocked"); return }
         #expect(runner.calls.count == probes)
     }
 
-    // Tarea 2 del plan 3: con el demonio caído la ficha de comando sale bloqueada (sin tamaño), no se omite.
+    // Task 2 of plan 3: with the daemon down the command entry comes out blocked (without a size), not omitted.
     @Test func dockerOmittedWhenDaemonDown() async throws {
         let runner = dockerRunning(df: CommandOutput(status: 1, stdout: "", stderr: "Cannot connect to the Docker daemon"))
         let down = await scanner([dockerEntry], home: makeTempDir(), runner: runner).findItems(scan: nil)
@@ -936,7 +936,7 @@ private func executor(
         #expect(items.isEmpty)
     }
 
-    // Antes no tenía carpeta que medir y no aparecía nunca.
+    // Before, it had no folder to measure and never appeared.
     @Test func simulatorsAppearWhenDevicesFolderExists() async throws {
         let catalog = try Catalog.bundled()
         let sim = try #require(catalog.entry(id: "xcode-simulators"))
@@ -948,8 +948,8 @@ private func executor(
         #expect(found.paths == [home + "/Library/Developer/CoreSimulator/Devices"])
         #expect(found.bytes >= 40_000)
         #expect(CleanupBoard.isPartial(found))
-        #expect(CleanupBoard.sizeText(found).hasPrefix("hasta "))
-        // Solo se mide: nunca se ejecuta el comando al detectar.
+        #expect(CleanupBoard.sizeText(found).hasPrefix("up to "))
+        // Only measured: the command never runs when detecting.
         #expect(runner.calls.isEmpty)
     }
 
@@ -966,8 +966,8 @@ private func executor(
 
     @Test func bundledCatalogOnEmptyHomeFindsNothingAndRunsNoCleanup() async throws {
         let runner = FakeRunner(resolved: [:])
-        // Las fichas «Solo revisar» con rutas absolutas (`/Library`…) y la informativa de toolchains del
-        // sistema (Python de Xcode/CLT, distinto en cada Mac y en CI) miran el Mac real, no la carpeta personal.
+        // "Review only" entries with absolute paths (`/Library`…) and the informational system toolchains
+        // entry (Xcode/CLT Python, different on each Mac and in CI) look at the real Mac, not the home folder.
         let homeOnly = Catalog(entries: try Catalog.bundled().entries.filter {
             $0.id != "toolchain-system-info" && $0.paths.allSatisfy { !$0.hasPrefix("/") }
         })
@@ -980,12 +980,12 @@ private func executor(
     }
 }
 
-// MARK: - Referencias y sondas
+// MARK: - References and probes
 
 @Suite struct ReferenceAndProbeTests {
     @Test func referenceCheckerSkipsExcludedDirsSymlinksAndBigFiles() async throws {
         let root = makeTempDir()
-        writeFile(root + "/a/ok.txt", text: "usa org/modelo aquí")
+        writeFile(root + "/a/ok.txt", text: "uses org/modelo here")
         writeFile(root + "/node_modules/x.txt", text: "org/modelo")
         writeFile(root + "/sub/.git/config", text: "org/modelo")
         writeFile(root + "/sub/Library/y.txt", text: "org/modelo")
@@ -1024,11 +1024,11 @@ private func executor(
     @Test func trashSizeIfReadableDistinguishesUnreadable() throws {
         let home = makeTempDir()
         let probes = SystemProbes(home: home, runner: FakeRunner(), allowFinderFallback: false)
-        // Sin ~/.Trash: se puede saber, y es 0.
+        // Without ~/.Trash: it can be known, and it is 0.
         #expect(probes.trashSizeIfReadable() == 0)
         writeFile(home + "/.Trash/viejo.bin", bytes: 30_000)
         #expect((probes.trashSizeIfReadable() ?? 0) >= 30_000)
-        // Sin permiso para listarla (como sin Acceso total al disco): nil, no 0.
+        // Without permission to list it (as without Full Disk Access): nil, not 0.
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: home + "/.Trash")
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: home + "/.Trash") }
         #expect(probes.trashSizeIfReadable() == nil)
@@ -1110,10 +1110,10 @@ private func executor(
     }
 }
 
-// MARK: - Árbol al día tras una limpieza
+// MARK: - Tree up to date after a cleanup
 
 @Suite struct ScanTreeRefreshTests {
-    /// Árbol `home → .cache → uv (con dos hijos)` con tamaños de antes de limpiar.
+    /// Tree `home → .cache → uv (with two children)` with the sizes from before cleaning.
     private func staleTree(home: String, uvBytes: Int64) -> (root: FileNode, uv: FileNode) {
         let cachesIndex = ContentKind.allCases.firstIndex(of: .caches)!
         func kb(_ bytes: Int64) -> [Int64] {
@@ -1133,8 +1133,8 @@ private func executor(
         return (root, uv)
     }
 
-    // Hallazgo: tras `uv cache clean` la carpeta sigue existiendo y la detección cogía el tamaño
-    // del árbol (el de antes): volvía a salir con su tamaño viejo.
+    // Finding: after `uv cache clean` the folder still exists and the detection took the tree's size
+    // (the old one): it came out again with its old size.
     @Test func commandItemWhoseFolderStillExistsDoesNotComeBackAtOldSize() async throws {
         let home = makeTempDir()
         writeFile(home + "/.cache/uv/queda.bin", bytes: 8_192)

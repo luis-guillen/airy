@@ -1,7 +1,7 @@
 import Foundation
 
-/// Qué hace Airy con una app de Homebrew: `brew uninstall --cask <token>` (nunca `--zap`) o, si Homebrew haría
-/// algo que Airy no puede comprobar, el camino normal (el `.app` a la Papelera con la dispensa).
+/// What Airy does with a Homebrew app: `brew uninstall --cask <token>` (never `--zap`) or, if Homebrew would do
+/// something Airy cannot check, the normal path (the `.app` to the Trash with the waiver).
 public enum CaskVerdict: Sendable, Equatable {
     case useBrew
     case fallback(reason: String)
@@ -9,21 +9,21 @@ public enum CaskVerdict: Sendable, Equatable {
     public var usesBrew: Bool { self == .useBrew }
 }
 
-/// Lee los metadatos del cask (`brew info --cask --json=v2 <token>`, solo lectura) y decide si Airy puede dejar
-/// que Homebrew la desinstale. Fallo cerrado: cualquier cosa que no entienda ⇒ `.fallback`.
+/// Reads the cask's metadata (`brew info --cask --json=v2 <token>`, read-only) and decides whether Airy can let
+/// Homebrew uninstall it. Fail closed: anything it does not understand ⇒ `.fallback`.
 public enum CaskReview {
-    public static let unsafeReason =
-        "Homebrew haría más cosas de las que Airy puede comprobar; la app se mueve a la Papelera."
-    public static let unreadableReason =
-        "Airy no pudo leer qué haría Homebrew al desinstalarla; la app se mueve a la Papelera."
-    public static let brewMissingReason = "Homebrew no está disponible; la app va a la Papelera."
+    public static var unsafeReason: String {
+        String(localized: "Homebrew would do more than Airy can check; the app is moved to the Trash.", bundle: .airyCore) }
+    public static var unreadableReason: String {
+        String(localized: "Airy could not read what Homebrew would do when uninstalling it; the app is moved to the Trash.", bundle: .airyCore) }
+    public static var brewMissingReason: String { String(localized: "Homebrew is not available; the app goes to the Trash.", bundle: .airyCore) }
 
     static let infoTimeout: TimeInterval = 60
 
-    /// Argumentos de la consulta de solo lectura.
+    /// Arguments of the read-only query.
     static func infoArguments(token: String) -> [String] { ["info", "--cask", "--json=v2", token] }
 
-    /// Token con caracteres seguros (taps incluidos: `usuario/tap/token`); nunca empieza por `-`.
+    /// Token with safe characters (taps included: `user/tap/token`); it never starts with `-`.
     static func isValidToken(_ token: String) -> Bool {
         guard !token.isEmpty, !token.hasPrefix("-"), token.utf8.count <= 200 else { return false }
         return token.unicodeScalars.allSatisfy {
@@ -31,21 +31,21 @@ public enum CaskReview {
         }
     }
 
-    /// Artefactos cuya retirada Airy entiende. Otros (`suite`, `artifact`, `font`, `prefpane`…) mueven o borran
-    /// rutas que Airy no comprueba, y `uninstall_preflight`/`uninstall_postflight` ejecutan código.
+    /// Artifacts whose removal Airy understands. Others (`suite`, `artifact`, `font`, `prefpane`…) move or delete
+    /// paths Airy does not check, and `uninstall_preflight`/`uninstall_postflight` run code.
     static let knownArtifacts: Set<String> = [
         "app", "binary", "manpage", "bash_completion", "zsh_completion", "fish_completion", "uninstall", "zap",
         "preflight", "postflight", "pkg", "installer", "stage_only",
     ]
 
-    /// Claves de `uninstall` que Airy entiende; `signal`, `script`, `early_script` y cualquier otra ⇒ fallback.
+    /// `uninstall` keys Airy understands; `signal`, `script`, `early_script` and any other ⇒ fallback.
     static let pathKeys: Set<String> = ["delete", "trash", "rmdir"]
     static let idKeys: Set<String> = ["quit", "launchctl", "pkgutil", "kext"]
     static let harmlessKeys: Set<String> = ["login_item"]
 
     /// - Parameters:
-    ///   - json: salida de `brew info --cask --json=v2 <token>`.
-    ///   - refusal: comprobación completa sin dispensa (`PathGate`); devuelve el motivo si la ruta está protegida.
+    ///   - json: output of `brew info --cask --json=v2 <token>`.
+    ///   - refusal: full check without a waiver (`PathGate`); returns the reason if the path is protected.
     public static func verdict(json: String, token: String, app: AppRecord, home: String,
                                refusal: (String) -> String?) -> CaskVerdict {
         guard let data = json.data(using: .utf8),
@@ -63,7 +63,7 @@ public enum CaskReview {
                 guard knownArtifacts.contains(key) else { return .fallback(reason: unsafeReason) }
                 switch key {
                 case "app":
-                    // Solo el propio `.app`: si el cask trae otras apps, Homebrew las borraría también.
+                    // Only the `.app` itself: if the cask brings other apps, Homebrew would delete them too.
                     guard let names = appTargets(value), !names.isEmpty,
                           names.allSatisfy({ $0.lowercased() == appName }) else {
                         return .fallback(reason: unsafeReason)
@@ -77,7 +77,7 @@ public enum CaskReview {
                         }
                     }
                 default:
-                    // `zap` nunca se ejecuta (Airy no pasa `--zap`); el resto no borra nada al desinstalar.
+                    // `zap` never runs (Airy does not pass `--zap`); the rest deletes nothing when uninstalling.
                     continue
                 }
             }
@@ -105,8 +105,8 @@ public enum CaskReview {
         return true
     }
 
-    /// Una ruta de `delete`/`trash`/`rmdir`: el propio `.app`, o una ruta que pasa todas las protecciones.
-    /// Con comodines: el patrón tal cual y cada coincidencia que exista ahora.
+    /// A `delete`/`trash`/`rmdir` path: the `.app` itself, or a path that passes every protection.
+    /// With wildcards: the pattern as is and every match that exists now.
     static func pathIsSafe(_ raw: String, app: AppRecord, home: String, refusal: (String) -> String?) -> Bool {
         var path = raw
         if path == "~" { path = home } else if path.hasPrefix("~/") { path = home + path.dropFirst(1) }
@@ -129,7 +129,7 @@ public enum CaskReview {
         return (0..<Int(result.gl_pathc)).compactMap { result.gl_pathv[$0].flatMap { String(cString: $0) } }
     }
 
-    /// Una cadena o una lista de cadenas; otra forma ⇒ `nil`.
+    /// A string or a list of strings; any other shape ⇒ `nil`.
     private static func strings(_ value: Any) -> [String]? {
         if let one = value as? String { return [one] }
         guard let many = value as? [Any] else { return nil }
@@ -141,7 +141,7 @@ public enum CaskReview {
         return out
     }
 
-    /// Nombres de los `.app` del artefacto `app`: `"X.app"`, `{"target": "Y.app"}` o `["X.app", {"target": …}]`.
+    /// Names of the `app` artifact's `.app` bundles: `"X.app"`, `{"target": "Y.app"}` or `["X.app", {"target": …}]`.
     private static func appTargets(_ value: Any) -> [String]? {
         guard let items = value as? [Any] else { return nil }
         var names: [String] = []
@@ -149,7 +149,7 @@ public enum CaskReview {
         while index < items.count {
             let item = items[index]
             if let text = item as? String {
-                // `["X.app", {"target": "Y.app"}]` aplanado: el destino manda.
+                // `["X.app", {"target": "Y.app"}]` flattened: the target rules.
                 if index + 1 < items.count, let next = items[index + 1] as? [String: Any],
                    let target = next["target"] as? String {
                     names.append((target as NSString).lastPathComponent)

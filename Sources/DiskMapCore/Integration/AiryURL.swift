@@ -1,14 +1,14 @@
 import Foundation
 
-/// Órdenes que Airy acepta por URL (`airy://…`). Una URL puede venir de una web o de otra app, así
-/// que se trata como entrada hostil: aquí solo se valida y se limpia; la app nunca actúa por sí
-/// misma, solo muestra la confirmación al usuario.
+/// Commands Airy accepts by URL (`airy://…`). A URL can come from a website or from another app, so
+/// it is treated as hostile input: here it is only validated and cleaned; the app never acts on its
+/// own, it only shows the confirmation to the user.
 ///
 /// - `airy://propose?item=<id>&reason=<r>&agent=<a>` / `airy://propose?path=<p>&reason=<r>&agent=<a>`
 /// - `airy://show?path=<p>`
 /// - `airy://rescan`
-/// - `airy://quit?app=<bundle id o nombre>&reason=<r>&agent=<a>` (solo prepara la confirmación de cierre)
-/// - `airy://uninstall?bundle=<id>&reason=<r>&agent=<a>` (solo prepara la confirmación de desinstalar)
+/// - `airy://quit?app=<bundle id or name>&reason=<r>&agent=<a>` (only prepares the quit confirmation)
+/// - `airy://uninstall?bundle=<id>&reason=<r>&agent=<a>` (only prepares the uninstall confirmation)
 public enum AiryURLCommand: Sendable, Equatable {
     public enum ProposeTarget: Sendable, Equatable { case item(String), path(String) }
 
@@ -21,7 +21,7 @@ public enum AiryURLCommand: Sendable, Equatable {
     public static let scheme = "airy"
     public static let maxReason = 500, maxAgent = 64, maxPath = 1024, maxItemID = 200
 
-    /// `nil` si la URL no es una orden válida (esquema, destino, ruta o id fuera de las reglas).
+    /// `nil` if the URL is not a valid command (scheme, host, path or id outside the rules).
     public init?(url: URL) {
         guard url.scheme?.lowercased() == Self.scheme,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -29,7 +29,7 @@ public enum AiryURLCommand: Sendable, Equatable {
               components.path.isEmpty || components.path == "/",
               let host = components.host?.lowercased() else { return nil }
 
-        // Un parámetro repetido es ambiguo: se rechaza en vez de elegir uno.
+        // A repeated parameter is ambiguous: it is rejected instead of picking one.
         var query: [String: String] = [:]
         for item in components.queryItems ?? [] {
             guard query[item.name] == nil else { return nil }
@@ -105,8 +105,8 @@ public enum AiryURLCommand: Sendable, Equatable {
         components.scheme = Self.scheme
         components.host = host
         if !items.isEmpty {
-            // Codificación propia y estricta: `&`, `+`, `#` o `=` dentro de un valor no deben
-            // poder cambiar la estructura de la consulta.
+            // Strict encoding of our own: `&`, `+`, `#` or `=` inside a value must not
+            // be able to change the query's structure.
             components.percentEncodedQuery = items
                 .map { "\($0.0)=\(Self.percentEncoded($0.1))" }
                 .joined(separator: "&")
@@ -114,7 +114,7 @@ public enum AiryURLCommand: Sendable, Equatable {
         return components.url!
     }
 
-    // MARK: Validación y limpieza
+    // MARK: Validation and cleaning
 
     private static let unreserved = CharacterSet(
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
@@ -123,8 +123,8 @@ public enum AiryURLCommand: Sendable, Equatable {
         value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? ""
     }
 
-    /// Controles C0/C1, separadores de línea y párrafo, y controles de dirección de texto (permiten
-    /// suplantar lo que lee el usuario en la hoja de confirmación).
+    /// C0/C1 controls, line and paragraph separators, and text direction controls (they allow
+    /// spoofing what the user reads in the confirmation sheet).
     private static func isControl(_ scalar: Unicode.Scalar) -> Bool {
         switch scalar.value {
         case 0x061C, 0x200E, 0x200F, 0x202A...0x202E, 0x2066...0x2069: return true
@@ -155,7 +155,7 @@ public enum AiryURLCommand: Sendable, Equatable {
         !id.isEmpty && id.count <= maxItemID && !id.unicodeScalars.contains(where: isControl)
     }
 
-    /// Control → espacio, recorte de espacios y truncado a `limit` caracteres con «…».
+    /// Control → space, whitespace trimming and truncation to `limit` characters with "…".
     private static func sanitised(_ text: String, limit: Int) -> String {
         var cleaned = String.UnicodeScalarView()
         for scalar in text.unicodeScalars { cleaned.append(isControl(scalar) ? " " : scalar) }

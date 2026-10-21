@@ -12,16 +12,16 @@ public struct SettingsStore: Sendable {
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
             return .missing
         } catch {
-            return .unreadable("No se pudo leer settings.json: \(error.localizedDescription)")
+            return .unreadable(String(localized: "Could not read settings.json: \(error.localizedDescription)", bundle: .airyCore))
         }
         struct Probe: Decodable { var version: Int? }
         do {
             if let v = try JSONDecoder().decode(Probe.self, from: data).version, v > AirySettings.currentVersion {
-                return .unreadable("settings.json es de una versión más nueva (\(v)).")
+                return .unreadable(String(localized: "settings.json comes from a newer version (\(v)).", bundle: .airyCore))
             }
             return .loaded(try JSONDecoder().decode(AirySettings.self, from: data))
         } catch {
-            return .unreadable("settings.json no es válido.")
+            return .unreadable(String(localized: "settings.json is not valid.", bundle: .airyCore))
         }
     }
 
@@ -32,15 +32,15 @@ public struct SettingsStore: Sendable {
         try encoder.encode(settings).write(to: file, options: .atomic)
     }
 
-    /// Lo que se puede rescatar de un `settings.json` ilegible (lectura tolerante, clave a clave).
+    /// What can be salvaged from an unreadable `settings.json` (tolerant read, key by key).
     public func salvage() -> SettingsSalvage {
         guard let data = try? Data(contentsOf: file) else { return SettingsSalvage() }
         return SettingsSalvage(data: data)
     }
 
-    /// Aparta el fichero ilegible como `settings.unreadable-<yyyyMMdd-HHmmss>.json` y escribe ajustes nuevos
-    /// con lo que se pudo rescatar de él (`SettingsSalvage.settings`): la lista «Proteger esto» se conserva
-    /// si se puede leer y, si no se rescata todo lo necesario, los agentes quedan apagados (falla cerrado).
+    /// Sets the unreadable file aside as `settings.unreadable-<yyyyMMdd-HHmmss>.json` and writes new settings
+    /// with what could be salvaged from it (`SettingsSalvage.settings`): the "Protect this" list is kept
+    /// if it can be read and, if not everything needed is salvaged, agents are turned off (fail closed).
     @discardableResult
     public func resetUnreadable() throws -> SettingsReset {
         let salvage = salvage()
@@ -66,8 +66,8 @@ public struct SettingsStore: Sendable {
     }
 }
 
-/// Lectura tolerante de un `settings.json` que no se puede cargar entero (corrupto o de una versión
-/// más nueva): cada clave se rescata solo si tiene el tipo esperado.
+/// Tolerant read of a `settings.json` that cannot be loaded whole (corrupt or from a newer
+/// version): each key is salvaged only if it has the expected type.
 public struct SettingsSalvage: Sendable, Equatable {
     public var protectedPaths: [String]?
     public var agentsEnabled: Bool?
@@ -86,7 +86,7 @@ public struct SettingsSalvage: Sendable, Equatable {
         if let list = object["protectedPaths"] as? [Any], list.allSatisfy({ $0 is String }) {
             protectedPaths = list.compactMap { $0 as? String }
         }
-        // `NSNumber` también acepta 0/1: solo vale un booleano JSON de verdad.
+        // `NSNumber` also accepts 0/1: only a real JSON boolean counts.
         if let value = object["agentsEnabled"] as? NSNumber, CFGetTypeID(value) == CFBooleanGetTypeID() {
             agentsEnabled = value.boolValue
         }
@@ -96,11 +96,11 @@ public struct SettingsSalvage: Sendable, Equatable {
         }
     }
 
-    /// `true` si se recuperó la lista «Proteger esto» (aunque esté vacía).
+    /// `true` if the "Protect this" list was recovered (even if empty).
     public var recoveredProtectedPaths: Bool { protectedPaths != nil }
 
-    /// Ajustes nuevos: lo rescatado sobre los valores por defecto. Los agentes solo siguen activos si el
-    /// fichero lo decía y además se recuperó la lista «Proteger esto»; si no, apagados.
+    /// New settings: what was salvaged on top of the defaults. Agents only stay enabled if the
+    /// file said so and the "Protect this" list was also recovered; otherwise, off.
     public var settings: AirySettings {
         var s = AirySettings.defaults
         s.protectedPaths = protectedPaths ?? []
@@ -111,27 +111,28 @@ public struct SettingsSalvage: Sendable, Equatable {
     }
 }
 
-/// Resultado de «Restablecer ajustes».
+/// Result of "Reset settings".
 public struct SettingsReset: Sendable, Equatable {
     public let settings: AirySettings
-    /// Dónde quedó apartado el fichero ilegible (`nil` si no había fichero).
+    /// Where the unreadable file was set aside (`nil` if there was no file).
     public let backup: URL?
     public let salvage: SettingsSalvage
 
-    /// Texto para el usuario tras restablecer: qué se conservó y qué no.
+    /// Text for the user after resetting: what was kept and what was not.
     public var message: String {
-        var parts = ["Ajustes restablecidos."]
+        var parts = [String(localized: "Settings reset.", bundle: .airyCore)]
         let n = settings.protectedPaths.count
         if salvage.recoveredProtectedPaths {
-            parts.append(n == 0 ? "Tu lista «Proteger esto» estaba vacía."
-                         : "Se conservó tu lista «Proteger esto» (\(n) \(n == 1 ? "ruta" : "rutas")).")
+            parts.append(n == 0 ? String(localized: "Your “Protect this” list was empty.", bundle: .airyCore)
+                         : n == 1 ? String(localized: "Your “Protect this” list was kept (1 path).", bundle: .airyCore)
+                         : String(localized: "Your “Protect this” list was kept (\(n) paths).", bundle: .airyCore))
         } else {
-            parts.append("No se pudo recuperar tu lista «Proteger esto»: ahora está vacía. Vuelve a proteger lo que quieras en Ajustes.")
+            parts.append(String(localized: "Your “Protect this” list could not be recovered: it is now empty. Protect what you want again in Settings.", bundle: .airyCore))
         }
         if !settings.agentsEnabled {
-            parts.append("Los agentes quedan desactivados hasta que los actives en Ajustes › Agentes.")
+            parts.append(String(localized: "Agents stay disabled until you enable them in Settings › Agents.", bundle: .airyCore))
         }
-        if let backup { parts.append("El fichero anterior se guardó como \(backup.lastPathComponent).") }
+        if let backup { parts.append(String(localized: "The previous file was saved as \(backup.lastPathComponent).", bundle: .airyCore)) }
         return parts.joined(separator: " ")
     }
 }

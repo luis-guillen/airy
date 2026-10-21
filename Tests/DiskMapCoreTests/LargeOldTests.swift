@@ -17,7 +17,7 @@ private final class FakeFileUsage: FileUsageReading {
 private let day: TimeInterval = 86_400
 private let nowDate = Date(timeIntervalSince1970: 1_800_000_000)
 
-/// Carpeta temporal con un home y ficheros reales (la puerta de rutas hace `lstat`) más su árbol de `FileNode`.
+/// Temporary folder with a home and real files (the path gate does `lstat`) plus their `FileNode` tree.
 private struct Fixture {
     let tmp: String
     var home: String { tmp + "/home" }
@@ -31,7 +31,7 @@ private struct Fixture {
         root = FileNode(name: tmp, isDirectory: true, children: [homeNode])
     }
 
-    /// Crea el fichero en disco y el nodo bajo `rel` (relativo a `tmp`); crea las carpetas intermedias del árbol.
+    /// Creates the file on disk and the node under `rel` (relative to `tmp`); creates the tree's intermediate folders.
     @discardableResult
     func file(_ rel: String, size: Int64, kind: ContentKind = .other, modified: Date? = nil) -> FileNode {
         let full = tmp + "/" + rel
@@ -103,7 +103,7 @@ private func file(_ id: String, _ risk: Risk, bytes: Int64 = 10, protected: Bool
         let other = FileNode(name: "Otros (40 elementos)", isDirectory: false, allocatedSize: 700_000_000, aggregatedCount: 40)
         other.parent = f.root.children[0]; f.root.children[0].children.append(other)
         let dir = f.root.children[0].children.first { $0.name == "Downloads" }!
-        dir.allocatedSize = 5_000_000_000    // una carpeta grande tampoco es un fichero
+        dir.allocatedSize = 5_000_000_000    // a large folder is not a file either
         #expect(f.finder().find(in: f.root, query: LargeOldQuery()).map(\.name) == ["ok.bin"])
     }
 
@@ -143,7 +143,7 @@ private func file(_ id: String, _ risk: Risk, bytes: Int64 = 10, protected: Bool
         f.file("home/Downloads/b2.bin", size: 300_000_000, modified: nowDate.addingTimeInterval(-10 * day))
         f.file("home/Downloads/b10.bin", size: 100_000_000, modified: nowDate.addingTimeInterval(-500 * day))
         f.file("home/Downloads/a.bin", size: 200_000_000, modified: nowDate.addingTimeInterval(-100 * day))
-        f.file("home/Downloads/z.bin", size: 150_000_000)   // sin fechas: al final en «más antiguos»
+        f.file("home/Downloads/z.bin", size: 150_000_000)   // without dates: last in "oldest"
         var q = LargeOldQuery()
         q.sort = .size
         #expect(f.finder().find(in: f.root, query: q).map(\.name) == ["b2.bin", "a.bin", "z.bin", "b10.bin"])

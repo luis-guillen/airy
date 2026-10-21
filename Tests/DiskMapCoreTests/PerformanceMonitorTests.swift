@@ -3,7 +3,7 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-/// Sampler guionizado: devuelve las muestras en orden (repite la última) y cuenta llamadas.
+/// Scripted sampler: returns the samples in order (repeats the last one) and counts calls.
 final class FakeSampler: PerformanceSampling, Sendable {
     private let state: Mutex<(samples: [RawSample], calls: Int)>
     init(_ samples: [RawSample]) { state = Mutex((samples, 0)) }
@@ -48,7 +48,7 @@ private func raw(_ n: Int = 0, cores: [CoreTicks] = [], topology: CoreTopology? 
 
     @Test func cpuTotalAndClustersFromTicks() async {
         let topo = CoreTopology(performance: 2, efficiency: 2)
-        // Núcleos 0-1 eficiencia (50 %), 2-3 rendimiento (100 %).
+        // Cores 0-1 efficiency (50%), 2-3 performance (100%).
         let a = [CoreTicks](repeating: CoreTicks(user: 0, system: 0, idle: 0), count: 4)
         let b = [CoreTicks(user: 30, system: 20, idle: 50), CoreTicks(user: 50, system: 0, idle: 50),
                  CoreTicks(user: 80, system: 10, idle: 0, nice: 10), CoreTicks(user: 100, system: 0, idle: 0)]
@@ -90,7 +90,7 @@ private func raw(_ n: Int = 0, cores: [CoreTicks] = [], topology: CoreTopology? 
         _ = await monitor.refresh()
         let back = await monitor.refresh()
         #expect(back.disk == nil); #expect(back.network == nil)
-        let sameUptime = await monitor.refresh()   // Δt = 0 ⇒ nil aunque haya contadores
+        let sameUptime = await monitor.refresh()   // Δt = 0 ⇒ nil even with counters
         #expect(sameUptime.disk == nil)
     }
 
@@ -129,8 +129,8 @@ private func raw(_ n: Int = 0, cores: [CoreTicks] = [], topology: CoreTopology? 
 
     // MARK: - I2 / M1
 
-    /// Una propuesta llega con una instantánea vieja (de otra visita) en la que la app no estaba: se mide de
-    /// nuevo y la app aparece.
+    /// A proposal arrives with an old snapshot (from another visit) in which the app was not there: it is measured
+    /// again and the app appears.
     @Test func staleSnapshotIsNeverReusedForAProposal() async {
         let spotify = OwnProcess(pid: 70, name: "Spotify", executablePath: "/Applications/Spotify.app/Contents/MacOS/Spotify")
         let sampler = FakeSampler([raw(0), raw(3600, processes: [spotify])])
@@ -142,11 +142,11 @@ private func raw(_ n: Int = 0, cores: [CoreTicks] = [], topology: CoreTopology? 
         }
         let old = await monitor.refresh()
         #expect(old.groups.isEmpty)
-        // Pedida después de la vieja: mide otra vez.
+        // Requested after the old one: it measures again.
         let fresh = await monitor.snapshot(since: t0.addingTimeInterval(1))
         #expect(sampler.calls == 2)
         #expect(fresh.groups.map(\.name) == ["Spotify"])
-        // Ya hay una de después de la petición: se reutiliza sin medir.
+        // There is already one from after the request: it is reused without measuring.
         let again = await monitor.snapshot(since: t0.addingTimeInterval(1))
         #expect(sampler.calls == 2 && again == fresh)
     }

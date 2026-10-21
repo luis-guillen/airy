@@ -1,10 +1,10 @@
 import Foundation
 
-/// Transporte stdio de MCP: un mensaje JSON por línea en la entrada, una respuesta por línea en la salida.
-/// Atiende los mensajes en orden y de uno en uno; termina con el fin de la entrada (EOF).
-/// Por la salida solo va JSON-RPC: los diagnósticos van a stderr.
-/// Un mensaje de más de `maxLineBytes` (1 MiB) no se acumula: se descarta hasta el siguiente salto de
-/// línea y se contesta con un error JSON-RPC de análisis (-32700).
+/// MCP stdio transport: one JSON message per line on input, one response per line on output.
+/// It serves the messages in order and one at a time; it ends at the end of input (EOF).
+/// Only JSON-RPC goes to the output: diagnostics go to stderr.
+/// A message longer than `maxLineBytes` (1 MiB) is not accumulated: it is discarded up to the next line
+/// break and answered with a JSON-RPC parse error (-32700).
 public enum StdioTransport {
     public static let maxLineBytes = 1 << 20
 
@@ -47,23 +47,23 @@ public enum StdioTransport {
         JSONValue.object([
             "jsonrpc": .string("2.0"), "id": .null,
             "error": .object(["code": .number(-32700),
-                              "message": .string("Mensaje demasiado largo (más de \(limit) bytes): descartado.")]),
+                              "message": .string("Message too long (more than \(limit) bytes): discarded.")]),
         ]).compactString()
     }
 
-    /// `false` si ya no se puede escribir (el cliente cerró la salida).
+    /// `false` if it can no longer write (the client closed the output).
     private static func respond(to line: String, server: MCPServer, output: FileHandle) async throws -> Bool {
         guard let response = await server.handle(line: line) else { return true }
         return write(response, to: output)
     }
 
-    /// `false` si ya no se puede escribir (el cliente cerró la salida).
+    /// `false` if it can no longer write (the client closed the output).
     private static func write(_ response: String, to output: FileHandle) -> Bool {
         do {
             try output.write(contentsOf: Data((response + "\n").utf8))
             return true
         } catch {
-            FileHandle.standardError.write(Data("airy-mcp: no se pudo escribir la respuesta: \(error)\n".utf8))
+            FileHandle.standardError.write(Data("airy-mcp: could not write the response: \(error)\n".utf8))
             return false
         }
     }

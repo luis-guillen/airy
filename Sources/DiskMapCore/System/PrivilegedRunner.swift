@@ -4,20 +4,20 @@ public enum PrivilegedOutcome: Sendable, Equatable {
     case ok(CommandOutput), cancelled, failed(String)
 }
 
-/// Órdenes con permisos de administrador. Solo admite dos formas exactas (lista blanca): olvidar un recibo de
-/// instalación (`pkgutil --forget <id>`) y quitar enlaces rotos de `/usr/local/bin` (`BrokenLinks.deleteCommand`).
+/// Commands with administrator privileges. It only accepts two exact forms (allowlist): forgetting an
+/// install receipt (`pkgutil --forget <id>`) and removing broken links from `/usr/local/bin` (`BrokenLinks.deleteCommand`).
 public protocol PrivilegedRunning: Sendable {
-    /// Una sola petición de contraseña para todos los comandos; cada uno es [ejecutable, argumentos…].
+    /// A single password prompt for all the commands; each one is [executable, arguments…].
     func run(_ commands: [[String]], prompt: String) async -> PrivilegedOutcome
 }
 
-/// Pide la contraseña con `osascript … with administrator privileges`. El texto AppleScript es fijo: los
-/// comandos llegan como argumentos (`argv`) y cada argumento se cita con `quoted form of`, nunca se
-/// interpola en el guion.
+/// Asks for the password with `osascript … with administrator privileges`. The AppleScript text is fixed: the
+/// commands arrive as arguments (`argv`) and each argument is quoted with `quoted form of`, never
+/// interpolated into the script.
 public struct OsascriptPrivilegedRunner: PrivilegedRunning {
     static let osascript = "/usr/bin/osascript"
     static let timeout: TimeInterval = 300
-    static let notAllowed = "Orden no permitida."
+    static var notAllowed: String { String(localized: "Command not allowed.", bundle: .airyCore) }
 
     private let runner: any CommandRunning
 
@@ -47,7 +47,7 @@ public struct OsascriptPrivilegedRunner: PrivilegedRunning {
         "end run",
     ]
 
-    /// ["-e", línea…, "--", prompt, "\(n1)", exe1, args1…, "\(n2)", exe2, args2…]; n = número de elementos del comando.
+    /// ["-e", line…, "--", prompt, "\(n1)", exe1, args1…, "\(n2)", exe2, args2…]; n = number of elements of the command.
     static func arguments(for commands: [[String]], prompt: String) -> [String] {
         var args = scriptLines.flatMap { ["-e", $0] }
         args += ["--", prompt]
@@ -65,7 +65,7 @@ public struct OsascriptPrivilegedRunner: PrivilegedRunning {
         return scalars.allSatisfy { alnum($0) || $0 == "." || $0 == "_" || $0 == "-" }
     }
 
-    /// `true` solo para las dos formas permitidas.
+    /// `true` only for the two allowed forms.
     static func isAllowed(_ command: [String]) -> Bool {
         if command.count == 3, command[0] == "/usr/sbin/pkgutil", command[1] == "--forget" {
             return isPackageID(command[2])

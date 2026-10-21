@@ -3,7 +3,7 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Dobles y utilidades
+// MARK: - Doubles and utilities
 
 private final class FakeListing: ProcessListing, Sendable {
     private let list: Mutex<[RunningProcess]?>
@@ -12,7 +12,7 @@ private final class FakeListing: ProcessListing, Sendable {
     func holders(ofPathsUnder paths: [String]) -> [RunningProcess]? { [] }
 }
 
-/// Ejecutor lento: cada llamada tarda `delay` y se anota. Solo `zipinfo` resuelve.
+/// Slow runner: each call takes `delay` and is recorded. Only `zipinfo` resolves.
 private final class SlowRunner: CommandRunning, Sendable {
     private let count = Mutex(0)
     let delay: Duration
@@ -84,16 +84,16 @@ private let reviewIDs = [
     "time-machine-in-progress", "music-sound-libraries",
 ]
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct ExtraTargetsTests {
-    // MARK: Instaladores
+    // MARK: Installers
 
     @Test func installersByExtensionAndZipListing() async throws {
         let home = tempDir()
         for name in ["a.dmg", "b.pkg", "c.zip", "d.zip", "e.txt"] { writeFile(home + "/Downloads/\(name)") }
         writeFile(home + "/Desktop/Carpeta/f.iso")
-        writeFile(home + "/Desktop/Carpeta/Mas/Hondo/g.dmg") // demasiado hondo
+        writeFile(home + "/Desktop/Carpeta/Mas/Hondo/g.dmg") // too deep
         writeFile(home + "/Documents/H.XIP")
         let runner = FakeRunner(resolved: ["zipinfo": zipinfo], outputs: [
             "\(zipinfo) -1 \(home)/Downloads/c.zip": CommandOutput(status: 0, stdout: "Foo.app/\nFoo.app/Contents/x\n", stderr: ""),
@@ -105,8 +105,8 @@ private let reviewIDs = [
             "installers:~/Downloads/b.pkg", "installers:~/Downloads/c.zip",
         ])
         #expect(items.allSatisfy { $0.risk == .yourCall && !$0.preselected && $0.details.count == 1 })
-        #expect(items.first?.details.first?.hasPrefix("Descargado ") == true)
-        // Los .zip se leen con `zipinfo -1 <ruta>` y plazo `zipListTimeout`.
+        #expect(items.first?.details.first?.hasPrefix("Downloaded ") == true)
+        // .zip files are read with `zipinfo -1 <path>` and a `zipListTimeout` time limit.
         #expect(runner.calls.map(\.arguments).contains(["-1", home + "/Downloads/c.zip"]))
         #expect(runner.calls.allSatisfy { $0.timeout <= InstallerSource.zipListTimeout })
     }
@@ -118,11 +118,11 @@ private let reviewIDs = [
         }
         #expect(await has("Foo.app/Contents/Info.plist\n"))
         #expect(await has("Carpeta/Foo.app/\n"))
-        #expect(!(await has("A/B/Foo.app/\n"))) // nivel 3
+        #expect(!(await has("A/B/Foo.app/\n"))) // level 3
         #expect(await has("Instalar.PKG\n"))
         #expect(await has("Carpeta/x.dmg\n"))
         #expect(!(await has("A/B/x.pkg\n")))
-        #expect(!(await has("Carpeta/x.pkg/\n"))) // carpeta, no fichero
+        #expect(!(await has("Carpeta/x.pkg/\n"))) // a folder, not a file
         #expect(!(await has("notes.txt\nfoto.png\n")))
     }
 
@@ -135,7 +135,7 @@ private let reviewIDs = [
         ])
         let items = await scanner(try catalog("installers"), home: home, runner: failing).findItems(scan: nil)
         #expect(items.map(\.id) == ["installers:~/Downloads/a.dmg"])
-        // Sin `zipinfo` instalado tampoco hay .zip, pero los .dmg siguen.
+        // Without `zipinfo` installed there are no .zip files either, but the .dmg files remain.
         let missing = await scanner(try catalog("installers"), home: home).findItems(scan: nil)
         #expect(missing.map(\.id) == ["installers:~/Downloads/a.dmg"])
     }
@@ -164,17 +164,17 @@ private let reviewIDs = [
         }
         let entry = CatalogEntry(id: "installers", title: "I", explanation: "", whoCreatesIt: "", regenerates: false,
                                  risk: .yourCall, kind: .other, paths: [], cleanup: .trash, discovery: .installers)
-        // Como mucho `maxZips` lecturas.
+        // At most `maxZips` reads.
         let capped = SlowRunner(delay: .milliseconds(1))
         let few = await InstallerSource(totalBudget: .seconds(20), maxZips: 2, isUbiquitous: { _ in false })
             .discover(entry, context: context(capped))
         #expect(capped.calls == 2 && few.count == 2)
-        // El plazo total corta la serie aunque quede cupo.
+        // The total time limit cuts the series even if there is room left.
         let slow = SlowRunner(delay: .milliseconds(150))
         let started = ContinuousClock.now
         let some = await InstallerSource(totalBudget: .milliseconds(200), maxZips: 50, isUbiquitous: { _ in false })
             .discover(entry, context: context(slow))
-        // 1 o 2 lecturas según lo cargada que vaya la máquina (en CI, a veces 1); nunca las 50.
+        // 1 or 2 reads depending on how loaded the machine is (in CI, sometimes 1); never the 50.
         #expect((1...2).contains(slow.calls) && some.count == slow.calls)
         #expect(started.duration(to: .now) < .seconds(3))
         #expect(InstallerSource.zipTotalBudget == .seconds(20) && InstallerSource.maxZipListings == 50)
@@ -204,16 +204,16 @@ private let reviewIDs = [
         let source = InstallerSource()
         let entry = try #require(cat.entries.first)
         #expect(await source.revalidate(entry, item: item, context: context) == nil)
-        // Pasa a ser un enlace.
+        // It becomes a link.
         try FileManager.default.removeItem(atPath: dmg)
         try FileManager.default.createSymbolicLink(atPath: dmg, withDestinationPath: home)
-        #expect(await source.revalidate(entry, item: item, context: context) == "Ya no es un fichero normal: a.dmg.")
-        // Una ruta fuera de las carpetas de instaladores.
+        #expect(await source.revalidate(entry, item: item, context: context) == "It is no longer a regular file: a.dmg.")
+        // A path outside the installer folders.
         var outside = item
         outside.paths = [home + "/otro.dmg"]
         writeFile(home + "/otro.dmg")
-        #expect(await source.revalidate(entry, item: outside, context: context)?.hasPrefix("No está en Descargas") == true)
-        // Un .zip que ya no tiene instalador.
+        #expect(await source.revalidate(entry, item: outside, context: context)?.hasPrefix("It is not in Downloads") == true)
+        // A .zip that no longer has an installer.
         let zip = home + "/Downloads/c.zip"
         writeFile(zip)
         var zipItem = item
@@ -223,10 +223,10 @@ private let reviewIDs = [
         ])
         let zipContext = DiscoveryContext(catalog: cat, home: home, runner: runner, processListing: FakeListing(),
                                           now: Date(), scan: nil)
-        #expect(await source.revalidate(entry, item: zipItem, context: zipContext) == "Ya no es un instalador: c.zip.")
+        #expect(await source.revalidate(entry, item: zipItem, context: zipContext) == "It is no longer an installer: c.zip.")
     }
 
-    // MARK: Versiones de agentes
+    // MARK: Agent versions
 
     private func versionsHome(link: Bool) throws -> (home: String, versions: String) {
         let home = tempDir()
@@ -254,7 +254,7 @@ private let reviewIDs = [
         let items = await scanner(try catalog("claude-code-old-versions"), home: home).findItems(scan: nil)
         #expect(items.map(\.paths) == [[versions + "/1"]])
         #expect(items.first?.risk == .safe)
-        #expect(items.first?.details == ["Se conservan: 3, 2"])
+        #expect(items.first?.details == ["Kept: 3, 2"])
     }
 
     @Test func runningOldVersionIsRefused() async throws {
@@ -263,9 +263,9 @@ private let reviewIDs = [
         let item = try #require(await scanner(cat, home: home).findItems(scan: nil).first)
         let listing = FakeListing([RunningProcess(pid: 9, name: "claude", executablePath: versions + "/1/claude")])
         guard case .blocked(let reason) = await executor(cat, home: home, listing: listing).execute(item) else {
-            Issue.record("debió bloquearse"); return
+            Issue.record("should have been blocked"); return
         }
-        #expect(reason == "Está en uso: 1.")
+        #expect(reason == "It is in use: 1.")
         #expect(FileManager.default.fileExists(atPath: versions + "/1/claude"))
     }
 
@@ -274,8 +274,8 @@ private let reviewIDs = [
         let cat = try catalog("claude-code-old-versions")
         let item = try #require(await scanner(cat, home: home).findItems(scan: nil).first)
         guard case .blocked(let reason) = await executor(cat, home: home, listing: FakeListing(nil)).execute(item)
-        else { Issue.record("debió bloquearse"); return }
-        #expect(reason == "No se pudo comprobar si está en uso; Airy no lo toca.")
+        else { Issue.record("should have been blocked"); return }
+        #expect(reason == "Could not check whether it is in use; Airy does not touch it.")
         #expect(FileManager.default.fileExists(atPath: versions + "/1/claude"))
     }
 
@@ -305,9 +305,9 @@ private let reviewIDs = [
         #expect(item.entry.partialCleanup)
         let before = runner.calls.count
         guard case .blocked = await executor(cat, home: home, runner: runner, probes: open).execute(item) else {
-            Issue.record("con Safari abierto debió bloquearse"); return
+            Issue.record("with Safari open it should have been blocked"); return
         }
-        #expect(runner.calls.count == before) // no se ejecutó VACUUM
+        #expect(runner.calls.count == before) // VACUUM did not run
     }
 
     @Test func safariCompactionIsOmittedWhenProbeFailsOrIsSmall() async throws {
@@ -315,15 +315,15 @@ private let reviewIDs = [
         let cat = try catalog("safari-compact")
         let outputs: [(CommandOutput, String)] = [
             (CommandOutput(status: 1, stdout: "4096\n5000\n", stderr: "locked"), "falla"),
-            (CommandOutput(status: 0, stdout: "4096\n", stderr: ""), "una sola línea"),
-            (CommandOutput(status: 0, stdout: "abc\ndef\n", stderr: ""), "no son números"),
-            (CommandOutput(status: 0, stdout: "4096\n2000\n", stderr: ""), "menos de 10 MB"),
+            (CommandOutput(status: 0, stdout: "4096\n", stderr: ""), "a single line"),
+            (CommandOutput(status: 0, stdout: "abc\ndef\n", stderr: ""), "not numbers"),
+            (CommandOutput(status: 0, stdout: "4096\n2000\n", stderr: ""), "less than 10 MB"),
         ]
         for (output, label) in outputs {
             let runner = FakeRunner(resolved: ["sqlite3": sqlite3], outputs: [probe(db): output])
             #expect(await scanner(cat, home: home, runner: runner).findItems(scan: nil).isEmpty, "\(label)")
         }
-        // Sin sqlite3 instalado tampoco.
+        // Without sqlite3 installed, not either.
         #expect(await scanner(cat, home: home).findItems(scan: nil).isEmpty)
     }
 
@@ -339,7 +339,7 @@ private let reviewIDs = [
         #expect(last.executable == sqlite3 && last.arguments == [db, "VACUUM;"])
     }
 
-    // MARK: Cuarentena y fichas nuevas
+    // MARK: Quarantine and new entries
 
     @Test func quarantineIsAmberNotPreselected() throws {
         let all = try Catalog.bundled()
@@ -381,7 +381,7 @@ private let reviewIDs = [
         #expect(lm.mustBeClosed == ["ai.elementlabs.lmstudio"] && lm.perMatch && lm.risk == .yourCall)
     }
 
-    // MARK: Solo revisar
+    // MARK: Review only
 
     @Test func reviewOnlyEntriesHaveNoActionAndAHint() throws {
         let all = try Catalog.bundled()
@@ -423,7 +423,7 @@ private let reviewIDs = [
                 #expect(!banned.contains { path.contains($0) }, "\(entry.id): \(path)")
             }
         }
-        // El runtime de Codex en uso solo sale como «No tocar» informativo, nunca en otra ficha.
+        // The Codex runtime in use only appears as an informational "Do not touch", never in another entry.
         let all = try Catalog.bundled()
         let runtime = try #require(all.entry(id: "codex-runtime"))
         #expect(runtime.cleanup == .info && runtime.risk == .doNotTouch)
@@ -436,7 +436,7 @@ private let reviewIDs = [
         let home = tempDir()
         writeFile(home + "/.cache/codex-runtimes/codex-primary-runtime/bin/codex", bytes: 40_000)
         writeFile(home + "/.codex/worktrees/a/f", bytes: 40_000)
-        // Solo fichas con rutas dentro de la carpeta personal (las absolutas leerían el disco real).
+        // Only entries with paths inside the home folder (the absolute ones would read the real disk).
         let all = try Catalog.bundled()
         let mine = Catalog(entries: all.entries.filter { $0.paths.allSatisfy { !$0.hasPrefix("/") } })
         let items = await scanner(mine, home: home).findItems(scan: nil)
@@ -453,16 +453,16 @@ private let reviewIDs = [
         writeFile(home + "/.android/avd/a/disco", bytes: 40_000)
         writeFile(home + "/.codex/worktrees/a/f", bytes: 40_000)
         writeFile(home + "/.cache/whisper/modelo", bytes: 40_000)
-        // Plazo agotado: las dos fichas de revisión salen «Tamaño desconocido» y sin bloqueo; la de Papelera sí
-        // queda bloqueada.
+        // Time limit exhausted: the two review entries come out as "Unknown size" and unblocked; the Trash one does
+        // gets blocked.
         let cat = try catalog("android-emulators", "agent-worktrees", "whisper-cache")
         let items = await scanner(cat, home: home, measureBudget: .zero).findItems(scan: nil)
         let review = items.filter { $0.id != "whisper-cache" }
         #expect(review.map(\.id) == ["android-emulators", "agent-worktrees"])
-        #expect(review.allSatisfy { $0.sizeNote == "Tamaño desconocido" && $0.blockedReason == nil })
+        #expect(review.allSatisfy { $0.sizeNote == "Unknown size" && $0.blockedReason == nil })
         let trash = try #require(items.first { $0.id == "whisper-cache" })
         #expect(trash.blockedReason != nil)
-        // Con plazo normal se miden.
+        // With a normal time limit they are measured.
         let measured = await scanner(cat, home: home).findItems(scan: nil)
         #expect(measured.allSatisfy { $0.sizeNote == nil && $0.bytes > 0 })
     }

@@ -32,9 +32,9 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
     @Test func goodWhenNothingFires() {
         let v = PerformanceDiagnosis.evaluate([snap(0), snap(1.5)], extras: .unknown)
         #expect(v.level == .good)
-        #expect(v.sentence == "Tu Mac va bien.")
+        #expect(v.sentence == "Your Mac is doing fine.")
         #expect(v.findings.isEmpty)
-        #expect(PerformanceDiagnosis.evaluate([], extras: .unknown).sentence == "Tu Mac va bien.")
+        #expect(PerformanceDiagnosis.evaluate([], extras: .unknown).sentence == "Your Mac is doing fine.")
     }
 
     @Test func familyNeedsTwoSustainedSamples() {
@@ -48,7 +48,7 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
             [snap(0, system: [ps("syspolicyd", 30)]), snap(1.5, system: [ps("syspolicyd", 26)])], extras: .unknown)
         #expect(ids(both) == ["family-syspolicyd"])
         #expect(both.level == .fair)
-        #expect(both.sentence == "La comprobación de seguridad de apps (syspolicyd) está trabajando mucho.")
+        #expect(both.sentence == "The app security check (syspolicyd) is working hard.")
 
         let below = PerformanceDiagnosis.evaluate(
             [snap(0, system: [ps("syspolicyd", 30)]), snap(1.5, system: [ps("syspolicyd", 24.9)])], extras: .unknown)
@@ -61,7 +61,7 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         #expect(PerformanceDiagnosis.familyCPU(system)[.windowServer] == nil)
         let v = PerformanceDiagnosis.evaluate([snap(0, system: system), snap(1.5, system: system)], extras: .unknown)
         #expect(ids(v) == ["family-spotlight"])
-        #expect(v.sentence == "Spotlight está indexando y usa mucho procesador; suele terminar solo.")
+        #expect(v.sentence == "Spotlight is indexing and using a lot of CPU; it usually finishes by itself.")
     }
 
     @Test func swapAndAvailableThresholds() {
@@ -80,13 +80,13 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         let groups = [group("Safari", memory: 1 * gib), group("Google Chrome", memory: 4 * gib),
                       group("Docker Desktop", memory: 2 * gib)]
         let v = PerformanceDiagnosis.evaluate([snap(0, memory: m, groups: groups)], extras: .unknown)
-        #expect(v.sentence == "Tu Mac va justo de memoria: Google Chrome y Docker Desktop se llevan el 60 %.")
+        #expect(v.sentence == "Your Mac is short on memory: Google Chrome and Docker Desktop take 60%.")
         #expect(v.level == .fair)
 
         let one = PerformanceDiagnosis.evaluate([snap(0, memory: m, groups: [group("Xcode", memory: 3 * gib)])], extras: .unknown)
-        #expect(one.sentence == "Tu Mac va justo de memoria: Xcode se lleva el 30 %.")
+        #expect(one.sentence == "Your Mac is short on memory: Xcode takes 30%.")
         let none = PerformanceDiagnosis.evaluate([snap(0, memory: m)], extras: .unknown)
-        #expect(none.sentence == "Tu Mac va justo de memoria.")
+        #expect(none.sentence == "Your Mac is short on memory.")
     }
 
     @Test func criticalPressureIsRed() {
@@ -105,7 +105,7 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
 
         let fired = PerformanceDiagnosis.evaluate([big], extras: DiagnosisExtras(dockerRunningContainers: 0, mountedDiskImages: nil))
         #expect(ids(fired) == ["docker-vm"])
-        #expect(fired.sentence == "Docker Desktop retiene \(Format.bytes(3 * gib)) sin contenedores en marcha: ciérralo si no lo usas.")
+        #expect(fired.sentence == "Docker Desktop is holding \(Format.bytes(3 * gib)) with no containers running: quit it if you are not using it.")
         #expect(PerformanceDiagnosis.evaluate([big], extras: .unknown).findings.isEmpty)
         #expect(PerformanceDiagnosis.evaluate([big], extras: DiagnosisExtras(dockerRunningContainers: 2, mountedDiskImages: nil))
             .findings.isEmpty)
@@ -114,7 +114,7 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         #expect(PerformanceDiagnosis.evaluate([small], extras: DiagnosisExtras(dockerRunningContainers: 0, mountedDiskImages: nil))
             .findings.isEmpty)
 
-        // Con UTM abierta la VM no se atribuye a Docker.
+        // With UTM open the VM is not attributed to Docker.
         let utm = snap(0, processes: [vm], apps: [RunningAppInfo(pid: 88, bundleID: "com.utmapp.UTM", name: "UTM")],
                        groups: [docker])
         #expect(PerformanceDiagnosis.dockerVMMemory(utm) == 1 * gib)
@@ -129,7 +129,7 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         }
         let yes = verdict(hours: 13, cpu: 30)
         #expect(ids(yes) == ["runaway:42"])
-        #expect(yes.sentence == "node lleva 13 h usando mucho procesador sin parar.")
+        #expect(yes.sentence == "node has been using a lot of CPU nonstop for 13 h.")
         #expect(verdict(hours: 11, cpu: 30).findings.isEmpty)
         #expect(verdict(hours: 13, cpu: 20).findings.isEmpty)
     }
@@ -153,7 +153,7 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         let busy = [snap(0, system: [ps("syspolicyd", 40)]), snap(1.5, system: [ps("syspolicyd", 40)])]
         let v = PerformanceDiagnosis.evaluate(busy, extras: images)
         #expect(ids(v) == ["disk-images", "family-syspolicyd"])
-        #expect(v.sentence == "Hay imágenes de disco montadas (Xcode.dmg, a.dmg, b.dmg) que la hacen trabajar: expúlsalas en Finder si ya no las usas.")
+        #expect(v.sentence == "There are mounted disk images (Xcode.dmg, a.dmg, b.dmg) making it work: eject them in Finder if you no longer use them.")
         let empty = PerformanceDiagnosis.evaluate(busy, extras: DiagnosisExtras(dockerRunningContainers: nil, mountedDiskImages: []))
         #expect(ids(empty) == ["family-syspolicyd"])
     }
@@ -163,13 +163,13 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         let v = PerformanceDiagnosis.evaluate([snap(0, memory: m, thermal: ThermalReading(level: .serious, throttling: true))],
                                               extras: .unknown)
         #expect(ids(v) == ["thermal-throttling", "memory"])
-        #expect(v.sentence == "Tu Mac se está calentando y ha bajado la velocidad.")
+        #expect(v.sentence == "Your Mac is heating up and has slowed down.")
         #expect(v.level == .poor)
 
         let critical = PerformanceDiagnosis.evaluate([snap(0, thermal: ThermalReading(level: .critical, throttling: true))],
                                                      extras: .unknown)
         #expect(ids(critical) == ["thermal-critical"])
-        #expect(critical.sentence == "Tu Mac está muy caliente y va mucho más lento para enfriarse.")
+        #expect(critical.sentence == "Your Mac is very hot and is running much slower to cool down.")
         #expect(critical.level == .poor)
     }
 
@@ -188,20 +188,20 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         let groups = [group("Safari", cpu: 20), group("Xcode", cpu: 300)]
         let v = PerformanceDiagnosis.evaluate([snap(0, cpu: 90), snap(1.5, cpu: 85, groups: groups)], extras: .unknown)
         #expect(ids(v) == ["cpu-busy"])
-        #expect(v.sentence == "El procesador va al máximo: Xcode es lo que más lo usa.")
+        #expect(v.sentence == "The CPU is at full load: Xcode is using it the most.")
         #expect(PerformanceDiagnosis.evaluate([snap(0, cpu: 50), snap(1.5, cpu: 95, groups: groups)], extras: .unknown)
             .findings.isEmpty)
     }
 
-    /// M2: airy-mcp se mide a sí mismo; nunca se señala como lo que más usa el procesador.
+    /// M2: airy-mcp measures itself; it is never pointed at as the top CPU user.
     @Test func cpuBusyNeverNamesAiry() {
         let groups = [group("Safari", cpu: 20), group("Airy", cpu: 300), group("airy-mcp", cpu: 250)]
         let v = PerformanceDiagnosis.evaluate([snap(0, cpu: 90), snap(1.5, cpu: 85, groups: groups)], extras: .unknown)
-        #expect(v.sentence == "El procesador va al máximo: Safari es lo que más lo usa.")
+        #expect(v.sentence == "The CPU is at full load: Safari is using it the most.")
     }
 
     @Test func probesAreCalledOnlyWhenNeeded() async {
-        // Nada lo pide: ninguna llamada.
+        // Nothing asks for it: no calls.
         let idle = FakeRunner(resolved: ["docker": "/usr/local/bin/docker"])
         let quiet = PerformanceMonitor(sampler: FakeSampler([snap(0).raw, snap(1.5).raw]))
         _ = await quiet.refresh(); _ = await quiet.refresh()
@@ -209,7 +209,7 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         #expect(calm.level == .good)
         #expect(idle.calls.isEmpty); #expect(idle.resolveCalls.isEmpty)
 
-        // Docker grande y syspolicyd sostenido: una llamada a cada sonda, reutilizada durante 30 s.
+        // Large Docker and sustained syspolicyd: one call to each probe, reused for 30 s.
         let runner = FakeRunner(resolved: ["docker": "/usr/local/bin/docker"])
         let hot = [ps("syspolicyd", 40)]
         let samples = [0, 1.5, 20, 31.5].map { snap($0, system: hot).raw }
@@ -223,16 +223,16 @@ private func ids(_ v: HealthVerdict) -> [String] { v.findings.map(\.id) }
         #expect(runner.calls.map(\.timeout) == [3, 5])
 
         _ = await monitor.verdict(probes: DiagnosisProbes(runner: runner))
-        _ = await monitor.refresh()                       // 20 s: aún en caché
+        _ = await monitor.refresh()                       // 20 s: still cached
         let cached = await monitor.verdict(probes: DiagnosisProbes(runner: runner))
         #expect(ids(cached).contains("docker-vm"))
         #expect(runner.calls.count == 2)
 
-        _ = await monitor.refresh()                       // 31,5 s: caducada
+        _ = await monitor.refresh()                       // 31.5 s: expired
         _ = await monitor.verdict(probes: DiagnosisProbes(runner: runner))
         #expect(runner.calls.count == 4)
 
-        // Sin sondas no se afirma nada que dependa de ellas.
+        // Without probes nothing that depends on them is claimed.
         let unprobed = PerformanceMonitor(sampler: FakeSampler(samples), grouper: { _, _, _ in [docker] })
         _ = await unprobed.refresh(); _ = await unprobed.refresh()
         #expect(ids(await unprobed.verdict(probes: nil)) == ["family-syspolicyd"])

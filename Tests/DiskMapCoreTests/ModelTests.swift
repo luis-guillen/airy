@@ -35,13 +35,13 @@ import Foundation
         #expect(FileNode(name: "a", isDirectory: false).id != FileNode(name: "a", isDirectory: false).id)
     }
 
-    @Test func formatsSpanishBytes() {
-        #expect(Format.bytes(1_500_000_000) == "1,5 GB")
+    @Test func formatsBytes() {
+        #expect(Format.bytes(1_500_000_000) == "1.5 GB")
     }
 
     @Test func relativeDateNilIsDash() {
         #expect(Format.relativeDate(nil) == "—")
         let past = Date(timeIntervalSinceNow: -3 * 86_400)
-        #expect(Format.relativeDate(past).contains("3 días"))
+        #expect(Format.relativeDate(past).contains("3 days"))
     }
 }

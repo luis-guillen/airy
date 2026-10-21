@@ -3,7 +3,7 @@ import Foundation
 public enum ToolchainLanguage: String, Sendable, CaseIterable {
     case python, node, ruby, java, rust, go, condaEnv, other
 
-    /// Nombre para la interfaz.
+    /// Name for the UI.
     var title: String {
         switch self {
         case .python: "Python"
@@ -13,24 +13,24 @@ public enum ToolchainLanguage: String, Sendable, CaseIterable {
         case .rust: "Rust"
         case .go: "Go"
         case .condaEnv: "conda"
-        case .other: "Otras"
+        case .other: String(localized: "Other tools", bundle: .airyCore)
         }
     }
 }
 
-/// Una versión instalada de una herramienta de desarrollo.
+/// An installed version of a development tool.
 public struct InstalledToolchain: Sendable, Equatable {
     public var manager: ToolchainManager
     public var language: ToolchainLanguage
-    /// "3.11.4", "v20.11.0", "stable-aarch64-apple-darwin", "python@3.11", "java/17.0.9-tem", nombre del entorno.
+    /// "3.11.4", "v20.11.0", "stable-aarch64-apple-darwin", "python@3.11", "java/17.0.9-tem", environment name.
     public var name: String
-    /// Carpeta de la instalación (`Cellar/<fórmula>` en Homebrew).
+    /// Folder of the install (`Cellar/<formula>` in Homebrew).
     public var path: String
-    /// Valor de `{target}` (nombre o ruta según el gestor).
+    /// `{target}` value (name or path depending on the manager).
     public var target: String
-    /// max(atime del ejecutable principal, mtime de la carpeta); `nil` si no se pudo leer.
+    /// max(atime of the main executable, mtime of the folder); `nil` if it could not be read.
     public var lastUsed: Date?
-    /// /Library/…, /Applications/Xcode*.app: solo se muestran.
+    /// /Library/…, /Applications/Xcode*.app: display only.
     public var informational: Bool
 
     public init(manager: ToolchainManager, language: ToolchainLanguage, name: String, path: String, target: String,
@@ -39,7 +39,7 @@ public struct InstalledToolchain: Sendable, Equatable {
         self.target = target; self.lastUsed = lastUsed; self.informational = informational
     }
 
-    /// Plugin de asdf o candidato de SDKMAN (carpeta padre); `nil` en los demás gestores.
+    /// asdf plugin or SDKMAN candidate (parent folder); `nil` for the other managers.
     var plugin: String? {
         switch manager {
         case .asdf: return ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent
@@ -48,13 +48,13 @@ public struct InstalledToolchain: Sendable, Equatable {
         }
     }
 
-    /// Versión sin el candidato de SDKMAN.
+    /// Version without the SDKMAN candidate.
     var version: String {
         manager == .sdkman ? String(name.split(separator: "/", maxSplits: 1).last ?? Substring(name)) : name
     }
 }
 
-/// Dónde se busca (inyectable en pruebas).
+/// Where to look (injectable in tests).
 public struct ToolchainRoots: Sendable {
     public var home: String
     public var cellars: [String]
@@ -78,7 +78,7 @@ public struct ToolchainRoots: Sendable {
     }
 }
 
-/// Inventario de solo lectura (`lstat`/`readdir`/`readlink`): nunca lanza procesos.
+/// Read-only inventory (`lstat`/`readdir`/`readlink`): it never launches processes.
 public enum ToolchainInventory {
     static let condaBases = ["miniconda3", "anaconda3", "miniforge3", "mambaforge", ".conda"]
     static let fnmRoots = ["Library/Application Support/fnm", ".local/share/fnm", ".fnm"]
@@ -87,8 +87,8 @@ public enum ToolchainInventory {
         "java": (.java, "java"), "golang": (.go, "go"), "rust": (.rust, "rustc"),
     ]
 
-    /// Las entradas que son enlaces simbólicos no se ofrecen (pyenv-virtualenv, `current` de SDKMAN, `default`
-    /// de rvm).
+    /// Entries that are symbolic links are not offered (pyenv-virtualenv, SDKMAN's `current`, rvm's
+    /// `default`).
     public static func scan(_ roots: ToolchainRoots) -> [InstalledToolchain] {
         let home = roots.home
         var result: [InstalledToolchain] = []
@@ -138,7 +138,7 @@ public enum ToolchainInventory {
         return result
     }
 
-    /// Fórmulas de lenguaje de Homebrew (R6): `python@3.N`, `node`, `node@N`, `openjdk`, `openjdk@N`, `go`, `go@1.N`.
+    /// Homebrew language formulas (R6): `python@3.N`, `node`, `node@N`, `openjdk`, `openjdk@N`, `go`, `go@1.N`.
     static func homebrewFormula(_ name: String) -> (ToolchainLanguage, String)? {
         func versioned(_ prefix: String, minorOf major: String? = nil) -> Bool {
             guard name.hasPrefix(prefix + "@") else { return false }
@@ -177,7 +177,7 @@ public enum ToolchainInventory {
         return result
     }
 
-    /// Hijos que son carpetas reales (no enlaces), ordenados por nombre: (nombre, ruta).
+    /// Children that are real folders (not links), sorted by name: (name, path).
     static func realChildren(_ folder: String) -> [(String, String)] {
         guard DiskScope.allowsWalk(folder), ProjectArtifactRules.isRealDirectory(folder),
               let names = try? FileManager.default.contentsOfDirectory(atPath: folder) else { return [] }
@@ -187,7 +187,7 @@ public enum ToolchainInventory {
         }
     }
 
-    /// max(atime del ejecutable, mtime de la carpeta).
+    /// max(atime of the executable, mtime of the folder).
     static func lastUsed(_ folder: String, executable: String) -> Date? {
         var dates: [Date] = []
         var info = stat()

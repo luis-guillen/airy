@@ -1,18 +1,18 @@
 import Foundation
 
-/// Cuánto empuja un análisis. Airy tiene que ser ligera: ni el análisis que pide el usuario
-/// ocupa todos los núcleos.
-/// - `background`: reanálisis automáticos (al abrir, al cambiar de disco, el que pide un agente).
-/// - `normal`: el usuario pulsó «Analizar» o no hay índice que enseñar mientras tanto.
+/// How hard a scan pushes. Airy has to be light: not even the scan the user asks for
+/// takes every core.
+/// - `background`: automatic rescans (on launch, on disk change, the one an agent asks for).
+/// - `normal`: the user pressed "Scan" or there is no index to show in the meantime.
 public enum ScanIntensity: String, Sendable, Equatable {
     case background, normal
 }
 
-/// Hilos y calidad de servicio con los que el escáner hace `readdir`/`fstatat`.
+/// Threads and quality of service the scanner uses for `readdir`/`fstatat`.
 public struct ScanBudget: Sendable, Equatable {
-    /// Tope absoluto de hilos de análisis, sea cual sea la máquina.
+    /// Absolute cap on scan threads, whatever the machine.
     public static let maxWorkers = 4
-    /// Hilos en segundo plano, y con Bajo consumo o el Mac caliente.
+    /// Threads in the background, and with Low Power Mode or a hot Mac.
     public static let lightWorkers = 2
 
     public let workers: Int
@@ -23,13 +23,13 @@ public struct ScanBudget: Sendable, Equatable {
         self.qos = qos
     }
 
-    /// Regla pura:
-    /// - `background` = 2 hilos en QoS `.background`: núcleos de eficiencia y E/S de disco
-    ///   moderada por el sistema, para no competir con lo que haga el usuario. Tarda más
-    ///   (~30 s frente a ~11 s con `.utility` sobre ~/Library, 580 000 elementos), y se acepta.
-    /// - `normal` = hasta 4 hilos (sin pasar de los núcleos de rendimiento) en `.utility`: el
-    ///   usuario espera delante del progreso.
-    /// Con Bajo consumo o temperatura `.serious` o peor, como mucho 2 hilos.
+    /// Pure rule:
+    /// - `background` = 2 threads at QoS `.background`: efficiency cores and disk I/O
+    ///   throttled by the system, so as not to compete with what the user is doing. It takes longer
+    ///   (~30 s versus ~11 s with `.utility` on ~/Library, 580,000 items), and that is accepted.
+    /// - `normal` = up to 4 threads (never more than the performance cores) at `.utility`: the
+    ///   user is waiting in front of the progress.
+    /// With Low Power Mode or a `.serious` or worse temperature, at most 2 threads.
     public static func resolve(
         _ intensity: ScanIntensity,
         performanceCores: Int,
@@ -47,14 +47,14 @@ public struct ScanBudget: Sendable, Equatable {
         }
     }
 
-    /// La regla con el estado actual del Mac (núcleos de rendimiento, Bajo consumo, temperatura).
+    /// The rule with the Mac's current state (performance cores, Low Power Mode, temperature).
     public static func current(_ intensity: ScanIntensity) -> ScanBudget {
         let info = ProcessInfo.processInfo
         return resolve(intensity, performanceCores: performanceCoreCount(),
                        lowPowerMode: info.isLowPowerModeEnabled, thermalState: info.thermalState)
     }
 
-    /// Núcleos de rendimiento (Apple silicon); en un Mac sin niveles, los núcleos activos.
+    /// Performance cores (Apple silicon); on a Mac without levels, the active cores.
     static func performanceCoreCount() -> Int {
         var count: Int32 = 0
         var size = MemoryLayout<Int32>.size
@@ -65,29 +65,29 @@ public struct ScanBudget: Sendable, Equatable {
     }
 }
 
-/// Qué pidió el análisis: decide si hace falta y con qué intensidad.
+/// What asked for the scan: decides whether it is needed and how hard.
 public enum ScanTrigger: Sendable, Equatable {
-    /// Al abrir la app o al cambiar de disco.
+    /// On app launch or on disk change.
     case automatic
-    /// `airy://rescan` (p. ej. la herramienta `rescan` del servidor MCP).
+    /// `airy://rescan` (e.g. the MCP server's `rescan` tool).
     case agent
-    /// El usuario pulsó «Analizar».
+    /// The user pressed "Scan".
     case user
 }
 
 public enum ScanPlan: Sendable, Equatable {
-    /// El índice guardado es reciente: se enseña y no se reanaliza.
+    /// The saved index is recent: it is shown and not rescanned.
     case skip
     case scan(ScanIntensity)
 }
 
 public enum ScanSchedule {
-    /// Un índice más joven que esto no se reanaliza solo al abrir.
+    /// An index younger than this is not rescanned automatically on launch.
     public static let freshness: TimeInterval = 6 * 3600
 
     /// - Parameters:
-    ///   - hasIndex: hay un índice guardado que ya se está enseñando.
-    ///   - indexDate: fecha de ese índice (`nil` si no se sabe: se trata como viejo).
+    ///   - hasIndex: there is a saved index already being shown.
+    ///   - indexDate: that index's date (`nil` if unknown: treated as old).
     public static func plan(_ trigger: ScanTrigger, hasIndex: Bool, indexDate: Date?, now: Date) -> ScanPlan {
         switch trigger {
         case .user:
@@ -95,19 +95,19 @@ public enum ScanSchedule {
         case .agent:
             return .scan(.background)
         case .automatic:
-            // Sin nada que enseñar el usuario espera delante del progreso.
+            // With nothing to show, the user is waiting in front of the progress.
             guard hasIndex else { return .scan(.normal) }
             guard let indexDate else { return .scan(.background) }
             let age = now.timeIntervalSince(indexDate)
-            // Una fecha futura (reloj cambiado) no cuenta como reciente.
+            // A future date (changed clock) does not count as recent.
             return age >= 0 && age < freshness ? .skip : .scan(.background)
         }
     }
 }
 
 #if DEBUG
-/// `AIRY_SCAN_ROOTS` (solo DEBUG): rutas separadas por `:` que sustituyen al disco entero, para
-/// que las comprobaciones de la app analicen una carpeta pequeña. `~` se expande.
+/// `AIRY_SCAN_ROOTS` (DEBUG only): `:`-separated paths that replace the whole disk, so that
+/// the app's checks scan a small folder. `~` is expanded.
 public enum ScanRootsOverride {
     public static let variable = "AIRY_SCAN_ROOTS"
 
@@ -120,8 +120,8 @@ public enum ScanRootsOverride {
         return roots.isEmpty ? nil : roots
     }
 
-    /// Con raíces sustituidas solo se guarda el índice en una carpeta de datos temporal
-    /// (`AIRY_SUPPORT_DIR`): un árbol parcial nunca pisa el índice real.
+    /// With replaced roots, the index is only saved in a temporary data folder
+    /// (`AIRY_SUPPORT_DIR`): a partial tree never overwrites the real index.
     public static func allowsSaving(environment: [String: String]) -> Bool {
         guard roots(from: environment) != nil else { return true }
         return !(environment["AIRY_SUPPORT_DIR"] ?? "").isEmpty

@@ -1,8 +1,8 @@
 import Foundation
 
-// Paleta de Airy. Los valores salen de la spec §2.1; los derivados (modo claro,
-// tintas de riesgo, botón) se eligieron para pasar `AiryPaletteTests`.
-// Quien cambie un color corre las pruebas.
+// Airy's palette. The values come from spec §2.1; the derived ones (light mode,
+// risk inks, button) were chosen to pass `AiryPaletteTests`.
+// Whoever changes a color runs the tests.
 
 public enum AiryAppearance: Sendable, CaseIterable { case dark, light }
 
@@ -31,7 +31,7 @@ public enum AiryPalette {
     public static let doNotTouch: UInt32 = 0xff4d5e
     public static let others: UInt32 = 0x5a6380
 
-    /// Opacidad con la que se tiñe el fondo de una insignia de riesgo.
+    /// Opacity used to tint a risk badge's background.
     public static let badgeTintOpacity = 0.14
 
     public static func tokens(_ appearance: AiryAppearance) -> AiryTokens {
@@ -49,7 +49,7 @@ public enum AiryPalette {
         }
     }
 
-    /// Color fijo de la señal de seguridad: solo para fondos y rellenos grandes.
+    /// Fixed color of the safety signal: only for backgrounds and large fills.
     public static func riskFill(_ risk: Risk) -> UInt32 {
         switch risk {
         case .safe: safe
@@ -58,7 +58,7 @@ public enum AiryPalette {
         }
     }
 
-    /// Tinta de texto/icono de riesgo con contraste AA sobre el fondo del modo.
+    /// Risk text/icon ink with AA contrast on the mode's background.
     public static func riskInk(_ risk: Risk, _ appearance: AiryAppearance) -> UInt32 {
         let t = tokens(appearance)
         switch risk {
@@ -83,8 +83,8 @@ public enum AiryPalette {
         }
     }
 
-    /// Tinta de texto/icono de un tipo: el color del tipo, aclarado (oscuro) u oscurecido (claro)
-    /// lo justo para alcanzar AA sobre el fondo y el fondo elevado del modo.
+    /// Text/icon ink of a kind: the kind's color, lightened (dark) or darkened (light)
+    /// just enough to reach AA on the mode's background and raised background.
     public static func kindInk(_ kind: ContentKind, _ appearance: AiryAppearance) -> UInt32 {
         let t = tokens(appearance)
         let base = Self.kind(kind)
@@ -99,25 +99,25 @@ public enum AiryPalette {
         return target
     }
 
-    /// Degradado de una tesela: más claro arriba, más oscuro abajo.
+    /// A tile's gradient: lighter at the top, darker at the bottom.
     public static func tileStops(_ base: UInt32) -> [UInt32] {
         [ColorMath.mix(base, 0xffffff, 0.10), base, ColorMath.mix(base, 0x000000, 0.10)]
     }
 
-    /// Tinta de la etiqueta de una tesela: blanco o noche, la de mayor contraste.
+    /// Ink of a tile's label: white or night, whichever has more contrast.
     public static func tileInk(_ base: UInt32) -> UInt32 {
         let night: UInt32 = 0x07112a
         return ColorMath.contrastRatio(0xffffff, base) >= ColorMath.contrastRatio(night, base) ? 0xffffff : night
     }
 
-    /// Tinta (blanco o noche) con mejor contraste mínimo sobre todos los colores de un relleno.
+    /// Ink (white or night) with the best minimum contrast over all the colors of a fill.
     public static func inkForFill(_ colors: [UInt32]) -> UInt32 {
         let night: UInt32 = 0x07112a
         func worst(_ ink: UInt32) -> Double { colors.map { ColorMath.contrastRatio(ink, $0) }.min() ?? 0 }
         return worst(0xffffff) >= worst(night) ? 0xffffff : night
     }
 
-    /// Azul que se calienta hacia `heat` con la intensidad (acotada a 0…1; NaN ⇒ 0).
+    /// Blue that warms towards `heat` with the intensity (clamped to 0…1; NaN ⇒ 0).
     public static func swirlTint(heat h: Double) -> UInt32 {
         ColorMath.mix(0x2f8bff, heat, h.isNaN ? 0 : min(max(h, 0), 1))
     }
@@ -128,18 +128,18 @@ public enum AiryPalette {
         func add(_ name: String, _ fg: UInt32, _ bg: UInt32) {
             checks.append(ContrastCheck(name: name, foreground: fg, background: bg, minimum: 4.5))
         }
-        let surfaces: [(String, UInt32)] = [("fondo", t.background), ("elevado", t.backgroundRaised)]
+        let surfaces: [(String, UInt32)] = [("background", t.background), ("raised", t.backgroundRaised)]
         for (surfaceName, surface) in surfaces {
-            add("texto/\(surfaceName)", t.text, surface)
-            add("texto secundario/\(surfaceName)", t.textSecondary, surface)
-            add("acento/\(surfaceName)", t.accent, surface)
-            add("cielo/\(surfaceName)", t.sky, surface)
+            add("text/\(surfaceName)", t.text, surface)
+            add("secondary text/\(surfaceName)", t.textSecondary, surface)
+            add("accent/\(surfaceName)", t.accent, surface)
+            add("sky/\(surfaceName)", t.sky, surface)
         }
-        add("sobre acento/botón", t.onAccent, t.accentFill)
-        add("sobre acento/logo", t.onAccent, logoBottom)
-        add("sobre acento/destructivo claro", t.onAccent, destructiveTop)
-        add("sobre acento/destructivo oscuro", t.onAccent, destructiveBottom)
-        let risks: [(String, Risk)] = [("Sin problema", .safe), ("Tú decides", .yourCall), ("No borrar", .doNotTouch)]
+        add("on accent/button", t.onAccent, t.accentFill)
+        add("on accent/logo", t.onAccent, logoBottom)
+        add("on accent/destructive light", t.onAccent, destructiveTop)
+        add("on accent/destructive dark", t.onAccent, destructiveBottom)
+        let risks: [(String, Risk)] = [("Safe to remove", .safe), ("Your call", .yourCall), ("Don't delete", .doNotTouch)]
         for (riskName, risk) in risks {
             for (surfaceName, surface) in surfaces {
                 let tinted = ColorMath.mix(surface, riskFill(risk), badgeTintOpacity)

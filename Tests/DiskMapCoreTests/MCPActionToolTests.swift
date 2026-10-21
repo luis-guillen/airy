@@ -3,9 +3,9 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Dobles
+// MARK: - Doubles
 
-/// Registra las URLs que se le piden abrir; nunca abre nada.
+/// Records the URLs it is asked to open; it never opens anything.
 private final class RecordingOpener: URLOpening, Sendable {
     private let state = Mutex<[URL]>([])
     let succeeds: Bool
@@ -17,7 +17,7 @@ private final class RecordingOpener: URLOpening, Sendable {
     }
 }
 
-/// Sin procesos en marcha ni ficheros abiertos.
+/// Without running processes or open files.
 private struct QuietListing: ProcessListing {
     func processes() -> [RunningProcess]? { [] }
     func holders(ofPathsUnder paths: [String]) -> [RunningProcess]? { [] }
@@ -72,7 +72,7 @@ private func trashEntry(_ id: String, risk: Risk = .safe, mustBeClosed: [String]
 }
 
 private func commandEntry(_ id: String, executable: String, folder: String, risk: Risk = .safe) -> CatalogEntry {
-    CatalogEntry(id: id, title: "Caché de \(id)", explanation: "", whoCreatesIt: "", regenerates: true, risk: risk,
+    CatalogEntry(id: id, title: "\(id) cache", explanation: "", whoCreatesIt: "", regenerates: true, risk: risk,
                  kind: .caches, paths: ["~/\(folder)"],
                  cleanup: .command(executable: executable, arguments: ["cache", "clean"], sizeProbe: nil))
 }
@@ -88,7 +88,7 @@ private func exists(_ path: String) -> Bool {
     return lstat(path, &info) == 0
 }
 
-/// Crea `~/Library/Caches/<id>/f` y devuelve la carpeta.
+/// Creates `~/Library/Caches/<id>/f` and returns the folder.
 @discardableResult
 private func makeCache(_ f: ActionFixture, _ id: String) -> String {
     let folder = f.home + "/Library/Caches/" + id
@@ -99,7 +99,7 @@ private func makeCache(_ f: ActionFixture, _ id: String) -> String {
 private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_cleanup", "show_in_app", "rescan",
                            "propose_quit_app"]
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct MCPActionToolTests {
     @Test func runSafeCleanupExecutesGreenItem() async throws {
@@ -126,7 +126,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         let folder = makeCache(f, "ambar")
         let result = await f.call(RunSafeCleanupTool(), ["item_id": .string("ambar")])
         #expect(result.isError)
-        #expect(result.text == "«Prueba ambar» es «Tú decides»: solo se ejecuta lo marcado «Sin problema». Usa propose_cleanup para que el usuario decida en Airy.")
+        #expect(result.text == "“Prueba ambar” is “Your call”: only what is marked “Safe to remove” runs. Use propose_cleanup so that the user decides in Airy.")
         #expect(f.runner.calls.isEmpty)
         #expect(exists(folder + "/f"))
         #expect(f.records().map(\.outcome) == ["blocked"])
@@ -139,7 +139,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         let red = makeCache(f, "rojo"), app = makeCache(f, "app")
         let redResult = await f.call(RunSafeCleanupTool(), ["item_id": .string("rojo")])
         #expect(redResult.isError)
-        #expect(redResult.text == "«Prueba rojo» es «No borrar»: Airy no lo toca.")
+        #expect(redResult.text == "“Prueba rojo” is “Don't delete”: Airy does not touch it.")
         let appResult = await f.call(RunSafeCleanupTool(), ["item_id": .string("app")])
         #expect(appResult.isError)
         #expect(appResult.text.contains("com.example.App"))
@@ -217,7 +217,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         makeCache(f, "prueba")
         f.saveSettings { $0.agentsEnabled = false }
         await assertAllActionToolsBlocked(
-            f, message: "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes).")
+            f, message: "You have turned off agent actions in Airy (Settings › Agents).")
     }
 
     @Test func unreadableSettingsBlocksActions() async throws {
@@ -227,8 +227,8 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
                                                 withIntermediateDirectories: true)
         try Data("{\"agentsEnabled\": tru".utf8).write(to: f.env.paths.settingsFile)
         await assertAllActionToolsBlocked(
-            f, message: "Airy no puede leer sus ajustes; no se ejecuta nada hasta que los revises en la app.")
-        // Una versión futura también es ilegible.
+            f, message: "Airy cannot read its settings; nothing runs until you check them in the app.")
+        // A future version is unreadable too.
         try Data("{\"version\": 99, \"agentsEnabled\": true}".utf8).write(to: f.env.paths.settingsFile)
         let result = await f.call(RunSafeCleanupAllTool(), ["dry_run": .bool(true)])
         #expect(result.isError)
@@ -264,7 +264,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
             commandEntry("uv", executable: "uv", folder: ".cache/uv"),
             commandEntry("tool2", executable: "tool2", folder: ".cache/tool2"),
         ], onRun: { _ in
-            // Tras el primer comando, el usuario apaga el interruptor en la app.
+            // After the first command, the user turns the switch off in the app.
             guard let file = settingsFile.withLock({ $0 }) else { return }
             var s = AirySettings()
             s.agentsEnabled = false
@@ -280,7 +280,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         #expect(rows.first?["outcome"]?.stringValue == "freed")
         #expect(rows.last?["outcome"]?.stringValue == "blocked")
         #expect(rows.last?["message"]?.stringValue
-            == "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes).")
+            == "You have turned off agent actions in Airy (Settings › Agents).")
         #expect(f.runner.calls.count == 1)
         #expect(f.records().map(\.outcome) == ["freed", "blocked"])
     }
@@ -291,7 +291,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         let result = await f.call(ProposeCleanupTool(), ["item_id": .string("ambar"), "reason": .string("Ocupa 10 KB")])
         #expect(!result.isError, "\(result.text)")
         #expect(result.structured?["status"]?.stringValue == "pending_user_confirmation")
-        #expect(result.structured?["message"]?.stringValue == "Propuesta enviada a Airy; pendiente de confirmación del usuario.")
+        #expect(result.structured?["message"]?.stringValue == "Proposal sent to Airy; waiting for the user's confirmation.")
         let url = try #require(f.opener.urls.first)
         #expect(f.opener.urls.count == 1)
         #expect(url.absoluteString.hasPrefix("airy://propose?item=ambar&"))
@@ -303,7 +303,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         #expect(f.records().map(\.outcome) == ["pending_user"])
         #expect(f.records().first?.action == "propose")
 
-        // Por ruta, también sin ejecutar.
+        // By path, also without running.
         let byPath = await f.call(ProposeCleanupTool(), ["path": .string("~/Library/Caches/ambar/f"),
                                                          "reason": .string("viejo")])
         #expect(!byPath.isError, "\(byPath.text)")
@@ -311,12 +311,12 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
             target: .path(f.home + "/Library/Caches/ambar/f"), reason: "viejo", agent: "test-client"))
         #expect(exists(folder + "/f"))
 
-        // Sin la app: error y nada más.
+        // Without the app: an error and nothing else.
         let noApp = makeFixture(entries: [trashEntry("ambar", risk: .yourCall)], opener: RecordingOpener(succeeds: false))
         makeCache(noApp, "ambar")
         let failed = await noApp.call(ProposeCleanupTool(), ["item_id": .string("ambar"), "reason": .string("x")])
         #expect(failed.isError)
-        #expect(failed.text == "No se pudo abrir Airy (¿está instalada en /Applications?).")
+        #expect(failed.text == "Could not open Airy (is it installed in /Applications?).")
     }
 
     @Test func proposeRejectsRedBothTargetsAndMissingReason() async throws {
@@ -324,7 +324,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         makeCache(f, "rojo"); makeCache(f, "ambar")
         let red = await f.call(ProposeCleanupTool(), ["item_id": .string("rojo"), "reason": .string("x")])
         #expect(red.isError)
-        #expect(red.text == "«Prueba rojo» es «No borrar»: Airy no lo toca.")
+        #expect(red.text == "“Prueba rojo” is “Don't delete”: Airy does not touch it.")
         let both = await f.call(ProposeCleanupTool(), ["item_id": .string("ambar"), "path": .string(f.home + "/x"),
                                                        "reason": .string("x")])
         #expect(both.isError)
@@ -373,7 +373,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         #expect(!rescan.isError)
         #expect(rescan.structured?["status"]?.stringValue == "scan_requested")
         #expect(rescan.structured?["message"]?.stringValue
-            == "Análisis pedido a Airy. Cuando termine, get_disk_summary mostrará la fecha nueva.")
+            == "Scan requested from Airy. When it finishes, get_disk_summary will show the new date.")
         #expect(f.opener.urls.map { AiryURLCommand(url: $0) } == [.show(path: f.home + "/Downloads"), .rescan])
         #expect(f.records().map(\.action) == ["show", "rescan", "show", "rescan"])
         #expect(f.records().allSatisfy { $0.outcome == "requested" })
@@ -384,7 +384,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
         #expect(f.opener.urls.count == 2)
     }
 
-    /// F11: el conjunto exacto, sin contar; cada plan añade sus nombres.
+    /// F11: the exact set, without counting; each plan adds its names.
     @Test func registryHasExactToolSetAndNoArbitraryInput() {
         let tools = MCPToolRegistry.standard().tools
         #expect(tools.map(\.name).sorted() == ["explain_app", "explain_path", "get_disk_summary", "get_performance", "list_apps",
@@ -393,7 +393,7 @@ private let actionNames = ["run_safe_cleanup", "run_safe_cleanup_all", "propose_
             "run_safe_cleanup_all", "show_in_app"])
         for tool in tools {
             guard case .object(let properties)? = tool.inputSchema["properties"] else {
-                Issue.record("\(tool.name) sin properties"); continue
+                Issue.record("\(tool.name) without properties"); continue
             }
             for forbidden in ["command", "args", "paths"] { #expect(properties[forbidden] == nil, "\(tool.name)") }
             if properties["path"] != nil {

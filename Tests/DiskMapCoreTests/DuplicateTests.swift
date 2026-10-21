@@ -4,8 +4,8 @@ import Testing
 
 private let kib = 1024
 
-/// Carpeta temporal con un home y ficheros reales; el índice se construye con `DiskScanner` (sin agrupar
-/// los pequeños), como el que guarda la app.
+/// Temporary folder with a home and real files; the index is built with `DiskScanner` (without grouping
+/// the small ones), like the one the app saves.
 private struct Fixture {
     let tmp: String
     var home: String { tmp + "/home" }
@@ -15,7 +15,7 @@ private struct Fixture {
         try! FileManager.default.createDirectory(atPath: tmp + "/home", withIntermediateDirectories: true)
     }
 
-    /// Escribe `data` en `home/rel` y devuelve la ruta.
+    /// Writes `data` to `home/rel` and returns the path.
     @discardableResult
     func write(_ rel: String, _ data: Data) -> String {
         let full = home + "/" + rel
@@ -47,7 +47,7 @@ private struct Fixture {
     }
 }
 
-/// 200 KiB pseudoaleatorios, distintos por `seed`.
+/// 200 KiB of pseudorandom data, different per `seed`.
 private func blob(_ seed: UInt8, size: Int = 200 * kib) -> Data {
     var state = UInt32(seed) &* 2_654_435_761 &+ 1
     return Data((0..<size).map { _ in
@@ -79,7 +79,7 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         let g = result.groups[0]
         #expect(Set(g.copies.map(\.path)) == [a, b])
         #expect(g.size == Int64(200 * kib))
-        #expect(g.keeper == a)                        // la de Descargas no se propone conservar
+        #expect(g.keeper == a)                        // the one in Downloads is not proposed to be kept
         #expect(g.copies.first?.path == g.keeper)
         #expect(g.wastedBytes > 0)
         #expect(result.filesExamined == 3)
@@ -127,8 +127,8 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         let a = f.write("a.bin", blob(7))
         let b = f.home + "/b.bin"
         guard clonefile(a, b, 0) == 0 else {
-            // Solo APFS clona; en otro sistema de ficheros no hay nada que comprobar.
-            Issue.record("clonefile no disponible aquí (¿no es APFS?): errno \(errno)")
+            // Only APFS clones; on another file system there is nothing to check.
+            Issue.record("clonefile not available here (not APFS?): errno \(errno)")
             return
         }
         let result = await f.find()
@@ -140,15 +140,15 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
     @Test func keeperPrefersProtectedThenNotDownloadsThenOldest() {
         let home = "/Users/x"
         let old = Date(timeIntervalSince1970: 1_000), new = Date(timeIntervalSince1970: 2_000)
-        // (1) lo protegido gana aunque esté en Descargas y sea más nuevo.
+        // (1) what is protected wins even if it is in Downloads and newer.
         let protectedFirst = [copy("/Users/x/Documents/a", created: old),
                               copy("/Users/x/Downloads/z", created: new, protected: true)]
         #expect(DuplicateFinder.suggestedKeeper(protectedFirst, home: home) == "/Users/x/Downloads/z")
-        // (2) fuera de Descargas y Escritorio, aunque sea más nueva.
+        // (2) outside Downloads and Desktop, even if it is newer.
         let notDownloads = [copy("/Users/x/Downloads/a", created: old), copy("/Users/x/Desktop/b", created: old),
                             copy("/Users/x/Documents/long/path/c", created: new)]
         #expect(DuplicateFinder.suggestedKeeper(notDownloads, home: home) == "/Users/x/Documents/long/path/c")
-        // (3) la más antigua; (4) la ruta más corta; (5) orden alfabético.
+        // (3) the oldest; (4) the shortest path; (5) alphabetical order.
         let oldest = [copy("/Users/x/Documents/b", created: new), copy("/Users/x/Documents/long/a", created: old)]
         #expect(DuplicateFinder.suggestedKeeper(oldest, home: home) == "/Users/x/Documents/long/a")
         let shortest = [copy("/Users/x/Documents/long/a", created: old), copy("/Users/x/Documents/b", created: old)]
@@ -169,11 +169,11 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
     @Test func toggleNeverSelectsWholeGroup() {
         let g = group([copy("/a/1"), copy("/a/2")])
         var board = DuplicateBoard(groups: [g])
-        board.toggle("/a/1", in: g)                   // el conservado: no hace nada
+        board.toggle("/a/1", in: g)                   // the kept one: it does nothing
         #expect(board.selected.isEmpty)
         board.toggle("/a/2", in: g)
         #expect(board.selected == ["/a/2"])
-        board.keep("/a/2", in: g)                     // cambia el conservado y lo desmarca
+        board.keep("/a/2", in: g)                     // changes the kept one and unchecks it
         #expect(board.keepers[g.id] == "/a/2")
         #expect(board.selected.isEmpty)
         board.toggle("/a/1", in: g)
@@ -181,7 +181,7 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         #expect(board.selected == ["/a/1"])
         board.toggle("/a/1", in: g)
         #expect(board.selected.isEmpty)
-        // Lo protegido nunca se marca, y una ruta ajena al grupo tampoco.
+        // What is protected is never checked, and neither is a path outside the group.
         let p = group([copy("/p/1"), copy("/p/2", protected: true)])
         var other = DuplicateBoard(groups: [p])
         other.toggle("/p/2", in: p)
@@ -216,14 +216,14 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         let removal = try #require(board.removals().first)
         #expect(Set(removal.remove) == [b, c])
         #expect(await f.finder().verify(removal).isEmpty)
-        var changed = blob(8); changed[10] ^= 0xFF          // mismo tamaño, contenido distinto
+        var changed = blob(8); changed[10] ^= 0xFF          // same size, different content
         try changed.write(to: URL(fileURLWithPath: b))
-        #expect(await f.finder().verify(removal) == [b: "Ha cambiado desde la búsqueda."])
+        #expect(await f.finder().verify(removal) == [b: "It has changed since the search."])
         try blob(8, size: 100 * kib).write(to: URL(fileURLWithPath: c))
         let both = await f.finder().verify(removal)
-        #expect(both == [b: "Ha cambiado desde la búsqueda.", c: "Ha cambiado desde la búsqueda."])
+        #expect(both == [b: "It has changed since the search.", c: "It has changed since the search."])
         try FileManager.default.removeItem(atPath: c)
-        #expect(await f.finder().verify(removal)[c] == "Ya no existe.")
+        #expect(await f.finder().verify(removal)[c] == "It no longer exists.")
     }
 
     @Test func verifyRejectsMissingKeeper() async throws {
@@ -239,13 +239,13 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         var changed = blob(9); changed[0] ^= 0xFF
         try changed.write(to: URL(fileURLWithPath: a))
         let changedKeep = await f.finder().verify(removal)
-        #expect(changedKeep[a] == "La copia que conservas ha cambiado.")
-        // Ninguna otra copia pasa: quien filtre ruta a ruta nunca borra el grupo entero.
-        for path in removal.remove { #expect(changedKeep[path] == "La copia que conservas ha cambiado.") }
+        #expect(changedKeep[a] == "The copy you are keeping has changed.")
+        // No other copy passes: whoever filters path by path never deletes the whole group.
+        for path in removal.remove { #expect(changedKeep[path] == "The copy you are keeping has changed.") }
         try FileManager.default.removeItem(atPath: a)
         let missingKeep = await f.finder().verify(removal)
-        #expect(missingKeep[a] == "Ya no existe la copia que conservas.")
-        for path in removal.remove { #expect(missingKeep[path] == "Ya no existe la copia que conservas.") }
+        #expect(missingKeep[a] == "The copy you are keeping no longer exists.")
+        for path in removal.remove { #expect(missingKeep[path] == "The copy you are keeping no longer exists.") }
         let confirmable = await f.finder().confirmable([removal])
         #expect(confirmable.paths.isEmpty)
         #expect(confirmable.notes.count == 1)
@@ -257,14 +257,14 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         let b = f.write("b.bin", blob(10))
         let finder = f.finder()
         let removal = DuplicateRemoval(keep: a, remove: [a, b], size: Int64(200 * kib))
-        #expect(await finder.verify(removal)[a] == "Es la copia que conservas.")
-        // La misma copia con otra forma de la ruta (mayúsculas en APFS) también es la conservada.
+        #expect(await finder.verify(removal)[a] == "It is the copy you are keeping.")
+        // The same copy with another form of the path (uppercase on APFS) is the kept one too.
         let variant = DuplicateRemoval(keep: a, remove: [f.home + "/A.bin"], size: Int64(200 * kib))
         let variantResult = await finder.verify(variant)
         if FileManager.default.fileExists(atPath: f.home + "/A.bin") {
-            #expect(variantResult[f.home + "/A.bin"] == "Es la copia que conservas.")
+            #expect(variantResult[f.home + "/A.bin"] == "It is the copy you are keeping.")
         } else {
-            #expect(variantResult[f.home + "/A.bin"] == "Ya no existe.")   // volumen que distingue mayúsculas
+            #expect(variantResult[f.home + "/A.bin"] == "It no longer exists.")   // case-sensitive volume
         }
         #expect(await finder.confirmable([removal]).paths.isEmpty)
     }
@@ -280,9 +280,9 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         let viaLink = f.home + "/Docs/a.bin"
         let removal = DuplicateRemoval(keep: a, remove: [hard, soft, viaLink], size: Int64(200 * kib))
         let result = await f.finder().verify(removal)
-        #expect(result[hard] == "Es la copia que conservas.")
-        #expect(result[viaLink] == "Es la copia que conservas.")
-        #expect(result[soft] == "Ha cambiado desde la búsqueda.")      // un enlace simbólico nunca pasa
+        #expect(result[hard] == "It is the copy you are keeping.")
+        #expect(result[viaLink] == "It is the copy you are keeping.")
+        #expect(result[soft] == "It has changed since the search.")      // a symbolic link never passes
         #expect(await f.finder().confirmable([removal]).paths.isEmpty)
     }
 
@@ -294,7 +294,7 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         }
         let root = await f.index()
         var search = f.search
-        search.readBudget = Int64(6 * 2 * 2 * DuplicateFinder.partialChunk + 2 * 200 * kib)   // parciales + 1 grupo
+        search.readBudget = Int64(6 * 2 * 2 * DuplicateFinder.partialChunk + 2 * 200 * kib)   // partial + 1 group
         let result = await f.finder().find(search, in: root)
         #expect(!result.complete)
         #expect(result.groups.count < 6)
@@ -321,7 +321,7 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         try changed.write(to: URL(fileURLWithPath: b))
         let out = await f.finder().confirmable(board.removals())
         #expect(Set(out.paths) == [c, y])
-        #expect(out.notes == ["~/Documents/sub/b.bin: Ha cambiado desde la búsqueda."])
+        #expect(out.notes == ["~/Documents/sub/b.bin: It has changed since the search."])
     }
 
     @Test func protectedCopyIsKeptAndNeverSelectable() async {
@@ -378,7 +378,7 @@ private func group(_ copies: [DuplicateCopy], keeper: String? = nil) -> Duplicat
         let finder = f.finder()
         let search = f.search
         let task = Task {
-            try? await Task.sleep(for: .seconds(30))   // se corta al cancelar
+            try? await Task.sleep(for: .seconds(30))   // cut short when cancelled
             return await finder.find(search, in: root)
         }
         task.cancel()

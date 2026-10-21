@@ -1,12 +1,12 @@
 import AppKit
 import Foundation
 
-/// Abre URLs (p. ej. `airy://…`) para pasar propuestas a la app.
+/// Opens URLs (e.g. `airy://…`) to hand proposals to the app.
 public protocol URLOpening: Sendable {
     func open(_ url: URL) async -> Bool
 }
 
-/// Abre con `NSWorkspace`; si Airy está cerrada, macOS la arranca.
+/// Opens with `NSWorkspace`; if Airy is closed, macOS launches it.
 public struct WorkspaceURLOpener: URLOpening {
     public init() {}
 
@@ -22,8 +22,8 @@ public struct WorkspaceURLOpener: URLOpening {
     }
 }
 
-/// Todo lo que necesitan las herramientas MCP (el mismo estado en disco que la app).
-/// Los ajustes se leen de nuevo en cada uso: nunca se cachean.
+/// Everything the MCP tools need (the same on-disk state as the app).
+/// Settings are read again on every use: they are never cached.
 public struct AiryEnvironment: Sendable {
     public let home: String, paths: AppPaths
     public let catalog: Catalog?, catalogError: String?
@@ -31,11 +31,11 @@ public struct AiryEnvironment: Sendable {
     public let runner: any CommandRunning, probes: any SystemProbing, processGuard: ProcessGuard
     public let references: ReferenceChecker, urlOpener: any URLOpening
     public let capacity: @Sendable () -> VolumeCapacity?
-    /// Rendimiento: solo mide cuando una herramienta lo llama.
+    /// Performance: it only measures when a tool calls it.
     public let sampler: any PerformanceSampling
     public let appCatalog: AppCatalog?
-    /// Desinstalador (solo lectura y propuestas): raíces del inventario, último uso, ids instalados y
-    /// si una app está abierta (nunca se cierra nada desde aquí).
+    /// Uninstaller (read-only and proposals): inventory roots, last use, installed ids and
+    /// whether an app is open (nothing is ever quit from here).
     public let appRoots: [String]
     public let usage: any AppUsageReading
     public let bundleLookup: any BundleIDLookup
@@ -47,7 +47,7 @@ public struct AiryEnvironment: Sendable {
                 runner: any CommandRunning, probes: any SystemProbing, processGuard: ProcessGuard,
                 references: ReferenceChecker, urlOpener: any URLOpening,
                 capacity: @escaping @Sendable () -> VolumeCapacity?,
-                sampler: any PerformanceSampling = LiveSampler(), appCatalog: AppCatalog? = try? AppCatalog.bundled(),
+                sampler: any PerformanceSampling = LiveSampler(), appCatalog: AppCatalog? = try? AppCatalog.bundled(language: AiryLanguage.source),
                 appRoots: [String]? = nil, usage: any AppUsageReading = SpotlightUsage(),
                 bundleLookup: (any BundleIDLookup)? = nil, runningApps: any AppQuitting = WorkspaceQuitter(),
                 fileUsage: any FileUsageReading = SpotlightFileUsage()) {
@@ -66,35 +66,35 @@ public struct AiryEnvironment: Sendable {
         self.fileUsage = fileUsage
     }
 
-    /// Casks de Homebrew (solo `brew list`, lectura) y apps de `appRoots`.
+    /// Homebrew casks (only `brew list`, read-only) and apps from `appRoots`.
     public func inventorySnapshot() async -> AppInventorySnapshot {
         let casks = await HomebrewCasks.installed(runner: runner) ?? [:]
         return await AppInventory(roots: appRoots, usage: usage, casks: casks).snapshot()
     }
 
-    /// Portero con la lista «Proteger esto» leída ahora.
+    /// Gatekeeper with the "Protect this" list read now.
     public func pathGate() -> PathGate {
         PathGate(home: home, catalog: catalog,
                  userProtected: ProtectList(patterns: settings.load().effective.protectedPaths, home: home))
     }
 
-    /// Buscador de restos con las raíces de desinstalación de producción (la app vuelve a validar al confirmar).
+    /// Leftover finder with the production uninstall roots (the app validates again on confirmation).
     public func leftoverFinder() -> LeftoverFinder {
         LeftoverFinder(home: home, gate: pathGate(), runner: runner,
                        appRoots: ProtectionWaiver.productionAppRoots(home: home))
     }
 
-    /// Entorno real del usuario. Sin acceso a la Papelera, nunca recurre a Finder (vaciaría las
-    /// papeleras de todos los volúmenes sin que la app lo avise).
+    /// The user's real environment. Without access to the Trash, it never falls back to Finder (it would empty the
+    /// trash of every volume without the app warning about it). The MCP always works in English.
     public static func live(paths: AppPaths = .standard()) -> AiryEnvironment {
         let home = NSHomeDirectory()
         let catalog: Catalog?, catalogError: String?
         do {
-            catalog = try Catalog.bundled()
+            catalog = try Catalog.bundled(language: AiryLanguage.source)
             catalogError = nil
         } catch {
             catalog = nil
-            catalogError = "No se pudo cargar el catálogo de limpiezas (\(error))."
+            catalogError = "Could not load the cleanup catalog (\(error))."
         }
         let runner = ProcessRunner()
         return AiryEnvironment(
@@ -108,7 +108,7 @@ public struct AiryEnvironment: Sendable {
             sampler: LiveSampler(runner: runner))
     }
 
-    /// Clasificador con los ajustes leídos ahora (`effective`: ilegibles ⇒ agentes apagados). `nil` sin catálogo.
+    /// Classifier with the settings read now (`effective`: unreadable ⇒ agents off). `nil` without a catalog.
     public func classifier() -> RiskClassifier? {
         guard let catalog else { return nil }
         return RiskClassifier(catalog: catalog, settings: settings.load().effective, home: home)
@@ -120,7 +120,7 @@ public struct AiryEnvironment: Sendable {
                               home: home, classifier: classifier())
     }
 
-    /// Ejecutor sobre el mismo historial, ajustes (leídos en cada operación) y registro que la app.
+    /// Executor on the same history, settings (read on every operation) and log as the app.
     public func makeExecutor() -> CleanupExecutor? {
         guard let catalog else { return nil }
         let store = settings

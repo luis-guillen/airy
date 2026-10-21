@@ -3,7 +3,7 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-/// Abre nada: solo anota las URLs (F9: propio de este archivo).
+/// Opens nothing: it only records the URLs (F9: specific to this file).
 private final class QuitRecordingOpener: URLOpening, Sendable {
     private let state = Mutex<[URL]>([])
     let succeeds: Bool
@@ -18,7 +18,7 @@ private final class QuitRecordingOpener: URLOpening, Sendable {
 private let me = getuid()
 private let mb: Int64 = 1 << 20
 
-/// Spotify, Finder, Airy, airy-mcp suelto y dos `node` sueltos (uno grande); todo del usuario actual.
+/// Spotify, Finder, Airy, a loose airy-mcp and two loose `node` processes (one large); all of the current user.
 private func sampleRaw(_ n: Int = 0) -> RawSample {
     let spotifyApp = "/Applications/Spotify.app", finderApp = "/System/Library/CoreServices/Finder.app"
     let airyApp = "/Applications/Airy.app"
@@ -82,7 +82,7 @@ private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()
         let result = await f.performance()
         #expect(!result.isError)
         #expect(f.sampler.calls == 2)
-        // El mismo veredicto que da el monitor con esas dos muestras.
+        // The same verdict the monitor gives with those two samples.
         let monitor = PerformanceMonitor(sampler: FakeSampler([sampleRaw(0), sampleRaw(1)]), grouper: { raw, cpu, energy in
             AppGrouper.group(raw, cpu: cpu, energy: energy, catalog: nil)
         })
@@ -114,7 +114,7 @@ private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()
         let f = makePerfFixture()
         let result = await f.performance()
         guard case .array(let top)? = result.structured?["top_by_memory"] else {
-            Issue.record("sin top_by_memory"); return
+            Issue.record("no top_by_memory"); return
         }
         #expect(top.count == 5)
         func row(_ name: String) -> JSONValue? { top.first { $0["name"] == .string(name) } }
@@ -145,13 +145,13 @@ private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()
         #expect(result.structured?["risk"] == .string("safe"))
         #expect(result.structured?["app"] == .string("Spotify"))
         #expect(result.structured?["message"]
-                == .string("Propuesta enviada a Airy; el usuario decide si la cierra. Airy nunca cierra apps por su cuenta."))
+                == .string("Proposal sent to Airy; the user decides whether to quit it. Airy never quits apps on its own."))
         #expect(f.sampler.calls == 1)
         let records = f.records()
         #expect(records.count == 1)
         #expect(records.first?.action == "propose_quit" && records.first?.outcome == "pending_user")
         #expect(records.first?.actor == .agent(client: "test-client"))
-        // La herramienta no tiene ningún terminador: no hay camino por el que pueda cerrar nada.
+        // The tool has no terminator at all: there is no path through which it could quit anything.
         #expect(!result.text.contains("1000") && !result.text.contains("/Applications"))
     }
 
@@ -161,20 +161,20 @@ private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()
             let result = await f.call(["app": .string(app)])
             #expect(result.isError, "\(app)")
         }
-        #expect(await f.call(["app": .string("NoExiste")]).text == "No hay ninguna app abierta llamada «NoExiste».")
-        #expect(await f.call(["app": .string("finder")]).text.hasPrefix("«Finder» no se puede cerrar desde Airy: "))
+        #expect(await f.call(["app": .string("NoExiste")]).text == "There is no open app called “NoExiste”.")
+        #expect(await f.call(["app": .string("finder")]).text.hasPrefix("“Finder” cannot be quit from Airy: "))
 
         var off = AirySettings()
         off.agentsEnabled = false
         try f.env.settings.save(off)
         let toggled = await f.call(["app": .string("Spotify")])
         #expect(toggled.isError)
-        #expect(toggled.text == "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes).")
+        #expect(toggled.text == "You have turned off agent actions in Airy (Settings › Agents).")
 
         try Data("{\"agentsEnabled\": tru".utf8).write(to: f.env.paths.settingsFile)
         let unreadable = await f.call(["app": .string("Spotify"), "dry_run": .bool(true)])
         #expect(unreadable.isError)
-        #expect(unreadable.text == "Airy no puede leer sus ajustes; no se ejecuta nada hasta que los revises en la app.")
+        #expect(unreadable.text == "Airy cannot read its settings; nothing runs until you check them in the app.")
 
         #expect(f.opener.urls.isEmpty)
         #expect(f.records().allSatisfy { $0.action == "propose_quit" && $0.outcome == "blocked" })
@@ -195,14 +195,14 @@ private func makePerfFixture(opener: QuitRecordingOpener = QuitRecordingOpener()
         #expect(!result.isError)
         #expect(result.structured?["risk"] == .string("yourCall"))
         #expect(f.records().first?.bytes == 300 * mb)
-        // Ni la carpeta de trabajo ni el PID salen hacia el agente.
+        // Neither the working folder nor the PID go out to the agent.
         #expect(!result.text.contains("otro") && !result.text.contains("proyecto-secreto") && !result.text.contains("1005"))
     }
 
     @Test func proposeQuitReportsWhenAiryCannotOpen() async {
         let f = makePerfFixture(opener: QuitRecordingOpener(succeeds: false))
         let result = await f.call(["app": .string("Spotify")])
-        #expect(result.isError && result.text == "No se pudo abrir Airy (¿está instalada en /Applications?).")
+        #expect(result.isError && result.text == "Could not open Airy (is it installed in /Applications?).")
         #expect(f.records().first?.outcome == "failed")
     }
 }

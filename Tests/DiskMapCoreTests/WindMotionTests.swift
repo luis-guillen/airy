@@ -37,7 +37,7 @@ struct WindMotionTests {
             #expect(abs(end.x - targets[i].x) < 1e-9 && abs(end.y - targets[i].y) < 1e-9)
             #expect(end.opacity == 1 && end.scale == 1)
             #expect(WindMotion.launchLeaf(index: i, count: n, progress: 0.4)
-                    == WindMotion.launchLeaf(index: i, count: n, progress: 0.4))   // determinista
+                    == WindMotion.launchLeaf(index: i, count: n, progress: 0.4))   // deterministic
         }
     }
 
@@ -45,7 +45,7 @@ struct WindMotionTests {
         let n = WindMotion.launchLeafCount
         for progress in [0.0, 0.2, 0.4] {
             let rotations = (0..<n).map { WindMotion.launchLeaf(index: $0, count: n, progress: progress).rotation }
-            // Cada hoja gira a su aire: nada de un bando apuntando igual.
+            // Each leaf turns its own way: no group pointing the same way.
             #expect(Set(rotations.map { ($0 * 100).rounded() }).count == n)
             #expect(rotations.max()! - rotations.min()! > 1)
         }
@@ -135,15 +135,15 @@ struct WindMotionTests {
 
     @Test func batchTallySumsFreedAndTrashAndSaysWhichIsWhich() {
         var tally = BatchMotion.Tally()
-        #expect(tally.bytes == 0 && tally.label == "liberados" && tally.help == nil)
+        #expect(tally.bytes == 0 && tally.label == "freed" && tally.help == nil)
         tally.add(.freed(1_000))
         tally.add(.blocked(reason: "abierto"))
-        tally.add(.failed("sin permiso"))
-        #expect(tally.bytes == 1_000 && tally.label == "liberados" && tally.help == nil)
+        tally.add(.failed("no permission"))
+        #expect(tally.bytes == 1_000 && tally.label == "freed" && tally.help == nil)
         tally.add(.movedToTrash(500))
         #expect(tally.bytes == 1_500 && tally.freed == 1_000 && tally.movedToTrash == 500)
-        #expect(tally.label == "despejados")
-        #expect(tally.help == "Lo movido a la Papelera se libera al vaciarla")
+        #expect(tally.label == "cleared")
+        #expect(tally.help == "What was moved to the Trash is freed when you empty it")
         #expect(BatchMotion.tally([.freed(1), .movedToTrash(2), .freed(3)]).bytes == 6)
     }
 
@@ -183,7 +183,7 @@ struct WindMotionTests {
         var phase = SwirlPhase()
         _ = phase.advance(to: 0, revolutionsPerSecond: 0.9)
         let before = phase.advance(to: 0.016, revolutionsPerSecond: 0.9)
-        let after = phase.advance(to: 120, revolutionsPerSecond: 0.9)   // dos minutos en pausa
+        let after = phase.advance(to: 120, revolutionsPerSecond: 0.9)   // two minutes paused
         #expect(abs(after - before) <= 2 * .pi * 0.9 / 15 + 1e-9)
     }
 

@@ -1,10 +1,10 @@
 import Foundation
 
-/// Selección de la sección Duplicados. Reglas: la copia conservada nunca está marcada (así ningún grupo
-/// queda entero marcado) y lo rojo o protegido nunca se marca.
+/// Selection for the Duplicates section. Rules: the kept copy is never checked (so no group is ever
+/// entirely checked) and red or protected items are never checked.
 public struct DuplicateBoard: Sendable, Equatable {
     public private(set) var groups: [DuplicateGroup]
-    /// `group.id` → ruta conservada.
+    /// `group.id` → kept path.
     public private(set) var keepers: [String: String]
     public private(set) var selected: Set<String>
 
@@ -16,7 +16,7 @@ public struct DuplicateBoard: Sendable, Equatable {
 
     private func keeper(of group: DuplicateGroup) -> String { keepers[group.id] ?? group.keeper }
 
-    /// Nunca marca lo que no `canSelect` ni el conservado; nunca deja el grupo sin una copia sin marcar.
+    /// Never checks what is not `canSelect` nor the kept one; never leaves the group without an unchecked copy.
     public mutating func toggle(_ path: String, in group: DuplicateGroup) {
         guard let copy = group.copies.first(where: { $0.path == path }) else { return }
         if selected.remove(path) != nil { return }
@@ -26,14 +26,14 @@ public struct DuplicateBoard: Sendable, Equatable {
         selected.insert(path)
     }
 
-    /// Cambia el conservado del grupo y lo desmarca.
+    /// Changes the group's kept copy and unchecks it.
     public mutating func keep(_ path: String, in group: DuplicateGroup) {
         guard group.copies.contains(where: { $0.path == path }) else { return }
         keepers[group.id] = path
         selected.remove(path)
     }
 
-    /// En cada grupo, todas salvo el conservado y las que no `canSelect`.
+    /// In each group, all except the kept one and those that are not `canSelect`.
     public mutating func selectAllCopies() {
         for group in groups {
             let keep = keeper(of: group)
@@ -52,7 +52,7 @@ public struct DuplicateBoard: Sendable, Equatable {
         groups.reduce(0) { total, group in total + marked(in: group).reduce(0) { $0 + $1.reclaimableBytes } }
     }
 
-    /// Una por grupo con algo marcado; nunca incluye el conservado.
+    /// One per group with something checked; never includes the kept one.
     public func removals() -> [DuplicateRemoval] {
         groups.compactMap { group in
             let remove = marked(in: group).map(\.path)

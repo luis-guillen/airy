@@ -7,9 +7,9 @@ public struct ScanOptions: Sendable {
     ]
 
     public var roots: [URL]
-    /// Rutas que no se recorren. Si una raíz está dentro de un prefijo, ese prefijo no se aplica a ella.
+    /// Paths that are not walked. If a root lies inside a prefix, that prefix does not apply to it.
     public var excludedPrefixes: [String]
-    /// Hijos más pequeños que esto se funden en un nodo "Otros" al cerrar cada carpeta.
+    /// Children smaller than this are merged into an "Other" node when each folder is closed.
     public var pruneThreshold: Int64
 
     public init(
@@ -39,8 +39,8 @@ public struct ScanResult: Sendable {
     public let root: FileNode
     public let inaccessible: [String]
     public let duration: TimeInterval
-    /// Cuándo terminó el análisis completo que produjo el árbol. Volver a guardar el árbol tras
-    /// una limpieza o la Papelera no lo cambia. `nil`: no se sabe (índice de antes de guardarla).
+    /// When the full scan that produced the tree finished. Saving the tree again after
+    /// a cleanup or the Trash does not change it. `nil`: unknown (an index from before it was saved).
     public let scannedAt: Date?
 
     public init(root: FileNode, inaccessible: [String], duration: TimeInterval, scannedAt: Date? = nil) {
@@ -51,12 +51,12 @@ public struct ScanResult: Sendable {
     }
 }
 
-/// Escáner paralelo: `opendir/readdir` + `fstatat` sin seguir enlaces, tamaño asignado
-/// (`st_blocks * 512`), hard links contados una vez y sin cruzar a otros volúmenes.
+/// Parallel scanner: `opendir/readdir` + `fstatat` without following links, allocated size
+/// (`st_blocks * 512`), hard links counted once and without crossing into other volumes.
 ///
-/// El trabajo lo hacen `budget.workers` hilos propios con la QoS del presupuesto (nunca el pool
-/// cooperativo entero): una pila compartida de carpetas por leer y cada carpeta se cierra cuando
-/// llega su última subcarpeta. Así un análisis no puede ocupar más núcleos que los que se le dan.
+/// The work is done by `budget.workers` dedicated threads with the budget's QoS (never the whole cooperative
+/// pool): a shared stack of folders to read, and each folder is closed when its last subfolder
+/// arrives. That way a scan cannot take more cores than it is given.
 public final class DiskScanner: Sendable {
     public let options: ScanOptions
     public let budget: ScanBudget
@@ -66,13 +66,13 @@ public final class DiskScanner: Sendable {
         self.budget = budget
     }
 
-    /// El presupuesto se calcula ahora con el estado del Mac (Bajo consumo, temperatura).
+    /// The budget is computed now from the Mac's state (Low Power Mode, temperature).
     public convenience init(options: ScanOptions, intensity: ScanIntensity = .normal) {
         self.init(options: options, budget: .current(intensity))
     }
 
-    /// Cancelable con `Task.cancel()` (lanza `CancellationError`). `progress` se llama como máximo
-    /// cada 100 ms, desde los hilos del escáner.
+    /// Cancellable with `Task.cancel()` (throws `CancellationError`). `progress` is called at most
+    /// every 100 ms, from the scanner's threads.
     public func scan(progress: @escaping @Sendable (ScanProgress) -> Void) async throws -> ScanResult {
         let clock = ContinuousClock()
         let start = clock.now
@@ -112,10 +112,10 @@ public final class DiskScanner: Sendable {
         return ScanResult(root: root, inaccessible: shared.inaccessibleSorted(), duration: duration, scannedAt: Date())
     }
 
-    // MARK: - Recorrido
+    // MARK: - Walk
 
-    /// Recorre una raíz con los hilos del presupuesto y devuelve su nodo cerrado. Sin bloquear
-    /// el pool cooperativo: la tarea espera en una continuación.
+    /// Walks a root with the budget's threads and returns its closed node. Without blocking
+    /// the cooperative pool: the task waits on a continuation.
     private func scanTree(_ root: DirectoryEntry, _ context: ScanContext) async -> FileNode {
         await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<FileNode, Never>) in
@@ -135,9 +135,9 @@ public final class DiskScanner: Sendable {
         }
     }
 
-    /// Lee una carpeta: si no tiene subcarpetas se cierra ya; si no, deja sus subcarpetas en la pila.
+    /// Reads a folder: if it has no subfolders it is closed right away; otherwise it pushes its subfolders onto the stack.
     private func process(_ job: Job, _ context: ScanContext, _ queue: WorkQueue) {
-        // Cancelado: lo que queda se cierra vacío sin tocar el disco (el resultado se descarta).
+        // Cancelled: what is left is closed empty without touching the disk (the result is discarded).
         guard !context.shared.isCancelled else {
             deliver(close(job.entry, children: []), to: job.parent, queue)
             return
@@ -152,8 +152,8 @@ public final class DiskScanner: Sendable {
         queue.push(subdirectories.map { Job(entry: $0, parent: pending) })
     }
 
-    /// Entrega un nodo cerrado a su padre; el último hijo en llegar cierra al padre, y así hacia
-    /// arriba. Cerrar la raíz termina el recorrido.
+    /// Hands a closed node to its parent; the last child to arrive closes the parent, and so on
+    /// upwards. Closing the root ends the walk.
     private func deliver(_ node: FileNode, to parent: PendingDirectory?, _ queue: WorkQueue) {
         var node = node
         var parent = parent
@@ -181,7 +181,7 @@ public final class DiskScanner: Sendable {
                     let name = String(cString: cName)
                     guard name != ".", name != ".." else { return nil }
                     var info = stat()
-                    // Si desaparece entre readdir y fstatat, se omite.
+                    // If it disappears between readdir and fstatat, it is skipped.
                     guard fstatat(fd, cName, &info, AT_SYMLINK_NOFOLLOW) == 0 else { return nil }
                     return (name, info)
                 }
@@ -220,7 +220,7 @@ public final class DiskScanner: Sendable {
             lastModified: Self.date(info.st_mtimespec), kind: kind, kindBytes: kindBytes)
     }
 
-    /// Cierra una carpeta: suma tamaños y tipos, decide su `kind` y agrupa los hijos pequeños.
+    /// Closes a folder: adds up sizes and kinds, decides its `kind` and groups the small children.
     private func close(_ directory: DirectoryEntry, children: [FileNode]) -> FileNode {
         let folderKind = FileKindClassifier.kind(forDirectoryPath: directory.path)
         var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
@@ -230,7 +230,7 @@ public final class DiskScanner: Sendable {
             for index in kindBytes.indices { kindBytes[index] += child.kindBytes[index] }
             descendants += 1 + child.descendantCount
         }
-        // Lo que no se reconoce por extensión toma el significado de la carpeta (binarios de una .app, blobs de Caches…).
+        // What is not recognized by extension takes the folder's meaning (binaries of an .app, Caches blobs…).
         if let folderKind, folderKind != .other {
             kindBytes[folderKind.index] += kindBytes[ContentKind.other.index]
             kindBytes[ContentKind.other.index] = 0
@@ -259,7 +259,7 @@ public final class DiskScanner: Sendable {
                 hidden += child.descendantCount
             }
             let aggregate = FileNode(
-                name: "Otros", isDirectory: false, allocatedSize: kindBytes.reduce(0, +),
+                name: "Other", isDirectory: false, allocatedSize: kindBytes.reduce(0, +),
                 lastModified: small.compactMap(\.lastModified).max(),
                 kindBytes: kindBytes, descendantCount: hidden, aggregatedCount: small.count)
             aggregate.kind = aggregate.dominantKind
@@ -270,7 +270,7 @@ public final class DiskScanner: Sendable {
         return kept.sorted { $0.allocatedSize > $1.allocatedSize }
     }
 
-    /// Varias raíces cuelgan de un nodo sin nombre para que `path` de cada una siga siendo absoluta.
+    /// Several roots hang from an unnamed node so that each one's `path` stays absolute.
     private static func combine(_ roots: [FileNode]) -> FileNode {
         var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
         for root in roots {
@@ -284,10 +284,10 @@ public final class DiskScanner: Sendable {
         return node
     }
 
-    // MARK: - Utilidades
+    // MARK: - Utilities
 
     private static func normalize(_ path: String) -> String {
-        // Sin `standardizingPath`: quitaría `/private` y las exclusiones dejarían de coincidir.
+        // No `standardizingPath`: it would strip `/private` and the exclusions would stop matching.
         var components: [Substring] = []
         for component in path.split(separator: "/") {
             switch component {
@@ -320,7 +320,7 @@ private struct DirectoryEntry: Sendable {
     let modified: Date?
 }
 
-/// Configuración inmutable de una raíz concreta.
+/// Immutable configuration of one specific root.
 private struct ScanContext: Sendable {
     let device: dev_t
     let excluded: Set<String>
@@ -328,8 +328,8 @@ private struct ScanContext: Sendable {
     let shared: SharedScanState
 }
 
-/// Carpeta leída que espera a sus subcarpetas. Sus campos variables solo se tocan con el
-/// cerrojo de `WorkQueue` (`attach`).
+/// A read folder waiting for its subfolders. Its mutable fields are only touched under the
+/// `WorkQueue` lock (`attach`).
 private final class PendingDirectory: @unchecked Sendable {
     let entry: DirectoryEntry
     let parent: PendingDirectory?
@@ -349,8 +349,8 @@ private struct Job: Sendable {
     let parent: PendingDirectory?
 }
 
-/// Pila de carpetas por leer que comparten los hilos del escáner (LIFO: el recorrido va en
-/// profundidad y las carpetas a medias no se acumulan). Todo su estado va bajo `condition`.
+/// Stack of folders to read shared by the scanner's threads (LIFO: the walk goes depth-first
+/// and half-done folders do not pile up). All its state is under `condition`.
 private final class WorkQueue: @unchecked Sendable {
     private let condition = NSCondition()
     private var jobs: [Job] = []
@@ -368,16 +368,16 @@ private final class WorkQueue: @unchecked Sendable {
         condition.unlock()
     }
 
-    /// Espera trabajo; `nil` cuando la raíz ya se cerró (el hilo termina).
+    /// Waits for work; `nil` once the root has been closed (the thread ends).
     func next() -> Job? {
         condition.lock()
         defer { condition.unlock() }
         while jobs.isEmpty, !finished { condition.wait() }
-        // La raíz solo se cierra cuando ya se entregó todo: con `finished` la pila está vacía.
+        // The root is only closed once everything has been handed over: with `finished` the stack is empty.
         return jobs.popLast()
     }
 
-    /// Añade un hijo cerrado; devuelve los hijos del padre si era el último que faltaba.
+    /// Adds a closed child; returns the parent's children if it was the last one missing.
     func attach(_ node: FileNode, to parent: PendingDirectory) -> [FileNode]? {
         condition.lock()
         defer { condition.unlock() }
@@ -398,7 +398,7 @@ private final class WorkQueue: @unchecked Sendable {
     }
 }
 
-/// Estado mutable compartido entre hilos, protegido por `Mutex`.
+/// Mutable state shared between threads, protected by a `Mutex`.
 private final class SharedScanState: Sendable {
     private struct HardLinkKey: Hashable {
         let device: dev_t
@@ -418,7 +418,7 @@ private final class SharedScanState: Sendable {
     private let report: @Sendable (ScanProgress) -> Void
 
     init(start: ContinuousClock.Instant, report: @escaping @Sendable (ScanProgress) -> Void) {
-        // El primer aviso sale enseguida; luego, como mucho cada 100 ms.
+        // The first update goes out right away; then, at most every 100 ms.
         progress = Mutex(Progress(lastReport: start - .milliseconds(100)))
         self.report = report
     }
@@ -427,7 +427,7 @@ private final class SharedScanState: Sendable {
 
     func cancel() { cancelled.withLock { $0 = true } }
 
-    /// `true` la primera vez que se ve el par (dispositivo, inodo).
+    /// `true` the first time the (device, inode) pair is seen.
     func claimHardLink(device: dev_t, inode: ino_t) -> Bool {
         hardLinks.withLock { $0.insert(HardLinkKey(device: device, inode: inode)).inserted }
     }

@@ -2,7 +2,7 @@ import Testing
 @testable import DiskMapCore
 
 @Suite struct DiskUsageBreakdownTests {
-    // Cifras reales de este Mac (df -k / y URLResourceValues), redondeadas.
+    // Real figures from this Mac (df -k / and URLResourceValues), rounded.
     @Test func realUsedIncludesPurgeable() {
         let usage = DiskUsageBreakdown(totalBytes: 494_000, availableBytes: 118_000,
                                        importantAvailableBytes: 149_000, analyzedBytes: 300_000)
@@ -14,7 +14,7 @@ import Testing
     }
 
     @Test func analyzedAboveUsedShowsUnknownRemainder() {
-        // Analizar `/` cuenta macOS y apps: lo analizado puede pasar de lo usado no purgable.
+        // Scanning `/` counts macOS and apps: the analyzed space may exceed the used, non-purgeable space.
         let usage = DiskUsageBreakdown(totalBytes: 1_000, availableBytes: 200,
                                        importantAvailableBytes: 300, analyzedBytes: 900)
         #expect(usage.other == nil)

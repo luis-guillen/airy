@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import DiskMapCore
 
-/// Proyecto `~/Projects/<name>` con estos paquetes (`name@version`) en su node_modules.
+/// Project `~/Projects/<name>` with these packages (`name@version`) in its node_modules.
 private func project(_ home: String, _ name: String, _ packages: [String]) {
     let root = home + "/Projects/" + name
     tcWrite(root + "/package.json", "{}")
@@ -31,7 +31,7 @@ private func context(_ home: String, catalog: Catalog) -> DiscoveryContext {
         #expect(rows.count == 1 && row.paths.isEmpty && !row.preselectable && row.sizeNote == nil)
         let size = try #require(TreeWalk.summarize(home + "/Projects/a/node_modules/react", budget: .seconds(5))).bytes
         #expect(row.bytes == 2 * size)
-        #expect(row.details == ["react@18.2.0 · 3 proyectos · \(Format.bytes(size)) cada copia"])
+        #expect(row.details == ["react@18.2.0 · 3 projects · \(Format.bytes(size)) per copy"])
     }
 
     @Test func pnpmSymlinkedPackagesAreSkipped() async throws {
@@ -52,13 +52,13 @@ private func context(_ home: String, catalog: Catalog) -> DiscoveryContext {
     @Test func scopedPackagesAndBadJsonAreHandled() async throws {
         let home = toolchainTempDir()
         for name in ["a", "b", "c"] { project(home, name, ["@babel/core@7.23.0", "broken@1.0.0"]) }
-        tcWrite(home + "/Projects/a/node_modules/broken/package.json", "{no es json")
+        tcWrite(home + "/Projects/a/node_modules/broken/package.json", "{not json")
         tcWrite(home + "/Projects/b/node_modules/broken/package.json",
                 #"{"name":"broken","version":"1.0.0","x":""# + String(repeating: "y", count: 70_000) + "\"}")
         let catalog = try tcCatalog("node-dependency-duplicates")
         let rows = await DependencyDuplicateSource().discover(catalog.entries[0], context: context(home, catalog: catalog))
         #expect(rows.first?.details.count == 1)
-        #expect(rows.first?.details.first?.hasPrefix("@babel/core@7.23.0 · 3 proyectos") == true)
+        #expect(rows.first?.details.first?.hasPrefix("@babel/core@7.23.0 · 3 projects") == true)
     }
 
     @Test func duplicatesNeverActAndAgentOnlyLists() async throws {
@@ -81,7 +81,7 @@ private func context(_ home: String, catalog: Catalog) -> DiscoveryContext {
                 Issue.record("\(context)"); continue
             }
         }
-        #expect(await executor.execute(item) == .blocked(reason: "Este elemento es solo informativo."))
+        #expect(await executor.execute(item) == .blocked(reason: "This item is informational only."))
         #expect(runner.calls.isEmpty)
     }
 }

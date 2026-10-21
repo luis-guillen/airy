@@ -2,12 +2,12 @@ import AppKit
 import Darwin
 import Foundation
 
-/// Procesos: libproc para los del propio usuario, `/bin/ps` (solo lectura) para todos, NSWorkspace para las apps.
-/// libproc devuelve EPERM con procesos de root y de otros usuarios (R2), por eso `ps` cubre el resto.
+/// Processes: libproc for the user's own, `/bin/ps` (read-only) for all, NSWorkspace for the apps.
+/// libproc returns EPERM for processes of root and of other users (R2), which is why `ps` covers the rest.
 public enum ProcessProbe {
-    // MARK: - Propios (libproc)
+    // MARK: - Own (libproc)
 
-    /// Procesos con el mismo uid que este proceso (incluido él mismo). Los que fallan (EPERM, ya terminados) se saltan.
+    /// Processes with the same uid as this process (itself included). Those that fail (EPERM, already ended) are skipped.
     public static func ownProcesses() -> [OwnProcess] {
         let uid = getuid()
         let capacity = Int(proc_listallpids(nil, 0))
@@ -87,18 +87,18 @@ public enum ProcessProbe {
         return path.isEmpty ? nil : path
     }
 
-    // MARK: - Todos (ps)
+    // MARK: - All (ps)
 
     public static let psArguments = ["-Ac", "-o", "pid=,ppid=,uid=,pcpu=,rss=,state=,comm="]
 
-    /// `/bin/ps` con `psArguments`, plazo 3 s; estado ≠ 0, plazo agotado o salida vacía ⇒ nil.
+    /// `/bin/ps` with `psArguments`, 3 s time limit; status ≠ 0, exhausted time limit or empty output ⇒ nil.
     public static func systemProcesses(runner: any CommandRunning) async -> [SystemProcess]? {
         guard let out = try? await runner.run("/bin/ps", psArguments, timeout: 3), out.status == 0 else { return nil }
         let parsed = parsePS(out.stdout)
         return parsed.isEmpty ? nil : parsed
     }
 
-    /// Seis campos separados por espacios y el resto de la línea es el nombre; `,` o `.` decimal; rss en KiB.
+    /// Six space-separated fields and the rest of the line is the name; `,` or `.` decimal; rss in KiB.
     static func parsePS(_ output: String) -> [SystemProcess] {
         output.split(whereSeparator: \.isNewline).compactMap { line in
             var rest = Substring(line)
@@ -120,25 +120,25 @@ public enum ProcessProbe {
         }
     }
 
-    // MARK: - Apps abiertas
+    // MARK: - Open apps
 
     /// NSWorkspace.shared.runningApplications → RunningAppInfo.
     public static func runningApps() -> [RunningAppInfo] {
         NSWorkspace.shared.runningApplications.compactMap(info)
     }
 
-    /// `NSWorkspace` más lo que LaunchServices diga *ahora* de los `.app` que no conoce. En un proceso sin bucle
-    /// de AppKit (`airy-mcp`) la lista de `NSWorkspace` no se entera de las apps abiertas después de arrancar;
-    /// `NSRunningApplication(processIdentifier:)` sí se consulta al momento.
+    /// `NSWorkspace` plus what LaunchServices says *now* about the `.app` bundles it does not know. In a process
+    /// without an AppKit loop (`airy-mcp`) the `NSWorkspace` list does not learn about apps opened after launch;
+    /// `NSRunningApplication(processIdentifier:)` is queried on the spot.
     public static func runningApps(processes: [OwnProcess]) -> [RunningAppInfo] {
         merge(workspace: runningApps(), processes: processes) { pid in
             NSRunningApplication(processIdentifier: pid).flatMap(info)
         }
     }
 
-    /// Para cada `.app` más externo del listado de procesos que `workspace` no conoce, consulta sus PIDs (de menor
-    /// a mayor) hasta dar con la app de ese mismo `.app`. Una app interior (un ayudante con su propio `.app`
-    /// dentro de otra) no cuenta: su ruta no es la del `.app` más externo.
+    /// For each outermost `.app` in the process list that `workspace` does not know, queries its PIDs (lowest
+    /// to highest) until it finds the app of that same `.app`. An inner app (a helper with its own `.app`
+    /// inside another one) does not count: its path is not that of the outermost `.app`.
     static func merge(workspace: [RunningAppInfo], processes: [OwnProcess],
                       lookup: (Int32) -> RunningAppInfo?) -> [RunningAppInfo] {
         let knownBundles = Set(workspace.compactMap(\.bundlePath))

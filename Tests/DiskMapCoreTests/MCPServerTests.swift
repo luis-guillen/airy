@@ -3,15 +3,15 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Dobles de prueba
+// MARK: - Test doubles
 
-/// Herramienta falsa: cuenta las llamadas y devuelve los argumentos recibidos.
+/// Fake tool: counts the calls and returns the arguments it received.
 final class FakeTool: MCPTool, Sendable {
     private let callCount = Mutex(0)
     var calls: Int { callCount.withLock { $0 } }
 
     var name: String { "fake_tool" }
-    var description: String { "Herramienta de prueba." }
+    var description: String { "Test tool." }
     var inputSchema: JSONValue {
         .object([
             "type": .string("object"),
@@ -73,7 +73,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
     try parse(await server.handle(line: #"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"\#(name)","arguments":\#(arguments)}}"#))
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Test func initializeNegotiatesVersion() async throws {
     let echoed = try await initialize(makeServer(), version: "2025-06-18")
@@ -82,7 +82,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
     #expect(echoed["result"]?["serverInfo"]?["title"]?.stringValue == "Airy")
     #expect(echoed["result"]?["serverInfo"]?["version"]?.stringValue == "9.9.9")
     #expect(echoed["result"]?["capabilities"]?["tools"]?["listChanged"]?.boolValue == false)
-    #expect(echoed["result"]?["instructions"]?.stringValue?.contains("Sin problema") == true)
+    #expect(echoed["result"]?["instructions"]?.stringValue?.contains("Safe to remove") == true)
     #expect(echoed["id"]?.intValue == 1)
     #expect(echoed["jsonrpc"]?.stringValue == "2.0")
 
@@ -94,7 +94,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
 @Test func notificationsGetNoResponse() async {
     let server = makeServer()
     #expect(await server.handle(line: #"{"jsonrpc":"2.0","method":"notifications/initialized"}"#) == nil)
-    // Las respuestas del cliente tampoco se contestan.
+    // Client responses are not answered either.
     #expect(await server.handle(line: #"{"jsonrpc":"2.0","id":5,"result":{}}"#) == nil)
     #expect(await server.handle(line: "   ") == nil)
 }
@@ -108,12 +108,12 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
 @Test func toolsListListsRegistry() async throws {
     let response = try parse(await makeServer().handle(line: #"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#))
     guard case .array(let tools)? = response["result"]?["tools"] else {
-        Issue.record("sin lista de herramientas"); return
+        Issue.record("no tool list"); return
     }
     #expect(tools.count == 1)
     let tool = tools[0]
     #expect(tool["name"]?.stringValue == "fake_tool")
-    #expect(tool["description"]?.stringValue == "Herramienta de prueba.")
+    #expect(tool["description"]?.stringValue == "Test tool.")
     #expect(tool["inputSchema"] == FakeTool().inputSchema)
     #expect(tool["annotations"] == .object([
         "readOnlyHint": .bool(true), "destructiveHint": .bool(false),
@@ -137,7 +137,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
     let response = try parse(await makeServer().handle(line: #"[{"jsonrpc":"2.0","id":1,"method":"ping"}]"#))
     #expect(response["error"]?["code"]?.intValue == -32600)
     #expect(response["id"] == .null)
-    // Tampoco vale una petición sin "jsonrpc": "2.0".
+    // A request without "jsonrpc": "2.0" is not valid either.
     let noVersion = try parse(await makeServer().handle(line: #"{"id":1,"method":"ping"}"#))
     #expect(noVersion["error"]?["code"]?.intValue == -32600)
 }
@@ -158,7 +158,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
         #expect(response["error"] == nil, "\(bad)")
         #expect(response["result"]?["isError"]?.boolValue == true, "\(bad)")
         guard case .array(let content)? = response["result"]?["content"] else {
-            Issue.record("sin contenido: \(bad)"); continue
+            Issue.record("no content: \(bad)"); continue
         }
         #expect(content.first?["type"]?.stringValue == "text")
         #expect(content.first?["text"]?.stringValue?.isEmpty == false)
@@ -176,7 +176,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
     let oldResult = try await callTool(old, arguments: #"{"path":"/x"}"#)
     #expect(oldResult["result"]?["structuredContent"] == nil)
     guard case .array(let content)? = oldResult["result"]?["content"] else {
-        Issue.record("sin contenido"); return
+        Issue.record("no content"); return
     }
     #expect(content.first?["text"]?.stringValue?.hasPrefix("Hecho.\n") == true)
 
@@ -184,7 +184,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
     _ = try await initialize(new, version: "2025-06-18")
     let newResult = try await callTool(new, arguments: #"{"path":"/x"}"#)
     #expect(newResult["result"]?["structuredContent"]?["echo"]?.stringValue == "/x")
-    // El nombre del cliente llega a la herramienta.
+    // The client's name reaches the tool.
     #expect(newResult["result"]?["structuredContent"]?["client"]?.stringValue == "prueba")
 }
 
@@ -212,7 +212,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
 }
 
 @Test func catalogFoundFromBundledHelperLayout() throws {
-    // Copia el bundle de recursos real a tmp/X.app/Contents/Resources y busca desde Contents/MacOS/airy-mcp.
+    // Copies the real resource bundle to tmp/X.app/Contents/Resources and searches from Contents/MacOS/airy-mcp.
     let source = try #require(
         Bundle.allBundles.map { $0.bundleURL.deletingLastPathComponent().appendingPathComponent(Catalog.bundleName) }
             .first { FileManager.default.fileExists(atPath: $0.path) }
@@ -227,7 +227,7 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
     let catalog = try Catalog.bundled(executableURL: macOS.appendingPathComponent("airy-mcp"), searchProcessBundles: false)
     #expect(!catalog.entries.isEmpty)
 
-    // Sin el bundle en Resources (y sin buscar en los del proceso) no lo encuentra.
+    // Without the bundle in Resources (and without searching the process's bundles) it does not find it.
     let empty = URL(fileURLWithPath: makeTempHome()).appendingPathComponent("Y.app/Contents/MacOS/airy-mcp")
     #expect(throws: CatalogError.self) {
         try Catalog.bundled(executableURL: empty, searchProcessBundles: false)
@@ -249,22 +249,22 @@ private func callTool(_ server: MCPServer, arguments: String, name: String = "fa
     let first = try parse(responses.first)
     #expect(first["error"]?["code"]?.intValue == -32700)
     #expect(first["id"] == .null)
-    // El mensaje siguiente se atiende con normalidad.
+    // The next message is served normally.
     let second = try parse(responses.count > 1 ? responses[1] : nil)
     #expect(second["id"]?.intValue == 2 && second["result"] == .object([:]))
-    // También al final de la entrada, sin salto de línea.
+    // Also at the end of the input, without a line break.
     #expect(try parse(responses.last)["error"]?["code"]?.intValue == -32700)
     #expect(StdioTransport.maxLineBytes == 1 << 20)
 }
 
-/// Herramienta que no consigue anotar en el registro.
+/// Tool that cannot write to the log.
 private struct AuditFailingTool: MCPTool {
     var name: String { "fake_tool" }
     var description: String { "Prueba." }
     var inputSchema: JSONValue { .object(["type": .string("object")]) }
     var annotations: MCPToolAnnotations { MCPToolAnnotations(readOnly: false, destructive: true, idempotent: false) }
     func call(_ arguments: [String: JSONValue], context: MCPCallContext) async -> MCPToolResult {
-        context.environment.log.reportFailure("no se pudo anotar «x» en el registro de operaciones (disco lleno)")
+        context.environment.log.reportFailure("could not record “x” in the operation log (disk full)")
         return .ok(.object(["outcome": .string("freed")]), summary: "Hecho.")
     }
 }
@@ -274,9 +274,9 @@ private struct AuditFailingTool: MCPTool {
                            environment: makeTestEnvironment(home: makeTempHome()), serverVersion: "9.9.9")
     _ = try await initialize(server, version: "2025-06-18")
     let response = try await callTool(server, arguments: "{}")
-    guard case .array(let content)? = response["result"]?["content"] else { Issue.record("sin content"); return }
+    guard case .array(let content)? = response["result"]?["content"] else { Issue.record("no content"); return }
     let text = content.first?["text"]?.stringValue ?? ""
-    #expect(text.contains("Aviso: no se pudo anotar «x»"))
-    #expect(response["result"]?["structuredContent"]?["audit_warning"]?.stringValue?.contains("incompleto") == true)
+    #expect(text.contains("Warning: could not record “x”"))
+    #expect(response["result"]?["structuredContent"]?["audit_warning"]?.stringValue?.contains("incomplete") == true)
     #expect(response["result"]?["structuredContent"]?["outcome"]?.stringValue == "freed")
 }

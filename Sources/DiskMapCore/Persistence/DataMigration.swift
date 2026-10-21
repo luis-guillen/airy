@@ -4,7 +4,7 @@ public enum MigrationResult: Sendable, Equatable {
     case notNeeded, migrated(copied: [String]), failed(String)
 }
 
-/// Copia (nunca mueve ni borra) los datos de DiskMap a la carpeta de Airy, una sola vez.
+/// Copies (never moves nor deletes) DiskMap's data to Airy's folder, once.
 public enum DataMigration {
     private struct Failure: Error { let message: String }
 
@@ -54,7 +54,7 @@ public enum DataMigration {
         }
     }
 
-    /// Copia de `legacy` a `current` las claves que falten en `current`; devuelve las copiadas.
+    /// Copies from `legacy` to `current` the keys missing from `current`; returns the ones copied.
     public static func migrateDefaults(from legacy: UserDefaults?, to current: UserDefaults, keys: [String]) -> [String] {
         guard let legacy else { return [] }
         var copied: [String] = []

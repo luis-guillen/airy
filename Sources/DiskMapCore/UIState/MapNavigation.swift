@@ -1,13 +1,13 @@
 import Foundation
 
-/// Pila de zoom del mapa. `stack[0]` es la raíz analizada y `current` el nivel visible.
-/// La ruta de navegación empieza por `rootTitle` (nombre del volumen, p. ej. "Macintosh HD")
-/// porque `root.name` es la ruta completa analizada ("/") o "" si hay varias raíces.
+/// The map's zoom stack. `stack[0]` is the scanned root and `current` the visible level.
+/// The breadcrumb starts with `rootTitle` (the volume name, e.g. "Macintosh HD")
+/// because `root.name` is the full scanned path ("/") or "" when there are several roots.
 public struct MapNavigation: Sendable {
     public private(set) var stack: [FileNode]
     public var rootTitle: String
 
-    /// Sin análisis todavía: no hay nivel visible.
+    /// No scan yet: there is no visible level.
     public init(rootTitle: String = "Macintosh HD") {
         self.stack = []
         self.rootTitle = rootTitle
@@ -26,9 +26,9 @@ public struct MapNavigation: Sendable {
         [rootTitle] + stack.dropFirst().map(\.name)
     }
 
-    /// Entra en `node` si es una carpeta descendiente del nivel actual; si está a varios
-    /// niveles, apila también los intermedios para que "atrás" suba de uno en uno.
-    /// Los archivos, los agregados "Otros" y los nodos ajenos se ignoran.
+    /// Enters `node` if it is a folder descending from the current level; if it is several
+    /// levels down, it also pushes the intermediate ones so that "back" goes up one at a time.
+    /// Files, "Other" aggregates and unrelated nodes are ignored.
     public mutating func zoom(into node: FileNode) {
         guard let current, node !== current, node.isDirectory, node.aggregatedCount == 0 else { return }
         var chain: [FileNode] = []
@@ -41,8 +41,8 @@ public struct MapNavigation: Sendable {
         stack.append(contentsOf: chain.reversed())
     }
 
-    /// La misma ruta sobre un árbol nuevo (p. ej. al terminar un reanálisis): baja por nombre desde
-    /// `newRoot` hasta el nivel más hondo que siga existiendo como carpeta. Conserva `rootTitle`.
+    /// The same path on a new tree (e.g. when a rescan finishes): goes down by name from
+    /// `newRoot` to the deepest level that still exists as a folder. Keeps `rootTitle`.
     public func restoring(in newRoot: FileNode) -> MapNavigation {
         var restored = MapNavigation(root: newRoot, rootTitle: rootTitle)
         var cursor = newRoot
@@ -56,9 +56,9 @@ public struct MapNavigation: Sendable {
         return restored
     }
 
-    /// Muestra `path` desde la raíz: baja por nombre hasta la carpeta más honda que exista en el
-    /// análisis (un archivo deja el mapa en su carpeta). `true` solo si la ruta es una carpeta y se
-    /// llegó hasta ella; sin análisis o con una ruta fuera de la raíz no cambia nada y da `false`.
+    /// Shows `path` from the root: goes down by name to the deepest folder that exists in the
+    /// scan (a file leaves the map on its folder). `true` only if the path is a folder and it
+    /// got all the way there; without a scan or with a path outside the root nothing changes and it returns `false`.
     @discardableResult
     public mutating func reveal(path: String) -> Bool {
         guard let root else { return false }
@@ -86,13 +86,13 @@ public struct MapNavigation: Sendable {
         return reachedEnd
     }
 
-    /// Sube un nivel; en la raíz no hace nada.
+    /// Goes up one level; at the root it does nothing.
     public mutating func zoomOut() {
         guard stack.count > 1 else { return }
         stack.removeLast()
     }
 
-    /// Salta al elemento `index` de la ruta de navegación (0 = raíz). Fuera de rango no hace nada.
+    /// Jumps to item `index` of the breadcrumb (0 = root). Out of range it does nothing.
     public mutating func jump(to index: Int) {
         guard index >= 0, index < stack.count else { return }
         stack.removeSubrange((index + 1)...)

@@ -1,12 +1,12 @@
 import Foundation
 
-/// Restos de una app que ya no está instalada, agrupados por su identificador.
+/// Leftovers of an app that is no longer installed, grouped by its identifier.
 public struct OrphanGroup: Sendable, Equatable, Identifiable {
     public let bundleID: String
     public let paths: [String]
     public let bytes: Int64
     public let lastModified: Date
-    /// `.safe` (las protegidas no llegan aquí).
+    /// `.safe` (protected ones do not get here).
     public let risk: Risk
     public var id: String { bundleID }
 
@@ -21,7 +21,7 @@ public struct OrphanGroup: Sendable, Equatable, Identifiable {
 
 public enum OrphanScan: Sendable, Equatable { case found([OrphanGroup]), undecided(String) }
 
-/// `nil` = no se sabe.
+/// `nil` = unknown.
 public protocol BundleIDLookup: Sendable { func isInstalled(_ bundleID: String) async -> Bool? }
 
 /// Spotlight: `/usr/bin/mdfind 'kMDItemCFBundleIdentifier == "<id>"'`.
@@ -34,7 +34,7 @@ public struct SpotlightLookup: BundleIDLookup {
         self.timeout = timeout
     }
 
-    /// Salida no vacía → `true`; vacía con estado 0 → `false`; otro → `nil`.
+    /// Non-empty output → `true`; empty with status 0 → `false`; anything else → `nil`.
     public func isInstalled(_ bundleID: String) async -> Bool? {
         guard OrphanFinder.bundleID(fromEntryName: bundleID) == bundleID else { return nil }
         guard let output = try? await runner.run("/usr/bin/mdfind", ["kMDItemCFBundleIdentifier == \"\(bundleID)\""],
@@ -44,15 +44,15 @@ public struct SpotlightLookup: BundleIDLookup {
     }
 }
 
-/// Busca restos huérfanos en Caches, Logs y Saved Application State. Árbol de decisión fijo: el primer «no»
-/// descarta el id (y, si cualquiera de sus entradas no pasa, el id entero).
+/// Looks for orphaned leftovers in Caches, Logs and Saved Application State. Fixed decision tree: the first "no"
+/// discards the id (and, if any of its entries does not pass, the whole id).
 public struct OrphanFinder: Sendable {
     public static let minimumIdle: TimeInterval = 30 * 86_400
     public static let candidateFolders = ["Library/Caches", "Library/Logs", "Library/Saved Application State"]
     public static let sensitivePatterns = ["ssh", "gpg", "gnupg", "keychain", "1password", "bitwarden", "lastpass",
                                            "keepass", "dashlane", "enpass"]
-    static let incompleteInventory =
-        "No se pudo leer la lista completa de apps; Airy no marca restos como huérfanos."
+    static var incompleteInventory: String {
+        String(localized: "Could not read the full list of apps; Airy does not mark leftovers as orphaned.", bundle: .airyCore) }
 
     private let home: String
     private let gate: PathGate
@@ -77,7 +77,7 @@ public struct OrphanFinder: Sendable {
         return .found(groups)
     }
 
-    /// Justo antes de borrar: el mismo árbol de decisión con un inventario nuevo.
+    /// Right before deleting: the same decision tree with a fresh inventory.
     public func stillOrphan(_ group: OrphanGroup, inventory: AppInventorySnapshot) async -> Bool {
         guard inventory.complete else { return false }
         let paths = candidateEntries()[group.bundleID] ?? []
@@ -85,14 +85,14 @@ public struct OrphanFinder: Sendable {
         return Set(group.paths).isSubset(of: Set(fresh.paths))
     }
 
-    /// Los grupos que siguen siendo huérfanos con `inventory` (lo único que la app debe enviar a la Papelera).
+    /// The groups that are still orphaned with `inventory` (the only thing the app should send to the Trash).
     public func confirmable(_ groups: [OrphanGroup], inventory: AppInventorySnapshot) async -> [OrphanGroup] {
         var result: [OrphanGroup] = []
         for group in groups where await stillOrphan(group, inventory: inventory) { result.append(group) }
         return result
     }
 
-    /// "com.foo.bar" o "com.foo.bar.savedState" → id; solo com|org|net|io, ≥ 3 componentes, [A-Za-z0-9._-].
+    /// "com.foo.bar" or "com.foo.bar.savedState" → id; only com|org|net|io, ≥ 3 components, [A-Za-z0-9._-].
     static func bundleID(fromEntryName name: String) -> String? {
         var id = name
         let suffix = ".savedstate"
@@ -107,9 +107,9 @@ public struct OrphanFinder: Sendable {
         return allowed ? id : nil
     }
 
-    // MARK: - Árbol de decisión
+    // MARK: - Decision tree
 
-    /// Regla 2: solo entradas directas de las tres carpetas que dan un id.
+    /// Rule 2: only direct entries of the three folders that yield an id.
     private func candidateEntries() -> [String: [String]] {
         var result: [String: [String]] = [:]
         for folder in Self.candidateFolders {
@@ -126,15 +126,15 @@ public struct OrphanFinder: Sendable {
     private func decide(_ id: String, paths: [String], inventory: AppInventorySnapshot) async -> OrphanGroup? {
         guard !paths.isEmpty else { return nil }
         let lower = id.lowercased()
-        // Regla 3.
+        // Rule 3.
         if lower.hasPrefix("com.apple.") || lower.hasPrefix("local.airy.") { return nil }
         if Self.sensitivePatterns.contains(where: { lower.contains($0) }) { return nil }
-        // Regla 4.
+        // Rule 4.
         for path in paths where gate.validate(path).failure != nil { return nil }
-        // Regla 5 (también si el id cuelga de uno instalado: `com.foo.app.log` de `com.foo.app`).
+        // Rule 5 (also if the id hangs from an installed one: `com.foo.app.log` from `com.foo.app`).
         let installed = inventory.installedIDs
         if installed.contains(lower) || installed.contains(where: { lower.hasPrefix($0 + ".") }) { return nil }
-        // Regla 6.
+        // Rule 6.
         let threshold = now().addingTimeInterval(-Self.minimumIdle)
         var newest = Date.distantPast
         for path in paths {
@@ -142,13 +142,13 @@ public struct OrphanFinder: Sendable {
             newest = max(newest, date)
         }
         if newest > threshold { return nil }
-        // Regla 7: un fallo cuenta como instalada.
+        // Rule 7: a failure counts as installed.
         guard await lookup.isInstalled(id) == false else { return nil }
         let bytes = paths.reduce(Int64(0)) { $0 + (AllocatedSize.of($1) ?? 0) }
         return OrphanGroup(bundleID: id, paths: paths, bytes: bytes, lastModified: newest)
     }
 
-    /// El `mtime` más reciente entre la entrada y sus hijos directos (con `lstat`); `nil` si no se puede leer.
+    /// The most recent `mtime` among the entry and its direct children (with `lstat`); `nil` if it cannot be read.
     private static func newestModification(_ path: String) -> Date? {
         func mtime(_ p: String) -> Date? {
             var info = stat()

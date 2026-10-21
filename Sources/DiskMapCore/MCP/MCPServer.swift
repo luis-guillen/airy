@@ -1,17 +1,17 @@
 import Foundation
 
-/// Servidor MCP (JSON-RPC 2.0, un mensaje por línea). `handle(line:)` atiende un mensaje y
-/// devuelve la respuesta en una línea, o `nil` para notificaciones y respuestas del cliente.
-/// El transporte llama de una en una y en orden.
+/// MCP server (JSON-RPC 2.0, one message per line). `handle(line:)` serves one message and
+/// returns the response on one line, or `nil` for notifications and client responses.
+/// The transport calls it one at a time and in order.
 public actor MCPServer {
     public static let supportedProtocolVersions = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
     static let latestProtocolVersion = "2025-11-25"
-    /// Desde esta versión los resultados llevan `structuredContent`.
+    /// From this version on, results carry `structuredContent`.
     static let structuredContentVersion = "2025-06-18"
-    static let defaultClientName = "agente"
+    static let defaultClientName = "agent"
     static let maxClientNameLength = 64
     static let instructions =
-        "Airy consulta y limpia el disco de este Mac. Solo ejecuta lo marcado «Sin problema»; lo demás se propone al usuario en la app. Nunca recibes el contenido de los archivos."
+        "Airy inspects and cleans this Mac's disk. It only runs what is marked “Safe to remove”; everything else is proposed to the user in the app. You never receive the contents of the files."
 
     private let registry: MCPToolRegistry
     private let environment: AiryEnvironment
@@ -32,32 +32,32 @@ public actor MCPServer {
     public func handle(line: String) async -> String? {
         guard !line.allSatisfy(\.isWhitespace) else { return nil }
         guard let message = try? JSONDecoder().decode(JSONValue.self, from: Data(line.utf8)) else {
-            return Self.error(id: .null, code: RPCError.parse, message: "JSON no válido.")
+            return Self.error(id: .null, code: RPCError.parse, message: "Invalid JSON.")
         }
         guard case .object(let request) = message else {
-            // Los lotes (arrays) no se admiten.
-            return Self.error(id: .null, code: RPCError.invalidRequest, message: "Petición no válida: se espera un objeto JSON-RPC.")
+            // Batches (arrays) are not supported.
+            return Self.error(id: .null, code: RPCError.invalidRequest, message: "Invalid request: a JSON-RPC object is expected.")
         }
         let id = request["id"]
         if let id, !Self.isValidID(id) {
-            return Self.error(id: .null, code: RPCError.invalidRequest, message: "Petición no válida: id incorrecto.")
+            return Self.error(id: .null, code: RPCError.invalidRequest, message: "Invalid request: wrong id.")
         }
         guard request["jsonrpc"] == .string("2.0") else {
-            return Self.error(id: id ?? .null, code: RPCError.invalidRequest, message: "Petición no válida: falta \"jsonrpc\": \"2.0\".")
+            return Self.error(id: id ?? .null, code: RPCError.invalidRequest, message: "Invalid request: missing \"jsonrpc\": \"2.0\".")
         }
         guard let methodValue = request["method"] else {
-            // Respuesta del cliente (no le pedimos nada): se ignora.
+            // A client response (we asked it nothing): ignored.
             if request["result"] != nil || request["error"] != nil { return nil }
-            return Self.error(id: id ?? .null, code: RPCError.invalidRequest, message: "Petición no válida: falta el método.")
+            return Self.error(id: id ?? .null, code: RPCError.invalidRequest, message: "Invalid request: missing method.")
         }
         guard let method = methodValue.stringValue else {
-            return Self.error(id: id ?? .null, code: RPCError.invalidRequest, message: "Petición no válida: el método no es texto.")
+            return Self.error(id: id ?? .null, code: RPCError.invalidRequest, message: "Invalid request: the method is not a string.")
         }
         let params = request["params"]
         if let params, case .object = params {} else if params != nil {
-            return Self.error(id: id ?? .null, code: RPCError.invalidParams, message: "Los parámetros deben ser un objeto.")
+            return Self.error(id: id ?? .null, code: RPCError.invalidParams, message: "The parameters must be an object.")
         }
-        // Notificación: no hay respuesta, sea cual sea el método.
+        // Notification: there is no response, whatever the method.
         guard let id else { return nil }
 
         switch method {
@@ -65,11 +65,11 @@ public actor MCPServer {
         case "ping": return Self.result(id: id, .object([:]))
         case "tools/list": return Self.result(id: id, toolsList())
         case "tools/call": return await toolsCall(id: id, params: params)
-        default: return Self.error(id: id, code: RPCError.methodNotFound, message: "Método desconocido: \(method).")
+        default: return Self.error(id: id, code: RPCError.methodNotFound, message: "Unknown method: \(method).")
         }
     }
 
-    // MARK: - Métodos
+    // MARK: - Methods
 
     private func initialize(_ params: JSONValue?) -> JSONValue {
         let requested = params?["protocolVersion"]?.stringValue
@@ -104,23 +104,23 @@ public actor MCPServer {
 
     private func toolsCall(id: JSONValue, params: JSONValue?) async -> String {
         guard let name = params?["name"]?.stringValue else {
-            return Self.error(id: id, code: RPCError.invalidParams, message: "Falta el nombre de la herramienta.")
+            return Self.error(id: id, code: RPCError.invalidParams, message: "Missing tool name.")
         }
         guard let tool = registry.tool(named: name) else {
-            return Self.error(id: id, code: RPCError.invalidParams, message: "Herramienta desconocida: \(name).")
+            return Self.error(id: id, code: RPCError.invalidParams, message: "Unknown tool: \(name).")
         }
         let arguments: [String: JSONValue]
         switch params?["arguments"] {
         case nil, .null?: arguments = [:]
         case .object(let object)?: arguments = object
         default:
-            return Self.error(id: id, code: RPCError.invalidParams, message: "Los argumentos deben ser un objeto.")
+            return Self.error(id: id, code: RPCError.invalidParams, message: "The arguments must be an object.")
         }
         var result: MCPToolResult
         if let problem = MCPSchemaValidator.violation(of: .object(arguments), against: tool.inputSchema) {
-            result = .error("Argumentos no válidos para \(name): \(problem)")
+            result = .error("Invalid arguments for \(name): \(problem)")
         } else {
-            _ = environment.log.takeWriteFailure()  // solo cuentan los fallos de esta llamada
+            _ = environment.log.takeWriteFailure()  // only this call's failures count
             result = await tool.call(arguments, context: MCPCallContext(environment: environment, client: clientName))
             if let failure = environment.log.takeWriteFailure() {
                 result = Self.withAuditWarning(result, failure)
@@ -130,7 +130,7 @@ public actor MCPServer {
             "content": .array([.object(["type": .string("text"), "text": .string(result.text)])]),
             "isError": .bool(result.isError),
         ]
-        // `structuredContent` debe ser un objeto y solo existe desde 2025-06-18.
+        // `structuredContent` must be an object and only exists since 2025-06-18.
         if let version = negotiatedVersion, version >= Self.structuredContentVersion,
            let structured = result.structured, case .object = structured {
             payload["structuredContent"] = structured
@@ -138,11 +138,11 @@ public actor MCPServer {
         return Self.result(id: id, .object(payload))
     }
 
-    // MARK: - Utilidades
+    // MARK: - Utilities
 
-    /// Un fallo al anotar en el registro o el historial no se calla: se añade al resultado (`audit_warning`).
+    /// A failure to write to the log or the history is not kept quiet: it is added to the result (`audit_warning`).
     static func withAuditWarning(_ result: MCPToolResult, _ failure: String) -> MCPToolResult {
-        let warning = "Aviso: \(failure). El registro de operaciones de Airy puede estar incompleto."
+        let warning = "Warning: \(failure). Airy's operation log may be incomplete."
         var structured = result.structured
         if case .object(var object)? = structured {
             object["audit_warning"] = .string(warning)
@@ -151,7 +151,7 @@ public actor MCPServer {
         return MCPToolResult(text: result.text + "\n" + warning, structured: structured, isError: result.isError)
     }
 
-    /// Sin caracteres de control, recortado y como mucho 64 caracteres; vacío ⇒ «agente».
+    /// Without control characters, trimmed and at most 64 characters; empty ⇒ "agent".
     static func sanitisedClientName(_ raw: String?) -> String {
         guard let raw else { return defaultClientName }
         let scalars = raw.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }

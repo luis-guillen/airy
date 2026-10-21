@@ -1,10 +1,10 @@
 import Foundation
 
-/// Los ajustes tal y como los usa la app: leídos de `settings.json`, guardados al cambiarlos y,
-/// si el fichero no se puede leer, fallo cerrado: nada destructivo hasta que el usuario lo
-/// restablezca (nunca se machaca el fichero sin preguntar).
+/// Settings as the app uses them: read from `settings.json`, saved when they change and,
+/// if the file cannot be read, fail closed: nothing destructive until the user
+/// resets it (the file is never overwritten without asking).
 public struct SettingsSession: Sendable {
-    /// `update` con el fichero ilegible: primero hay que restablecerlo.
+    /// `update` with an unreadable file: it has to be reset first.
     public struct Unreadable: Error, Sendable {}
 
     public let store: SettingsStore
@@ -17,19 +17,19 @@ public struct SettingsSession: Sendable {
 
     public var effective: AirySettings { load.effective }
 
-    /// Motivo para negar cualquier acción destructiva ahora mismo, o `nil`.
+    /// Reason to deny any destructive action right now, or `nil`.
     public var destructiveRefusal: String? {
         guard case .unreadable(let reason) = load else { return nil }
-        return "Airy no puede leer sus ajustes (\(Self.trimmed(reason))); no se borra nada hasta que los restablezcas en Ajustes."
+        return String(localized: "Airy cannot read its settings (\(Self.trimmed(reason))); nothing is deleted until you reset them in Settings.", bundle: .airyCore)
     }
 
-    /// Texto del aviso `.settings` mientras el fichero es ilegible.
+    /// Text of the `.settings` notice while the file is unreadable.
     public var unreadableNotice: String? {
         guard case .unreadable(let reason) = load else { return nil }
-        return "No se pudieron leer los ajustes (\(Self.trimmed(reason))). Los agentes no pueden limpiar hasta que los restablezcas."
+        return String(localized: "The settings could not be read (\(Self.trimmed(reason))). Agents cannot clean until you reset them.", bundle: .airyCore)
     }
 
-    /// Vuelve a leer el fichero. `true` si cambió lo leído.
+    /// Reads the file again. `true` if what was read changed.
     @discardableResult
     public mutating func reload() -> Bool {
         let fresh = store.load()
@@ -37,8 +37,8 @@ public struct SettingsSession: Sendable {
         return fresh != load
     }
 
-    /// Lee lo último del disco, aplica `change` y lo guarda. Devuelve `true` si cambió algo que
-    /// decide el riesgo (modo o lista protegida). Con el fichero ilegible lanza `Unreadable`.
+    /// Reads the latest from disk, applies `change` and saves it. Returns `true` if something that
+    /// decides the risk changed (mode or protected list). With an unreadable file it throws `Unreadable`.
     @discardableResult
     public mutating func update(_ change: (inout AirySettings) -> Void) throws -> Bool {
         reload()
@@ -52,28 +52,29 @@ public struct SettingsSession: Sendable {
         return after.mode != before.mode || after.protectedPaths != before.protectedPaths
     }
 
-    /// Lo que explica la confirmación de «Restablecer ajustes» (antes de hacerlo): qué se conserva y qué se
-    /// pierde. `nil` si el fichero ya se puede leer (no hay nada que restablecer).
+    /// What the "Reset settings" confirmation explains (before doing it): what is kept and what is
+    /// lost. `nil` if the file can already be read (there is nothing to reset).
     public mutating func resetConfirmation() -> String? {
         reload()
         guard load.isUnreadable else { return nil }
         let salvage = store.salvage()
         let s = salvage.settings
-        var parts = ["Airy apartará el settings.json que no puede leer (guarda una copia junto a él) y empezará con ajustes nuevos."]
+        var parts = [String(localized: "Airy will set aside the settings.json it cannot read (it keeps a copy next to it) and start with new settings.", bundle: .airyCore)]
         if salvage.recoveredProtectedPaths {
             let n = s.protectedPaths.count
-            parts.append(n == 0 ? "Tu lista «Proteger esto» está vacía."
-                         : "Se conservará tu lista «Proteger esto» (\(n) \(n == 1 ? "ruta" : "rutas")).")
+            parts.append(n == 0 ? String(localized: "Your “Protect this” list is empty.", bundle: .airyCore)
+                         : n == 1 ? String(localized: "Your “Protect this” list will be kept (1 path).", bundle: .airyCore)
+                         : String(localized: "Your “Protect this” list will be kept (\(n) paths).", bundle: .airyCore))
         } else {
-            parts.append("Tu lista «Proteger esto» no se puede recuperar: quedará vacía.")
+            parts.append(String(localized: "Your “Protect this” list cannot be recovered: it will be empty.", bundle: .airyCore))
         }
-        parts.append(s.agentsEnabled ? "Los agentes seguirán activos."
-                     : "Los agentes quedarán desactivados hasta que los actives en Ajustes › Agentes.")
+        parts.append(s.agentsEnabled ? String(localized: "Agents will stay enabled.", bundle: .airyCore)
+                     : String(localized: "Agents will be disabled until you enable them in Settings › Agents.", bundle: .airyCore))
         return parts.joined(separator: " ")
     }
 
-    /// Vuelve a leer el fichero y, solo si sigue ilegible, lo aparta y escribe ajustes nuevos con lo que se
-    /// pudo rescatar (`SettingsStore.resetUnreadable`). `nil` si ya se podía leer: no se toca nada.
+    /// Reads the file again and, only if it is still unreadable, sets it aside and writes new settings with what
+    /// could be salvaged (`SettingsStore.resetUnreadable`). `nil` if it could already be read: nothing is touched.
     @discardableResult
     public mutating func reset() throws -> SettingsReset? {
         reload()

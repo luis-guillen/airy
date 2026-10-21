@@ -1,19 +1,19 @@
 import Foundation
 
-/// Ficha `discovery {"type":"appSupportCaches"}`: cachés regenerables de apps que ninguna otra ficha conoce.
-/// Mira las carpetas A y A/B de `~/Library/Application Support`; las que tienen como hija directa alguna carpeta
-/// de `markers` (GPUCache, DawnCache…) ofrecen esas carpetas (y `alsoCleared`). Un elemento por carpeta.
+/// Entry with `discovery {"type":"appSupportCaches"}`: regenerable caches of apps no other entry knows.
+/// It looks at the A and A/B folders of `~/Library/Application Support`; those with some `markers` folder
+/// (GPUCache, DawnCache…) as a direct child offer those folders (and `alsoCleared`). One item per folder.
 public struct AppSupportCacheSource: CleanupTargetSource {
     public static let markers = ["Code Cache", "GPUCache", "DawnCache", "GrShaderCache", "GraphiteDawnCache",
                                  "DawnGraphiteCache", "DawnWebGPUCache", "Crashpad"]
     public static let alsoCleared = ["Cache", "CachedData", "Crashpad/completed"]
     public static let maxChildren = 5_000
-    /// Plazo total de la búsqueda de carpetas.
+    /// Total time limit of the folder search.
     public static let searchBudget: Duration = .seconds(10)
 
     public init() {}
 
-    // MARK: - Detección
+    // MARK: - Detection
 
     public func discover(_ entry: CatalogEntry, context: DiscoveryContext) async -> [DiscoveredTarget] {
         let support = context.home + "/Library/Application Support"
@@ -34,9 +34,9 @@ public struct AppSupportCacheSource: CleanupTargetSource {
             }
             targets = targets.filter(Self.isRealDirectory)
             guard !targets.isEmpty else { continue }
-            // Si otra ficha reclama alguna, la carpeta es de esa ficha.
+            // If another entry claims any of them, the folder belongs to that entry.
             if targets.contains(where: { claimedByOther($0, entry: entry, context: context) }) { continue }
-            // Lo protegido se quita sin fila roja; si no queda nada, no hay elemento.
+            // What is protected is removed without a red row; if nothing is left, there is no item.
             targets = targets.filter { protection(of: $0, context: context) == nil }
             guard !targets.isEmpty else { continue }
             let relative = String(folder.dropFirst(support.count + 1))
@@ -45,7 +45,7 @@ public struct AppSupportCacheSource: CleanupTargetSource {
         return result
     }
 
-    /// Carpetas A y A/B reales (sin enlaces) de `support`, en orden, hasta agotar el plazo.
+    /// Real A and A/B folders (without links) of `support`, in order, until the time limit runs out.
     private static func candidateFolders(in support: String, deadline: ContinuousClock.Instant) -> [String] {
         let clock = ContinuousClock()
         var folders: [String] = []
@@ -80,30 +80,30 @@ public struct AppSupportCacheSource: CleanupTargetSource {
                                        catalog: context.catalog)
     }
 
-    // MARK: - Antes de actuar
+    // MARK: - Before acting
 
     public func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
         let support = RiskPolicy.canonical(context.home + "/Library/Application Support")
         for path in item.paths {
             let name = (path as NSString).lastPathComponent
-            guard Self.isRealDirectory(path) else { return "Ya no es una carpeta de caché: \(name)." }
+            guard Self.isRealDirectory(path) else { return String(localized: "It is no longer a cache folder: \(name).", bundle: .airyCore) }
             guard RiskPolicy.isInside(RiskPolicy.canonical(path), root: support) else {
-                return "La ruta no está en Application Support: \(path)."
+                return String(localized: "The path is not in Application Support: \(path).", bundle: .airyCore)
             }
-            // `Crashpad/completed` cuelga de `Crashpad`; el resto, de la carpeta de la app.
+            // `Crashpad/completed` hangs from `Crashpad`; the rest, from the app's folder.
             let parent = (path as NSString).deletingLastPathComponent
             let isCompleted = name == "completed" && (parent as NSString).lastPathComponent == "Crashpad"
             let folder = isCompleted ? (parent as NSString).deletingLastPathComponent : parent
             let allowed = isCompleted || Self.markers.contains(name) || Self.alsoCleared.contains(name)
-            guard allowed else { return "No es una carpeta de caché conocida: \(name)." }
+            guard allowed else { return String(localized: "It is not a known cache folder: \(name).", bundle: .airyCore) }
             guard let siblings = Self.children(of: folder), !Set(Self.markers).isDisjoint(with: siblings) else {
-                return "La app ya no tiene carpetas de caché reconocibles: \(name)."
+                return String(localized: "The app no longer has recognizable cache folders: \(name).", bundle: .airyCore)
             }
             if claimedByOther(path, entry: entry, context: context) {
-                return "Ahora la gestiona otra ficha del catálogo: \(name)."
+                return String(localized: "Another catalog entry manages it now: \(name).", bundle: .airyCore)
             }
             if let match = protection(of: path, context: context) {
-                return "Protegida por Airy: \(match.reason)"
+                return String(localized: "This folder is protected by Airy: \(match.reason)", bundle: .airyCore)
             }
         }
         return nil

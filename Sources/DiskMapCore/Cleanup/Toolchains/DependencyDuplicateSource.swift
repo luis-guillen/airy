@@ -1,7 +1,7 @@
 import Foundation
 
-/// Ficha `discovery {"type":"dependencyDuplicates"}`: el mismo paquete de Node (nombre y versión) copiado en el
-/// `node_modules` de varios proyectos. Una sola fila informativa; nunca hay acción.
+/// Entry with `discovery {"type":"dependencyDuplicates"}`: the same Node package (name and version) copied into the
+/// `node_modules` of several projects. A single informational row; there is never an action.
 public struct DependencyDuplicateSource: CleanupTargetSource {
     static let minimumProjects = 3
     static let maxPackageJSONBytes = 64 * 1024
@@ -18,7 +18,7 @@ public struct DependencyDuplicateSource: CleanupTargetSource {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: budget)
         var partial = !list.complete
-        /// `name@version` → una carpeta por proyecto.
+        /// `name@version` → one folder per project.
         var copies: [String: [String]] = [:]
         for project in list.projects {
             guard clock.now < deadline, !Task.isCancelled else { partial = true; break }
@@ -38,7 +38,7 @@ public struct DependencyDuplicateSource: CleanupTargetSource {
         var rows: [(key: String, count: Int, size: Int64)] = []
         for (key, folders) in repeated {
             let left = max(.zero, clock.now.duration(to: deadline))
-            // El índice, si tiene la carpeta; si no, el disco.
+            // The index, if it has the folder; otherwise, the disk.
             let indexed = context.scan.flatMap { CleanupScanner.node(at: folders[0], in: $0) }?.allocatedSize
             guard let size = indexed ?? TreeWalk.summarize(folders[0], budget: left)?.bytes else { cut = true; continue }
             rows.append((key, folders.count, size))
@@ -47,17 +47,17 @@ public struct DependencyDuplicateSource: CleanupTargetSource {
         let total = rows.reduce(Int64(0)) { $0 + Int64($1.count - 1) * $1.size }
         var target = DiscoveredTarget(
             paths: [], bytes: total,
-            details: rows.prefix(5).map { "\($0.key) · \($0.count) proyectos · \(Format.bytes($0.size)) cada copia" },
-            sizeNote: partial ? "Análisis parcial" : (cut ? "Al menos" : nil))
+            details: rows.prefix(5).map { String(localized: "\($0.key) · \($0.count) projects · \(Format.bytes($0.size)) per copy", bundle: .airyCore) },
+            sizeNote: partial ? String(localized: "Partial scan", bundle: .airyCore) : (cut ? String(localized: "At least", bundle: .airyCore) : nil))
         target.preselectable = false
         return [target]
     }
 
     public func revalidate(_ entry: CatalogEntry, item: CleanupItem, context: DiscoveryContext) async -> String? {
-        "Este elemento es solo informativo."
+        String(localized: "This item is informational only.", bundle: .airyCore)
     }
 
-    /// `name@version` del `package.json` (fichero normal de como mucho 64 KB); `nil` si no se entiende.
+    /// `name@version` from `package.json` (a regular file of at most 64 KB); `nil` if it cannot be understood.
     static func key(of package: String) -> String? {
         let file = package + "/package.json"
         var info = stat()

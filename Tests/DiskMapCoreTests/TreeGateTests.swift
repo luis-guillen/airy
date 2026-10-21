@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import DiskMapCore
 
-/// Registro ordenado de lo que pasa, compartido entre hilos.
+/// Ordered record of what happens, shared between threads.
 private final class Log: @unchecked Sendable {
     private let lock = NSLock()
     private var items: [String] = []
@@ -17,10 +17,10 @@ struct TreeGateTests {
         let log = Log()
         _ = gate.read(cancellable: false) {
             try? await Task.sleep(for: .milliseconds(150))
-            log.add("lectura")
+            log.add("read")
         }
-        await gate.mutate { log.add("cambio") }
-        #expect(log.all == ["lectura", "cambio"])
+        await gate.mutate { log.add("change") }
+        #expect(log.all == ["read", "change"])
         #expect(gate.activeReaders == 0)
     }
 
@@ -32,12 +32,12 @@ struct TreeGateTests {
                 if Task.isCancelled { log.add("cancelada"); return }
                 try? await Task.sleep(for: .milliseconds(10))
             }
-            log.add("terminó sin cancelar")
+            log.add("finished without cancelling")
         }
         try? await Task.sleep(for: .milliseconds(30))
         let start = Date()
-        await gate.mutate { log.add("cambio") }
-        #expect(log.all == ["cancelada", "cambio"])
+        await gate.mutate { log.add("change") }
+        #expect(log.all == ["cancelada", "change"])
         #expect(Date().timeIntervalSince(start) < 2)
     }
 
@@ -46,14 +46,14 @@ struct TreeGateTests {
         let log = Log()
         _ = gate.read(cancellable: false) {
             try? await Task.sleep(for: .milliseconds(150))
-            log.add("lectura 1")
+            log.add("read 1")
         }
-        async let mutation: Void = gate.mutate { log.add("cambio") }
+        async let mutation: Void = gate.mutate { log.add("change") }
         try? await Task.sleep(for: .milliseconds(20))
-        let late = gate.read(cancellable: false) { log.add("lectura 2") }
+        let late = gate.read(cancellable: false) { log.add("read 2") }
         await mutation
         await late.value
-        #expect(log.all == ["lectura 1", "cambio", "lectura 2"])
+        #expect(log.all == ["read 1", "change", "read 2"])
     }
 
     @Test func mutationsRunOneAfterAnother() async {
@@ -61,13 +61,13 @@ struct TreeGateTests {
         let log = Log()
         _ = gate.read(cancellable: false) {
             try? await Task.sleep(for: .milliseconds(80))
-            log.add("lectura")
+            log.add("read")
         }
-        async let a: Void = gate.mutate { log.add("cambio A") }
-        async let b: Void = gate.mutate { log.add("cambio B") }
+        async let a: Void = gate.mutate { log.add("change A") }
+        async let b: Void = gate.mutate { log.add("change B") }
         _ = await (a, b)
-        #expect(log.all.first == "lectura")
-        #expect(Set(log.all.dropFirst()) == ["cambio A", "cambio B"])
+        #expect(log.all.first == "read")
+        #expect(Set(log.all.dropFirst()) == ["change A", "change B"])
     }
 
     @Test func readReturnsItsValue() async {
@@ -88,7 +88,7 @@ struct SaveSequencerTests {
         #expect(sequencer.isLatest(other, for: "/Volumes/X"))
     }
 
-    /// Dos guardados encadenados: el antiguo, al llegarle el turno, se salta y gana el nuevo.
+    /// Two chained saves: the old one, when its turn comes, is skipped and the new one wins.
     @Test func chainedSavesKeepTheNewestTreeOnDisk() async {
         let sequencer = SaveSequencer()
         let log = Log2()

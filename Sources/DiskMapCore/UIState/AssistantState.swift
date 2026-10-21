@@ -1,11 +1,11 @@
 import Foundation
 
-// MARK: - Rutas mencionadas en una respuesta
+// MARK: - Paths mentioned in a reply
 
-/// Rutas del contexto que Claude menciona en una respuesta, para ofrecer "Ver en el mapa".
+/// Context paths Claude mentions in a reply, to offer "Show on map".
 public enum AssistantRoutes {
-    /// Rutas absolutas del contexto enviado a la IA (nodos y rutas de los elementos de limpieza),
-    /// sin repetir y en el orden del contexto. Un contexto ilegible no da ninguna.
+    /// Absolute paths of the context sent to the AI (nodes and cleanup item paths),
+    /// without repeats and in context order. An unreadable context yields none.
     public static func contextPaths(_ context: String, home: String) -> [String] {
         guard let payload = try? JSONDecoder().decode(AIContextPayload.self, from: Data(context.utf8)) else {
             return []
@@ -20,10 +20,10 @@ public enum AssistantRoutes {
         return paths
     }
 
-    /// Rutas de `candidates` (absolutas) que aparecen en `text` con su forma absoluta o con `~`,
-    /// en el orden en que aparecen por primera vez. Si una mención contiene a otra
-    /// ("~/Library/Containers" frente a "~/Library"), gana la más larga. Se ignoran "/" y la
-    /// carpeta personal ("~"), demasiado generales para llevar al mapa.
+    /// Paths from `candidates` (absolute) that appear in `text` in their absolute form or with `~`,
+    /// in order of first appearance. If one mention contains another
+    /// ("~/Library/Containers" versus "~/Library"), the longer one wins. "/" and the
+    /// home folder ("~") are ignored: too general to lead to the map.
     public static func mentioned(in text: String, candidates: [String], home: String, limit: Int = 6) -> [String] {
         let base = AIPaths.base(home)
         var matches: [(range: Range<String.Index>, path: String)] = []
@@ -36,7 +36,7 @@ public enum AssistantRoutes {
                 }
             }
         }
-        // La mención más larga se queda con su trozo de texto.
+        // The longest mention keeps its piece of text.
         let kept = matches.filter { match in
             !matches.contains { other in
                 other.path != match.path && other.range.lowerBound <= match.range.lowerBound
@@ -58,8 +58,8 @@ public enum AssistantRoutes {
         c.isLetter || c.isNumber || c == "_" || c == "-" || c == "." || c == "/" || c == "~"
     }
 
-    /// Ni empieza en medio de otra ruta ni sigue con más nombre (".cache/uvx", "uv.zip", "uv/archive").
-    /// Un "." o "/" final vale si detrás no sigue la ruta (fin de frase, comillas…).
+    /// Neither starts in the middle of another path nor continues with more name (".cache/uvx", "uv.zip", "uv/archive").
+    /// A trailing "." or "/" is fine if the path does not continue after it (end of sentence, quotes…).
     private static func isBoundedMention(_ range: Range<String.Index>, in text: String) -> Bool {
         if range.lowerBound > text.startIndex, isPathCharacter(text[text.index(before: range.lowerBound)]) {
             return false
@@ -75,15 +75,15 @@ public enum AssistantRoutes {
     }
 }
 
-// MARK: - Columnas del informe
+// MARK: - Report columns
 
-/// Las tres columnas de riesgo del informe, siempre en el mismo orden y aunque estén vacías.
+/// The report's three risk columns, always in the same order, even when empty.
 public enum ReportColumns {
     public struct Column: Sendable, Identifiable {
         public var risk: Risk
-        /// De mayor a menor tamaño.
+        /// Largest to smallest.
         public var recommendations: [AIRecommendation]
-        /// Suma sin contar dos veces una ruta que está dentro de otra de la misma columna.
+        /// Sum without counting twice a path that lies inside another one in the same column.
         public var totalBytes: Int64
         public var id: Int { risk.rawValue }
     }
@@ -103,40 +103,40 @@ public enum ReportColumns {
     }
 }
 
-// MARK: - Botón de cada recomendación
+// MARK: - Button of each recommendation
 
-/// Qué hace el botón de una recomendación. Siempre pasa por `AppModel` y `CleanupExecutor`,
-/// que repiten todas sus comprobaciones justo antes de actuar.
+/// What a recommendation's button does. It always goes through `AppModel` and `CleanupExecutor`,
+/// which repeat all their checks right before acting.
 public enum AssistantCleanupAction: Sendable {
-    /// Limpieza del catálogo (`AppModel.perform`): revalida ficha, rutas, apps abiertas y referencias.
+    /// Catalog cleanup (`AppModel.perform`): revalidates entry, paths, open apps and references.
     case perform(CleanupItem)
-    /// Rutas sueltas a la Papelera (`AppModel.trash(paths:title:)`).
+    /// Loose paths to the Trash (`AppModel.trash(paths:title:)`).
     case trashPaths([String])
 }
 
 public struct AssistantActionOffer: Sendable {
     public var action: AssistantCleanupAction
-    /// "Depende de ti": hace falta una segunda confirmación explícita.
+    /// "Up to you": an explicit second confirmation is needed.
     public var needsSecondConfirmation: Bool
-    /// Método para la confirmación: "A la Papelera" o "Comando oficial: …".
+    /// Method for the confirmation: "To the Trash" or "Official command: …".
     public var method: String
     public var isCommand: Bool
-    /// Tamaño de lo que de verdad se toca (el elemento de limpieza, o la ruta suelta).
+    /// Size of what is actually touched (the cleanup item, or the loose path).
     public var bytes: Int64
 }
 
-/// Botón (o ausencia de botón) de una recomendación del informe, ya validada por `AIAssistant`:
-/// - "No tocar": nunca hay botón.
-/// - "Borrar sin riesgo" con acción: un toque (y la confirmación de siempre), por el elemento de limpieza.
-/// - "Depende de ti": solo "Mover a la Papelera…" (`AppModel.trash(paths:title:)`), con segunda
-///   confirmación, y nunca donde la limpieza correcta es un comando oficial o la ficha es solo informativa.
+/// Button (or lack of one) of a report recommendation, already validated by `AIAssistant`:
+/// - "Do not touch": never a button.
+/// - "Safe to delete" with an action: one tap (and the usual confirmation), through the cleanup item.
+/// - "Up to you": only "Move to Trash…" (`AppModel.trash(paths:title:)`), with a second
+///   confirmation, and never where the right cleanup is an official command or the entry is informational only.
 public enum AssistantOffer: Sendable, Equatable {
     case none
     case offer(AssistantActionOffer)
-    /// Habría botón, pero ahora no se puede (no detectado, lo usa un proyecto…).
+    /// There would be a button, but it is not possible right now (not detected, used by a project…).
     case unavailable(String)
 
-    static let notDetected = "No aparece ahora en Limpieza. Vuelve a analizar el disco."
+    static var notDetected: String { String(localized: "It does not show up in Cleanup right now. Scan the disk again.", bundle: .airyCore) }
 
     public static func make(for rec: AIRecommendation, items: [CleanupItem], catalog: Catalog?,
                             home: String) -> AssistantOffer {
@@ -146,7 +146,7 @@ public enum AssistantOffer: Sendable, Equatable {
         case .safe:
             switch rec.action {
             case .runCatalogCommand(let id):
-                // Solo el elemento que la tarjeta muestra: el de esa ruta (o el id de un elemento sin rutas).
+                // Only the item the card shows: the one for that path (or the id of an item without paths).
                 let target = items.first { item in
                     item.entry.id == id && (item.id == rec.path || item.paths.contains { overlaps($0, rec.path) })
                 }
@@ -156,8 +156,8 @@ public enum AssistantOffer: Sendable, Equatable {
                                                    method: method(for: target.entry.cleanup),
                                                    isCommand: !isTrash(target.entry.cleanup), bytes: target.bytes))
             case .trash(let path):
-                // El elemento detectado de esa misma ruta (revalida apps abiertas y ficha) o, si no, la
-                // ruta suelta: `trashPaths` aplica igualmente apps abiertas, referencias y ubicaciones protegidas.
+                // The detected item for that same path (revalidates open apps and entry) or, failing that, the
+                // loose path: `trashPaths` applies open apps, references and protected locations all the same.
                 if let detected = detectedTrashItem(exactly: path, items: items) {
                     if !detected.usedBy.isEmpty { return .unavailable(usedByReason(detected.usedBy)) }
                     return .offer(AssistantActionOffer(action: .perform(detected), needsSecondConfirmation: false,
@@ -172,7 +172,7 @@ public enum AssistantOffer: Sendable, Equatable {
         case .yourCall:
             let path = rec.path
             guard path.hasPrefix("/") else { return .none }
-            // Donde manda un comando oficial (o solo hay información), nada se borra a mano.
+            // Where an official command rules (or there is only information), nothing is deleted by hand.
             let handsOff = items.contains { item in
                 !isTrash(item.entry.cleanup) && item.paths.contains { overlaps($0, path) }
             }
@@ -186,7 +186,7 @@ public enum AssistantOffer: Sendable, Equatable {
         }
     }
 
-    /// Elemento detectado (con Papelera) cuya única ruta es exactamente `path`.
+    /// Detected item (with Trash) whose only path is exactly `path`.
     private static func detectedTrashItem(exactly path: String, items: [CleanupItem]) -> CleanupItem? {
         let key = RiskPolicy.canonical(path)
         return items.first { item in
@@ -196,15 +196,15 @@ public enum AssistantOffer: Sendable, Equatable {
 
     static func method(for cleanup: CleanupMethod) -> String {
         switch cleanup {
-        case .trash, .info: return "A la Papelera"
+        case .trash, .info: return String(localized: "To the Trash", bundle: .airyCore)
         case .command(let executable, let arguments, _):
             let name = (executable as NSString).lastPathComponent
-            return "Comando oficial: " + ([name] + arguments).joined(separator: " ")
+            return String(localized: "Official command: \(([name] + arguments).joined(separator: " "))", bundle: .airyCore)
         }
     }
 
     private static func usedByReason(_ usedBy: [String]) -> String {
-        "Lo usa: \(usedBy.prefix(3).joined(separator: ", "))\(usedBy.count > 3 ? "…" : "")."
+        String(localized: "Used by: \(usedBy.prefix(3).joined(separator: ", "))\(usedBy.count > 3 ? "…" : "").", bundle: .airyCore)
     }
 
     private static func isTrash(_ cleanup: CleanupMethod) -> Bool {
@@ -212,7 +212,7 @@ public enum AssistantOffer: Sendable, Equatable {
         return false
     }
 
-    /// Una ruta dentro de la otra (o la misma).
+    /// One path inside the other (or the same).
     private static func overlaps(_ a: String, _ b: String) -> Bool {
         let a = RiskPolicy.canonical(a), b = RiskPolicy.canonical(b)
         return RiskPolicy.isInside(a, root: b) || RiskPolicy.isInside(b, root: a)
@@ -235,7 +235,7 @@ public enum AssistantOffer: Sendable, Equatable {
     }
 }
 
-// MARK: - Conversación
+// MARK: - Conversation
 
 public struct ChatBubble: Identifiable, Sendable, Equatable {
     public enum Status: Sendable, Equatable { case streaming, done, stopped, failed(String) }
@@ -244,12 +244,12 @@ public struct ChatBubble: Identifiable, Sendable, Equatable {
     public var role: ChatMessage.Role
     public var text: String
     public var status: Status
-    /// Rutas del contexto mencionadas en la respuesta (para "Ver en el mapa").
+    /// Context paths mentioned in the reply (for "Show on map").
     public var routes: [String]
 }
 
-/// Conversación del chat: burbujas, la respuesta que llega en streaming y el historial que se
-/// envía a Claude en cada turno (sin las preguntas que se quedaron sin respuesta).
+/// The chat conversation: bubbles, the reply that arrives by streaming and the history that is
+/// sent to Claude on each turn (without the questions that were left unanswered).
 public struct ChatTranscript: Sendable {
     public private(set) var bubbles: [ChatBubble] = []
     private var nextID = 0
@@ -258,8 +258,8 @@ public struct ChatTranscript: Sendable {
 
     public var isStreaming: Bool { bubbles.last?.status == .streaming }
 
-    /// Añade la pregunta y una respuesta vacía en curso; devuelve el historial que hay que enviar.
-    /// `nil` si la pregunta está vacía o ya hay una respuesta en curso.
+    /// Adds the question and an empty in-progress reply; returns the history to send.
+    /// `nil` if the question is empty or a reply is already in progress.
     public mutating func begin(_ question: String) -> [ChatMessage]? {
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isStreaming else { return nil }
@@ -280,7 +280,7 @@ public struct ChatTranscript: Sendable {
         bubbles[bubbles.count - 1].routes = routes
     }
 
-    /// Detiene la respuesta: se queda lo que había llegado; si no había nada, desaparece la burbuja.
+    /// Stops the reply: what had arrived stays; if nothing had, the bubble disappears.
     public mutating func stop() {
         guard isStreaming else { return }
         if bubbles[bubbles.count - 1].text.isEmpty {
@@ -295,7 +295,7 @@ public struct ChatTranscript: Sendable {
         bubbles[bubbles.count - 1].status = .failed(message)
     }
 
-    /// Repite la última pregunta si su respuesta falló. Devuelve el historial que hay que enviar.
+    /// Repeats the last question if its reply failed. Returns the history to send.
     public mutating func retry() -> [ChatMessage]? {
         guard bubbles.count >= 2, case .failed = bubbles[bubbles.count - 1].status,
               bubbles[bubbles.count - 2].role == .user else { return nil }
@@ -307,7 +307,7 @@ public struct ChatTranscript: Sendable {
         return history
     }
 
-    /// Pares pregunta-respuesta con respuesta (terminada o detenida) entre las primeras `end` burbujas.
+    /// Question-answer pairs with a reply (finished or stopped) among the first `end` bubbles.
     private func answeredHistory(upTo end: Int) -> [ChatMessage] {
         var history: [ChatMessage] = []
         var index = 0
@@ -334,11 +334,11 @@ public struct ChatTranscript: Sendable {
     }
 }
 
-// MARK: - Texto del chat
+// MARK: - Chat text
 
 public enum ChatText {
-    /// Markdown solo en línea (negritas, cursivas, `código`), conservando los saltos de línea y **sin
-    /// enlaces**: una respuesta nunca puede abrir nada fuera de la app (`file://…/x.command`, esquemas…).
+    /// Inline-only Markdown (bold, italics, `code`), keeping line breaks and **without
+    /// links**: a reply can never open anything outside the app (`file://…/x.command`, schemes…).
     public static func rendered(_ text: String) -> AttributedString {
         var result = (try? AttributedString(
             markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)

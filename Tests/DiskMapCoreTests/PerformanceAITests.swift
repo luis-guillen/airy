@@ -17,8 +17,8 @@ private func snapshot(_ groups: [AppGroup]) -> PerformanceSnapshot {
                                groups: groups)
 }
 
-private let verdict = HealthVerdict(level: .fair, sentence: "Tu Mac va justo de memoria.",
-                                    findings: [Finding(id: "memory", level: .fair, sentence: "Tu Mac va justo de memoria.")])
+private let verdict = HealthVerdict(level: .fair, sentence: "Your Mac is short on memory.",
+                                    findings: [Finding(id: "memory", level: .fair, sentence: "Your Mac is short on memory.")])
 
 @Suite struct PerformanceAITests {
     @Test func contextHasOnlyNumbersAndNames() throws {
@@ -34,7 +34,7 @@ private let verdict = HealthVerdict(level: .fair, sentence: "Tu Mac va justo de 
         #expect(Set(object.keys) == ["memory", "thermal", "cpu", "apps", "findings"])
         let memory = try #require(object["memory"] as? [String: Any])
         #expect(memory["total_gb"] as? Double == 16 && memory["pressure"] as? String == "warning")
-        #expect((object["findings"] as? [String]) == ["Tu Mac va justo de memoria."])
+        #expect((object["findings"] as? [String]) == ["Your Mac is short on memory."])
     }
 
     @Test func contextLimitsToTenApps() throws {
@@ -45,7 +45,7 @@ private let verdict = HealthVerdict(level: .fair, sentence: "Tu Mac va justo de 
         #expect(apps.count == 10 && apps.first?["name"] as? String == "App15")
     }
 
-    /// M2: Airy y airy-mcp nunca van en la lista de apps para Claude.
+    /// M2: Airy and airy-mcp never go in the app list for Claude.
     @Test func contextNeverIncludesAiry() throws {
         let groups = [
             group("Airy", memoryMB: 2000, pid: 90, bundlePath: "/Applications/Airy.app", bundleID: "local.airy.Airy"),
@@ -58,12 +58,12 @@ private let verdict = HealthVerdict(level: .fair, sentence: "Tu Mac va justo de 
         #expect(apps.compactMap { $0["name"] as? String } == ["Safari"])
     }
 
-    /// M5: los nombres de los `.dmg` montados no se envían.
+    /// M5: the names of the mounted `.dmg` files are not sent.
     @Test func contextDropsDiskImageNames() throws {
         let findings = [
-            Finding(id: "family-syspolicyd", level: .fair, sentence: "La comprobación de seguridad de apps (syspolicyd) está trabajando mucho."),
+            Finding(id: "family-syspolicyd", level: .fair, sentence: "The app security check (syspolicyd) is working hard."),
             Finding(id: "disk-images", level: .fair,
-                    sentence: "Hay imágenes de disco montadas (Cliente-Secreto.dmg) que la hacen trabajar: expúlsalas en Finder si ya no las usas."),
+                    sentence: "There are mounted disk images (Cliente-Secreto.dmg) making it work: eject them in Finder if you no longer use them."),
         ]
         let json = PerformanceAIContext.build(snapshot([]), verdict: HealthVerdict(level: .fair, sentence: findings[0].sentence,
                                                                                     findings: findings))
@@ -91,7 +91,7 @@ private let verdict = HealthVerdict(level: .fair, sentence: "Tu Mac va justo de 
         }
         #expect(a.contains("--strict-mcp-config") && a.contains("stream-json"))
         #expect(call.stdin?.contains(#"{"apps":[]}"#) == true)
-        #expect(call.stdin?.hasPrefix("Estado del Mac (JSON, solo números y nombres de apps):") == true)
-        #expect(AIAssistant.performanceSystemPrompt.hasPrefix("Eres el asistente de Airy"))
+        #expect(call.stdin?.hasPrefix("State of the Mac (JSON, only figures and app names):") == true)
+        #expect(AIAssistant.performanceSystemPrompt.hasPrefix("You are the assistant of Airy"))
     }
 }

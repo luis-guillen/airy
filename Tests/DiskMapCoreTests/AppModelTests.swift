@@ -3,7 +3,7 @@ import Foundation
 @testable import DiskMapCore
 
 @Suite struct MapNavigationTests {
-    /// "/" → Users → ana → Proyectos, más un archivo suelto y un agregado "Otros".
+    /// "/" → Users → ana → Proyectos, plus a loose file and an "Other" aggregate.
     private func tree() -> (root: FileNode, users: FileNode, ana: FileNode, projects: FileNode,
                             file: FileNode, others: FileNode) {
         let projects = FileNode(name: "Proyectos", isDirectory: true, allocatedSize: 10)
@@ -105,7 +105,7 @@ import Foundation
         var navigation = MapNavigation(root: t.root, rootTitle: "Externo")
         navigation.zoom(into: t.projects)
 
-        // En el árbol nuevo "ana" ya no tiene "Proyectos".
+        // In the new tree "ana" no longer has "Proyectos".
         let ana = FileNode(name: "ana", isDirectory: true, allocatedSize: 10)
         let users = FileNode(name: "Users", isDirectory: true, allocatedSize: 10, children: [ana])
         let root = FileNode(name: "/", isDirectory: true, allocatedSize: 10, children: [users])
@@ -113,7 +113,7 @@ import Foundation
         #expect(restored.current === ana)
         #expect(restored.breadcrumb == ["Externo", "Users", "ana"])
 
-        // Si la raíz nueva no tiene nada de la ruta, se queda en la raíz nueva.
+        // If the new root has nothing of the path, it stays at the new root.
         let other = FileNode(name: "/", isDirectory: true)
         #expect(navigation.restoring(in: other).stack.count == 1)
         #expect(MapNavigation().restoring(in: other).current === other)

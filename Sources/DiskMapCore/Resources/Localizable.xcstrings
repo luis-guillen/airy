@@ -1,0 +1,6182 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    " (in use)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " (in use)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " (en uso)"
+          }
+        }
+      }
+    },
+    "%@ It is not sent to the Trash: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ It is not sent to the Trash: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ No se envía a la Papelera: %@."
+          }
+        }
+      }
+    },
+    "%@ did not finish in %lld s and was stopped.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ did not finish in %lld s and was stopped."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no terminó en %lld s y se detuvo."
+          }
+        }
+      }
+    },
+    "%@ exited with code %d": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ exited with code %d"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ terminó con código %d"
+          }
+        }
+      }
+    },
+    "%@ exited with code %d: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ exited with code %d: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ terminó con código %d: %@"
+          }
+        }
+      }
+    },
+    "%@ has been using a lot of CPU nonstop for %lld h.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ has been using a lot of CPU nonstop for %lld h."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ lleva %lld h usando mucho procesador sin parar."
+          }
+        }
+      }
+    },
+    "%@ in the Trash. It is freed when you empty it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ in the Trash. It is freed when you empty it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ en la Papelera. Se libera al vaciarla."
+          }
+        }
+      }
+    },
+    "%@ mode: “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ mode: “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modo %@: «%@»."
+          }
+        }
+      }
+    },
+    "%@ to the Trash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ to the Trash"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a la Papelera"
+          }
+        }
+      }
+    },
+    "%@ was not found on this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ was not found on this Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró %@ en este Mac."
+          }
+        }
+      }
+    },
+    "%@ wrote a line longer than %lld MB and was stopped.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ wrote a line longer than %lld MB and was stopped."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ escribió una línea de más de %lld MB y se detuvo."
+          }
+        }
+      }
+    },
+    "%@ · %lld projects · %@ per copy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld projects · %@ per copy"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld proyectos · %@ cada copia"
+          }
+        }
+      }
+    },
+    "%@ · and %lld more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · and %lld more"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · y %lld más"
+          }
+        }
+      }
+    },
+    "%@ · confirmed by you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · confirmed by you"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · confirmado por ti"
+          }
+        }
+      }
+    },
+    "%@ “%@” is not run on %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ “%@” is not run on %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ No se ejecuta «%@» sobre %@."
+          }
+        }
+      }
+    },
+    "A confirmation is already open; Airy ignored the proposal that arrived by link.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A confirmation is already open; Airy ignored the proposal that arrived by link."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya hay una confirmación abierta; Airy no hizo caso a la propuesta que llegó por enlace."
+          }
+        }
+      }
+    },
+    "AI models": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI models"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modelos de IA"
+          }
+        }
+      }
+    },
+    "Account data of “%@”: if you reinstall it you will have to set it up again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account data of “%@”: if you reinstall it you will have to set it up again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos de cuenta de «%@»: si la reinstalas tendrás que volver a configurarla."
+          }
+        }
+      }
+    },
+    "Accounts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuentas"
+          }
+        }
+      }
+    },
+    "Active Xcode (xcode-select).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active Xcode (xcode-select)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xcode activo (xcode-select)."
+          }
+        }
+      }
+    },
+    "Agent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agente"
+          }
+        }
+      }
+    },
+    "Agents cannot empty the Trash; only the user can, from Airy.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents cannot empty the Trash; only the user can, from Airy."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los agentes no pueden vaciar la Papelera; solo el usuario, desde Airy."
+          }
+        }
+      }
+    },
+    "Agents cannot remove links; only the user can, from Airy.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents cannot remove links; only the user can, from Airy."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los agentes no pueden quitar enlaces; solo el usuario, desde Airy."
+          }
+        }
+      }
+    },
+    "Agents cannot send loose paths to the Trash; only the user can, from Airy.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents cannot send loose paths to the Trash; only the user can, from Airy."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los agentes no pueden enviar rutas sueltas a la Papelera; solo el usuario, desde Airy."
+          }
+        }
+      }
+    },
+    "Agents cannot uninstall apps; they can only propose it in Airy.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents cannot uninstall apps; they can only propose it in Airy."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los agentes no pueden desinstalar apps; solo proponerlo en Airy."
+          }
+        }
+      }
+    },
+    "Agents stay disabled until you enable them in Settings › Agents.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents stay disabled until you enable them in Settings › Agents."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los agentes quedan desactivados hasta que los actives en Ajustes › Agentes."
+          }
+        }
+      }
+    },
+    "Agents will be disabled until you enable them in Settings › Agents.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents will be disabled until you enable them in Settings › Agents."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los agentes quedarán desactivados hasta que los actives en Ajustes › Agentes."
+          }
+        }
+      }
+    },
+    "Agents will stay enabled.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents will stay enabled."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los agentes seguirán activos."
+          }
+        }
+      }
+    },
+    "Aggressive": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggressive"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agresivo"
+          }
+        }
+      }
+    },
+    "Airy cannot read its settings (%@); nothing is deleted until you reset them in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy cannot read its settings (%@); nothing is deleted until you reset them in Settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy no puede leer sus ajustes (%@); no se borra nada hasta que los restablezcas en Ajustes."
+          }
+        }
+      }
+    },
+    "Airy cannot read its settings; nothing runs until you check them in the app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy cannot read its settings; nothing runs until you check them in the app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy no puede leer sus ajustes; no se ejecuta nada hasta que los revises en la app."
+          }
+        }
+      }
+    },
+    "Airy cannot uninstall “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy cannot uninstall “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy no puede desinstalar «%@»."
+          }
+        }
+      }
+    },
+    "Airy could not read what Homebrew would do when uninstalling it; the app is moved to the Trash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy could not read what Homebrew would do when uninstalling it; the app is moved to the Trash."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy no pudo leer qué haría Homebrew al desinstalarla; la app se mueve a la Papelera."
+          }
+        }
+      }
+    },
+    "Airy does not know how to check “%@” yet; it is not touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy does not know how to check “%@” yet; it is not touched."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy no sabe comprobar «%@» todavía; no se toca."
+          }
+        }
+      }
+    },
+    "Airy is cleaning; it ignored the proposal that arrived by link. Ask again in a moment.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy is cleaning; it ignored the proposal that arrived by link. Ask again in a moment."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy está limpiando; no hizo caso a la propuesta que llegó por enlace. Vuelve a pedirlo en un momento."
+          }
+        }
+      }
+    },
+    "Airy needs your password to delete the install receipt of “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy needs your password to delete the install receipt of “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy necesita tu contraseña para borrar el registro de instalación de «%@»."
+          }
+        }
+      }
+    },
+    "Airy needs your password to remove broken links from /usr/local/bin.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy needs your password to remove broken links from /usr/local/bin."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy necesita tu contraseña para quitar enlaces rotos de /usr/local/bin."
+          }
+        }
+      }
+    },
+    "Airy never deletes Docker volumes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy never deletes Docker volumes."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy nunca borra volúmenes de Docker."
+          }
+        }
+      }
+    },
+    "Airy never deletes the conda base environment.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy never deletes the conda base environment."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy nunca borra el entorno base de conda."
+          }
+        }
+      }
+    },
+    "Airy never forces Homebrew to ignore dependencies.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy never forces Homebrew to ignore dependencies."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy nunca fuerza a Homebrew a ignorar dependencias."
+          }
+        }
+      }
+    },
+    "Airy never uses Homebrew's --zap: Airy picks and checks the leftovers itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy never uses Homebrew's --zap: Airy picks and checks the leftovers itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy nunca usa --zap de Homebrew: los restos los elige y comprueba Airy."
+          }
+        }
+      }
+    },
+    "Airy received too many links in a row and ignored this one.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy received too many links in a row and ignored this one."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy recibió demasiados enlaces seguidos y no hizo caso a este."
+          }
+        }
+      }
+    },
+    "Airy will set aside the settings.json it cannot read (it keeps a copy next to it) and start with new settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy will set aside the settings.json it cannot read (it keeps a copy next to it) and start with new settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy apartará el settings.json que no puede leer (guarda una copia junto a él) y empezará con ajustes nuevos."
+          }
+        }
+      }
+    },
+    "Another catalog entry manages it now: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another catalog entry manages it now: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora la gestiona otra ficha del catálogo: %@."
+          }
+        }
+      }
+    },
+    "Another copy installed at %@ uses them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another copy installed at %@ uses them."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otra copia instalada en %@ los usa."
+          }
+        }
+      }
+    },
+    "Another installed app (“%@”) also uses it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another installed app (“%@”) also uses it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otra app instalada («%@») también lo usa."
+          }
+        }
+      }
+    },
+    "Any app or web page can open an airy:// link. Check what it is before going on.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Any app or web page can open an airy:// link. Check what it is before going on."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cualquier app o página web puede abrir un enlace airy://. Revisa qué es antes de seguir."
+          }
+        }
+      }
+    },
+    "App data (sandbox).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App data (sandbox)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos de la app (sandbox)."
+          }
+        }
+      }
+    },
+    "App data and settings; if you reinstall it, it will start from scratch.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App data and settings; if you reinstall it, it will start from scratch."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos y ajustes de la app; si la reinstalas empezará de cero."
+          }
+        }
+      }
+    },
+    "App settings on this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App settings on this Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes de la app en este Mac."
+          }
+        }
+      }
+    },
+    "App settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes de la app."
+          }
+        }
+      }
+    },
+    "Apps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps"
+          }
+        }
+      }
+    },
+    "Apps installed just for your user.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps installed just for your user."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps instaladas solo para tu usuario."
+          }
+        }
+      }
+    },
+    "At least": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At least"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al menos"
+          }
+        }
+      }
+    },
+    "Basic use": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basic use"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uso básico"
+          }
+        }
+      }
+    },
+    "Broken links": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Broken links"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlaces rotos"
+          }
+        }
+      }
+    },
+    "By link (claims to be “%@”)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By link (claims to be “%@”)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por enlace (dice ser «%@»)"
+          }
+        }
+      }
+    },
+    "By link from an external app": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By link from an external app"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por enlace de una app externa"
+          }
+        }
+      }
+    },
+    "Cache: it regenerates.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cache: it regenerates."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caché: se regenera."
+          }
+        }
+      }
+    },
+    "Caches": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caches"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cachés"
+          }
+        }
+      }
+    },
+    "Calendars": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendars"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendarios"
+          }
+        }
+      }
+    },
+    "Careful": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Careful"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prudente"
+          }
+        }
+      }
+    },
+    "Claims to come from “%@” (Airy cannot verify it)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claims to come from “%@” (Airy cannot verify it)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dice venir de «%@» (Airy no puede comprobarlo)"
+          }
+        }
+      }
+    },
+    "Claude Code was not found on this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code was not found on this Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró Claude Code en este Mac."
+          }
+        }
+      }
+    },
+    "Claude could not reply: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude could not reply: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude no pudo responder: %@"
+          }
+        }
+      }
+    },
+    "Claude finished without a reply": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude finished without a reply"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude terminó sin respuesta"
+          }
+        }
+      }
+    },
+    "Claude returned a reply that cannot be understood: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude returned a reply that cannot be understood: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude devolvió una respuesta que no se entiende: %@"
+          }
+        }
+      }
+    },
+    "Claude took too long to reply.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude took too long to reply."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude tardó demasiado en responder."
+          }
+        }
+      }
+    },
+    "Code and projects": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code and projects"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código y proyectos"
+          }
+        }
+      }
+    },
+    "Codex runtime in use": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex runtime in use"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "runtime de Codex en uso"
+          }
+        }
+      }
+    },
+    "Command not allowed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command not allowed."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orden no permitida."
+          }
+        }
+      }
+    },
+    "Complete scan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete scan"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análisis completo"
+          }
+        }
+      }
+    },
+    "Component protected by Airy (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Component protected by Airy (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Componente protegido por Airy (%@)."
+          }
+        }
+      }
+    },
+    "Contacts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacts"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contactos"
+          }
+        }
+      }
+    },
+    "Containers and VMs": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Containers and VMs"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contenedores y VM"
+          }
+        }
+      }
+    },
+    "Could not ask it to quit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not ask it to quit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo pedir que se cerrara."
+          }
+        }
+      }
+    },
+    "Could not be measured in time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not be measured in time."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo medir a tiempo."
+          }
+        }
+      }
+    },
+    "Could not check in time whether Homebrew needs it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check in time whether Homebrew needs it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar a tiempo si Homebrew la necesita."
+          }
+        }
+      }
+    },
+    "Could not check in time whether a project uses it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check in time whether a project uses it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar a tiempo si lo usa algún proyecto."
+          }
+        }
+      }
+    },
+    "Could not check in time whether some project asks for this version.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check in time whether some project asks for this version."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar a tiempo si algún proyecto pide esta versión."
+          }
+        }
+      }
+    },
+    "Could not check in time whether this version is in use.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check in time whether this version is in use."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar a tiempo si esta versión está en uso."
+          }
+        }
+      }
+    },
+    "Could not check in time whether you have used it; Airy does not touch it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check in time whether you have used it; Airy does not touch it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar a tiempo si lo has usado; Airy no lo toca."
+          }
+        }
+      }
+    },
+    "Could not check whether %@ is open; Airy does not touch it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check whether %@ is open; Airy does not touch it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar si %@ está abierta; Airy no lo toca."
+          }
+        }
+      }
+    },
+    "Could not check whether it is in use.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check whether it is in use."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar si está en uso."
+          }
+        }
+      }
+    },
+    "Could not check whether it is in use; Airy does not touch it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check whether it is in use; Airy does not touch it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar si está en uso; Airy no lo toca."
+          }
+        }
+      }
+    },
+    "Could not check whether this receipt includes other apps.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check whether this receipt includes other apps."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar si este registro incluye otras apps."
+          }
+        }
+      }
+    },
+    "Could not check whether “%@” is open; Airy does not go on.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check whether “%@” is open; Airy does not go on."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar si «%@» está abierta; Airy no sigue."
+          }
+        }
+      }
+    },
+    "Could not check with Git whether it keeps files here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check with Git whether it keeps files here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar con Git si guarda archivos aquí."
+          }
+        }
+      }
+    },
+    "Could not delete the install receipt: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not delete the install receipt: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo borrar el registro de instalación: %@"
+          }
+        }
+      }
+    },
+    "Could not empty the Trash: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not empty the Trash: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo vaciar la Papelera: %@"
+          }
+        }
+      }
+    },
+    "Could not examine “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not examine “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo examinar «%@»."
+          }
+        }
+      }
+    },
+    "Could not force it to quit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not force it to quit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo forzar el cierre."
+          }
+        }
+      }
+    },
+    "Could not measure in time how much it takes up; Airy does not touch it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not measure in time how much it takes up; Airy does not touch it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo medir a tiempo lo que ocupa; Airy no lo toca."
+          }
+        }
+      }
+    },
+    "Could not move %@ to the Trash: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not move %@ to the Trash: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo mover %@ a la Papelera: %@"
+          }
+        }
+      }
+    },
+    "Could not read settings.json: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read settings.json: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer settings.json: %@"
+          }
+        }
+      }
+    },
+    "Could not read the Info.plist of “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read the Info.plist of “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer el Info.plist de «%@»."
+          }
+        }
+      }
+    },
+    "Could not read the full list of apps; Airy does not mark leftovers as orphaned.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read the full list of apps; Airy does not mark leftovers as orphaned."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer la lista completa de apps; Airy no marca restos como huérfanos."
+          }
+        }
+      }
+    },
+    "Could not read the helper “%@” of “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read the helper “%@” of “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer el ayudante «%@» de «%@»."
+          }
+        }
+      }
+    },
+    "Could not read “%@” of “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read “%@” of “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer «%@» de «%@»."
+          }
+        }
+      }
+    },
+    "Could not read “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer «%@»."
+          }
+        }
+      }
+    },
+    "Could not remove the links: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not remove the links: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron quitar los enlaces: %@"
+          }
+        }
+      }
+    },
+    "Could not review it in time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not review it in time."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo revisar a tiempo."
+          }
+        }
+      }
+    },
+    "Could not run %@: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not run %@: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo ejecutar %@: %@"
+          }
+        }
+      }
+    },
+    "Could not stop %@: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not stop %@: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo detener %@: %@."
+          }
+        }
+      }
+    },
+    "Could not tell when it was last opened.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not tell when it was last opened."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo saber cuándo se abrió por última vez."
+          }
+        }
+      }
+    },
+    "Critical": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Critical"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crítico"
+          }
+        }
+      }
+    },
+    "Critical system folder (a user's folder).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Critical system folder (a user's folder)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carpeta crítica del sistema (carpeta de un usuario)."
+          }
+        }
+      }
+    },
+    "Critical system folder (the same as %@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Critical system folder (the same as %@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carpeta crítica del sistema (la misma que %@)."
+          }
+        }
+      }
+    },
+    "Critical system folder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Critical system folder."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carpeta crítica del sistema."
+          }
+        }
+      }
+    },
+    "Data apps keep in order to work.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data apps keep in order to work."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos que guardan las apps para funcionar."
+          }
+        }
+      }
+    },
+    "Data of a sensitive app (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data of a sensitive app (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos de una app sensible (%@)."
+          }
+        }
+      }
+    },
+    "Data of apps that run sandboxed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data of apps that run sandboxed."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos de las apps que funcionan en entorno aislado."
+          }
+        }
+      }
+    },
+    "Data shared by several apps from the same developer.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data shared by several apps from the same developer."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos que comparten varias apps del mismo desarrollador."
+          }
+        }
+      }
+    },
+    "Delete all · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete all · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar todo · %@"
+          }
+        }
+      }
+    },
+    "Design, photo or video": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Design, photo or video"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diseño, foto o vídeo"
+          }
+        }
+      }
+    },
+    "Do not touch": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do not touch"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tocar"
+          }
+        }
+      }
+    },
+    "Docker (virtual machine)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Docker (virtual machine)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Docker (máquina virtual)"
+          }
+        }
+      }
+    },
+    "Docker Desktop is holding %@ with no containers running: quit it if you are not using it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Docker Desktop is holding %@ with no containers running: quit it if you are not using it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Docker Desktop retiene %@ sin contenedores en marcha: ciérralo si no lo usas."
+          }
+        }
+      }
+    },
+    "Docker data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Docker data"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "datos de Docker"
+          }
+        }
+      }
+    },
+    "Documents": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documents"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documentos"
+          }
+        }
+      }
+    },
+    "Don't delete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't delete"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No borrar"
+          }
+        }
+      }
+    },
+    "Done. The free space has not changed noticeably.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done. The free space has not changed noticeably."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hecho. El espacio libre no ha cambiado de forma apreciable."
+          }
+        }
+      }
+    },
+    "Downloaded %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloaded %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargado %@"
+          }
+        }
+      }
+    },
+    "Empty Trash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty Trash"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaciar Papelera"
+          }
+        }
+      }
+    },
+    "Empty path.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty path."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruta vacía."
+          }
+        }
+      }
+    },
+    "Everything in %@ (%lld items)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything in %@ (%lld items)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo lo que hay en %@ (%lld elementos)"
+          }
+        }
+      }
+    },
+    "External disks and mounted volumes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "External disks and mounted volumes."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discos externos y volúmenes montados."
+          }
+        }
+      }
+    },
+    "Finder could not empty the Trash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finder could not empty the Trash."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finder no pudo vaciar la Papelera."
+          }
+        }
+      }
+    },
+    "Folder protected by Airy: it is not deleted as a whole.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder protected by Airy: it is not deleted as a whole."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carpeta protegida por Airy: no se borra entera."
+          }
+        }
+      }
+    },
+    "Freed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freed %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liberados %@"
+          }
+        }
+      }
+    },
+    "Freed %@ · %@ in the Trash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freed %@ · %@ in the Trash"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liberados %@ · %@ en la Papelera"
+          }
+        }
+      }
+    },
+    "Gaming": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gaming"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Juego"
+          }
+        }
+      }
+    },
+    "Git does not ignore it: it may be yours, not a build leftover.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git does not ignore it: it may be yours, not a build leftover."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git no la ignora: puede ser tuya, no un resto de compilación."
+          }
+        }
+      }
+    },
+    "Git keeps files here: it is not just a build leftover.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git keeps files here: it is not just a build leftover."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git guarda archivos aquí: no es solo un resto de compilación."
+          }
+        }
+      }
+    },
+    "GnuPG keys": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GnuPG keys"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claves GnuPG"
+          }
+        }
+      }
+    },
+    "Homebrew and the packages you have installed with it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew and the packages you have installed with it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew y los paquetes que has instalado con él."
+          }
+        }
+      }
+    },
+    "Homebrew could not finish (maybe it asked for a password).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew could not finish (maybe it asked for a password)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew no pudo terminar (quizá pidió contraseña)."
+          }
+        }
+      }
+    },
+    "Homebrew could not uninstall it: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew could not uninstall it: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew no pudo desinstalarla: %@"
+          }
+        }
+      }
+    },
+    "Homebrew is not available; the app goes to the Trash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew is not available; the app goes to the Trash."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew no está disponible; la app va a la Papelera."
+          }
+        }
+      }
+    },
+    "Homebrew needs it for: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew needs it for: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo necesita Homebrew para: %@."
+          }
+        }
+      }
+    },
+    "Homebrew was not found on this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew was not found on this Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró Homebrew en este Mac."
+          }
+        }
+      }
+    },
+    "Homebrew would do more than Airy can check; the app is moved to the Trash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew would do more than Airy can check; the app is moved to the Trash."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homebrew haría más cosas de las que Airy puede comprobar; la app se mueve a la Papelera."
+          }
+        }
+      }
+    },
+    "I run AI locally": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I run AI locally"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uso IA en local"
+          }
+        }
+      }
+    },
+    "I write code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I write code"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Programo"
+          }
+        }
+      }
+    },
+    "Images": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Images"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imágenes"
+          }
+        }
+      }
+    },
+    "Includes %lld items marked “Your call”: you will lose something by deleting them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Includes %lld items marked “Your call”: you will lose something by deleting them."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluye %lld elementos marcados «Tú decides»: perderás algo al borrarlo."
+          }
+        }
+      }
+    },
+    "Includes 1 item marked “Your call”: you will lose something by deleting it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Includes 1 item marked “Your call”: you will lose something by deleting it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluye 1 elemento marcado «Tú decides»: perderás algo al borrarlo."
+          }
+        }
+      }
+    },
+    "Informational only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informational only"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo informativo"
+          }
+        }
+      }
+    },
+    "Install receipt; it asks for an administrator password.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install receipt; it asks for an administrator password."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registro de instalación; pide contraseña de administrador."
+          }
+        }
+      }
+    },
+    "Internal system data: virtual memory, temporary files and logs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Internal system data: virtual memory, temporary files and logs."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos internos del sistema: memoria virtual, temporales y registros."
+          }
+        }
+      }
+    },
+    "Invalid command.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid command."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orden no válida."
+          }
+        }
+      }
+    },
+    "Invalid target for “%@”: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid target for “%@”: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objetivo no válido para «%@»: %@."
+          }
+        }
+      }
+    },
+    "It belongs to another user or to the system.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It belongs to another user or to the system."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es de otro usuario o del sistema."
+          }
+        }
+      }
+    },
+    "It belongs to the system or holds data that cannot be recovered.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It belongs to the system or holds data that cannot be recovered."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es del sistema o guarda datos que no se recuperan."
+          }
+        }
+      }
+    },
+    "It contains another Git repository inside.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It contains another Git repository inside."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contiene otro repositorio Git dentro."
+          }
+        }
+      }
+    },
+    "It contains keys (%@): they do not regenerate.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It contains keys (%@): they do not regenerate."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contiene claves (%@): no se regeneran."
+          }
+        }
+      }
+    },
+    "It contains or is inside something marked as “Do not touch” (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It contains or is inside something marked as “Do not touch” (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contiene o está dentro de algo marcado como «No tocar» (%@)."
+          }
+        }
+      }
+    },
+    "It does not exist.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It does not exist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No existe."
+          }
+        }
+      }
+    },
+    "It does not show up in Cleanup right now. Scan the disk again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It does not show up in Cleanup right now. Scan the disk again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No aparece ahora en Limpieza. Vuelve a analizar el disco."
+          }
+        }
+      }
+    },
+    "It has changed since the search.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It has changed since the search."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ha cambiado desde la búsqueda."
+          }
+        }
+      }
+    },
+    "It is Airy itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is Airy itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es el propio Airy."
+          }
+        }
+      }
+    },
+    "It is Airy.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is Airy."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es Airy."
+          }
+        }
+      }
+    },
+    "It is a background process; macOS reopens it by itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is a background process; macOS reopens it by itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es un proceso de fondo; macOS lo vuelve a abrir solo."
+          }
+        }
+      }
+    },
+    "It is a link to an app outside Applications: its data is not touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is a link to an app outside Applications: its data is not touched."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es un enlace a una app que está fuera de Aplicaciones: sus datos no se tocan."
+          }
+        }
+      }
+    },
+    "It is being used right now.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is being used right now."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se está usando ahora."
+          }
+        }
+      }
+    },
+    "It is in use: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is in use: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Está en uso: %@."
+          }
+        }
+      }
+    },
+    "It is in your personal folders: only you know whether you need it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is in your personal folders: only you know whether you need it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Está en tus carpetas personales: solo tú sabes si lo necesitas."
+          }
+        }
+      }
+    },
+    "It is no longer a cache folder: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer a cache folder: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es una carpeta de caché: %@."
+          }
+        }
+      }
+    },
+    "It is no longer a folder: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer a folder: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es una carpeta: %@."
+          }
+        }
+      }
+    },
+    "It is no longer a regular file: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer a regular file: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es un fichero normal: %@."
+          }
+        }
+      }
+    },
+    "It is no longer an installed version of “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer an installed version of “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es una versión instalada de «%@»."
+          }
+        }
+      }
+    },
+    "It is no longer an installer: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer an installer: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es un instalador: %@."
+          }
+        }
+      }
+    },
+    "It is no longer an old version: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer an old version: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es una versión antigua: %@."
+          }
+        }
+      }
+    },
+    "It is no longer damaged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer damaged."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no está dañado."
+          }
+        }
+      }
+    },
+    "It is no longer in any folder where Airy looks for projects.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer in any folder where Airy looks for projects."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no está en ninguna carpeta donde Airy busca proyectos."
+          }
+        }
+      }
+    },
+    "It is no longer inside a project.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer inside a project."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no está dentro de un proyecto."
+          }
+        }
+      }
+    },
+    "It is no longer open.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer open."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no está abierta."
+          }
+        }
+      }
+    },
+    "It is no longer the app you chose.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer the app you chose."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es la app que elegiste."
+          }
+        }
+      }
+    },
+    "It is not a known cache folder: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is not a known cache folder: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No es una carpeta de caché conocida: %@."
+          }
+        }
+      }
+    },
+    "It is not a regenerable folder of “%@”: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is not a regenerable folder of “%@”: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No es una carpeta regenerable de «%@»: %@."
+          }
+        }
+      }
+    },
+    "It is not in Downloads, Desktop or Documents: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is not in Downloads, Desktop or Documents: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No está en Descargas, Escritorio ni Documentos: %@."
+          }
+        }
+      }
+    },
+    "It is not in the catalog: nothing runs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is not in the catalog: nothing runs."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No está en el catálogo: no se ejecuta nada."
+          }
+        }
+      }
+    },
+    "It is part of macOS.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is part of macOS."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es parte de macOS."
+          }
+        }
+      }
+    },
+    "It is running: %@. Quit it before cleaning.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is running: %@. Quit it before cleaning."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Está en marcha: %@. Ciérralo antes de limpiar."
+          }
+        }
+      }
+    },
+    "It is the copy you are keeping.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is the copy you are keeping."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es la copia que conservas."
+          }
+        }
+      }
+    },
+    "It is the default version of %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is the default version of %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es la versión por defecto de %@."
+          }
+        }
+      }
+    },
+    "It may hold unsaved documents.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It may hold unsaved documents."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puede tener documentos sin guardar."
+          }
+        }
+      }
+    },
+    "It no longer exists.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It no longer exists."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no existe."
+          }
+        }
+      }
+    },
+    "It recreates itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It recreates itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se vuelve a crear sola."
+          }
+        }
+      }
+    },
+    "It runs at login; it is stopped first.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It runs at login; it is stopped first."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se ejecuta al iniciar sesión; se detiene antes."
+          }
+        }
+      }
+    },
+    "Kept: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se conservan: %@"
+          }
+        }
+      }
+    },
+    "Keychains": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keychains"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llaveros"
+          }
+        }
+      }
+    },
+    "Last used: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last used: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usada por última vez: %@"
+          }
+        }
+      }
+    },
+    "Leaving out %@: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaving out %@: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se deja fuera %@: %@"
+          }
+        }
+      }
+    },
+    "Location protected by Airy: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location protected by Airy: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ubicación protegida por Airy: %@."
+          }
+        }
+      }
+    },
+    "Logs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logs."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registros."
+          }
+        }
+      }
+    },
+    "Mail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mail"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mail"
+          }
+        }
+      }
+    },
+    "Marked as “Do not touch” (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marked as “Do not touch” (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcado como «No tocar» (%@)."
+          }
+        }
+      }
+    },
+    "Marked as “Do not touch”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marked as “Do not touch”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcado como «No tocar»."
+          }
+        }
+      }
+    },
+    "Marked as “Do not touch”: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marked as “Do not touch”: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcado como «No tocar»: %@"
+          }
+        }
+      }
+    },
+    "Matches by name: check that it belongs to “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matches by name: check that it belongs to “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coincide por nombre: revisa que sea de «%@»."
+          }
+        }
+      }
+    },
+    "Memory dumps of programs that crashed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory dumps of programs that crashed."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volcados de memoria de programas que se cerraron de golpe."
+          }
+        }
+      }
+    },
+    "Messages": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensajes"
+          }
+        }
+      }
+    },
+    "Music and audio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Music and audio"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Música y audio"
+          }
+        }
+      }
+    },
+    "No scan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No scan"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin análisis"
+          }
+        }
+      }
+    },
+    "No usage date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No usage date"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin fecha de uso"
+          }
+        }
+      }
+    },
+    "Non-canonical path (empty components, “.” or “..”).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non-canonical path (empty components, “.” or “..”)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruta no canónica (componentes vacíos, «.» o «..»)."
+          }
+        }
+      }
+    },
+    "Normal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal"
+          }
+        }
+      }
+    },
+    "Not an absolute path.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not an absolute path."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruta no absoluta."
+          }
+        }
+      }
+    },
+    "Not touching %@: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not touching %@: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se toca %@: %@"
+          }
+        }
+      }
+    },
+    "Nothing is deleted until you confirm it here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is deleted until you confirm it here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada se borra hasta que lo confirmes aquí."
+          }
+        }
+      }
+    },
+    "Official command: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Official command: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comando oficial: %@"
+          }
+        }
+      }
+    },
+    "Only apps in Applications are uninstalled.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only apps in Applications are uninstalled."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo se desinstalan apps de Aplicaciones."
+          }
+        }
+      }
+    },
+    "Open Docker Desktop to clean this": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Docker Desktop to clean this"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre Docker Desktop para limpiar esto"
+          }
+        }
+      }
+    },
+    "OrbStack data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OrbStack data"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "datos de OrbStack"
+          }
+        }
+      }
+    },
+    "Other": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otros"
+          }
+        }
+      }
+    },
+    "Other apps may use this plug-in.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other apps may use this plug-in."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otras apps pueden usar este complemento."
+          }
+        }
+      }
+    },
+    "Other tools": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other tools"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otras"
+          }
+        }
+      }
+    },
+    "Other versions: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other versions: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otras versiones: %@"
+          }
+        }
+      }
+    },
+    "Outside your home folder: Airy does not delete it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outside your home folder: Airy does not delete it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuera de tu carpeta personal: Airy no lo borra."
+          }
+        }
+      }
+    },
+    "Partial scan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partial scan"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análisis parcial"
+          }
+        }
+      }
+    },
+    "Partial scan: %lld folders could not be read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partial scan: %lld folders could not be read"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análisis parcial: no se pudieron leer %lld carpetas"
+          }
+        }
+      }
+    },
+    "Partial scan: 1 folder could not be read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partial scan: 1 folder could not be read"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análisis parcial: no se pudieron leer 1 carpeta"
+          }
+        }
+      }
+    },
+    "Path too long.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Path too long."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruta demasiado larga."
+          }
+        }
+      }
+    },
+    "Photos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotos"
+          }
+        }
+      }
+    },
+    "Photos library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos library"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fototeca"
+          }
+        }
+      }
+    },
+    "Project untouched since %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Project untouched since %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proyecto sin tocar desde %@"
+          }
+        }
+      }
+    },
+    "Proposal received by link": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proposal received by link"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Propuesta recibida por enlace"
+          }
+        }
+      }
+    },
+    "Proposed by an external app": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proposed by an external app"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Propuesta por una app externa"
+          }
+        }
+      }
+    },
+    "Protected by Airy: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected by Airy: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protegido por Airy: %@"
+          }
+        }
+      }
+    },
+    "Protected by you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected by you"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protegido por ti"
+          }
+        }
+      }
+    },
+    "Python recreates it by itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Python recreates it by itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Python la vuelve a crear solo."
+          }
+        }
+      }
+    },
+    "Quit %@ to clean this": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit %@ to clean this"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cierra %@ para limpiar esto"
+          }
+        }
+      }
+    },
+    "Quit first: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit first: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cierra primero: %@."
+          }
+        }
+      }
+    },
+    "Quitting apps is always your decision, in Airy.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitting apps is always your decision, in Airy."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar apps siempre lo decides tú en Airy."
+          }
+        }
+      }
+    },
+    "Rebuilt by creating the environment again (uv sync or python -m venv).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt by creating the environment again (uv sync or python -m venv)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace creando el entorno de nuevo (uv sync o python -m venv)."
+          }
+        }
+      }
+    },
+    "Rebuilt when compiling (cargo build, mvn package…).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt when compiling (cargo build, mvn package…)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace al compilar (cargo build, mvn package…)."
+          }
+        }
+      }
+    },
+    "Rebuilt when compiling the project.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt when compiling the project."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace al compilar el proyecto."
+          }
+        }
+      }
+    },
+    "Rebuilt when compiling with Gradle.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt when compiling with Gradle."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace al compilar con Gradle."
+          }
+        }
+      }
+    },
+    "Rebuilt when running tox or nox again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt when running tox or nox again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace al volver a lanzar tox o nox."
+          }
+        }
+      }
+    },
+    "Rebuilt with composer install.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with composer install."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con composer install."
+          }
+        }
+      }
+    },
+    "Rebuilt with dotnet build.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with dotnet build."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con dotnet build."
+          }
+        }
+      }
+    },
+    "Rebuilt with flutter pub get.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with flutter pub get."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con flutter pub get."
+          }
+        }
+      }
+    },
+    "Rebuilt with next build or next dev.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with next build or next dev."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con next build o next dev."
+          }
+        }
+      }
+    },
+    "Rebuilt with npm install (or pnpm/yarn).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with npm install (or pnpm/yarn)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con npm install (o pnpm/yarn)."
+          }
+        }
+      }
+    },
+    "Rebuilt with npx expo start.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with npx expo start."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con npx expo start."
+          }
+        }
+      }
+    },
+    "Rebuilt with pod install.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with pod install."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con pod install."
+          }
+        }
+      }
+    },
+    "Rebuilt with swift build.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebuilt with swift build."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se rehace con swift build."
+          }
+        }
+      }
+    },
+    "Requested by %@ (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requested by %@ (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La pide %@ (%@)."
+          }
+        }
+      }
+    },
+    "Review: this does not regenerate by itself or may hold state": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review: this does not regenerate by itself or may hold state"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisa: esto no se regenera solo o puede tener estado"
+          }
+        }
+      }
+    },
+    "SSH keys": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH keys"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claves SSH"
+          }
+        }
+      }
+    },
+    "Safe to delete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safe to delete"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar sin riesgo"
+          }
+        }
+      }
+    },
+    "Safe to remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safe to remove"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin problema"
+          }
+        }
+      }
+    },
+    "Settings and components shared by all apps and users.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings and components shared by all apps and users."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes y componentes que comparten todas las apps y usuarios."
+          }
+        }
+      }
+    },
+    "Settings reset.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings reset."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes restablecidos."
+          }
+        }
+      }
+    },
+    "Settings, caches and app data.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings, caches and app data."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes, cachés y datos de las apps."
+          }
+        }
+      }
+    },
+    "Software installed separately from the system.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Software installed separately from the system."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Software instalado aparte del sistema."
+          }
+        }
+      }
+    },
+    "Spotlight is indexing and using a lot of CPU; it usually finishes by itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotlight is indexing and using a lot of CPU; it usually finishes by itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotlight está indexando y usa mucho procesador; suele terminar solo."
+          }
+        }
+      }
+    },
+    "Synced settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes sincronizados."
+          }
+        }
+      }
+    },
+    "System": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sistema"
+          }
+        }
+      }
+    },
+    "System Unix tools and what some programs install.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Unix tools and what some programs install."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herramientas de Unix del sistema y lo que instalan algunos programas."
+          }
+        }
+      }
+    },
+    "Takes no disk space": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takes no disk space"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No ocupa espacio en disco"
+          }
+        }
+      }
+    },
+    "Terragrunt recreates it when it runs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terragrunt recreates it when it runs."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terragrunt la vuelve a crear al ejecutarse."
+          }
+        }
+      }
+    },
+    "That simulator runtime is already used by a simulator or is gone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That simulator runtime is already used by a simulator or is gone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese entorno de simulador ya lo usa algún simulador o ya no está."
+          }
+        }
+      }
+    },
+    "The CPU is at full load.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The CPU is at full load."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El procesador va al máximo."
+          }
+        }
+      }
+    },
+    "The CPU is at full load: %@ is using it the most.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The CPU is at full load: %@ is using it the most."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El procesador va al máximo: %@ es lo que más lo usa."
+          }
+        }
+      }
+    },
+    "The Trash is not a regular folder of the user; it is not touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Trash is not a regular folder of the user; it is not touched."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La Papelera no es una carpeta normal del usuario; no se toca."
+          }
+        }
+      }
+    },
+    "The Trash: it frees no space until you empty it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Trash: it frees no space until you empty it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La Papelera: no libera espacio hasta que la vacías."
+          }
+        }
+      }
+    },
+    "The Xcode simulators are using a lot of CPU; quit them if you are not using them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Xcode simulators are using a lot of CPU; quit them if you are not using them."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los simuladores de Xcode están usando mucho procesador; ciérralos si no los usas."
+          }
+        }
+      }
+    },
+    "The app inventory did not finish in time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app inventory did not finish in time."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El inventario de apps no terminó a tiempo."
+          }
+        }
+      }
+    },
+    "The app no longer has recognizable cache folders: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app no longer has recognizable cache folders: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La app ya no tiene carpetas de caché reconocibles: %@."
+          }
+        }
+      }
+    },
+    "The app security check (syspolicyd) is working hard.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app security check (syspolicyd) is working hard."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La comprobación de seguridad de apps (syspolicyd) está trabajando mucho."
+          }
+        }
+      }
+    },
+    "The app's cookies.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app's cookies."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cookies de la app."
+          }
+        }
+      }
+    },
+    "The app's network data.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app's network data."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos de red de la app."
+          }
+        }
+      }
+    },
+    "The app's scripts.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app's scripts."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scripts de la app."
+          }
+        }
+      }
+    },
+    "The app's web cache.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app's web cache."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caché web de la app."
+          }
+        }
+      }
+    },
+    "The copy you are keeping has changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The copy you are keeping has changed."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La copia que conservas ha cambiado."
+          }
+        }
+      }
+    },
+    "The copy you are keeping no longer exists.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The copy you are keeping no longer exists."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no existe la copia que conservas."
+          }
+        }
+      }
+    },
+    "The display is working hard (WindowServer): usually because of many windows, external displays or effects.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The display is working hard (WindowServer): usually because of many windows, external displays or effects."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La pantalla está trabajando mucho (WindowServer): suele ser por muchas ventanas, pantallas externas o efectos."
+          }
+        }
+      }
+    },
+    "The home folders of every user on this Mac.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The home folders of every user on this Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las carpetas personales de cada usuario de este Mac."
+          }
+        }
+      }
+    },
+    "The link “%@” does not point to a readable app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The link “%@” does not point to a readable app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El enlace «%@» no apunta a una app legible."
+          }
+        }
+      }
+    },
+    "The operating system; leave it alone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The operating system; leave it alone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El sistema operativo; no se toca."
+          }
+        }
+      }
+    },
+    "The path contains control characters.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The path contains control characters."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ruta contiene caracteres de control."
+          }
+        }
+      }
+    },
+    "The path does not belong to “%@”: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The path does not belong to “%@”: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ruta no corresponde a «%@»: %@."
+          }
+        }
+      }
+    },
+    "The path goes through a link: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The path goes through a link: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ruta pasa por un enlace: %@."
+          }
+        }
+      }
+    },
+    "The path has changed since it was checked; it is not touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The path has changed since it was checked; it is not touched."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ruta ha cambiado desde que se comprobó; no se toca."
+          }
+        }
+      }
+    },
+    "The path is not in Application Support: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The path is not in Application Support: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ruta no está en Application Support: %@."
+          }
+        }
+      }
+    },
+    "The previous file was saved as %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The previous file was saved as %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fichero anterior se guardó como %@."
+          }
+        }
+      }
+    },
+    "The real path cannot be resolved; it is not touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The real path cannot be resolved; it is not touched."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede resolver la ruta real; no se toca."
+          }
+        }
+      }
+    },
+    "The settings could not be read (%@). Agents cannot clean until you reset them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The settings could not be read (%@). Agents cannot clean until you reset them."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron leer los ajustes (%@). Los agentes no pueden limpiar hasta que los restablezcas."
+          }
+        }
+      }
+    },
+    "The target does not belong to “%@”: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The target does not belong to “%@”: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El objetivo no corresponde a «%@»: %@."
+          }
+        }
+      }
+    },
+    "The tool that created it recreates it when compiling or installing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The tool that created it recreates it when compiling or installing."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La herramienta que la creó la vuelve a crear al compilar o instalar."
+          }
+        }
+      }
+    },
+    "The versions could not be reviewed in time; search again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The versions could not be reviewed in time; search again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron revisar las versiones a tiempo; vuelve a buscar."
+          }
+        }
+      }
+    },
+    "Then run asdf reshim": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Then run asdf reshim"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luego ejecuta asdf reshim"
+          }
+        }
+      }
+    },
+    "There are mounted disk images (%@) making it work: eject them in Finder if you no longer use them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There are mounted disk images (%@) making it work: eject them in Finder if you no longer use them."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay imágenes de disco montadas (%@) que la hacen trabajar: expúlsalas en Finder si ya no las usas."
+          }
+        }
+      }
+    },
+    "There are mounted disk images making the app security check work.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There are mounted disk images making the app security check work."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay imágenes de disco montadas que hacen trabajar a la comprobación de seguridad de apps."
+          }
+        }
+      }
+    },
+    "There are new stopped containers; review it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There are new stopped containers; review it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay contenedores parados nuevos; vuelve a revisarlo."
+          }
+        }
+      }
+    },
+    "There are new unused networks; review it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There are new unused networks; review it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay redes sin usar nuevas; vuelve a revisarlo."
+          }
+        }
+      }
+    },
+    "There are no broken links left to remove.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There are no broken links left to remove."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No quedan enlaces rotos que quitar."
+          }
+        }
+      }
+    },
+    "There is no installer to send to the Trash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no installer to send to the Trash."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay ningún instalador que enviar a la Papelera."
+          }
+        }
+      }
+    },
+    "There is no longer another version of the same tool.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no longer another version of the same tool."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no hay otra versión de la misma herramienta."
+          }
+        }
+      }
+    },
+    "There is nothing to run “%@” on.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is nothing to run “%@” on."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay nada sobre lo que ejecutar «%@»."
+          }
+        }
+      }
+    },
+    "There is nothing to send to the Trash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is nothing to send to the Trash."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay nada que enviar a la Papelera."
+          }
+        }
+      }
+    },
+    "This folder is protected by Airy: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This folder is protected by Airy: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protegida por Airy: %@"
+          }
+        }
+      }
+    },
+    "This item is informational only.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This item is informational only."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este elemento es solo informativo."
+          }
+        }
+      }
+    },
+    "This receipt also includes other apps (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This receipt also includes other apps (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este registro incluye también otras apps (%@)."
+          }
+        }
+      }
+    },
+    "To the Trash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To the Trash"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A la Papelera"
+          }
+        }
+      }
+    },
+    "Uninstall it from Setapp.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uninstall it from Setapp."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desinstálala desde Setapp."
+          }
+        }
+      }
+    },
+    "Unknown size": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown size"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamaño desconocido"
+          }
+        }
+      }
+    },
+    "Up to you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to you"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depende de ti"
+          }
+        }
+      }
+    },
+    "Use the official uninstaller of “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the official uninstaller of “%@”."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa el desinstalador oficial de «%@»."
+          }
+        }
+      }
+    },
+    "Used by the PATH (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used by the PATH (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La usa el PATH (%@)."
+          }
+        }
+      }
+    },
+    "Used by: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used by: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usa: %@"
+          }
+        }
+      }
+    },
+    "Used by: %@ and %lld more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used by: %@ and %lld more"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usa: %@ y %lld más"
+          }
+        }
+      }
+    },
+    "Used by: %@%@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used by: %@%@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usa: %@%@."
+          }
+        }
+      }
+    },
+    "Used by: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used by: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo usa: %@."
+          }
+        }
+      }
+    },
+    "Variable system data: logs, caches and virtual memory.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Variable system data: logs, caches and virtual memory."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos variables del sistema: registros, cachés y memoria virtual."
+          }
+        }
+      }
+    },
+    "Very hot": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Very hot"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muy caliente"
+          }
+        }
+      }
+    },
+    "Video": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vídeo"
+          }
+        }
+      }
+    },
+    "Virtual memory and the Mac's sleep image; macOS manages it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Virtual memory and the Mac's sleep image; macOS manages it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memoria virtual y la imagen de reposo del Mac; la gestiona macOS."
+          }
+        }
+      }
+    },
+    "Warm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warm"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caliente"
+          }
+        }
+      }
+    },
+    "What was moved to the Trash is freed when you empty it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What was moved to the Trash is freed when you empty it"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo movido a la Papelera se libera al vaciarla"
+          }
+        }
+      }
+    },
+    "What you have downloaded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you have downloaded."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo que has descargado."
+          }
+        }
+      }
+    },
+    "What you have on your desktop.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you have on your desktop."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo que tienes en el escritorio."
+          }
+        }
+      }
+    },
+    "Window state: it regenerates.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Window state: it regenerates."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estado de ventanas: se regenera."
+          }
+        }
+      }
+    },
+    "Xcode recreates it when compiling.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xcode recreates it when compiling."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xcode la vuelve a crear al compilar."
+          }
+        }
+      }
+    },
+    "You cancelled the password: the install receipt stays.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You cancelled the password: the install receipt stays."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelaste la contraseña: el registro de instalación se queda."
+          }
+        }
+      }
+    },
+    "You cancelled the password: the links stay.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You cancelled the password: the links stay."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelaste la contraseña: los enlaces se quedan."
+          }
+        }
+      }
+    },
+    "You first have to try quitting it normally.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You first have to try quitting it normally."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero hay que intentar cerrarla normalmente."
+          }
+        }
+      }
+    },
+    "You have turned off agent actions in Airy (Settings › Agents).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You have turned off agent actions in Airy (Settings › Agents)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has desactivado en Airy que los agentes ejecuten acciones (Ajustes › Agentes)."
+          }
+        }
+      }
+    },
+    "You have used it recently.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You have used it recently."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo has usado hace poco."
+          }
+        }
+      }
+    },
+    "You lose what is inside (%@); it does not come back by itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You lose what is inside (%@); it does not come back by itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pierdes lo que hay dentro (%@); no vuelve solo."
+          }
+        }
+      }
+    },
+    "You lose what is inside; it does not come back by itself.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You lose what is inside; it does not come back by itself."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pierdes lo que hay dentro; no vuelve solo."
+          }
+        }
+      }
+    },
+    "You may be using it: a server or a program you launched in the terminal.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You may be using it: a server or a program you launched in the terminal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puede que estés usándolo: un servidor o un programa que lanzaste en la terminal."
+          }
+        }
+      }
+    },
+    "You protected it (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You protected it (%@)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo has protegido tú (%@)."
+          }
+        }
+      }
+    },
+    "You touched the project recently (%@): it is not deleted.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You touched the project recently (%@): it is not deleted."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has tocado el proyecto hace poco (%@): no se borra."
+          }
+        }
+      }
+    },
+    "Your Mac is doing fine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is doing fine."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac va bien."
+          }
+        }
+      }
+    },
+    "Your Mac is heating up and has slowed down.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is heating up and has slowed down."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac se está calentando y ha bajado la velocidad."
+          }
+        }
+      }
+    },
+    "Your Mac is short on memory.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is short on memory."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac va justo de memoria."
+          }
+        }
+      }
+    },
+    "Your Mac is short on memory: %@ and %@ take %lld%%.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is short on memory: %@ and %@ take %lld%%."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac va justo de memoria: %@ y %@ se llevan el %lld %%."
+          }
+        }
+      }
+    },
+    "Your Mac is short on memory: %@ takes %lld%%.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is short on memory: %@ takes %lld%%."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac va justo de memoria: %@ se lleva el %lld %%."
+          }
+        }
+      }
+    },
+    "Your Mac is very hot and is running much slower to cool down.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Mac is very hot and is running much slower to cool down."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu Mac está muy caliente y va mucho más lento para enfriarse."
+          }
+        }
+      }
+    },
+    "Your applications.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your applications."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus aplicaciones."
+          }
+        }
+      }
+    },
+    "Your call": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tú decides"
+          }
+        }
+      }
+    },
+    "Your documents.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your documents."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus documentos."
+          }
+        }
+      }
+    },
+    "Your home folder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your home folder."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu carpeta personal."
+          }
+        }
+      }
+    },
+    "Your music and audio libraries.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your music and audio libraries."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu música y bibliotecas de audio."
+          }
+        }
+      }
+    },
+    "Your photos, including the Photos library.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your photos, including the Photos library."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus fotos, incluida la fototeca."
+          }
+        }
+      }
+    },
+    "Your videos and video projects.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your videos and video projects."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus vídeos y proyectos de vídeo."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list cannot be recovered: it will be empty.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list cannot be recovered: it will be empty."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu lista «Proteger esto» no se puede recuperar: quedará vacía."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list could not be recovered: it is now empty. Protect what you want again in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list could not be recovered: it is now empty. Protect what you want again in Settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo recuperar tu lista «Proteger esto»: ahora está vacía. Vuelve a proteger lo que quieras en Ajustes."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list is empty.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list is empty."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu lista «Proteger esto» está vacía."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list was empty.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list was empty."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu lista «Proteger esto» estaba vacía."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list was kept (%lld paths).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list was kept (%lld paths)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se conservó tu lista «Proteger esto» (%lld rutas)."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list was kept (1 path).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list was kept (1 path)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se conservó tu lista «Proteger esto» (1 ruta)."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list will be kept (%lld paths).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list will be kept (%lld paths)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se conservará tu lista «Proteger esto» (%lld rutas)."
+          }
+        }
+      }
+    },
+    "Your “Protect this” list will be kept (1 path).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your “Protect this” list will be kept (1 path)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se conservará tu lista «Proteger esto» (1 ruta)."
+          }
+        }
+      }
+    },
+    "apps.json was not found in %@. Searched in: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "apps.json was not found in %@. Searched in: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró apps.json en %@. Buscado en: %@"
+          }
+        }
+      }
+    },
+    "catalog.json was not found in %@. Searched in: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "catalog.json was not found in %@. Searched in: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró catalog.json en %@. Buscado en: %@"
+          }
+        }
+      }
+    },
+    "cleared": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cleared"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "despejados"
+          }
+        }
+      }
+    },
+    "conda environment “%@”": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "conda environment “%@”"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entorno de conda «%@»"
+          }
+        }
+      }
+    },
+    "could not record “%@” in the cleanup history (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "could not record “%@” in the cleanup history (%@)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no se pudo anotar «%@» en el historial de limpiezas (%@)"
+          }
+        }
+      }
+    },
+    "could not record “%@” in the operation log (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "could not record “%@” in the operation log (%@)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no se pudo anotar «%@» en el registro de operaciones (%@)"
+          }
+        }
+      }
+    },
+    "exit code %d": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "exit code %d"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "código de salida %d"
+          }
+        }
+      }
+    },
+    "freed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "freed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "liberados"
+          }
+        }
+      }
+    },
+    "iCloud Drive": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Drive"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Drive"
+          }
+        }
+      }
+    },
+    "macOS needs it to work.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS needs it to work."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS lo necesita para funcionar."
+          }
+        }
+      }
+    },
+    "no reason": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no reason"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sin motivo"
+          }
+        }
+      }
+    },
+    "reply too long": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reply too long"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "respuesta demasiado larga"
+          }
+        }
+      }
+    },
+    "settings.json comes from a newer version (%lld).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "settings.json comes from a newer version (%lld)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "settings.json es de una versión más nueva (%lld)."
+          }
+        }
+      }
+    },
+    "settings.json is not valid.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "settings.json is not valid."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "settings.json no es válido."
+          }
+        }
+      }
+    },
+    "structured_output is missing or does not match the schema": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "structured_output is missing or does not match the schema"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "falta structured_output o no cumple el esquema"
+          }
+        }
+      }
+    },
+    "system": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "system"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sistema"
+          }
+        }
+      }
+    },
+    "the contents": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the contents"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "el contenido"
+          }
+        }
+      }
+    },
+    "unknown error": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown error"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "error desconocido"
+          }
+        }
+      }
+    },
+    "up to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "up to %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hasta %@"
+          }
+        }
+      }
+    },
+    "“%@” cannot be cleaned right now: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” cannot be cleaned right now: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no se puede limpiar ahora: %@"
+          }
+        }
+      }
+    },
+    "“%@” has no bundle identifier.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” has no bundle identifier."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no tiene identificador de paquete."
+          }
+        }
+      }
+    },
+    "“%@” is not found on this Mac; nothing runs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is not found on this Mac; nothing runs."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encuentra «%@» en este Mac; no se ejecuta nada."
+          }
+        }
+      }
+    },
+    "“%@” is only cleaned with Docker's official command; it is not touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is only cleaned with Docker's official command; it is not touched."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» solo se limpia con el comando oficial de Docker; no se toca."
+          }
+        }
+      }
+    },
+    "“%@” is only cleaned with its official command.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is only cleaned with its official command."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» se limpia solo con su comando oficial."
+          }
+        }
+      }
+    },
+    "“%@” is still open (maybe it is asking you to save something). Quit it and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is still open (maybe it is asking you to save something). Quit it and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» sigue abierta (quizá te pide guardar algo). Ciérrala y vuelve a intentarlo."
+          }
+        }
+      }
+    },
+    "“%@” is “%@”: Airy does not touch it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is “%@”: Airy does not touch it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» es «%@»: Airy no lo toca."
+          }
+        }
+      }
+    },
+    "“%@” is “%@”: only what is marked “%@” runs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is “%@”: only what is marked “%@” runs."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» es «%@»: solo se ejecuta lo marcado «%@»."
+          }
+        }
+      }
+    },
+    "“%@” must be a single folder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” must be a single folder."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» debe ser una sola carpeta."
+          }
+        }
+      }
+    },
+    "“%@” must be a single version.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” must be a single version."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» debe ser una sola versión."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -3,384 +3,509 @@
     {
       "id": "chrome",
       "title": "Google Chrome",
-      "explanation": "Navegador de Google; cada pestaña y extensión es un proceso aparte, por eso suma tanto.",
+      "explanation": "Google's browser; each tab and extension is a separate process, which is why it adds up so much.",
       "bundleIDs": [
         "com.google.Chrome"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Navegador de Google; cada pestaña y extensión es un proceso aparte, por eso suma tanto."
+      }
     },
     {
       "id": "safari",
       "title": "Safari",
-      "explanation": "Navegador de Apple; las pestañas y páginas web pesadas pueden usar mucha memoria y CPU.",
+      "explanation": "Apple's browser; tabs and heavy web pages can use a lot of memory and CPU.",
       "bundleIDs": [
         "com.apple.Safari"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Navegador de Apple; las pestañas y páginas web pesadas pueden usar mucha memoria y CPU."
+      }
     },
     {
       "id": "firefox",
       "title": "Firefox",
-      "explanation": "Navegador de Mozilla; reparte las pestañas en varios procesos y puede consumir bastante memoria.",
+      "explanation": "Mozilla's browser; it spreads tabs across several processes and can use quite a lot of memory.",
       "bundleIDs": [
         "org.mozilla.firefox"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Navegador de Mozilla; reparte las pestañas en varios procesos y puede consumir bastante memoria."
+      }
     },
     {
       "id": "brave",
       "title": "Brave",
-      "explanation": "Navegador basado en Chromium; cada pestaña y extensión es un proceso aparte.",
+      "explanation": "Chromium-based browser; each tab and extension is a separate process.",
       "bundleIDs": [
         "com.brave.Browser"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Navegador basado en Chromium; cada pestaña y extensión es un proceso aparte."
+      }
     },
     {
       "id": "edge",
       "title": "Microsoft Edge",
-      "explanation": "Navegador de Microsoft basado en Chromium; cada pestaña y extensión es un proceso aparte.",
+      "explanation": "Microsoft's Chromium-based browser; each tab and extension is a separate process.",
       "bundleIDs": [
         "com.microsoft.edgemac"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Navegador de Microsoft basado en Chromium; cada pestaña y extensión es un proceso aparte."
+      }
     },
     {
       "id": "arc",
       "title": "Arc",
-      "explanation": "Navegador basado en Chromium; mantiene muchas pestañas y espacios abiertos a la vez.",
+      "explanation": "Chromium-based browser; it keeps many tabs and spaces open at once.",
       "bundleIDs": [
         "company.thebrowser.Browser"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Navegador basado en Chromium; mantiene muchas pestañas y espacios abiertos a la vez."
+      }
     },
     {
       "id": "slack",
       "title": "Slack",
-      "explanation": "App de mensajería de trabajo; está hecha con tecnología web y suele ocupar bastante memoria.",
+      "explanation": "Work messaging app; it is built with web technology and usually takes up quite a lot of memory.",
       "bundleIDs": [
         "com.tinyspeck.slackmacgap"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de mensajería de trabajo; está hecha con tecnología web y suele ocupar bastante memoria."
+      }
     },
     {
       "id": "discord",
       "title": "Discord",
-      "explanation": "App de chat y voz hecha con tecnología web; consume más si compartes pantalla o vídeo.",
+      "explanation": "Chat and voice app built with web technology; it uses more if you share your screen or video.",
       "bundleIDs": [
         "com.hnc.Discord"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de chat y voz hecha con tecnología web; consume más si compartes pantalla o vídeo."
+      }
     },
     {
       "id": "teams",
       "title": "Microsoft Teams",
-      "explanation": "App de reuniones y chat de Microsoft; las videollamadas consumen mucha CPU.",
+      "explanation": "Microsoft's meetings and chat app; video calls use a lot of CPU.",
       "bundleIDs": [
         "com.microsoft.teams2",
         "com.microsoft.teams"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de reuniones y chat de Microsoft; las videollamadas consumen mucha CPU."
+      }
     },
     {
       "id": "zoom",
       "title": "Zoom",
-      "explanation": "App de videollamadas; usa mucha CPU mientras hay cámara o pantalla compartida.",
+      "explanation": "Video call app; it uses a lot of CPU while the camera or screen sharing is on.",
       "bundleIDs": [
         "us.zoom.xos"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de videollamadas; usa mucha CPU mientras hay cámara o pantalla compartida."
+      }
     },
     {
       "id": "spotify",
       "title": "Spotify",
-      "explanation": "Reproductor de música; guarda una caché y mantiene su interfaz web en memoria.",
+      "explanation": "Music player; it keeps a cache and holds its web interface in memory.",
       "bundleIDs": [
         "com.spotify.client"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Reproductor de música; guarda una caché y mantiene su interfaz web en memoria."
+      }
     },
     {
       "id": "docker-desktop",
       "title": "Docker Desktop",
-      "explanation": "Docker Desktop y su máquina virtual Linux; reserva memoria aunque no haya contenedores.",
+      "explanation": "Docker Desktop and its Linux virtual machine; it reserves memory even when there are no containers.",
       "bundleIDs": [
         "com.docker.docker"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Docker Desktop y su máquina virtual Linux; reserva memoria aunque no haya contenedores."
+      }
     },
     {
       "id": "vscode",
       "title": "Visual Studio Code",
-      "explanation": "Editor de código hecho con tecnología web; las extensiones y el análisis del proyecto suman procesos.",
+      "explanation": "Code editor built with web technology; extensions and project analysis add processes.",
       "bundleIDs": [
         "com.microsoft.VSCode"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Editor de código hecho con tecnología web; las extensiones y el análisis del proyecto suman procesos."
+      }
     },
     {
       "id": "cursor",
       "title": "Cursor",
-      "explanation": "Editor de código con IA basado en VS Code; las extensiones y el análisis del proyecto suman procesos.",
+      "explanation": "AI code editor based on VS Code; extensions and project analysis add processes.",
       "bundleIDs": [
         "com.todesktop.230313mzl4w4u92"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Editor de código con IA basado en VS Code; las extensiones y el análisis del proyecto suman procesos."
+      }
     },
     {
       "id": "xcode",
       "title": "Xcode",
-      "explanation": "Entorno de desarrollo de Apple; compilar e indexar proyectos grandes usa mucha CPU y memoria.",
+      "explanation": "Apple's development environment; building and indexing large projects uses a lot of CPU and memory.",
       "bundleIDs": [
         "com.apple.dt.Xcode"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Entorno de desarrollo de Apple; compilar e indexar proyectos grandes usa mucha CPU y memoria."
+      }
     },
     {
       "id": "simulator",
-      "title": "Simulador de iOS",
-      "explanation": "Simulador de dispositivos de Apple; arranca un sistema completo que reserva memoria mientras está abierto.",
+      "title": "iOS Simulator",
+      "explanation": "Apple's device simulator; it boots a full system that reserves memory while it is open.",
       "bundleIDs": [
         "com.apple.iphonesimulator"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "title": "Simulador de iOS",
+        "explanation": "Simulador de dispositivos de Apple; arranca un sistema completo que reserva memoria mientras está abierto."
+      }
     },
     {
       "id": "figma",
       "title": "Figma",
-      "explanation": "App de diseño hecha con tecnología web; los archivos grandes consumen mucha memoria.",
+      "explanation": "Design app built with web technology; large files use a lot of memory.",
       "bundleIDs": [
         "com.figma.Desktop"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de diseño hecha con tecnología web; los archivos grandes consumen mucha memoria."
+      }
     },
     {
       "id": "photoshop",
       "title": "Photoshop",
-      "explanation": "Editor de imágenes de Adobe; guarda en memoria las capas y el historial de cada documento.",
+      "explanation": "Adobe's image editor; it keeps each document's layers and history in memory.",
       "bundleIDs": [
         "com.adobe.Photoshop"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Editor de imágenes de Adobe; guarda en memoria las capas y el historial de cada documento."
+      }
     },
     {
       "id": "premiere",
       "title": "Premiere Pro",
-      "explanation": "Editor de vídeo de Adobe; previsualizar y exportar usa mucha CPU, GPU y memoria.",
+      "explanation": "Adobe's video editor; previewing and exporting use a lot of CPU, GPU and memory.",
       "bundleIDs": [
         "com.adobe.PremierePro"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Editor de vídeo de Adobe; previsualizar y exportar usa mucha CPU, GPU y memoria."
+      }
     },
     {
       "id": "final-cut",
       "title": "Final Cut Pro",
-      "explanation": "Editor de vídeo de Apple; renderizar y exportar usa mucha CPU, GPU y memoria.",
+      "explanation": "Apple's video editor; rendering and exporting use a lot of CPU, GPU and memory.",
       "bundleIDs": [
         "com.apple.FinalCut"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "Editor de vídeo de Apple; renderizar y exportar usa mucha CPU, GPU y memoria."
+      }
     },
     {
       "id": "notion",
       "title": "Notion",
-      "explanation": "App de notas y documentos hecha con tecnología web; los espacios grandes ocupan bastante memoria.",
+      "explanation": "Notes and documents app built with web technology; large workspaces take up quite a lot of memory.",
       "bundleIDs": [
         "notion.id"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de notas y documentos hecha con tecnología web; los espacios grandes ocupan bastante memoria."
+      }
     },
     {
       "id": "whatsapp",
       "title": "WhatsApp",
-      "explanation": "App de mensajería; mantiene abiertas tus conversaciones y su caché de archivos en memoria.",
+      "explanation": "Messaging app; it keeps your conversations and its file cache open in memory.",
       "bundleIDs": [
         "net.whatsapp.WhatsApp",
         "desktop.WhatsApp"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de mensajería; mantiene abiertas tus conversaciones y su caché de archivos en memoria."
+      }
     },
     {
       "id": "telegram",
       "title": "Telegram",
-      "explanation": "App de mensajería; guarda en memoria los chats y archivos multimedia recientes.",
+      "explanation": "Messaging app; it keeps recent chats and media files in memory.",
       "bundleIDs": [
         "ru.keepcoder.Telegram"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de mensajería; guarda en memoria los chats y archivos multimedia recientes."
+      }
     },
     {
       "id": "claude",
       "title": "Claude",
-      "explanation": "App de Anthropic para hablar con Claude; está hecha con tecnología web y reserva memoria.",
+      "explanation": "Anthropic's app for talking to Claude; it is built with web technology and reserves memory.",
       "bundleIDs": [
         "com.anthropic.claudefordesktop"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de Anthropic para hablar con Claude; está hecha con tecnología web y reserva memoria."
+      }
     },
     {
       "id": "chatgpt",
       "title": "ChatGPT",
-      "explanation": "App de OpenAI para conversar con IA; mantiene tus chats y su interfaz web en memoria.",
+      "explanation": "OpenAI's app for chatting with AI; it keeps your chats and its web interface in memory.",
       "bundleIDs": [
         "com.openai.chat"
       ],
-      "processNames": []
+      "processNames": [],
+      "es": {
+        "explanation": "App de OpenAI para conversar con IA; mantiene tus chats y su interfaz web en memoria."
+      }
     },
     {
       "id": "ollama",
       "title": "Ollama",
-      "explanation": "Ejecuta modelos de IA en tu Mac; mantiene el modelo cargado en memoria un rato tras usarlo.",
+      "explanation": "Runs AI models on your Mac; it keeps the model loaded in memory for a while after use.",
       "bundleIDs": [
         "com.electron.ollama"
       ],
       "processNames": [
         "ollama"
-      ]
+      ],
+      "es": {
+        "explanation": "Ejecuta modelos de IA en tu Mac; mantiene el modelo cargado en memoria un rato tras usarlo."
+      }
     },
     {
       "id": "lm-studio",
       "title": "LM Studio",
-      "explanation": "Ejecuta modelos de IA en tu Mac; el modelo cargado ocupa varios gigas de memoria.",
+      "explanation": "Runs AI models on your Mac; the loaded model takes up several gigabytes of memory.",
       "bundleIDs": [
         "ai.elementlabs.lmstudio"
       ],
       "processNames": [
         "LM Studio"
-      ]
+      ],
+      "es": {
+        "explanation": "Ejecuta modelos de IA en tu Mac; el modelo cargado ocupa varios gigas de memoria."
+      }
     },
     {
       "id": "node",
       "title": "Node.js",
-      "explanation": "Programa de JavaScript, normalmente un servidor o una herramienta que lanzaste en la terminal.",
+      "explanation": "A JavaScript program, usually a server or a tool you launched in the terminal.",
       "bundleIDs": [],
       "processNames": [
         "node"
-      ]
+      ],
+      "es": {
+        "explanation": "Programa de JavaScript, normalmente un servidor o una herramienta que lanzaste en la terminal."
+      }
     },
     {
       "id": "python",
       "title": "Python",
-      "explanation": "Programa escrito en Python, normalmente un script o un servidor que lanzaste en la terminal.",
+      "explanation": "A program written in Python, usually a script or a server you launched in the terminal.",
       "bundleIDs": [],
       "processNames": [
         "python",
         "python3",
         "Python"
-      ]
+      ],
+      "es": {
+        "explanation": "Programa escrito en Python, normalmente un script o un servidor que lanzaste en la terminal."
+      }
     },
     {
       "id": "ruby",
       "title": "Ruby",
-      "explanation": "Programa escrito en Ruby, normalmente un servidor o una herramienta de desarrollo lanzada en la terminal.",
+      "explanation": "A program written in Ruby, usually a server or a development tool launched in the terminal.",
       "bundleIDs": [],
       "processNames": [
         "ruby"
-      ]
+      ],
+      "es": {
+        "explanation": "Programa escrito en Ruby, normalmente un servidor o una herramienta de desarrollo lanzada en la terminal."
+      }
     },
     {
       "id": "java",
       "title": "Java",
-      "explanation": "Programa que corre sobre la máquina virtual de Java; suele reservar bastante memoria desde el inicio.",
+      "explanation": "A program running on the Java virtual machine; it usually reserves quite a lot of memory from the start.",
       "bundleIDs": [],
       "processNames": [
         "java"
-      ]
+      ],
+      "es": {
+        "explanation": "Programa que corre sobre la máquina virtual de Java; suele reservar bastante memoria desde el inicio."
+      }
     },
     {
       "id": "bun",
       "title": "Bun",
-      "explanation": "Programa de JavaScript ejecutado con Bun, normalmente un servidor o una herramienta de desarrollo.",
+      "explanation": "A JavaScript program run with Bun, usually a server or a development tool.",
       "bundleIDs": [],
       "processNames": [
         "bun"
-      ]
+      ],
+      "es": {
+        "explanation": "Programa de JavaScript ejecutado con Bun, normalmente un servidor o una herramienta de desarrollo."
+      }
     },
     {
       "id": "deno",
       "title": "Deno",
-      "explanation": "Programa de JavaScript o TypeScript ejecutado con Deno, normalmente un servidor o una herramienta.",
+      "explanation": "A JavaScript or TypeScript program run with Deno, usually a server or a tool.",
       "bundleIDs": [],
       "processNames": [
         "deno"
-      ]
+      ],
+      "es": {
+        "explanation": "Programa de JavaScript o TypeScript ejecutado con Deno, normalmente un servidor o una herramienta."
+      }
     },
     {
       "id": "postgres",
       "title": "PostgreSQL",
-      "explanation": "Servidor de base de datos; mantiene en memoria una caché de datos aunque no lo estés usando.",
+      "explanation": "Database server; it keeps a data cache in memory even when you are not using it.",
       "bundleIDs": [],
       "processNames": [
         "postgres"
-      ]
+      ],
+      "es": {
+        "explanation": "Servidor de base de datos; mantiene en memoria una caché de datos aunque no lo estés usando."
+      }
     },
     {
       "id": "redis",
       "title": "Redis",
-      "explanation": "Base de datos en memoria; por diseño guarda sus datos en RAM mientras está encendida.",
+      "explanation": "In-memory database; by design it keeps its data in RAM while it is running.",
       "bundleIDs": [],
       "processNames": [
         "redis-server"
-      ]
+      ],
+      "es": {
+        "explanation": "Base de datos en memoria; por diseño guarda sus datos en RAM mientras está encendida."
+      }
     },
     {
       "id": "webkit-content",
-      "title": "Contenido web",
-      "explanation": "Páginas web que muestran Safari y otras apps; cada página o pestaña pesada es un proceso aparte.",
+      "title": "Web content",
+      "explanation": "Web pages shown by Safari and other apps; each heavy page or tab is a separate process.",
       "bundleIDs": [
         "com.apple.WebKit.WebContent"
       ],
       "processNames": [
         "com.apple.WebKit.WebContent"
-      ]
+      ],
+      "es": {
+        "title": "Contenido web",
+        "explanation": "Páginas web que muestran Safari y otras apps; cada página o pestaña pesada es un proceso aparte."
+      }
     },
     {
       "id": "windowserver",
       "title": "WindowServer",
-      "explanation": "Dibuja todas las ventanas de macOS; trabaja más con varias pantallas, transparencias o mucho movimiento.",
+      "explanation": "It draws every macOS window; it works harder with several displays, transparency or lots of motion.",
       "bundleIDs": [],
       "processNames": [
         "WindowServer"
-      ]
+      ],
+      "es": {
+        "explanation": "Dibuja todas las ventanas de macOS; trabaja más con varias pantallas, transparencias o mucho movimiento."
+      }
     },
     {
       "id": "spotlight",
       "title": "Spotlight",
-      "explanation": "Indexa los archivos para poder buscarlos; trabaja más tras instalar apps o mover muchos archivos.",
+      "explanation": "It indexes files so they can be searched; it works harder after installing apps or moving many files.",
       "bundleIDs": [],
       "processNames": [
         "mds",
         "mds_stores",
         "mdworker",
         "mdworker_shared"
-      ]
+      ],
+      "es": {
+        "explanation": "Indexa los archivos para poder buscarlos; trabaja más tras instalar apps o mover muchos archivos."
+      }
     },
     {
       "id": "syspolicyd",
       "title": "syspolicyd",
-      "explanation": "Comprueba que las apps son seguras al abrirlas; puede tardar tras instalar o actualizar muchas apps.",
+      "explanation": "It checks that apps are safe when you open them; it can take a while after installing or updating many apps.",
       "bundleIDs": [],
       "processNames": [
         "syspolicyd"
-      ]
+      ],
+      "es": {
+        "explanation": "Comprueba que las apps son seguras al abrirlas; puede tardar tras instalar o actualizar muchas apps."
+      }
     },
     {
       "id": "kernel-task",
       "title": "kernel_task",
-      "explanation": "Parte del sistema que también frena el Mac cuando se calienta; no es una app que puedas cerrar.",
+      "explanation": "Part of the system that also slows the Mac down when it gets hot; it is not an app you can quit.",
       "bundleIDs": [],
       "processNames": [
         "kernel_task"
-      ]
+      ],
+      "es": {
+        "explanation": "Parte del sistema que también frena el Mac cuando se calienta; no es una app que puedas cerrar."
+      }
     },
     {
       "id": "claude-code",
       "title": "Claude Code",
-      "explanation": "Asistente de programación de Anthropic en la terminal; cada sesión abierta es un proceso aparte.",
+      "explanation": "Anthropic's coding assistant in the terminal; each open session is a separate process.",
       "bundleIDs": [],
       "processNames": [
         "claude"
-      ]
+      ],
+      "es": {
+        "explanation": "Asistente de programación de Anthropic en la terminal; cada sesión abierta es un proceso aparte."
+      }
     }
   ]
 }

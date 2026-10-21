@@ -4,7 +4,7 @@ import Synchronization
 import IOKit.ps
 import IOKit.pwr_mgt
 
-/// Estado térmico sin grados (§5): `ProcessInfo.thermalState` + límite de velocidad de la CPU.
+/// Thermal state without degrees (§5): `ProcessInfo.thermalState` + CPU speed limit.
 public enum ThermalProbe {
     public static func read() -> ThermalReading {
         reading(state: ProcessInfo.processInfo.thermalState, speedLimit: cpuSpeedLimit())
@@ -24,7 +24,7 @@ public enum ThermalProbe {
         return ThermalReading(level: level, speedLimit: speedLimit, throttling: throttling)
     }
 
-    /// `CPU_Speed_Limit` (100 = sin límite). nil si el sistema no lo publica.
+    /// `CPU_Speed_Limit` (100 = no limit). nil if the system does not publish it.
     private static func cpuSpeedLimit() -> Int? {
         var dict: Unmanaged<CFDictionary>?
         guard IOPMCopyCPUPowerStatus(&dict) == kIOReturnSuccess, let dict else { return nil }
@@ -33,18 +33,18 @@ public enum ThermalProbe {
     }
 }
 
-/// Batería interna y fuente de alimentación. Solo IOKit público (`IOPS*` + registro `AppleSmartBattery`).
+/// Internal battery and power source. Public IOKit only (`IOPS*` + `AppleSmartBattery` registry).
 public enum BatteryProbe {
-    /// Ligereza (M7): la batería cambia despacio; se lee como mucho cada 30 s, no en cada muestra de 1,5 s.
+    /// Lightness (M7): the battery changes slowly; it is read at most every 30 s, not on every 1.5 s sample.
     public static let cacheSeconds: TimeInterval = 30
     static let throttle = BatteryThrottle(maxAge: cacheSeconds)
 
-    /// `read()` con caché de `cacheSeconds`.
+    /// `read()` with a `cacheSeconds` cache.
     public static func cached(now: Date = Date()) -> BatteryReading? {
         throttle.value(now: now, read: read)
     }
 
-    /// nil sin batería interna (Mac de sobremesa).
+    /// nil without an internal battery (desktop Mac).
     public static func read() -> BatteryReading? {
         guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
               let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef] else { return nil }
@@ -65,7 +65,7 @@ public enum BatteryProbe {
         return nil
     }
 
-    /// AppleRawMaxCapacity / DesignCapacity × 100, acotada a 0…100.
+    /// AppleRawMaxCapacity / DesignCapacity × 100, clamped to 0…100.
     static func health(rawMax: Int?, design: Int?) -> Int? {
         guard let rawMax, let design, design > 0 else { return nil }
         return Swift.min(100, Swift.max(0, Int((Double(rawMax) / Double(design) * 100).rounded())))
@@ -81,7 +81,7 @@ public enum BatteryProbe {
         return type == kIOPSACPowerValue
     }
 
-    /// Solo las tres claves que se usan (no el diccionario entero del registro).
+    /// Only the three keys that are used (not the registry's whole dictionary).
     private static func smartBatteryProperties() -> [String: Any]? {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
         guard service != 0 else { return nil }
@@ -97,7 +97,7 @@ public enum BatteryProbe {
     }
 }
 
-/// Recuerda la última lectura (también «sin batería») durante `maxAge` segundos.
+/// Remembers the last reading (also "no battery") for `maxAge` seconds.
 final class BatteryThrottle: Sendable {
     private let maxAge: TimeInterval
     private let state = Mutex<(date: Date, reading: BatteryReading?)?>(nil)

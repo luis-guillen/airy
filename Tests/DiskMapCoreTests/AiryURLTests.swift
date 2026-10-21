@@ -5,7 +5,7 @@ import Foundation
 @Suite struct AiryURLTests {
     @Test func roundTripsEveryCommand() {
         let commands: [AiryURLCommand] = [
-            .propose(target: .item("user-logs"), reason: "ocupa 2 GB & «sobra»", agent: "claude-code"),
+            .propose(target: .item("user-logs"), reason: "takes 2 GB & “not needed”", agent: "claude-code"),
             .propose(target: .path("/Users/x/Música & Co/ñ#1"), reason: "", agent: nil),
             .show(path: "/Users/x/Música & Co/ñ#1"),
             .show(path: "/Users"),
@@ -18,7 +18,7 @@ import Foundation
 
     @Test func quitURLRoundTripsAndRejectsHostile() {
         let commands: [AiryURLCommand] = [
-            .proposeQuit(app: "com.spotify.client", reason: "pesa & «mucho»", agent: "claude-code"),
+            .proposeQuit(app: "com.spotify.client", reason: "heavy & “a lot”", agent: "claude-code"),
             .proposeQuit(app: "Google Chrome", reason: "", agent: nil),
         ]
         for command in commands { #expect(AiryURLCommand(url: command.url) == command, "\(command.url)") }
@@ -30,14 +30,14 @@ import Foundation
             #expect(AiryURLCommand(url: URL(string: hostile)!) == nil, "\(hostile)")
         }
         #expect(AiryURLCommand(url: URL(string: "airy://quit?app=\(String(repeating: "a", count: 200))")!) != nil)
-        // Motivo y agente se sanean como en propose.
+        // Reason and agent are sanitized as in propose.
         #expect(AiryURLCommand(url: URL(string: "airy://quit?app=x&reason=a%0Ab&agent=")!)
                 == .proposeQuit(app: "x", reason: "a b", agent: nil))
     }
 
     @Test func uninstallURLRoundTrip() {
         let commands: [AiryURLCommand] = [
-            .uninstall(bundleID: "com.example.foo", reason: "no la usas & «pesa»", agent: "claude-code"),
+            .uninstall(bundleID: "com.example.foo", reason: "you do not use it & “heavy”", agent: "claude-code"),
             .uninstall(bundleID: "org.x-y_z.App2", reason: "", agent: nil),
         ]
         for command in commands { #expect(AiryURLCommand(url: command.url) == command, "\(command.url)") }
@@ -80,7 +80,7 @@ import Foundation
         for s in hostile {
             #expect(AiryURLCommand(url: URL(string: s)!) == nil, "\(s)")
         }
-        // Justo en el límite sí cabe.
+        // Right at the limit it does fit.
         let ok = "/" + String(repeating: "a", count: 1023)
         #expect(AiryURLCommand(url: URL(string: "airy://show?path=\(ok)")!) == .show(path: ok))
     }
@@ -92,7 +92,7 @@ import Foundation
         components.queryItems = [URLQueryItem(name: "item", value: "a"), URLQueryItem(name: "reason", value: raw),
                                  URLQueryItem(name: "agent", value: "  ag\u{7}ent\n" + String(repeating: "z", count: 200))]
         guard case .propose(_, let reason, let agent)? = AiryURLCommand(url: components.url!) else {
-            Issue.record("debería aceptarse con motivo largo"); return
+            Issue.record("should be accepted with a long reason"); return
         }
         #expect(reason.count <= 501)
         #expect(reason.hasSuffix("…"))
@@ -103,7 +103,7 @@ import Foundation
     }
 
     @Test func reasonNeutralisesInvisibleControlsAndTrims() {
-        // Separadores de línea/párrafo y controles de dirección (suplantan texto en la hoja).
+        // Line/paragraph separators and direction controls (they spoof text in the sheet).
         var components = URLComponents(string: "airy://propose")!
         components.queryItems = [URLQueryItem(name: "item", value: "a"),
                                  URLQueryItem(name: "reason", value: "  uno\u{2028}dos\u{202E}tres  ")]
@@ -117,7 +117,7 @@ import Foundation
         let t0 = Date(timeIntervalSince1970: 1_000)
         var allowed: [Bool] = []
         for offset in [0, 1, 2, 3, 9.9, 10, 10.5] { allowed.append(limiter.allow(at: t0.addingTimeInterval(offset))) }
-        // Tres seguidas; luego nada hasta que la primera sale de la ventana (t0 + 10).
+        // Three in a row; then nothing until the first one leaves the window (t0 + 10).
         #expect(allowed == [true, true, true, false, false, true, false])
     }
 
@@ -129,11 +129,11 @@ import Foundation
     }
 
     @Test func agentNameIsShownAsAClaim() {
-        let subtitle = URLProposalPolicy.warningSubtitle(agent: "Claude Code", reason: "caché vieja")
-        #expect(subtitle == "Dice venir de «Claude Code» (Airy no puede comprobarlo) · caché vieja")
+        let subtitle = URLProposalPolicy.warningSubtitle(agent: "Claude Code", reason: "old cache")
+        #expect(subtitle == "Claims to come from “Claude Code” (Airy cannot verify it) · old cache")
         #expect(URLProposalPolicy.warningSubtitle(agent: "  ", reason: "")
-                == "Propuesta por una app externa · sin motivo")
-        #expect(URLProposalPolicy.warningTitle() == "Propuesta recibida por enlace")
+                == "Proposed by an external app · no reason")
+        #expect(URLProposalPolicy.warningTitle() == "Proposal received by link")
         let context = URLProposalPolicy.context(runID: UUID(), agent: nil)
         #expect(context.actor == .user && context.proposedBy == nil && context.proposedVia == "url-unverified")
     }
@@ -146,7 +146,7 @@ import Foundation
         }
         let viaURL = record(.user, by: nil, via: OperationContext.viaUnverifiedURL)
         #expect(URLProposalPolicy.isAgentActivity(viaURL))
-        #expect(URLProposalPolicy.activityAuthor(viaURL) == "Por enlace de una app externa · confirmado por ti")
+        #expect(URLProposalPolicy.activityAuthor(viaURL) == "By link from an external app · confirmed by you")
         #expect(URLProposalPolicy.activityAuthor(record(.agent(client: "codex"), by: nil, via: nil)) == "codex")
         #expect(!URLProposalPolicy.isAgentActivity(record(.user, by: nil, via: nil)))
     }

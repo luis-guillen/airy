@@ -2,7 +2,7 @@ import Foundation
 
 public protocol FileUsageReading: Sendable { func lastOpened(path: String) -> Date? }
 
-/// Último uso según Spotlight (`kMDItemLastUsedDate`), sin lanzar procesos.
+/// Last use according to Spotlight (`kMDItemLastUsedDate`), without launching processes.
 public struct SpotlightFileUsage: FileUsageReading {
     public init() {}
 
@@ -13,22 +13,22 @@ public struct SpotlightFileUsage: FileUsageReading {
 }
 
 public struct LargeOldQuery: Sendable, Equatable {
-    public enum Sort: String, Sendable, CaseIterable { case size, oldest, name }   // «Tamaño», «Más antiguos», «Nombre»
-    public enum Scope: String, Sendable, CaseIterable { case home, everything }    // «Tu carpeta», «Todo el disco»
+    public enum Sort: String, Sendable, CaseIterable { case size, oldest, name }   // "Size", "Oldest", "Name"
+    public enum Scope: String, Sendable, CaseIterable { case home, everything }    // "Your folder", "Whole disk"
     public static let sizeSteps: [Int64] = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000]
-    public static let idleSteps: [Int?] = [nil, 3, 6, 12]     // meses; «Cualquier fecha», «3 meses», «6 meses», «1 año»
+    public static let idleSteps: [Int?] = [nil, 3, 6, 12]     // months; "Any date", "3 months", "6 months", "1 year"
     public var minBytes: Int64 = 100_000_000
     public var minMonthsIdle: Int?
-    public var kinds: Set<ContentKind> = []                    // vacío = todos
+    public var kinds: Set<ContentKind> = []                    // empty = all
     public var scope: Scope = .home
     public var sort: Sort = .size
     public var limit = 500
     public init() {}
 }
 
-/// Busca ficheros grandes y sin abrir en el árbol ya analizado (no recorre el disco). Solo consulta
-/// a Spotlight por los candidatos que pasan el tamaño, con un tiempo máximo: si se agota, esos ficheros
-/// quedan con «fecha desconocida» y nunca cuentan como antiguos.
+/// Finds large, unopened files in the already scanned tree (it does not walk the disk). It only asks
+/// Spotlight about the candidates that pass the size, with a time limit: if it runs out, those files
+/// are left with "unknown date" and never count as old.
 public struct LargeOldFinder: Sendable {
     public static let usageBudget: Duration = .seconds(4)
     private static let monthSeconds: TimeInterval = 30 * 86_400
@@ -61,13 +61,13 @@ public struct LargeOldFinder: Sendable {
         }
     }
 
-    /// Solo ficheros (no carpetas ni agregados «Otros»), sin entrar en `.app`; `usage` solo para los que pasan el tamaño.
-    /// Un mes = 30 días; inactivo = now − lastActivity; sin fechas ⇒ no pasa un filtro de meses.
+    /// Only files (not folders nor "Other" aggregates), without entering `.app`; `usage` only for those that pass the size.
+    /// A month = 30 days; idle = now − lastActivity; no dates ⇒ it does not pass a months filter.
     public func find(in root: FileNode, query: LargeOldQuery) -> [ActionableFile] {
         let homeCanonical = RiskPolicy.canonical(home)
         var candidates: [Candidate] = []
         collect(root, path: root.path, query: query, home: homeCanonical, into: &candidates)
-        // Lector cancelable del árbol: si lo cancelan (un cambio del árbol, otro filtro), deja de recorrer.
+        // Cancellable tree reader: if it is cancelled (a tree change, another filter), it stops walking.
         if Task.isCancelled { return [] }
 
         let current = now()
@@ -77,7 +77,7 @@ public struct LargeOldFinder: Sendable {
         var result: [Candidate] = []
         for var candidate in candidates {
             if Task.isCancelled { return [] }
-            // Un fichero modificado después del corte nunca será «antiguo»: no hace falta preguntar.
+            // A file modified after the cutoff will never be "old": no need to ask.
             if let cutoff, let modified = candidate.node.lastModified, modified > cutoff { continue }
             if clock.now < deadline {
                 candidate.opened = usage.lastOpened(path: candidate.path)

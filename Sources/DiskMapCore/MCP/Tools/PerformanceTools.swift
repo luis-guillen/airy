@@ -1,12 +1,12 @@
 import Foundation
 
-// Herramientas MCP de Rendimiento. Un agente nunca cierra nada: `propose_quit_app` solo abre Airy con la
-// confirmación preparada (`airy://quit`) y el usuario decide. Nada de rutas, PIDs ni argumentos en la salida.
+// Performance MCP tools. An agent never quits anything: `propose_quit_app` only opens Airy with the
+// confirmation prepared (`airy://quit`) and the user decides. No paths, PIDs or arguments in the output.
 
 enum PerformanceText {
-    static func notOpen(_ app: String) -> String { "No hay ninguna app abierta llamada «\(app)»." }
-    static func never(_ name: String, _ reason: String) -> String { "«\(name)» no se puede cerrar desde Airy: \(reason)" }
-    static let proposed = "Propuesta enviada a Airy; el usuario decide si la cierra. Airy nunca cierra apps por su cuenta."
+    static func notOpen(_ app: String) -> String { "There is no open app called “\(app)”." }
+    static func never(_ name: String, _ reason: String) -> String { "“\(name)” cannot be quit from Airy: \(reason)" }
+    static let proposed = "Proposal sent to Airy; the user decides whether to quit it. Airy never quits apps on its own."
 }
 
 extension MCPFormat {
@@ -30,15 +30,15 @@ public struct GetPerformanceTool: MCPTool {
 
     public var name: String { "get_performance" }
     public var description: String {
-        "Estado del Mac ahora: memoria, presión, swap, temperatura (sin grados), procesador y las apps que más pesan, "
-            + "con una frase de diagnóstico. Solo lectura; mide durante 1 s."
+        "State of the Mac now: memory, pressure, swap, temperature (no degrees), CPU and the heaviest apps, "
+            + "with a diagnosis sentence. Read-only; it measures for 1 s."
     }
     public var inputSchema: JSONValue {
         .object(["type": .string("object"), "properties": .object([:]), "additionalProperties": .bool(false)])
     }
     public var annotations: MCPToolAnnotations { MCPToolAnnotations(readOnly: true, destructive: false, idempotent: true) }
 
-    /// Solo lectura: sin `AgentGate`, funciona con la app cerrada y solo mide durante la llamada.
+    /// Read-only: without `AgentGate`, it works with the app closed and only measures during the call.
     public func call(_ arguments: [String: JSONValue], context: MCPCallContext) async -> MCPToolResult {
         let env = context.environment
         let catalog = env.appCatalog
@@ -111,7 +111,7 @@ public struct GetPerformanceTool: MCPTool {
         return .number((value * 10).rounded() / 10)
     }
 
-    /// Nombre, bundle id y cifras: nunca rutas, PIDs, argumentos ni `detail` (la carpeta de trabajo).
+    /// Name, bundle id and figures: never paths, PIDs, arguments nor `detail` (the working folder).
     private static func app(_ group: AppGroup, policy: QuitPolicy) -> JSONValue {
         let eligibility = policy.eligibility(group)
         let risk: JSONValue
@@ -131,8 +131,8 @@ public struct ProposeQuitAppTool: MCPTool {
     public init() {}
     public var name: String { "propose_quit_app" }
     public var description: String {
-        "Propone al usuario cerrar una app abierta: abre Airy con la confirmación preparada. Nunca cierra nada; "
-            + "el usuario decide en la app."
+        "Proposes to the user to quit an open app: it opens Airy with the confirmation prepared. It never quits anything; "
+            + "the user decides in the app."
     }
     public var inputSchema: JSONValue {
         .object([
@@ -141,15 +141,15 @@ public struct ProposeQuitAppTool: MCPTool {
                 "app": .object([
                     "type": .string("string"), "minLength": .number(1),
                     "maxLength": .number(Double(AiryURLCommand.maxItemID)),
-                    "description": .string("Bundle id (p. ej. com.spotify.client) o nombre de la app, sin distinguir mayúsculas."),
+                    "description": .string("Bundle id (e.g. com.spotify.client) or app name, case-insensitive."),
                 ]),
                 "reason": .object([
                     "type": .string("string"), "maxLength": .number(Double(AiryURLCommand.maxReason)),
-                    "description": .string("Por qué lo propones; el usuario lo verá en la confirmación."),
+                    "description": .string("Why you propose it; the user will see it in the confirmation."),
                 ]),
                 "dry_run": .object([
                     "type": .string("boolean"),
-                    "description": .string("true: devuelve el enlace sin abrir Airy (por defecto false)."),
+                    "description": .string("true: returns the link without opening Airy (false by default)."),
                 ]),
             ]),
             "required": .array([.string("app")]),
@@ -161,7 +161,7 @@ public struct ProposeQuitAppTool: MCPTool {
     public func call(_ arguments: [String: JSONValue], context: MCPCallContext) async -> MCPToolResult {
         let env = context.environment
         let dry = arguments["dry_run"]?.boolValue ?? false
-        guard let app = arguments["app"]?.stringValue, !app.isEmpty else { return .error("Falta «app».") }
+        guard let app = arguments["app"]?.stringValue, !app.isEmpty else { return .error("Missing “app”.") }
         let reason = arguments["reason"]?.stringValue ?? ""
 
         func refuse(_ message: String, group: AppGroup? = nil) -> MCPToolResult {
@@ -171,7 +171,7 @@ public struct ProposeQuitAppTool: MCPTool {
 
         if let refusal = AgentGate.refusal(env) { return refuse(refusal) }
 
-        // Una muestra, solo durante la llamada.
+        // One sample, only during the call.
         let raw = await env.sampler.sample()
         let groups = AppGrouper.group(raw, cpu: [:], energy: [:], catalog: env.appCatalog)
         let key = app.lowercased()
@@ -186,7 +186,7 @@ public struct ProposeQuitAppTool: MCPTool {
 
         let url = AiryURLCommand.proposeQuit(app: group.bundleID ?? group.name, reason: reason,
                                              agent: String(context.client.prefix(AiryURLCommand.maxAgent))).url
-        // Ida y vuelta: lo que se abre es exactamente lo que la app aceptará.
+        // Round trip: what is opened is exactly what the app will accept.
         guard let command = AiryURLCommand(url: url), case .proposeQuit = command else {
             return refuse(PerformanceText.notOpen(app), group: group)
         }
@@ -200,7 +200,7 @@ public struct ProposeQuitAppTool: MCPTool {
             "risk": .string(MCPFormat.riskName(risk)), "url": .string(url.absoluteString), "dry_run": .bool(dry),
             "message": .string(PerformanceText.proposed),
         ])
-        return .ok(value, summary: dry ? "Sin abrir Airy (dry_run): \(url.absoluteString)" : PerformanceText.proposed)
+        return .ok(value, summary: dry ? "Without opening Airy (dry_run): \(url.absoluteString)" : PerformanceText.proposed)
     }
 
     private func log(_ context: MCPCallContext, group: AppGroup?, fallback: String, dryRun: Bool, outcome: String,

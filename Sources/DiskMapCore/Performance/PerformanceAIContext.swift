@@ -1,7 +1,7 @@
 import Foundation
 
-/// Lo único que «¿Por qué va lento?» envía a Claude: números y nombres de apps. Nunca rutas, PIDs,
-/// argumentos, carpetas de trabajo, identificadores de bundle ni nombres de imágenes de disco; Airy no se incluye.
+/// The only thing "Why is it slow?" sends to Claude: numbers and app names. Never paths, PIDs,
+/// arguments, working folders, bundle identifiers nor disk image names; Airy is not included.
 public enum PerformanceAIContext {
     public static let appLimit = 10
 
@@ -37,15 +37,15 @@ public enum PerformanceAIContext {
         return String(decoding: data, as: UTF8.self)
     }
 
-    /// M5: la frase de las imágenes de disco lleva nombres de archivos `.dmg` (pueden ser personales); a Claude va
-    /// sin ellos.
-    static let diskImagesSentence = "Hay imágenes de disco montadas que hacen trabajar a la comprobación de seguridad de apps."
+    /// M5: the disk images sentence carries the names of `.dmg` files (they may be personal); it goes to Claude
+    /// without them.
+    static var diskImagesSentence: String { String(localized: "There are mounted disk images making the app security check work.", bundle: .airyCore) }
 
     static func sentence(_ finding: Finding) -> String {
         finding.id == "disk-images" ? diskImagesSentence : finding.sentence
     }
 
-    /// Un nombre con aspecto de ruta se queda en su último componente.
+    /// A name that looks like a path is reduced to its last component.
     static func sanitized(_ name: String) -> String {
         name.contains("/") ? (name as NSString).lastPathComponent : name
     }

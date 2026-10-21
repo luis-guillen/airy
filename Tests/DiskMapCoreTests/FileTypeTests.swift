@@ -71,7 +71,7 @@ import Testing
     }
 
     @Test func folderAttributedBytesAreListedAsTheFolder() {
-        // Lo no reconocido de Caches pasó a .caches: el nodo hijo es .other, pero la carpeta tiene los bytes.
+        // What was not recognized in Caches went to .caches: the child node is .other, but the folder has the bytes.
         let blob = Self.file("blob", .other, 400)
         let known = Self.file("x.cache", .caches, 100)
         var kb = Self.bytes([(.caches, 500)])

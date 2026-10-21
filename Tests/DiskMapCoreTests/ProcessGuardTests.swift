@@ -50,15 +50,15 @@ private func tempDir() -> String {
     @Test func unknownWhenListingFails() async {
         let guardian = ProcessGuard(listing: FakeListing(list: nil))
         let state = await guardian.check(processNames: ["pnpm"], paths: [], checkOpenFiles: false)
-        guard case .unknown = state else { Issue.record("esperaba .unknown, fue \(state)"); return }
-        #expect(state.blockedReason == "No se pudo comprobar si está en uso; Airy no lo toca.")
+        guard case .unknown = state else { Issue.record("expected .unknown, got \(state)"); return }
+        #expect(state.blockedReason == "Could not check whether it is in use; Airy does not touch it.")
     }
 
     @Test func unknownWhenListingIsTooSlow() async {
         let guardian = ProcessGuard(listing: FakeListing(list: [], delay: 5), budget: .milliseconds(200))
         let start = ContinuousClock.now
         let state = await guardian.check(processNames: ["pnpm"], paths: [], checkOpenFiles: false)
-        guard case .unknown = state else { Issue.record("esperaba .unknown, fue \(state)"); return }
+        guard case .unknown = state else { Issue.record("expected .unknown, got \(state)"); return }
         #expect(ContinuousClock.now - start < .seconds(1))
     }
 
@@ -66,19 +66,19 @@ private func tempDir() -> String {
         let guardian = ProcessGuard(listing: FakeListing(list: [], held: [process("Brave Helper")]))
         let state = await guardian.check(processNames: [], paths: ["/x"], checkOpenFiles: true)
         #expect(state == .running("Brave Helper"))
-        #expect(state.blockedReason == "Está en marcha: Brave Helper. Ciérralo antes de limpiar.")
+        #expect(state.blockedReason == "It is running: Brave Helper. Quit it before cleaning.")
     }
 
     @Test func unknownWhenHoldersUnknown() async {
         let guardian = ProcessGuard(listing: FakeListing(list: [], held: nil))
         let state = await guardian.check(processNames: [], paths: ["/x"], checkOpenFiles: true)
-        guard case .unknown = state else { Issue.record("esperaba .unknown, fue \(state)"); return }
+        guard case .unknown = state else { Issue.record("expected .unknown, got \(state)"); return }
     }
 
     @Test func timeBudgetReturnsNilOnTimeout() async {
         let start = ContinuousClock.now
         let result = await TimeBudget.run(.milliseconds(100)) { () -> Int in
-            usleep(3_000_000) // llamada bloqueante que no coopera con la cancelación
+            usleep(3_000_000) // blocking call that does not cooperate with cancellation
             return 1
         }
         #expect(result == nil)
@@ -118,7 +118,7 @@ private func tempDir() -> String {
                 referenceTimeout: timeout).findItems(scan: nil).first
         }
         let incomplete = await scan(timeout: 0)
-        #expect(incomplete?.blockedReason == "No se pudo comprobar a tiempo si lo usa algún proyecto.")
+        #expect(incomplete?.blockedReason == "Could not check in time whether a project uses it.")
         #expect(incomplete.map(CleanupBoard.canSelect) == false)
     }
 
@@ -142,7 +142,7 @@ private func tempDir() -> String {
         let counter = CallCounter()
         let running = await run(FakeListing(list: [process("pnpm")], calls: counter))
         #expect(counter.count == 1)
-        #expect(running.first { $0.id == "a" }?.blockedReason == "Está en marcha: pnpm. Ciérralo antes de limpiar.")
+        #expect(running.first { $0.id == "a" }?.blockedReason == "It is running: pnpm. Quit it before cleaning.")
         #expect(running.first { $0.id == "b" }?.blockedReason == nil)
         let unknown = await run(FakeListing(list: nil))
         #expect(unknown.allSatisfy { $0.blockedReason != nil })
@@ -174,7 +174,7 @@ private func tempDir() -> String {
         let probes = SystemProbes(home: NSHomeDirectory(), runner: FakeRunner(), allowFinderFallback: false,
                                   processListing: FakeListing(list: nil))
         #expect(probes.currentRunningBundleIDs() == nil)
-        // Lo que ve el listado al momento cuenta aunque NSWorkspace aún no lo sepa.
+        // What the on-the-spot listing sees counts even if NSWorkspace does not know it yet.
         let safari = try fakeApp("Safari", id: "local.airy.test.safari")
         let fresh = SystemProbes(home: NSHomeDirectory(), runner: FakeRunner(), allowFinderFallback: false,
                                  processListing: FakeListing(list: [process("Safari", path: safari)]))

@@ -3,19 +3,19 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 private let git = "/usr/bin/git"
 private let day: TimeInterval = 86_400
 
-/// Carpeta personal temporal (ruta real, sin el enlace `/var` → `/private/var`).
+/// Temporary home folder (real path, without the `/var` → `/private/var` link).
 private func tempHome() -> String {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-proj-\(UUID().uuidString)")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return CleanupTargets.realPath(url.path)!
 }
 
-/// Crea `relative` (carpeta si acaba en `/`, si no un fichero de 4 KB) bajo `base`.
+/// Creates `relative` (a folder if it ends in `/`, otherwise a 4 KB file) under `base`.
 private func make(_ base: String, _ relatives: String...) {
     for relative in relatives {
         let path = base + "/" + relative
@@ -29,14 +29,14 @@ private func make(_ base: String, _ relatives: String...) {
     }
 }
 
-/// Fecha `path` (sin seguir enlaces) `days` días en el pasado.
+/// Dates `path` (without following links) `days` days in the past.
 private func age(_ path: String, days: Double) {
     let seconds = Date().addingTimeInterval(-days * day).timeIntervalSince1970
     var times = [timeval(tv_sec: Int(seconds), tv_usec: 0), timeval(tv_sec: Int(seconds), tv_usec: 0)]
     #expect(lutimes(path, &times) == 0, "\(path)")
 }
 
-/// Fecha todo el árbol (de dentro afuera, sin seguir enlaces).
+/// Dates the whole tree (inside out, without following links).
 private func ageTree(_ root: String, days: Double) {
     let names = (try? FileManager.default.subpathsOfDirectory(atPath: root)) ?? []
     for name in names.sorted(by: { $0.count > $1.count }) { age(root + "/" + name, days: days) }
@@ -80,7 +80,7 @@ private func context(home: String, runner: FakeRunner = gitRunner()) throws -> D
                      now: Date(), scan: nil)
 }
 
-/// Proyecto Node viejo en `~/Projects/app`: package.json y src/a.js de hace 120 días, node_modules de hoy.
+/// Old Node project in `~/Projects/app`: package.json and src/a.js from 120 days ago, node_modules from today.
 private func staleNodeApp(_ home: String) -> String {
     let app = home + "/Projects/app"
     make(app, "package.json", "src/a.js", "node_modules/left-pad/index.js")
@@ -90,7 +90,7 @@ private func staleNodeApp(_ home: String) -> String {
     return app
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct ProjectArtifactTests {
     @Test func staleProjectOffersItsNodeModulesPreselectedInAggressive() async throws {
@@ -105,9 +105,9 @@ private func staleNodeApp(_ home: String) -> String {
         #expect(item.preselected)
         #expect(item.bytes > 0)
         #expect(item.blockedReason == nil)
-        #expect(item.details.first?.hasPrefix("Proyecto sin tocar desde ") == true)
+        #expect(item.details.first?.hasPrefix("Project untouched since ") == true)
         #expect(item.details.last == ProjectArtifactRules.regenerationHint(for: "node_modules"))
-        // En Prudente sigue en ámbar pero sin marcar.
+        // In Careful mode it stays amber but unchecked.
         let prudent = try await scan(home: home, mode: .prudent)
         #expect(prudent.count == 1 && prudent[0].risk == .yourCall && !prudent[0].preselected)
     }
@@ -139,9 +139,9 @@ private func staleNodeApp(_ home: String) -> String {
         let repo = home + "/Projects/repo"
         make(repo, ".git/HEAD", "packages/a/package.json", "packages/a/node_modules/x/i.js", "packages/b/x.ts")
         ageTree(repo, days: 120)
-        // Sin nada reciente, el monorepo es viejo y se ofrece la carpeta del paquete.
+        // With nothing recent, the monorepo is old and the package folder is offered.
         #expect(try await scan(home: home).map(\.id) == ["old-project-artifacts:~/Projects/repo/packages/a/node_modules"])
-        // Un fichero reciente en otro paquete mantiene vivo todo el repositorio.
+        // A recent file in another package keeps the whole repository alive.
         age(repo + "/packages/b/x.ts", days: 1)
         #expect(try await scan(home: home).isEmpty)
     }
@@ -165,8 +165,8 @@ private func staleNodeApp(_ home: String) -> String {
         make(app, "Cargo.toml", "rare-cache/blob", "fake-cache/blob")
         FileManager.default.createFile(
             atPath: app + "/rare-cache/CACHEDIR.TAG",
-            contents: Data((ProjectArtifactRules.cachedirSignature + "\n# lo creó una herramienta\n").utf8))
-        FileManager.default.createFile(atPath: app + "/fake-cache/CACHEDIR.TAG", contents: Data("Signature: otra".utf8))
+            contents: Data((ProjectArtifactRules.cachedirSignature + "\n# a tool created it\n").utf8))
+        FileManager.default.createFile(atPath: app + "/fake-cache/CACHEDIR.TAG", contents: Data("Signature: other".utf8))
         ageTree(app, days: 120)
         let items = try await scan(home: home)
         #expect(items.map(\.id) == ["old-project-build-leftovers:~/Projects/rs/rare-cache"])
@@ -181,10 +181,10 @@ private func staleNodeApp(_ home: String) -> String {
         let items = try await scan(home: home)
         let target = try #require(items.first { $0.id.hasSuffix("/target") })
         #expect(target.risk == .doNotTouch && !target.preselected)
-        #expect(target.riskReason == "Contiene claves (prog-keypair.json): no se regeneran.")
+        #expect(target.riskReason == "It contains keys (prog-keypair.json): they do not regenerate.")
         let vendor = try #require(items.first { $0.id.hasSuffix("/vendor") })
         #expect(vendor.risk == .doNotTouch && !vendor.preselected)
-        #expect(vendor.riskReason == "Contiene otro repositorio Git dentro.")
+        #expect(vendor.riskReason == "It contains another Git repository inside.")
     }
 
     @Test func gitTrackedBuildIsRedAndGitFailureBlocks() async throws {
@@ -199,7 +199,7 @@ private func staleNodeApp(_ home: String) -> String {
         ]))
         #expect(tracked.count == 1)
         #expect(tracked.first?.risk == .doNotTouch)
-        #expect(tracked.first?.riskReason == "Git guarda archivos aquí: no es solo un resto de compilación.")
+        #expect(tracked.first?.riskReason == "Git keeps files here: it is not just a build leftover.")
 
         let clean = try await scan(home: home)
         #expect(clean.count == 1 && clean[0].risk == .yourCall && clean[0].blockedReason == nil)
@@ -207,10 +207,10 @@ private func staleNodeApp(_ home: String) -> String {
         let failing = try await scan(home: home, runner: gitRunner([
             key: CommandOutput(status: 128, stdout: "", stderr: "fatal"),
         ]))
-        #expect(failing.first?.blockedReason == "No se pudo comprobar con Git si guarda archivos aquí.")
+        #expect(failing.first?.blockedReason == "Could not check with Git whether it keeps files here.")
 
         let noGit = try await scan(home: home, runner: FakeRunner())
-        #expect(noGit.first?.blockedReason == "No se pudo comprobar con Git si guarda archivos aquí.")
+        #expect(noGit.first?.blockedReason == "Could not check with Git whether it keeps files here.")
     }
 
     @Test func binAndVendorOnlyForDotNetAndComposer() async throws {
@@ -238,7 +238,7 @@ private func staleNodeApp(_ home: String) -> String {
         try FileManager.default.createSymbolicLink(atPath: app + "/node_modules",
                                                    withDestinationPath: home + "/Documents/grande")
         ageTree(app, days: 120)
-        // Lo de detrás del enlace es de hoy: si se siguiera, el proyecto no sería viejo.
+        // What is behind the link is from today: if it were followed, the project would not be old.
         let items = try await scan(home: home)
         #expect(items.map(\.id) == ["old-project-artifacts:~/Projects/app/build"])
         #expect(FileManager.default.fileExists(atPath: home + "/Documents/grande/reciente.bin"))
@@ -254,7 +254,7 @@ private func staleNodeApp(_ home: String) -> String {
             let entry = try #require(try projectCatalog().entry(id: "old-project-artifacts"))
             #expect(await source.discover(entry, context: try context(home: home)).isEmpty, "\(root)")
         }
-        // Library nunca es raíz por defecto; las carpetas con nombre de la lista, sí.
+        // Library is never a default root; the folders named in the list are.
         make(home, "Projects/")
         #expect(ProjectArtifactRules.defaultSearchRoots(home: home) == [home + "/Projects"])
     }
@@ -283,11 +283,11 @@ private func staleNodeApp(_ home: String) -> String {
             processGuard: ProcessGuard(listing: NoProcesses()), processListing: NoProcesses())
         let outcome = await executor.execute(item)
         guard case .blocked(let reason) = outcome else {
-            Issue.record("esperaba un bloqueo: \(outcome)")
+            Issue.record("expected a block: \(outcome)")
             return
         }
-        #expect(reason.hasPrefix("Has tocado el proyecto hace poco ("), "\(reason)")
-        #expect(reason.hasSuffix("): no se borra."), "\(reason)")
+        #expect(reason.hasPrefix("You touched the project recently ("), "\(reason)")
+        #expect(reason.hasSuffix("): it is not deleted."), "\(reason)")
         #expect(FileManager.default.fileExists(atPath: app + "/node_modules/left-pad/index.js"))
     }
 
@@ -304,8 +304,8 @@ private func staleNodeApp(_ home: String) -> String {
                         blockedByOpenApps: [], usedBy: [])
         }
         #expect(await source.revalidate(entry, item: item([loose + "/node_modules"]), context: ctx)
-            == "Ya no está dentro de un proyecto.")
-        // Fuera de toda raíz de búsqueda, con dos rutas o con un nombre que no es de la ficha: rechazado.
+            == "It is no longer inside a project.")
+        // Outside every search root, with two paths or with a name that does not belong to the entry: rejected.
         let elsewhere = tempHome()
         make(elsewhere, "package.json", "node_modules/x/i.js")
         ageTree(elsewhere, days: 120)
@@ -315,11 +315,11 @@ private func staleNodeApp(_ home: String) -> String {
         make(loose, "package.json", "src/")
         ageTree(loose, days: 120)
         #expect(await source.revalidate(entry, item: item([loose + "/src"]), context: ctx) != nil)
-        // Ya dentro de un proyecto viejo, la misma carpeta vale.
+        // Already inside an old project, the same folder is valid.
         #expect(await source.revalidate(entry, item: item([loose + "/node_modules"]), context: ctx) == nil)
     }
 
-    // MARK: - Ronda de correcciones 1
+    // MARK: - Round of fixes 1
 
     @Test func genericNamesNeedTheirEcosystem() async throws {
         let home = tempHome()
@@ -354,7 +354,7 @@ private func staleNodeApp(_ home: String) -> String {
         #expect(build.risk == .yourCall && !build.preselected)
         let modules = try #require(items.first { $0.id.hasSuffix("/node_modules") })
         #expect(modules.risk == .yourCall && modules.preselected)
-        // Dentro de Git y con la carpeta ignorada, sí se marca.
+        // Inside Git and with the folder ignored, it is checked.
         make(app, ".git/HEAD")
         ageTree(app, days: 120)
         let inGit = try await scan(home: home)
@@ -372,17 +372,17 @@ private func staleNodeApp(_ home: String) -> String {
         ]))
         #expect(notIgnored.count == 1)
         #expect(notIgnored.first?.risk == .doNotTouch && notIgnored.first?.preselected == false)
-        #expect(notIgnored.first?.riskReason == "Git no la ignora: puede ser tuya, no un resto de compilación.")
+        #expect(notIgnored.first?.riskReason == "Git does not ignore it: it may be yours, not a build leftover.")
         let broken = try await scan(home: home, runner: gitRunner([
             key: CommandOutput(status: 128, stdout: "", stderr: "fatal"),
         ]))
-        #expect(broken.first?.blockedReason == "No se pudo comprobar con Git si guarda archivos aquí.")
-        // Al actuar se repite: si deja de estar ignorada, se rechaza.
+        #expect(broken.first?.blockedReason == "Could not check with Git whether it keeps files here.")
+        // When acting it is repeated: if it stops being ignored, it is rejected.
         let item = try #require(try await scan(home: home).first)
         let entry = try #require(try projectCatalog().entry(id: "old-project-artifacts"))
         let ctx = try context(home: home, runner: gitRunner([key: CommandOutput(status: 1, stdout: "", stderr: "")]))
         #expect(await ProjectArtifactSource().revalidate(entry, item: item, context: ctx)
-            == "Git no la ignora: puede ser tuya, no un resto de compilación.")
+            == "Git does not ignore it: it may be yours, not a build leftover.")
     }
 
     @Test func oneWalkPerDetectionFeedsBothFichas() async throws {
@@ -398,7 +398,7 @@ private func staleNodeApp(_ home: String) -> String {
         for entry in catalog.entries { ids += await source.discover(entry, context: ctx).map(\.idSuffix!) }
         #expect(walks.withLock { $0 } == 1)
         #expect(ids == ["~/Projects/app/node_modules", "~/Projects/app/tool/__pycache__"])
-        // Otra pasada (otro contexto), otro paseo.
+        // Another pass (another context), another walk.
         _ = await source.discover(catalog.entries[0], context: try context(home: home))
         #expect(walks.withLock { $0 } == 2)
     }
@@ -414,12 +414,12 @@ private func staleNodeApp(_ home: String) -> String {
         let entry = try #require(try projectCatalog().entry(id: "old-project-artifacts"))
         let found = await source.discover(entry, context: try context(home: home))
         #expect(found.map(\.idSuffix) == ["~/Projects/local/app/node_modules"])
-        // Al actuar tampoco vale una ruta dentro de una carpeta sincronizada.
+        // When acting, a path inside a synced folder is not valid either.
         let item = CleanupItem(id: "old-project-artifacts:x", entry: entry,
                                paths: [home + "/Projects/nube/app/node_modules"], bytes: 1, risk: .yourCall,
                                blockedByOpenApps: [], usedBy: [])
         #expect(await source.revalidate(entry, item: item, context: try context(home: home))
-            == "Ya no está dentro de un proyecto.")
+            == "It is no longer inside a project.")
     }
 
     @Test func gitTimeoutIsCappedByTheTimeLeft() async throws {

@@ -1,14 +1,14 @@
 import Foundation
 
-/// Reglas puras de una tanda de borrado en Limpieza: cuándo hay ráfaga y qué dice el contador.
+/// Pure rules of a deletion batch in Cleanup: when there is a gust and what the counter says.
 public enum BatchMotion {
-    /// Ids en el orden de ejecución si la tanda merece ráfaga (dos filas o más); si no, `nil`.
+    /// Ids in execution order if the batch deserves a gust (two rows or more); otherwise, `nil`.
     public static func gustOrder(ids: [String]) -> [String]? {
         ids.count >= 2 ? ids : nil
     }
 
-    /// Lo que va despejando una tanda. Suma lo liberado y lo movido a la Papelera, pero no los
-    /// confunde: lo de la Papelera no se libera hasta vaciarla.
+    /// What a batch clears away. It adds up what was freed and what was moved to the Trash, but does not
+    /// mix them up: what is in the Trash is not freed until it is emptied.
     public struct Tally: Equatable, Sendable {
         public private(set) var freed: Int64 = 0
         public private(set) var movedToTrash: Int64 = 0
@@ -17,11 +17,11 @@ public enum BatchMotion {
 
         public var bytes: Int64 { freed + movedToTrash }
 
-        /// «liberados» solo si nada fue a la Papelera; si no, «despejados».
-        public var label: String { movedToTrash == 0 ? "liberados" : "despejados" }
+        /// "freed" only if nothing went to the Trash; otherwise, "cleared".
+        public var label: String { movedToTrash == 0 ? String(localized: "freed", bundle: .airyCore) : String(localized: "cleared", bundle: .airyCore) }
 
         public var help: String? {
-            movedToTrash == 0 ? nil : "Lo movido a la Papelera se libera al vaciarla"
+            movedToTrash == 0 ? nil : String(localized: "What was moved to the Trash is freed when you empty it", bundle: .airyCore)
         }
 
         public mutating func add(_ outcome: CleanupOutcome) {

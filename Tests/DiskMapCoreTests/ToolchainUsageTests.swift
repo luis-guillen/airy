@@ -46,20 +46,20 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
                 "default_toolchain = \"stable-aarch64-apple-darwin\"\nprofile = \"default\"\n\n[overrides]\n\"/Users/x/p\" = \"1.70.0\"\n")
         let r = await report(base)
         let expected: [(String, String)] = [
-            (".pyenv/versions/3.11.4", "Es la versión por defecto de pyenv."),
-            (".nvm/versions/node/v20.1.0", "Es la versión por defecto de nvm."),
-            (".fnm/node-versions/v18.0.0", "Es la versión por defecto de fnm."),
-            (".volta/tools/image/node/20.0.0", "Es la versión por defecto de Volta."),
-            (".asdf/installs/nodejs/17.0.0", "Es la versión por defecto de asdf."),
-            (".rbenv/versions/3.3.0", "Es la versión por defecto de rbenv."),
-            (".rvm/rubies/ruby-3.0.0", "Es la versión por defecto de rvm."),
-            (".sdkman/candidates/java/21.0.1-tem", "Es la versión por defecto de SDKMAN."),
-            (".rustup/toolchains/stable-aarch64-apple-darwin", "Es la versión por defecto de rustup."),
-            (".rustup/toolchains/1.70.0-aarch64-apple-darwin", "Es la versión por defecto de rustup."),
+            (".pyenv/versions/3.11.4", "It is the default version of pyenv."),
+            (".nvm/versions/node/v20.1.0", "It is the default version of nvm."),
+            (".fnm/node-versions/v18.0.0", "It is the default version of fnm."),
+            (".volta/tools/image/node/20.0.0", "It is the default version of Volta."),
+            (".asdf/installs/nodejs/17.0.0", "It is the default version of asdf."),
+            (".rbenv/versions/3.3.0", "It is the default version of rbenv."),
+            (".rvm/rubies/ruby-3.0.0", "It is the default version of rvm."),
+            (".sdkman/candidates/java/21.0.1-tem", "It is the default version of SDKMAN."),
+            (".rustup/toolchains/stable-aarch64-apple-darwin", "It is the default version of rustup."),
+            (".rustup/toolchains/1.70.0-aarch64-apple-darwin", "It is the default version of rustup."),
         ]
         for (relative, reason) in expected { #expect(r.defaults[h + "/" + relative] == reason, "\(relative)") }
         #expect(r.defaults.count == expected.count)
-        #expect(r.noPreselect == [.java]) // Java nunca se preselecciona (M7)
+        #expect(r.noPreselect == [.java]) // Java is never preselected (M7)
     }
 
     @Test func pathResolutionMarksInUse() async {
@@ -72,7 +72,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         let runner = FakeRunner(resolved: ["node": h + "/.nvm/versions/node/v20.1.0/bin/node",
                                            "python3": h + "/.pyenv/shims/python3"])
         let r = await report(base, runner: runner)
-        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "La usa el PATH (node)."])
+        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "Used by the PATH (node)."])
     }
 
     @Test func projectPinsMarkRequestedVersions() async {
@@ -82,15 +82,15 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
                   ".pyenv/versions/3.11.4", ".pyenv/versions/3.12.1"] { tcMakeDir(h + "/" + d) }
         tcWrite(h + "/Projects/app/.nvmrc", "18\n")
         tcWrite(h + "/Projects/mono/web/.python-version", "3.11\n")
-        tcWrite(h + "/Projects/mono/a/b/.python-version", "3.12\n") // demasiado hondo
+        tcWrite(h + "/Projects/mono/a/b/.python-version", "3.12\n") // too deep
         let projects = ProjectList(projects: [h + "/Projects/app", h + "/Projects/mono"], complete: true)
         let r = await report(base, projects: projects)
-        #expect(r.requested[h + "/.nvm/versions/node/v18.17.0"] == "La pide ~/Projects/app (.nvmrc).")
+        #expect(r.requested[h + "/.nvm/versions/node/v18.17.0"] == "Requested by ~/Projects/app (.nvmrc).")
         #expect(r.requested[h + "/.nvm/versions/node/v18.20.1"] != nil)
         #expect(r.requested[h + "/.nvm/versions/node/v20.1.0"] == nil)
-        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "La pide ~/Projects/mono/web (.python-version).")
+        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "Requested by ~/Projects/mono/web (.python-version).")
         #expect(r.requested[h + "/.pyenv/versions/3.12.1"] == nil)
-        #expect(r.projectsComplete && r.noPreselect == [.node]) // nvm sin alias por defecto (M7)
+        #expect(r.projectsComplete && r.noPreselect == [.node]) // nvm without a default alias (M7)
     }
 
     @Test func pinMatchingIsComponentWise() {
@@ -116,7 +116,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         let pins = ToolchainUsage.pins(inProject: base + "/p")
         #expect(pins.filter { $0.language == .node }.map(\.raw) == ["18.17.0", "20.1.0"])
         #expect(pins.filter { $0.language == .rust }.map(\.raw) == ["1.70.0"])
-        // Un archivo de más de 64 KB se ignora.
+        // A file larger than 64 KB is ignored.
         tcWrite(base + "/q/.nvmrc", String(repeating: "1", count: 70_000))
         #expect(ToolchainUsage.pins(inProject: base + "/q").isEmpty)
     }
@@ -131,7 +131,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         tcWrite(h + "/Projects/app/.nvmrc", "lts/*\n")
         let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
         #expect(r.noPreselect.contains(.node))
-        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "Es la versión por defecto de nvm."])
+        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "It is the default version of nvm."])
         #expect(r.requested.isEmpty)
     }
 
@@ -140,7 +140,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         let h = base + "/home"
         for d in [".nvm/versions/node/v18.17.0", ".nvm/versions/node/v20.1.0"] { tcMakeDir(h + "/" + d) }
         let r = await report(base)
-        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "Es la versión por defecto de nvm."])
+        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "It is the default version of nvm."])
         #expect(r.noPreselect.contains(.node))
     }
 
@@ -151,7 +151,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         tcMakeDir(h + "/miniconda3/envs/old")
         tcWrite(h + "/Projects/app/environment.yml", "name: ml\nchannels:\n  - conda-forge\n")
         let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
-        #expect(r.requested == [h + "/miniconda3/envs/ml": "La pide ~/Projects/app (environment.yml)."])
+        #expect(r.requested == [h + "/miniconda3/envs/ml": "Requested by ~/Projects/app (environment.yml)."])
     }
 
     @Test func oneProjectWalkPerPassAndBudgetFailsClosed() async throws {
@@ -197,7 +197,7 @@ struct TCNoListing: ProcessListing {
         let (base, h) = setUp()
         tcWrite(h + "/Projects/app/.python-version", "myenv\n")
         let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
-        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "La pide ~/Projects/app (.python-version).")
+        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "Requested by ~/Projects/app (.python-version).")
         #expect(r.requested[h + "/.pyenv/versions/3.12.1"] == nil)
         #expect(r.noPreselect.contains(.python))
     }
@@ -206,7 +206,7 @@ struct TCNoListing: ProcessListing {
         let (base, h) = setUp()
         tcWrite(h + "/Projects/app/.python-version", "3.11.4/envs/myenv\n")
         let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
-        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "La pide ~/Projects/app (.python-version).")
+        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "Requested by ~/Projects/app (.python-version).")
         #expect(r.requested[h + "/.pyenv/versions/3.12.1"] == nil)
         #expect(r.noPreselect.contains(.python))
     }
@@ -216,7 +216,7 @@ struct TCNoListing: ProcessListing {
         tcWrite(h + "/Projects/app/.python-version", "3.12.1/envs/gone\n")
         let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
         #expect(r.requested[h + "/.pyenv/versions/3.12.1"] != nil)
-        // Ruta larga que no lleva a ninguna versión: nada en rojo, pero Python nunca se preselecciona.
+        // A long path that leads to no version: nothing red, but Python is never preselected.
         tcWrite(h + "/Projects/other/.python-version", "9.9.9/envs/nope\n")
         let r2 = await report(base, projects: ProjectList(projects: [h + "/Projects/other"], complete: true))
         #expect(r2.requested.isEmpty && r2.noPreselect.contains(.python))
@@ -226,7 +226,7 @@ struct TCNoListing: ProcessListing {
         let (base, h) = setUp()
         tcWrite(h + "/.pyenv/version", "3.11.4/envs/myenv\n")
         let r = await report(base)
-        #expect(r.defaults[h + "/.pyenv/versions/3.11.4"] == "Es la versión por defecto de pyenv.")
+        #expect(r.defaults[h + "/.pyenv/versions/3.11.4"] == "It is the default version of pyenv.")
     }
 
     @Test func pinnedVirtualenvBaseIsRedAndNeverPreselected() async throws {
@@ -241,8 +241,8 @@ struct TCNoListing: ProcessListing {
             let d = ToolchainDetection(installs: installs, usage: usage, brewDependents: [:], processes: [],
                                        complete: true, brew: nil)
             let baseInstall = try #require(installs.first { $0.path == h + "/.pyenv/versions/3.11.4" })
-            #expect(ToolchainSource.verdict(baseInstall, d) == .red("La pide ~/Projects/app (.python-version)."), "\(pin)")
-            #expect(!installs.contains { $0.path.hasSuffix("/myenv") }, "el entorno no se ofrece aparte")
+            #expect(ToolchainSource.verdict(baseInstall, d) == .red("Requested by ~/Projects/app (.python-version)."), "\(pin)")
+            #expect(!installs.contains { $0.path.hasSuffix("/myenv") }, "the environment is not offered separately")
         }
     }
 }

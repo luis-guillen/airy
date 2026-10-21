@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Muestreador real: todas las sondas, con `ps` en paralelo con las demás.
+/// Real sampler: every probe, with `ps` in parallel with the others.
 public struct LiveSampler: PerformanceSampling {
     private let runner: any CommandRunning
 
@@ -14,7 +14,7 @@ public struct LiveSampler: PerformanceSampling {
         let date = Date()
         let uptime = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
         let processes = ProcessProbe.ownProcesses()
-        // NSWorkspace se consulta desde el hilo principal; lo que no conozca, a LaunchServices al momento (I1).
+        // NSWorkspace is queried from the main thread; what it does not know, from LaunchServices on the spot (I1).
         let apps = await MainActor.run { ProcessProbe.runningApps(processes: processes) }
         let raw = RawSample(
             date: date, uptimeNs: uptime,

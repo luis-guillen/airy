@@ -1,11 +1,11 @@
 import Foundation
 
-/// Identidad de una entrada en disco (sin seguir el último enlace) y de su carpeta padre.
+/// Identity of an entry on disk (without following the last link) and of its parent folder.
 public struct FileIdentity: Sendable, Equatable {
     public let device: UInt64, inode: UInt64, parentDevice: UInt64, parentInode: UInt64, isSymlink: Bool
 }
 
-/// Ruta que pasó la validación: sus formas canónicas comprobadas y su identidad en ese momento.
+/// A path that passed validation: its checked canonical forms and its identity at that moment.
 public struct ValidatedPath: Sendable, Equatable {
     public let path: String
     public let forms: [String]
@@ -17,32 +17,32 @@ public struct PathRefusal: Error, Sendable, Equatable {
     public init(reason: String) { self.reason = reason }
 }
 
-/// Dispensa acotada que solo construye el embudo de desinstalación: deja pasar el `.app` exacto que se
-/// desinstala (con su `CFBundleIdentifier` comprobado al validar) y las carpetas de datos sensibles (capa C)
-/// de esa misma app. Nunca dispensa raíces críticas, selladas del home, carpetas superiores, fragmentos de
-/// datos, la lista del usuario ni las reglas del catálogo.
+/// Bounded waiver that only the uninstall funnel builds: it lets through the exact `.app` being
+/// uninstalled (with its `CFBundleIdentifier` checked at validation) and the sensitive data folders (layer C)
+/// of that same app. It never waives critical roots, sealed home locations, parent folders, data
+/// fragments, the user's list or the catalog rules.
 public struct ProtectionWaiver: Sendable, Equatable {
-    /// Ruta canónica del `.app`.
+    /// Canonical path of the `.app`.
     public let bundlePath: String
     public let bundleID: String
-    /// En minúsculas: `bundleID`, `helperBundleIDs` y `AppInventory.nameVariants(name)`.
+    /// Lowercase: `bundleID`, `helperBundleIDs` and `AppInventory.nameVariants(name)`.
     public let ownedNames: [String]
-    /// La ruta tal cual se eligió (solo esa cuenta como el `.app`, sin variantes de mayúsculas).
+    /// The path exactly as chosen (only that one counts as the `.app`, with no case variants).
     let appPath: String
-    /// Raíz de apps (canónica) de la que cuelga; solo su ubicación sellada se dispensa para el `.app`.
+    /// Apps root (canonical) it hangs from; only its sealed location is waived for the `.app`.
     let appRoot: String
 
-    /// Solo `uninstall(_:appRoots:)` construye una dispensa.
+    /// Only `uninstall(_:appRoots:)` builds a waiver.
     private init(bundlePath: String, bundleID: String, ownedNames: [String], appPath: String, appRoot: String) {
         self.bundlePath = bundlePath; self.bundleID = bundleID; self.ownedNames = ownedNames
         self.appPath = appPath; self.appRoot = appRoot
     }
 
-    /// `nil` (no hay dispensa) si: app.isSystem; id con prefijo de officialUninstallerPrefixes; id con prefijo
-    /// "local.airy."; o app.path no cuelga de un elemento de `appRoots` a profundidad 1 o 2.
-    /// Solo valen raíces cuyo último componente es `Applications` (`/Applications`, `~/Applications` o, en
-    /// DEBUG, una carpeta temporal `…/Applications`). No se fía de `app.isSystem`: lo recalcula con la ruta
-    /// resuelta y con el identificador que hay ahora en disco.
+    /// `nil` (no waiver) if: app.isSystem; id with a prefix from officialUninstallerPrefixes; id with the prefix
+    /// "local.airy."; or app.path does not hang from an element of `appRoots` at depth 1 or 2.
+    /// Only roots whose last component is `Applications` count (`/Applications`, `~/Applications` or, in
+    /// DEBUG, a temporary folder `…/Applications`). It does not trust `app.isSystem`: it recomputes it from the
+    /// resolved path and the identifier on disk right now.
     public static func uninstall(_ app: AppRecord, appRoots: [String]) -> ProtectionWaiver? {
         let id = app.bundleID.lowercased()
         guard !app.isSystem, !id.isEmpty, !isRefusedID(id),
@@ -70,17 +70,17 @@ public struct ProtectionWaiver: Sendable, Equatable {
 
     public static func productionAppRoots(home: String) -> [String] { ["/Applications", home + "/Applications"] }
 
-    /// Airy y las apps con desinstalador oficial (id en minúsculas).
+    /// Airy and the apps with an official uninstaller (lowercase id).
     private static func isRefusedID(_ id: String) -> Bool {
         id.hasPrefix("local.airy.") || AppInventory.officialUninstallerPrefixes.contains { id.hasPrefix($0.lowercased()) }
     }
 
-    /// Raíz canónica cuyo último componente es `applications`.
+    /// Canonical root whose last component is `applications`.
     private static func isAppRoot(_ root: String) -> Bool {
         HardProtections.components(root).last == "applications"
     }
 
-    /// Ruta real del `.app` (o, si aún no existe, la de su carpeta padre más su nombre); `nil` si no se resuelve.
+    /// Real path of the `.app` (or, if it does not exist yet, its parent folder's plus its name); `nil` if it does not resolve.
     private static func resolvedPath(_ path: String) -> String? {
         func real(_ p: String) -> String? {
             guard let r = realpath(p, nil) else { return nil }
@@ -92,27 +92,27 @@ public struct ProtectionWaiver: Sendable, Equatable {
         return parent + "/" + (path as NSString).lastPathComponent
     }
 
-    static let bundleChanged = "Ya no es la app que elegiste."
+    static var bundleChanged: String { String(localized: "It is no longer the app you chose.", bundle: .airyCore) }
 
-    /// `true` si el `.app` (que no es un enlace) tiene ahora mismo `CFBundleIdentifier == bundleID`, leído
-    /// como lo lee el inventario (también apps de iOS envueltas en `Wrapper/*.app`).
+    /// `true` if the `.app` (which is not a link) has `CFBundleIdentifier == bundleID` right now, read
+    /// the way the inventory reads it (also iOS apps wrapped in `Wrapper/*.app`).
     func bundleStillMatches(identity: FileIdentity) -> Bool {
         guard !identity.isSymlink, let id = AppInventory.bundleIdentifier(ofApp: appPath) else { return false }
         return id == bundleID
     }
 
-    /// `true` si la dispensa cubre esta coincidencia de la lista dura. `isBundle`: la ruta es el `.app` exacto;
-    /// `form`: la forma canónica comprobada; `home`: la forma del home con la que se comprobó.
+    /// `true` if the waiver covers this hard-list match. `isBundle`: the path is the exact `.app`;
+    /// `form`: the checked canonical form; `home`: the home form it was checked with.
     func waives(_ match: ProtectionMatch, form: String, isBundle: Bool, home: String) -> Bool {
         guard match.source == .airy else { return false }
         if isBundle {
             switch match.rule {
             case .sealedSystem:
-                // Solo el sello de la propia raíz de apps (en la práctica, `/Applications`).
+                // Only the seal of the apps root itself (in practice, `/Applications`).
                 let pattern = RiskPolicy.canonical(match.pattern)
                 return pattern == appRoot && Self.isAppRoot(pattern)
             case .fragment:
-                // Solo si el fragmento está en el nombre del `.app`, no en una carpeta superior.
+                // Only if the fragment is in the `.app`'s name, not in a parent folder.
                 let fragment = match.pattern.trimmingCharacters(in: CharacterSet(charactersIn: "*"))
                 let parts = HardProtections.components(form)
                 guard let last = parts.last, !fragment.isEmpty else { return false }
@@ -121,7 +121,7 @@ public struct ProtectionWaiver: Sendable, Equatable {
                 return false
             }
         }
-        // Otra ruta: solo la carpeta de datos sensibles en sí, y solo si es de esta app.
+        // Another path: only the sensitive data folder itself, and only if it belongs to this app.
         guard match.rule == .sensitiveAppData, match.pattern.hasPrefix("~/") else { return false }
         let folder = RiskPolicy.canonical((home == "/" ? "" : home) + match.pattern.dropFirst(1))
         guard folder == form, var last = HardProtections.components(form).last else { return false }
@@ -140,23 +140,23 @@ extension Result {
     }
 }
 
-/// Embudo de validación de rutas antes de cualquier acción destructiva: sintaxis, existencia, formas
-/// canónicas (texto, padre resuelto, destino del enlace), lista dura de Airy, lista del usuario, reglas
-/// del catálogo e identidad `(st_dev, st_ino)` frente a las raíces críticas y el home.
+/// Path validation funnel before any destructive action: syntax, existence, canonical forms
+/// (text, resolved parent, link target), Airy's hard list, the user's list, catalog rules
+/// and `(st_dev, st_ino)` identity against the critical roots and the home.
 public struct PathGate: Sendable {
     private struct InodeKey: Hashable, Sendable { let device: UInt64, inode: UInt64 }
 
     private let home: String
-    /// Home canónico literal y resuelto (si difiere).
+    /// Literal and resolved canonical home (if different).
     private let homeForms: [String]
     private let catalog: Catalog?
     private let userProtected: ProtectList
     private let protections: HardProtections
-    /// Solo para el `{target}` de una orden: la ficha cuya ruta declarada vale como excepción de la capa C.
+    /// Only for a command's `{target}`: the entry whose declared path counts as a layer C exception.
     private let commandTarget: CatalogEntry?
-    /// Inodo → raíz crítica (o home) a la que pertenece; calculado una vez con `stat`.
+    /// Inode → critical root (or home) it belongs to; computed once with `stat`.
     private let criticalInodes: [InodeKey: String]
-    /// Inodo de `/Users`: ninguna carpeta directamente dentro se borra.
+    /// Inode of `/Users`: no folder directly inside it is deleted.
     private let usersInode: InodeKey?
 
     public init(home: String, catalog: Catalog?, userProtected: ProtectList, protections: HardProtections = .standard,
@@ -183,18 +183,18 @@ public struct PathGate: Sendable {
         validate(path, waiver: nil)
     }
 
-    /// `validate(_:)` es `validate(_:waiver: nil)`. Con dispensa, todo lo demás sigue igual (sintaxis, formas
-    /// resueltas, inodo de raíces críticas, lista del usuario, catálogo); solo se saltan las coincidencias de
-    /// la lista dura que la dispensa cubre (ver `ProtectionWaiver`).
+    /// `validate(_:)` is `validate(_:waiver: nil)`. With a waiver, everything else stays the same (syntax, resolved
+    /// forms, critical root inodes, the user's list, catalog); only the hard-list matches the waiver covers
+    /// are skipped (see `ProtectionWaiver`).
     public func validate(_ path: String, waiver: ProtectionWaiver?) -> Result<ValidatedPath, PathRefusal> {
         if let reason = Self.syntaxRefusal(path) { return .failure(PathRefusal(reason: reason)) }
-        guard let identity = Self.identity(of: path) else { return .failure(PathRefusal(reason: "No existe.")) }
-        // Si no se puede resolver la carpeta padre (o el destino de un enlace que existe), no se sabe
-        // dónde está de verdad: se rechaza (fallo cerrado).
+        guard let identity = Self.identity(of: path) else { return .failure(PathRefusal(reason: String(localized: "It does not exist.", bundle: .airyCore))) }
+        // If the parent folder (or the target of an existing link) cannot be resolved, we do not know
+        // where it really is: it is refused (fail closed).
         guard let forms = Self.forms(of: path, isSymlink: identity.isSymlink) else {
-            return .failure(PathRefusal(reason: "No se puede resolver la ruta real; no se toca."))
+            return .failure(PathRefusal(reason: String(localized: "The real path cannot be resolved; it is not touched.", bundle: .airyCore)))
         }
-        // Solo la ruta tal cual se eligió es el `.app`; ni variantes de mayúsculas ni nada de dentro.
+        // Only the path exactly as chosen is the `.app`; neither case variants nor anything inside.
         let isBundle = waiver.map { path == $0.appPath } ?? false
         if isBundle, let waiver, !waiver.bundleStillMatches(identity: identity) {
             return .failure(PathRefusal(reason: ProtectionWaiver.bundleChanged))
@@ -208,16 +208,16 @@ public struct PathGate: Sendable {
         return .success(ValidatedPath(path: path, forms: forms, identity: identity))
     }
 
-    /// Comprobación sin dispensa de una ruta que puede no existir (lo que borraría otra herramienta, p. ej.
-    /// Homebrew): si existe, `validate` completo; si no, sintaxis y todas las reglas sobre su forma de texto
-    /// y la de su carpeta existente más cercana, resuelta. `nil` si no está protegida.
+    /// Check without a waiver of a path that may not exist (what another tool would delete, e.g.
+    /// Homebrew): if it exists, the full `validate`; if not, syntax and every rule on its text form
+    /// and on that of its nearest existing folder, resolved. `nil` if it is not protected.
     public func refusalWithoutWaiver(_ path: String) -> String? {
         if let reason = Self.syntaxRefusal(path) { return reason }
         if Self.identity(of: path) != nil { return validate(path, waiver: nil).failure?.reason }
         var forms = [RiskPolicy.canonical(path)]
         var parent = (path as NSString).deletingLastPathComponent
         var tail = [(path as NSString).lastPathComponent]
-        // Sube hasta la primera carpeta que existe y la resuelve (p. ej. `/var` → `/private/var`).
+        // Walks up to the first folder that exists and resolves it (e.g. `/var` → `/private/var`).
         while parent != "/", !parent.isEmpty, Self.identity(of: parent) == nil {
             tail.insert((parent as NSString).lastPathComponent, at: 0)
             parent = (parent as NSString).deletingLastPathComponent
@@ -232,18 +232,18 @@ public struct PathGate: Sendable {
         return nil
     }
 
-    /// Vuelve a hacer `lstat` de la ruta y su padre justo antes de actuar; distinto ⇒ rechazo.
+    /// `lstat`s the path and its parent again right before acting; different ⇒ refusal.
     public func confirmUnchanged(_ validated: ValidatedPath) -> PathRefusal? {
         guard let now = Self.identity(of: validated.path) else {
-            return PathRefusal(reason: "Ya no existe.")
+            return PathRefusal(reason: String(localized: "It no longer exists.", bundle: .airyCore))
         }
         guard now == validated.identity else {
-            return PathRefusal(reason: "La ruta ha cambiado desde que se comprobó; no se toca.")
+            return PathRefusal(reason: String(localized: "The path has changed since it was checked; it is not touched.", bundle: .airyCore))
         }
         return nil
     }
 
-    // MARK: - Reglas por forma
+    // MARK: - Rules by form
 
     private func refusal(forForm form: String, waiver: ProtectionWaiver?, isBundle: Bool) -> String? {
         for base in homeForms {
@@ -261,31 +261,31 @@ public struct PathGate: Sendable {
             }
         }
         for variant in homeVariants(of: form) {
-            if let pattern = userProtected.match(variant) { return "Lo has protegido tú (\(pattern))." }
+            if let pattern = userProtected.match(variant) { return String(localized: "You protected it (\(pattern)).", bundle: .airyCore) }
         }
-        if RiskPolicy.minimumRisk(forPath: form, home: home) == .doNotTouch { return "Marcado como «No tocar»." }
+        if RiskPolicy.minimumRisk(forPath: form, home: home) == .doNotTouch { return String(localized: "Marked as “Do not touch”.", bundle: .airyCore) }
         guard let catalog else { return nil }
         if let entry = catalog.match(path: form, home: home), entry.risk == .doNotTouch {
-            return "Marcado como «No tocar» (\(entry.title))."
+            return String(localized: "Marked as “Do not touch” (\(entry.title)).", bundle: .airyCore)
         }
-        // Las cachés con comando oficial se limpian solo con ese comando, nunca a mano.
+        // Caches with an official command are only cleaned with that command, never by hand.
         for entry in catalog.entries {
             guard case .command = entry.cleanup else { continue }
             if entry.paths.contains(where: { related(form, $0) }) {
-                return "«\(entry.title)» se limpia solo con su comando oficial."
+                return String(localized: "“\(entry.title)” is only cleaned with its official command.", bundle: .airyCore)
             }
         }
-        // Ni dentro de un patrón "No tocar" ni una carpeta que lo contenga (exista o no ahora).
+        // Neither inside a "Do not touch" pattern nor a folder that contains one (whether it exists now or not).
         for entry in catalog.entries where entry.risk == .doNotTouch {
             if entry.paths.contains(where: { related(form, $0) }) {
-                return "Contiene o está dentro de algo marcado como «No tocar» (\(entry.title))."
+                return String(localized: "It contains or is inside something marked as “Do not touch” (\(entry.title)).", bundle: .airyCore)
             }
         }
         return nil
     }
 
-    /// La forma tal cual y, si está bajo una forma del home, reescrita bajo las demás (la lista del usuario
-    /// se guarda con el home literal; la forma resuelta puede empezar por `/private`).
+    /// The form as is and, if it lies under one of the home's forms, rewritten under the others (the user's list
+    /// is saved with the literal home; the resolved form may start with `/private`).
     private func homeVariants(of form: String) -> [String] {
         var variants = [form]
         for from in homeForms where RiskPolicy.isInside(form, root: from) {
@@ -296,7 +296,7 @@ public struct PathGate: Sendable {
         return variants
     }
 
-    /// `true` si la ruta canónica está dentro del patrón (o lo iguala) o es una carpeta superior suya.
+    /// `true` if the canonical path lies inside the pattern (or equals it) or is one of its parent folders.
     private func related(_ canonicalPath: String, _ pattern: String) -> Bool {
         var expanded = pattern
         if pattern == "~" { expanded = home } else if pattern.hasPrefix("~/") { expanded = home + pattern.dropFirst(1) }
@@ -305,20 +305,20 @@ public struct PathGate: Sendable {
         return zip(patternParts, pathParts).allSatisfy { HardProtections.componentMatches($0, $1) }
     }
 
-    // MARK: - Identidad
+    // MARK: - Identity
 
     private func inodeRefusal(_ path: String, identity: FileIdentity) -> String? {
         var keys = [InodeKey(device: identity.device, inode: identity.inode)]
         if identity.isSymlink, let target = Self.statKey(path) { keys.append(target) }
         for key in keys {
-            if let root = criticalInodes[key] { return "Carpeta crítica del sistema (la misma que \(root))." }
+            if let root = criticalInodes[key] { return String(localized: "Critical system folder (the same as \(root)).", bundle: .airyCore) }
         }
         if let usersInode {
             guard let parent = Self.realPath((path as NSString).deletingLastPathComponent),
                   let parentKey = Self.statKey(parent) else {
-                return "No se puede resolver la ruta real; no se toca."
+                return String(localized: "The real path cannot be resolved; it is not touched.", bundle: .airyCore)
             }
-            if parentKey == usersInode { return "Carpeta crítica del sistema (carpeta de un usuario)." }
+            if parentKey == usersInode { return String(localized: "Critical system folder (a user's folder).", bundle: .airyCore) }
         }
         return nil
     }
@@ -342,27 +342,27 @@ public struct PathGate: Sendable {
 
     private static func device(_ info: stat) -> UInt64 { UInt64(UInt32(bitPattern: info.st_dev)) }
 
-    // MARK: - Sintaxis y formas
+    // MARK: - Syntax and forms
 
     static let maxPathBytes = 1024
 
     static func syntaxRefusal(_ path: String) -> String? {
-        if path.isEmpty { return "Ruta vacía." }
+        if path.isEmpty { return String(localized: "Empty path.", bundle: .airyCore) }
         if path.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) {
-            return "La ruta contiene caracteres de control."
+            return String(localized: "The path contains control characters.", bundle: .airyCore)
         }
-        guard path.hasPrefix("/") else { return "Ruta no absoluta." }
-        if path == "/" { return "Carpeta crítica del sistema." }
-        if path.utf8.count > maxPathBytes { return "Ruta demasiado larga." }
+        guard path.hasPrefix("/") else { return String(localized: "Not an absolute path.", bundle: .airyCore) }
+        if path == "/" { return String(localized: "Critical system folder.", bundle: .airyCore) }
+        if path.utf8.count > maxPathBytes { return String(localized: "Path too long.", bundle: .airyCore) }
         let parts = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
         if parts.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) {
-            return "Ruta no canónica (componentes vacíos, «.» o «..»)."
+            return String(localized: "Non-canonical path (empty components, “.” or “..”).", bundle: .airyCore)
         }
         return nil
     }
 
-    /// Canónicas: la ruta tal cual, con su carpeta padre resuelta y, si es un enlace, su destino.
-    /// `nil` si la carpeta padre no se puede resolver o el destino existe pero no se puede resolver.
+    /// Canonical forms: the path as is, with its parent folder resolved and, if it is a link, its target.
+    /// `nil` if the parent folder cannot be resolved or the target exists but cannot be resolved.
     static func forms(of path: String, isSymlink: Bool) -> [String]? {
         var forms = [RiskPolicy.canonical(path)]
         func add(_ form: String) { if !forms.contains(form) { forms.append(form) } }
@@ -373,8 +373,8 @@ public struct PathGate: Sendable {
             if let target = realPath(path) {
                 add(RiskPolicy.canonical(target))
             } else {
-                // Solo un enlace roto (el destino no existe) se acepta sin resolver: su destino en texto,
-                // relativo a la carpeta padre resuelta.
+                // Only a broken link (the target does not exist) is accepted unresolved: its target as text,
+                // relative to the resolved parent folder.
                 var info = stat()
                 guard stat(path, &info) != 0, errno == ENOENT,
                       let raw = try? FileManager.default.destinationOfSymbolicLink(atPath: path) else { return nil }

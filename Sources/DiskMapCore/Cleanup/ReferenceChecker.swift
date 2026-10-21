@@ -1,7 +1,7 @@
 import Foundation
 
-/// Busca en los proyectos del usuario si algo (p. ej. un modelo de Hugging Face) está referenciado.
-/// Solo lee ficheros regulares < 1 MB, no sigue enlaces simbólicos y respeta un tiempo máximo.
+/// Searches the user's projects for whether something (e.g. a Hugging Face model) is referenced.
+/// It only reads regular files < 1 MB, does not follow symbolic links and respects a time limit.
 public struct ReferenceChecker: Sendable {
     public static let excludedDirectoryNames: Set<String> = [
         "node_modules", ".git", ".venv", "venv", ".build", "target", "Library",
@@ -14,7 +14,7 @@ public struct ReferenceChecker: Sendable {
         self.roots = roots
     }
 
-    /// Las raíces por defecto que existen: `~/Desktop`, `~/Documents`, `~/Projects`, `~/orca`.
+    /// The default roots that exist: `~/Desktop`, `~/Documents`, `~/Projects`, `~/orca`.
     public init(home: String = NSHomeDirectory()) {
         self.init(roots: Self.defaultRoots(home: home))
     }
@@ -28,17 +28,17 @@ public struct ReferenceChecker: Sendable {
             }
     }
 
-    /// Rutas de ficheros que contienen `needle`. Al agotar `timeout` devuelve lo encontrado hasta entonces.
+    /// Paths of files that contain `needle`. When `timeout` runs out it returns what was found so far.
     public func references(to needle: String, timeout: TimeInterval) async -> [String] {
         await references(toAny: [needle], timeout: timeout)[needle] ?? []
     }
 
-    /// Una sola pasada para varias cadenas. La clave es la cadena; el valor, los ficheros que la contienen.
+    /// A single pass for several strings. The key is the string; the value, the files that contain it.
     public func references(toAny needles: [String], timeout: TimeInterval) async -> [String: [String]] {
         await referencesChecked(toAny: needles, timeout: timeout).found
     }
 
-    /// Como `references(toAny:)`, y `complete == false` si se agotó el tiempo o se canceló antes de recorrer todo.
+    /// Like `references(toAny:)`, and `complete == false` if time ran out or it was cancelled before walking everything.
     public func referencesChecked(
         toAny needles: [String], timeout: TimeInterval
     ) async -> (found: [String: [String]], complete: Bool) {
@@ -51,7 +51,7 @@ public struct ReferenceChecker: Sendable {
         var stack = roots.reversed().map { $0 }
         while let path = stack.popLast() {
             if Date() >= deadline || Task.isCancelled { complete = false; break }
-            // Fuera del ámbito de la detección (DEBUG, `AIRY_SCAN_ROOTS`) no se lee nada.
+            // Outside the detection's scope (DEBUG, `AIRY_SCAN_ROOTS`) nothing is read.
             guard DiskScope.allowsWalk(path) else { continue }
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
@@ -68,7 +68,7 @@ public struct ReferenceChecker: Sendable {
                     found[patterns[index], default: []].append(path)
                 }
             default:
-                continue // enlaces simbólicos y especiales: nunca se siguen ni se leen
+                continue // symbolic links and special files: never followed nor read
             }
         }
         return (found, complete)

@@ -1,11 +1,11 @@
 import Foundation
 
-/// Carpetas de datos de Airy y la del legado (DiskMap), de donde se copian al primer arranque.
+/// Airy's data folders and the legacy one (DiskMap), from which they are copied on first launch.
 public struct AppPaths: Sendable, Equatable {
     public static let folderName = "Airy", legacyFolderName = "DiskMap", legacyBundleID = "local.diskmap.DiskMap"
 
     public let support: URL
-    /// `nil` cuando `AIRY_SUPPORT_DIR` redirige los datos (no hay legado que migrar).
+    /// `nil` when `AIRY_SUPPORT_DIR` redirects the data (there is no legacy to migrate).
     public let legacySupport: URL?
 
     public init(support: URL, legacySupport: URL?) {
@@ -13,7 +13,7 @@ public struct AppPaths: Sendable, Equatable {
         self.legacySupport = legacySupport
     }
 
-    /// `AIRY_SUPPORT_DIR` solo se respeta en compilaciones DEBUG.
+    /// `AIRY_SUPPORT_DIR` is only honoured in DEBUG builds.
     public static func standard(home: String = NSHomeDirectory(),
                                 environment: [String: String] = ProcessInfo.processInfo.environment) -> AppPaths {
         #if DEBUG

@@ -3,18 +3,18 @@ import Synchronization
 import Testing
 @testable import DiskMapCore
 
-// MARK: - Utilidades
+// MARK: - Utilities
 
 private let day: TimeInterval = 86_400
 
-/// Carpeta temporal (ruta real, sin el enlace `/var` → `/private/var`).
+/// Temporary folder (real path, without the `/var` → `/private/var` link).
 private func tempDir(_ label: String) -> String {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-\(label)-\(UUID().uuidString)")
     try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return CleanupTargets.realPath(url.path)!
 }
 
-/// Crea `relative` (carpeta si acaba en `/`, si no un fichero de 4 KB) bajo `base`.
+/// Creates `relative` (a folder if it ends in `/`, otherwise a 4 KB file) under `base`.
 private func make(_ base: String, _ relatives: String...) {
     for relative in relatives {
         let path = base + "/" + relative
@@ -28,7 +28,7 @@ private func make(_ base: String, _ relatives: String...) {
     }
 }
 
-/// Fecha todo el árbol `days` días en el pasado (de dentro afuera, sin seguir enlaces).
+/// Dates the whole tree `days` days in the past (inside out, without following links).
 private func ageTree(_ root: String, days: Double) {
     let seconds = Date().addingTimeInterval(-days * day).timeIntervalSince1970
     let names = (try? FileManager.default.subpathsOfDirectory(atPath: root)) ?? []
@@ -38,7 +38,7 @@ private func ageTree(_ root: String, days: Double) {
     }
 }
 
-/// Índice mínimo: una raíz con nombre `base` y una cadena de carpetas hasta `relative` con `size` bytes.
+/// Minimal index: a root named `base` and a chain of folders down to `relative` with `size` bytes.
 private func index(base: String, relative: String, size: Int64) -> FileNode {
     var node = FileNode(name: (relative as NSString).lastPathComponent, isDirectory: true, allocatedSize: size)
     for component in (relative as NSString).deletingLastPathComponent.split(separator: "/").reversed() {
@@ -47,7 +47,7 @@ private func index(base: String, relative: String, size: Int64) -> FileNode {
     return FileNode(name: base, isDirectory: true, allocatedSize: size, children: [node])
 }
 
-/// Paseos por disco que hace `body` (ruta raíz y tipo), con el observador de `TreeWalk`.
+/// Disk walks `body` performs (root path and kind), with the `TreeWalk` observer.
 private func walks<T>(_ body: () async throws -> T) async rethrows -> (T, [(String, TreeWalk.Kind)]) {
     let seen = Mutex<[(String, TreeWalk.Kind)]>([])
     let value = try await TreeWalk.$observer.withValue({ path, kind in seen.withLock { $0.append((path, kind)) } }) {
@@ -83,7 +83,7 @@ private func scanner(_ catalog: Catalog, home: String, scope: DiskScope? = nil) 
         processListing: NoProcesses(), scope: scope)
 }
 
-/// Proyecto Node viejo en `~/Projects/app` (sin Git): package.json y src de hace 120 días.
+/// Old Node project in `~/Projects/app` (without Git): package.json and src from 120 days ago.
 private func staleNodeApp(_ home: String) -> String {
     let app = home + "/Projects/app"
     make(app, "package.json", "src/a.js", "node_modules/left-pad/index.js")
@@ -91,21 +91,21 @@ private func staleNodeApp(_ home: String) -> String {
     return app
 }
 
-// MARK: - Pruebas
+// MARK: - Tests
 
 @Suite struct DetectionScheduleTests {
-    // MARK: Cuándo: la detección automática espera al índice o al análisis
+    // MARK: When: the automatic detection waits for the index or the scan
 
     @Test func automaticDetectionWaitsForTheIndex() {
         var gate = DetectionGate()
-        // Al abrir, antes de leer el índice, no hay nada que reutilizar.
+        // On launch, before reading the index, there is nothing to reuse.
         #expect(gate.phase == .waitingForIndex)
         #expect(!gate.allowsAutomatic)
         #expect(gate.cleanupOpened(hasTree: false) == nil)
-        // Índice reciente (no se reanaliza): se detecta ya, en segundo plano.
+        // Recent index (no rescan): detect right away, in the background.
         #expect(gate.indexRead(hasIndex: true, plan: .skip) == .automatic)
         #expect(gate.allowsAutomatic)
-        // Una sola vez: un segundo aviso no lanza otra.
+        // Only once: a second notice does not launch another.
         #expect(gate.indexRead(hasIndex: true, plan: .skip) == nil)
         #expect(gate.scanFinished(.automatic) == nil)
     }
@@ -115,7 +115,7 @@ private func staleNodeApp(_ home: String) -> String {
         #expect(gate.indexRead(hasIndex: false, plan: .scan(.normal)) == nil)
         #expect(gate.phase == .waitingForScan)
         #expect(!gate.allowsAutomatic)
-        // Sin árbol, abrir Limpieza no detecta (lo mediría todo en disco).
+        // Without a tree, opening Cleanup does not detect (it would measure everything on disk).
         #expect(gate.cleanupOpened(hasTree: false) == nil)
         #expect(gate.scanFinished(.automatic) == .automatic)
         #expect(gate.allowsAutomatic)
@@ -123,33 +123,33 @@ private func staleNodeApp(_ home: String) -> String {
 
     @Test func staleIndexWaitsForTheRescanUnlessTheUserOpensCleanup() {
         var gate = DetectionGate()
-        // Índice viejo: se enseña, pero detectar sobre él sería trabajo tirado y competiría con el análisis.
+        // Old index: it is shown, but detecting on it would be wasted work and would compete with the scan.
         #expect(gate.indexRead(hasIndex: true, plan: .scan(.background)) == nil)
         #expect(!gate.allowsAutomatic)
-        // Abrir Limpieza la adelanta (QoS del usuario), una vez por espera.
+        // Opening Cleanup brings it forward (the user's QoS), once per wait.
         #expect(gate.cleanupOpened(hasTree: true) == .user)
         #expect(gate.cleanupOpened(hasTree: true) == nil)
-        // Al terminar el análisis, la automática sobre el árbol nuevo.
+        // When the scan finishes, the automatic one on the new tree.
         #expect(gate.scanFinished(.automatic) == .automatic)
         #expect(gate.cleanupOpened(hasTree: true) == nil)
-        // Un análisis nuevo vuelve a esperar.
+        // A new scan waits again.
         gate.scanStarted()
         #expect(!gate.allowsAutomatic)
         #expect(gate.indexRead(hasIndex: true, plan: .scan(.normal)) == nil)
         #expect(gate.cleanupOpened(hasTree: true) == .user)
     }
 
-    /// Limpieza ya abierta antes de que empiece el reanálisis automático (índice viejo): al acabar, la lista se
-    /// rellena sola, en segundo plano, sin pulsar «Buscar de nuevo».
+    /// Cleanup already open before the automatic rescan starts (old index): when it ends, the list
+    /// fills itself, in the background, without pressing "Search again".
     @Test func cleanupOpenBeforeAnAutomaticRescanRefillsWhenItFinishes() {
         var gate = DetectionGate()
-        #expect(gate.cleanupOpened(hasTree: false) == nil)  // onAppear antes de leer el índice
+        #expect(gate.cleanupOpened(hasTree: false) == nil)  // onAppear before reading the index
         gate.scanStarted()
         #expect(gate.indexRead(hasIndex: true, plan: .scan(.background)) == nil)
         let trigger = gate.scanFinished(.automatic)
         #expect(trigger == .automatic)
         #expect(DetectionSchedule.budget(.automatic, lowPowerMode: false, thermalState: .nominal).qos == .background)
-        // Un segundo reanálisis automático con Limpieza aún abierta también la rellena.
+        // A second automatic rescan with Cleanup still open also fills it.
         gate.scanStarted()
         #expect(gate.indexRead(hasIndex: true, plan: .scan(.background)) == nil)
         #expect(gate.scanFinished(.automatic) == .automatic)
@@ -173,19 +173,19 @@ private func staleNodeApp(_ home: String) -> String {
         _ = empty.indexRead(hasIndex: false, plan: .scan(.normal))
         #expect(empty.scanStopped(hasTree: false) == nil)
         #expect(empty.allowsAutomatic)
-        // Cancelar antes de leer el índice tampoco deja la detección esperando para siempre.
+        // Cancelling before reading the index does not leave the detection waiting forever either.
         var early = DetectionGate()
         #expect(early.scanStopped(hasTree: false) == nil)
         #expect(early.allowsAutomatic)
     }
 
-    // MARK: Cómo: QoS y paseos a la vez
+    // MARK: How: QoS and walks at a time
 
     @Test func automaticDetectionRunsInBackgroundWithAtMostTwoWalkers() {
         let budget = DetectionSchedule.budget(.automatic, lowPowerMode: false, thermalState: .nominal)
         #expect(budget == ScanBudget(workers: 2, qos: .background))
         #expect(DetectionSchedule.priority(for: budget) == .background)
-        // La misma regla que un reanálisis automático.
+        // The same rule as an automatic rescan.
         let rescan = ScanBudget.resolve(.background, performanceCores: 8, lowPowerMode: false, thermalState: .nominal)
         #expect(budget == rescan)
         #expect(DetectionSchedule.budget(.automatic, lowPowerMode: false, thermalState: .fair).workers == 2)
@@ -203,14 +203,14 @@ private func staleNodeApp(_ home: String) -> String {
             #expect(DetectionSchedule.budget(trigger, lowPowerMode: false, thermalState: .serious).workers == 1)
             #expect(DetectionSchedule.budget(trigger, lowPowerMode: false, thermalState: .critical).workers == 1)
         }
-        // La QoS no cambia: solo se recorta el número de paseos.
+        // The QoS does not change: only the number of walks is cut.
         #expect(DetectionSchedule.budget(.automatic, lowPowerMode: true, thermalState: .critical).qos == .background)
         #expect(DetectionSchedule.trigger(after: .user) == .user)
         #expect(DetectionSchedule.trigger(after: .automatic) == .automatic)
         #expect(DetectionSchedule.trigger(after: .agent) == .automatic)
     }
 
-    // MARK: Qué lee: el índice antes que el disco
+    // MARK: What it reads: the index before the disk
 
     @Test func indexedCatalogPathIsNotWalked() async throws {
         let home = tempDir("detect-index")
@@ -220,7 +220,7 @@ private func staleNodeApp(_ home: String) -> String {
         let (items, seen) = await walks { await scanner(catalog, home: home).findItems(scan: root) }
         #expect(items.map(\.bytes) == [777_000])
         #expect(seen.isEmpty, "\(seen)")
-        // Sin índice, el disco: un paseo.
+        // Without an index, the disk: one walk.
         let (live, walked) = await walks { await scanner(catalog, home: home).findItems(scan: nil) }
         #expect(live.count == 1 && live[0].bytes > 0 && live[0].bytes != 777_000)
         #expect(walked.map(\.0) == [home + "/Library/Caches/foo"])
@@ -236,10 +236,10 @@ private func staleNodeApp(_ home: String) -> String {
         #expect(items.count == 1)
         #expect(item.paths == [app + "/node_modules"])
         #expect(item.bytes == 5_000_000)
-        // node_modules: solo nombres (por si dentro hay otro Git o claves). Ningún paseo completo de ella.
+        // node_modules: names only (in case there is another Git or keys inside). No full walk of it.
         #expect(seen.contains { $0.0 == app + "/node_modules" && $0.1 == .names })
         #expect(!seen.contains { $0.0 == app + "/node_modules" && $0.1 == .full })
-        // Mismo resultado (salvo el tamaño) que sin índice.
+        // Same result (except the size) as without an index.
         let live = await scanner(catalog, home: home).findItems(scan: nil)
         #expect(live.map(\.id) == items.map(\.id))
         #expect(live.map(\.risk) == items.map(\.risk))
@@ -255,14 +255,14 @@ private func staleNodeApp(_ home: String) -> String {
         let root = index(base: home, relative: "Projects/app/node_modules", size: 5_000_000)
         let item = try #require(await scanner(catalog, home: home).findItems(scan: root).first)
         #expect(item.risk == .doNotTouch)
-        #expect(item.riskReason == "Contiene otro repositorio Git dentro.")
+        #expect(item.riskReason == "It contains another Git repository inside.")
         #expect(TreeWalk.watchedNames(app, budget: .seconds(5), watch: { $0.hasSuffix("-keypair.json") }) == [])
         make(app, "node_modules/dep/id-keypair.json")
         #expect(TreeWalk.watchedNames(app, budget: .seconds(5), watch: { $0.hasSuffix("-keypair.json") })
             == ["node_modules/dep/id-keypair.json"])
     }
 
-    // MARK: Dónde: con AIRY_SCAN_ROOTS, nada fuera de las raíces
+    // MARK: Where: with AIRY_SCAN_ROOTS, nothing outside the roots
 
     @Test func scopedDetectionNeverWalksOutsideItsRoots() async throws {
         let home = tempDir("detect-scope-home")
@@ -275,12 +275,12 @@ private func staleNodeApp(_ home: String) -> String {
         let (items, seen) = await walks { await scanner(catalog, home: home, scope: scope).findItems(scan: nil) }
         #expect(items.isEmpty)
         #expect(seen.isEmpty, "\(seen)")
-        // Sin ámbito, lo mismo sí se encuentra.
+        // Without a scope, the same thing is found.
         #expect(await scanner(catalog, home: home).findItems(scan: nil).count == 2)
     }
 
     @Test func diskScopeContainsItsRootsAndReachesTheirAncestors() {
-        // Ruta con enlace (`/var` → `/private/var`): valen las dos formas.
+        // Path with a link (`/var` → `/private/var`): both forms are valid.
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("airy-roots-\(UUID().uuidString)")
         try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         let linked = url.path
@@ -301,7 +301,7 @@ private func staleNodeApp(_ home: String) -> String {
         }
     }
 
-    // MARK: Cancelar suelta el disco
+    // MARK: Cancelling releases the disk
 
     @Test func cancelledWalkStopsAtOnce() async {
         let base = tempDir("detect-cancel")

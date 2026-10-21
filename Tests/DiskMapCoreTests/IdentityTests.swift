@@ -10,8 +10,8 @@ private func repoPlist(_ relative: String) throws -> [String: Any] {
     return try #require(try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
 }
 
-/// Archivos bajo `under` con algún literal de cadena que case con `pattern` (se ignoran los
-/// comentarios de línea y los archivos de `allow`). Devuelve «archivo:línea».
+/// Files under `under` with some string literal matching `pattern` (line comments and the files in
+/// `allow` are ignored). Returns "file:line".
 private func stringLiteralHits(pattern: Regex<Substring>, under: String, allow: Set<String>) throws -> [String] {
     let literal = #/"(?:[^"\\]|\\.)*"/#
     var hits: [String] = []
@@ -40,8 +40,8 @@ private func stringLiteralHits(pattern: Regex<Substring>, under: String, allow: 
         #expect(types?.first?["CFBundleURLSchemes"] as? [String] == ["airy"])
     }
 
-    /// Ningún literal de cadena de Sources/ contiene "DiskMap" (salvo "DiskMapCore") ni "DISKMAP_",
-    /// excepto Persistence/AppPaths.swift y Persistence/DataMigration.swift (legado, Task 2).
+    /// No string literal in Sources/ contains "DiskMap" (except "DiskMapCore") or "DISKMAP_",
+    /// except Persistence/AppPaths.swift and Persistence/DataMigration.swift (legacy, Task 2).
     @Test func noDiskMapLeftInStringLiterals() throws {
         #expect(try stringLiteralHits(pattern: #/DiskMap(?!Core)|DISKMAP_/#, under: "Sources",
                                       allow: ["AppPaths.swift", "DataMigration.swift"]) == [])

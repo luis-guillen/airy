@@ -54,7 +54,7 @@ private func app(_ id: String, helpers: [String] = []) -> AppRecord {
 private struct OFixture {
     let home = tempDir("airy-orphan-home")
 
-    /// Carpeta `folder/name` con un archivo dentro, todo con `days` de antigüedad.
+    /// Folder `folder/name` with a file inside, everything `days` old.
     @discardableResult
     func entry(_ folder: String, _ name: String, days: Double = 60) -> String {
         let path = home + "/Library/" + folder + "/" + name
@@ -105,7 +105,7 @@ private struct LinkFixture {
         let f = OFixture()
         f.entry("Caches", "com.old.app")
         #expect(await f.finder().scan(inventory: inventory(complete: false))
-                == .undecided("No se pudo leer la lista completa de apps; Airy no marca restos como huérfanos."))
+                == .undecided("Could not read the full list of apps; Airy does not mark leftovers as orphaned."))
     }
 
     @Test func installedIDIsNotOrphan() async {
@@ -196,7 +196,7 @@ private struct LinkFixture {
         f.entry("Caches", "com.g.app")
         let finder = f.finder()
         guard case .found(let groups) = await finder.scan(inventory: inventory()), let group = groups.first else {
-            Issue.record("sin grupo"); return
+            Issue.record("no group"); return
         }
         #expect(await finder.stillOrphan(group, inventory: inventory()))
         #expect(!(await finder.stillOrphan(group, inventory: inventory([app("com.g.app")]))))
@@ -226,7 +226,7 @@ private struct LinkFixture {
         #expect(await SpotlightLookup(runner: failed).isInstalled("com.a.b") == nil)
     }
 
-    // MARK: - Enlaces rotos
+    // MARK: - Broken links
 
     @Test func brokenLinkFoundLiveLinkAndFileIgnored() {
         let f = LinkFixture()

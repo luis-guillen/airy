@@ -1,7 +1,7 @@
 import Foundation
 
-/// Matemática de color sobre enteros `0xRRGGBB` en sRGB: contraste WCAG 2.x,
-/// mezcla, distancia perceptual y tono. Sin dependencias de UI.
+/// Color math on `0xRRGGBB` integers in sRGB: WCAG 2.x contrast,
+/// mixing, perceptual distance and hue. No UI dependencies.
 public enum ColorMath {
     private static func channels(_ hex: UInt32) -> (r: Double, g: Double, b: Double) {
         (Double((hex >> 16) & 0xFF), Double((hex >> 8) & 0xFF), Double(hex & 0xFF))
@@ -12,19 +12,19 @@ public enum ColorMath {
         return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
     }
 
-    /// Luminancia relativa WCAG 2.x (0 = negro, 1 = blanco).
+    /// WCAG 2.x relative luminance (0 = black, 1 = white).
     public static func relativeLuminance(_ hex: UInt32) -> Double {
         let (r, g, b) = channels(hex)
         return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
     }
 
-    /// Razón de contraste WCAG `(L1 + 0,05) / (L2 + 0,05)` con la luminancia mayor arriba.
+    /// WCAG contrast ratio `(L1 + 0.05) / (L2 + 0.05)` with the larger luminance on top.
     public static func contrastRatio(_ a: UInt32, _ b: UInt32) -> Double {
         let la = relativeLuminance(a), lb = relativeLuminance(b)
         return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
     }
 
-    /// Interpola cada canal sRGB (0–255) de `a` a `b` con `t` (acotado a 0…1) y redondea.
+    /// Interpolates each sRGB channel (0–255) from `a` to `b` by `t` (clamped to 0…1) and rounds.
     public static func mix(_ a: UInt32, _ b: UInt32, _ t: Double) -> UInt32 {
         let t = t.isNaN ? 0 : min(max(t, 0), 1)
         let ca = channels(a), cb = channels(b)
@@ -35,7 +35,7 @@ public enum ColorMath {
     private static func lab(_ hex: UInt32) -> (l: Double, a: Double, b: Double) {
         let (r, g, b) = channels(hex)
         let lr = linear(r), lg = linear(g), lb = linear(b)
-        // sRGB lineal → XYZ (D65), normalizado al blanco de referencia.
+        // Linear sRGB → XYZ (D65), normalized to the reference white.
         let x = (0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb) / 0.95047
         let y = 0.2126729 * lr + 0.7151522 * lg + 0.0721750 * lb
         let z = (0.0193339 * lr + 0.1191920 * lg + 0.9503041 * lb) / 1.08883
@@ -46,14 +46,14 @@ public enum ColorMath {
         return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
     }
 
-    /// Distancia euclídea en CIELAB (D65), ΔE 1976.
+    /// Euclidean distance in CIELAB (D65), ΔE 1976.
     public static func deltaE76(_ a: UInt32, _ b: UInt32) -> Double {
         let la = lab(a), lb = lab(b)
         let dl = la.l - lb.l, da = la.a - lb.a, db = la.b - lb.b
         return (dl * dl + da * da + db * db).squareRoot()
     }
 
-    /// Tono HSV en grados, 0…360 (0 para grises).
+    /// HSV hue in degrees, 0…360 (0 for greys).
     public static func hueDegrees(_ hex: UInt32) -> Double {
         let (r, g, b) = channels(hex)
         let maxC = max(r, g, b), minC = min(r, g, b), d = maxC - minC

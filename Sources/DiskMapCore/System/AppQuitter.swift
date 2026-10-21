@@ -3,15 +3,15 @@ import Foundation
 
 public enum QuitResult: Sendable, Equatable { case notRunning, quit, stillRunning, unknown }
 
-/// Cierra apps de forma normal antes de desinstalarlas. Nunca fuerza el cierre.
+/// Quits apps normally before uninstalling them. It never force-quits.
 public protocol AppQuitting: Sendable {
-    /// `nil` = no se sabe.
+    /// `nil` = unknown.
     func isRunning(bundleID: String) -> Bool?
-    /// Cierre normal (como «Salir»): la app puede pedir guardar. Nunca fuerza el cierre.
+    /// Normal quit (like "Quit"): the app may ask to save. It never force-quits.
     func quit(bundleID: String, timeout: Duration) async -> QuitResult
 }
 
-/// `NSRunningApplication.runningApplications(withBundleIdentifier:)` y `terminate()`.
+/// `NSRunningApplication.runningApplications(withBundleIdentifier:)` and `terminate()`.
 public struct WorkspaceQuitter: AppQuitting {
     public init() {}
 
