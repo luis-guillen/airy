@@ -452,7 +452,3 @@ private final class SharedScanState: Sendable {
         if let snapshot { report(snapshot) }
     }
 }
-
-private extension ContentKind {
-    var index: Int { ContentKind.allCases.firstIndex(of: self)! }
-}

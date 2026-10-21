@@ -185,7 +185,7 @@ extension RootView {
     }
 }
 
-/// Contenido de cada sección. Las tareas 10–11 sustituyen los marcadores de la limpieza y el asistente.
+/// Contenido de cada sección.
 private struct SectionContent: View {
     @Environment(AppModel.self) private var model
     let section: Section
@@ -204,8 +204,14 @@ private struct SectionContent: View {
             CleanupView()
         case .assistant:
             AssistantView()
-        default:
-            SectionPlaceholder(section: section, subtitle: "Próximamente", line: "Llegará en la fase 2.")
+        case .largeOld:
+            LargeOldView()
+        case .types:
+            FileTypesView()
+        case .duplicates:
+            DuplicatesView()
+        case .uninstaller:
+            UninstallerView()
         }
     }
 
@@ -213,62 +219,6 @@ private struct SectionContent: View {
         guard let scan = model.scan else { return "Sin análisis todavía" }
         let date = model.lastScanDate.map { " · Último análisis: \(Theme.relative($0, now: now))" } ?? ""
         return "\(Format.bytes(scan.root.allocatedSize, partial: !scan.inaccessible.isEmpty)) analizados en \(model.currentVolume.name)\(date)"
-    }
-}
-
-/// Marcador cuidado para las secciones aún sin construir: cabecera real y una tarjeta de cristal.
-private struct SectionPlaceholder: View {
-    @Environment(AppModel.self) private var model
-    let section: Section
-    let subtitle: String
-    let line: String
-
-    @ViewState private var appeared = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            SectionHeader(title: section.title, subtitle: subtitle) {
-                if !model.isScanning {
-                    PrimaryButton("Analizar de nuevo", systemImage: "arrow.clockwise", style: .secondary) {
-                        model.startScan()
-                    }
-                    .fixedSize()
-                }
-            }
-
-            GlassCard {
-                HStack(alignment: .top, spacing: 18) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Theme.brand)
-                        Image(systemName: section.symbol)
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .symbolEffect(.bounce, value: appeared)
-                    }
-                    .frame(width: 54, height: 54)
-                    .shadow(color: Theme.userFilesColor.opacity(0.3), radius: 10, y: 4)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(section.title)
-                            .font(.title3.weight(.semibold))
-                        Text(line)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-            .frame(maxWidth: 680, alignment: .leading)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.contentPadding)
-        .padding(.top, 34)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 8)
-        .onAppear { withAnimation(Theme.zoomSpring) { appeared = true } }
     }
 }
 
