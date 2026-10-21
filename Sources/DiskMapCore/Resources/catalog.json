@@ -2095,6 +2095,62 @@
       }
     },
     {
+      "id": "extracted-archives",
+      "title": "Archives already extracted",
+      "explanation": "Large archives (.zip, .dmg, .tar, .7z, .rar) of more than 200 MB in Downloads, Desktop and Documents with a folder of the same name next to them: you most likely already extracted them. Check the folder before removing the archive. It goes to the Trash.",
+      "whoCreatesIt": "You, when downloading and extracting files",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "other",
+      "paths": [],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "If the extracted folder is incomplete or you changed it, the archive is the only original copy.",
+      "profiles": [
+        "basic"
+      ],
+      "discovery": {
+        "type": "extractedArchives"
+      },
+      "es": {
+        "title": "Archivos comprimidos ya extraídos",
+        "explanation": "Archivos comprimidos grandes (.zip, .dmg, .tar, .7z, .rar) de más de 200 MB en Descargas, Escritorio y Documentos con una carpeta del mismo nombre al lado: lo más probable es que ya los extrajeras. Revisa la carpeta antes de quitar el archivo. Va a la Papelera.",
+        "whoCreatesIt": "Tú, al descargar y extraer archivos",
+        "shortReason": "Si la carpeta extraída está incompleta o la cambiaste, el archivo es la única copia original."
+      }
+    },
+    {
+      "id": "old-temporary-files",
+      "title": "Old temporary files",
+      "explanation": "Files and folders that apps and tools left in your user temporary folder, where nothing has changed for more than 3 days and no app has anything open. They are grouped into a single row. Apps create new ones when they need them. They go to the Trash.",
+      "whoCreatesIt": "Apps and command-line tools",
+      "regenerates": true,
+      "risk": "yourCall",
+      "kind": "caches",
+      "paths": [],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "aggressiveRisk": "safe",
+      "shortReason": "Nothing has changed them in more than 3 days and no app has them open.",
+      "profiles": [
+        "basic",
+        "developer"
+      ],
+      "discovery": {
+        "type": "staleTemporaryFiles"
+      },
+      "es": {
+        "title": "Archivos temporales viejos",
+        "explanation": "Archivos y carpetas que las apps y herramientas dejaron en tu carpeta temporal de usuario, en los que nada ha cambiado en más de 3 días y que ninguna app tiene abiertos. Se agrupan en una sola fila. Las apps crean otros nuevos cuando los necesitan. Van a la Papelera.",
+        "whoCreatesIt": "Apps y herramientas de línea de comandos",
+        "shortReason": "Nada los ha cambiado en más de 3 días y ninguna app los tiene abiertos."
+      }
+    },
+    {
       "id": "old-downloads",
       "title": "Large, old downloads",
       "explanation": "Files and folders in Downloads larger than 50 MB that you have not touched in 6 months. Check the list: they may be documents you want to keep. They go to the Trash.",
@@ -2366,6 +2422,33 @@
         "explanation": "Dispositivos virtuales de Android Studio con sus datos. Airy solo te los muestra.",
         "shortReason": "Cada emulador guarda sus propias apps y datos.",
         "reviewHint": "Bórralos desde Android Studio › Device Manager."
+      }
+    },
+    {
+      "id": "merged-git-worktrees",
+      "title": "Merged git worktrees",
+      "explanation": "Extra working folders (git worktrees) of your repositories whose branch is already merged into the main branch and that have no uncommitted changes. The main worktree and locked worktrees are never offered. Their build folders also show up on their own as build leftovers. The folder goes to the Trash; run git worktree prune afterwards to tidy the repository.",
+      "whoCreatesIt": "You, Codex or Claude Code, with git worktree add",
+      "regenerates": false,
+      "risk": "yourCall",
+      "kind": "code",
+      "paths": [],
+      "cleanup": {
+        "type": "trash"
+      },
+      "mustBeClosed": [],
+      "shortReason": "Its work is already in the main branch, but ignored files (local settings, data) only live here.",
+      "profiles": [
+        "developer"
+      ],
+      "discovery": {
+        "type": "gitWorktrees"
+      },
+      "es": {
+        "title": "Worktrees de git ya fusionados",
+        "explanation": "Carpetas de trabajo extra (git worktrees) de tus repositorios cuya rama ya está fusionada en la rama principal y que no tienen cambios sin confirmar. Nunca se ofrecen el worktree principal ni los bloqueados. Sus carpetas de compilación también aparecen por separado como restos de compilación. La carpeta va a la Papelera; después ejecuta git worktree prune para ordenar el repositorio.",
+        "whoCreatesIt": "Tú, Codex o Claude Code, con git worktree add",
+        "shortReason": "Su trabajo ya está en la rama principal, pero los archivos ignorados (ajustes locales, datos) solo viven aquí."
       }
     },
     {

@@ -265,7 +265,8 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         let catalog = try Catalog.bundled()
         var becameRed: Set<String> = [], dropped: Set<String> = [], lowered: Set<String> = []
         // Plan 3: Aggressive mode deliberately lowers what regenerates (`aggressiveRisk`); fixed list.
-        let expectedAggressiveLowerings: Set<String> = ["docker-images", "go-mod-cache", "app-support-caches"]
+        let expectedAggressiveLowerings: Set<String> = ["docker-images", "go-mod-cache", "app-support-caches",
+                                                          "old-temporary-files"]
         for mode in CleanupMode.allCases {
             let c = RiskClassifier(catalog: catalog, settings: settings(mode), home: home)
             for e in catalog.entries {

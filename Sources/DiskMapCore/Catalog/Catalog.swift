@@ -89,6 +89,12 @@ public enum DiscoveryKind: Codable, Sendable, Equatable {
     case toolchainSystemInfo
     /// Node packages repeated across projects: informational only.
     case dependencyDuplicates
+    /// Old entries directly inside the user's temporary folder (`NSTemporaryDirectory()`).
+    case staleTemporaryFiles
+    /// Large archives (.zip, .dmg, .tar…) next to a folder with the same name.
+    case extractedArchives
+    /// Git worktrees of found projects whose branch is merged and that have no changes.
+    case gitWorktrees
 
     private enum CodingKeys: String, CodingKey { case type, names, cachedirTag, manager }
 
@@ -106,6 +112,9 @@ public enum DiscoveryKind: Codable, Sendable, Equatable {
         case "toolchains": self = .toolchains(manager: try c.decode(ToolchainManager.self, forKey: .manager))
         case "toolchainSystemInfo": self = .toolchainSystemInfo
         case "dependencyDuplicates": self = .dependencyDuplicates
+        case "staleTemporaryFiles": self = .staleTemporaryFiles
+        case "extractedArchives": self = .extractedArchives
+        case "gitWorktrees": self = .gitWorktrees
         case let other:
             throw DecodingError.dataCorruptedError(
                 forKey: .type, in: c, debugDescription: "Unknown target source: \(other)")
@@ -128,6 +137,9 @@ public enum DiscoveryKind: Codable, Sendable, Equatable {
             try c.encode(manager, forKey: .manager)
         case .toolchainSystemInfo: try c.encode("toolchainSystemInfo", forKey: .type)
         case .dependencyDuplicates: try c.encode("dependencyDuplicates", forKey: .type)
+        case .staleTemporaryFiles: try c.encode("staleTemporaryFiles", forKey: .type)
+        case .extractedArchives: try c.encode("extractedArchives", forKey: .type)
+        case .gitWorktrees: try c.encode("gitWorktrees", forKey: .type)
         }
     }
 }

@@ -96,6 +96,9 @@ public enum CleanupTargets {
         if case .toolchains = entry.discovery { return ToolchainSource() }
         if entry.discovery == .toolchainSystemInfo { return ToolchainSystemInfoSource() }
         if entry.discovery == .dependencyDuplicates { return DependencyDuplicateSource() }
+        if entry.discovery == .staleTemporaryFiles { return TemporaryFilesSource() }
+        if entry.discovery == .extractedArchives { return ExtractedArchiveSource() }
+        if entry.discovery == .gitWorktrees { return GitWorktreeSource() }
         if entry.discovery != nil { return PendingDiscoverySource() }
         if entry.retention != nil { return RetentionSource() }
         return StaticPatternSource()

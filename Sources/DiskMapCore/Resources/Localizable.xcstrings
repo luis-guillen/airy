@@ -241,6 +241,22 @@
         }
       }
     },
+    "%lld old items in the temporary folder": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld elementos viejos en la carpeta temporal"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld old items in the temporary folder"
+          }
+        }
+      }
+    },
     "A confirmation is already open; Airy ignored the proposal that arrived by link.": {
       "localizations": {
         "en": {
@@ -897,6 +913,22 @@
         }
       }
     },
+    "Branch %@ is merged into %@ and has no uncommitted changes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La rama %1$@ está fusionada en %2$@ y no tiene cambios sin confirmar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Branch %@ is merged into %@ and has no uncommitted changes"
+          }
+        }
+      }
+    },
     "Broken links": {
       "localizations": {
         "en": {
@@ -1405,6 +1437,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudo comprobar si «%@» está abierta; Airy no sigue."
+          }
+        }
+      }
+    },
+    "Could not check with Git whether it keeps changes; Airy does not touch it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo comprobar con Git si guarda cambios; Airy no lo toca."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check with Git whether it keeps changes; Airy does not touch it."
           }
         }
       }
@@ -2161,6 +2209,38 @@
         }
       }
     },
+    "Git last used it %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git lo usó por última vez %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git last used it %@"
+          }
+        }
+      }
+    },
+    "Git marks this worktree as prunable and it has no uncommitted changes": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git marca este worktree como eliminable y no tiene cambios sin confirmar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git marks this worktree as prunable and it has no uncommitted changes"
+          }
+        }
+      }
+    },
     "GnuPG keys": {
       "localizations": {
         "en": {
@@ -2369,6 +2449,22 @@
         }
       }
     },
+    "Includes build folders: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluye carpetas de compilación: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Includes build folders: %@"
+          }
+        }
+      }
+    },
     "Informational only": {
       "localizations": {
         "en": {
@@ -2477,6 +2573,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Es del sistema o guarda datos que no se recuperan."
+          }
+        }
+      }
+    },
+    "It changed recently, it is not yours or it could not be checked in time: %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambió hace poco, no es tuyo o no se pudo comprobar a tiempo: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It changed recently, it is not yours or it could not be checked in time: %@."
           }
         }
       }
@@ -2721,6 +2833,38 @@
         }
       }
     },
+    "It is no longer a git worktree: %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es un worktree de git: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer a git worktree: %@."
+          }
+        }
+      }
+    },
+    "It is no longer a large archive next to a folder with its name: %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya no es un archivo comprimido grande junto a una carpeta con su nombre: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is no longer a large archive next to a folder with its name: %@."
+          }
+        }
+      }
+    },
     "It is no longer a regular file: %@.": {
       "localizations": {
         "en": {
@@ -2929,6 +3073,22 @@
         }
       }
     },
+    "It is not in the temporary folder: %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No está en la carpeta temporal: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is not in the temporary folder: %@."
+          }
+        }
+      }
+    },
     "It is part of macOS.": {
       "localizations": {
         "en": {
@@ -3057,6 +3217,54 @@
         }
       }
     },
+    "Its contents match that folder.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Su contenido coincide con esa carpeta."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its contents match that folder."
+          }
+        }
+      }
+    },
+    "Its contents no longer match the folder next to it: %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Su contenido ya no coincide con la carpeta de al lado: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its contents no longer match the folder next to it: %@."
+          }
+        }
+      }
+    },
+    "Its repository is no longer in any folder where Airy looks for projects.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Su repositorio ya no está en ninguna carpeta donde Airy busca proyectos."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its repository is no longer in any folder where Airy looks for projects."
+          }
+        }
+      }
+    },
     "Kept: %@": {
       "localizations": {
         "en": {
@@ -3085,6 +3293,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Llaveros"
+          }
+        }
+      }
+    },
+    "Last change: %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Último cambio: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last change: %@"
           }
         }
       }
@@ -3297,6 +3521,22 @@
         }
       }
     },
+    "Next to the folder “%@”": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Junto a la carpeta «%@»"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next to the folder “%@”"
+          }
+        }
+      }
+    },
     "No scan": {
       "localizations": {
         "en": {
@@ -3437,6 +3677,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Solo se desinstalan apps de Aplicaciones."
+          }
+        }
+      }
+    },
+    "Only the name matches: check the folder before removing it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo coincide el nombre: revisa la carpeta antes de quitarlo."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the name matches: check the folder before removing it."
           }
         }
       }
@@ -4689,6 +4945,22 @@
         }
       }
     },
+    "The temporary folder is not available; Airy does not touch it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La carpeta temporal no está disponible; Airy no la toca."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The temporary folder is not available; Airy does not touch it."
+          }
+        }
+      }
+    },
     "The tool that created it recreates it when compiling or installing.": {
       "localizations": {
         "en": {
@@ -4717,6 +4989,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se pudieron revisar las versiones a tiempo; vuelve a buscar."
+          }
+        }
+      }
+    },
+    "The worktree is no longer merged and clean, or it is locked or in use: %@.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El worktree ya no está fusionado y limpio, o está bloqueado o en uso: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The worktree is no longer merged and clean, or it is locked or in use: %@."
           }
         }
       }
@@ -4813,6 +5101,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No quedan enlaces rotos que quitar."
+          }
+        }
+      }
+    },
+    "There is a folder with the same name next to it: it was probably already extracted.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay una carpeta con el mismo nombre al lado: probablemente ya se extrajo."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is a folder with the same name next to it: it was probably already extracted."
           }
         }
       }
@@ -5229,6 +5533,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Estado de ventanas: se regenera."
+          }
+        }
+      }
+    },
+    "Worktree %@": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worktree %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worktree %@"
           }
         }
       }
@@ -6173,6 +6493,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» es «%@»: solo se ejecuta lo marcado «%@»."
+          }
+        }
+      }
+    },
+    "“%@” must be a single file.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» debe ser un solo archivo."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” must be a single file."
           }
         }
       }
