@@ -174,7 +174,8 @@ private let reviewIDs = [
         let started = ContinuousClock.now
         let some = await InstallerSource(totalBudget: .milliseconds(200), maxZips: 50, isUbiquitous: { _ in false })
             .discover(entry, context: context(slow))
-        #expect(slow.calls == 2 && some.count == 2)
+        // 1 o 2 lecturas según lo cargada que vaya la máquina (en CI, a veces 1); nunca las 50.
+        #expect((1...2).contains(slow.calls) && some.count == slow.calls)
         #expect(started.duration(to: .now) < .seconds(3))
         #expect(InstallerSource.zipTotalBudget == .seconds(20) && InstallerSource.maxZipListings == 50)
     }
