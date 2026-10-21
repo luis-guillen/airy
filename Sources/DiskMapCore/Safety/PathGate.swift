@@ -204,6 +204,30 @@ public struct PathGate: Sendable {
         return .success(ValidatedPath(path: path, forms: forms, identity: identity))
     }
 
+    /// Comprobación sin dispensa de una ruta que puede no existir (lo que borraría otra herramienta, p. ej.
+    /// Homebrew): si existe, `validate` completo; si no, sintaxis y todas las reglas sobre su forma de texto
+    /// y la de su carpeta existente más cercana, resuelta. `nil` si no está protegida.
+    public func refusalWithoutWaiver(_ path: String) -> String? {
+        if let reason = Self.syntaxRefusal(path) { return reason }
+        if Self.identity(of: path) != nil { return validate(path, waiver: nil).failure?.reason }
+        var forms = [RiskPolicy.canonical(path)]
+        var parent = (path as NSString).deletingLastPathComponent
+        var tail = [(path as NSString).lastPathComponent]
+        // Sube hasta la primera carpeta que existe y la resuelve (p. ej. `/var` → `/private/var`).
+        while parent != "/", !parent.isEmpty, Self.identity(of: parent) == nil {
+            tail.insert((parent as NSString).lastPathComponent, at: 0)
+            parent = (parent as NSString).deletingLastPathComponent
+        }
+        if let real = Self.realPath(parent.isEmpty ? "/" : parent) {
+            let form = RiskPolicy.canonical(([real == "/" ? "" : real] + tail).joined(separator: "/"))
+            if !forms.contains(form) { forms.append(form) }
+        }
+        for form in forms {
+            if let reason = refusal(forForm: form, waiver: nil, isBundle: false) { return reason }
+        }
+        return nil
+    }
+
     /// Vuelve a hacer `lstat` de la ruta y su padre justo antes de actuar; distinto ⇒ rechazo.
     public func confirmUnchanged(_ validated: ValidatedPath) -> PathRefusal? {
         guard let now = Self.identity(of: validated.path) else {
