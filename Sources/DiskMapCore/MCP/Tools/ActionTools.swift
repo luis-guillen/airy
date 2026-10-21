@@ -132,9 +132,9 @@ private struct ItemResult {
 }
 
 private func runItem(_ item: CleanupItem, executor: CleanupExecutor, context: OperationContext,
-                     dryRun: Bool) async -> ItemResult {
-    dryRun ? ItemResult(await executor.preview(item, context: context))
-        : ItemResult(await executor.execute(item, context: context))
+                     dryRun: Bool, pass: RevalidationPass? = nil) async -> ItemResult {
+    dryRun ? ItemResult(await executor.preview(item, context: context, pass: pass))
+        : ItemResult(await executor.execute(item, context: context, pass: pass))
 }
 
 /// Abre la orden en Airy (o solo la devuelve con `dry_run`) y anota la petición.
@@ -236,8 +236,9 @@ public struct RunSafeCleanupAllTool: MCPTool {
         var rows: [JSONValue] = []
         var freed: Int64 = 0, trashed: Int64 = 0
         // En secuencia: el ejecutor relee los ajustes en cada elemento.
+        let pass = RevalidationPass()
         for item in ready {
-            let result = await runItem(item, executor: executor, context: operation, dryRun: dry)
+            let result = await runItem(item, executor: executor, context: operation, dryRun: dry, pass: pass)
             switch result.outcome {
             case "freed", "would_run": freed += result.bytes
             case "moved_to_trash", "would_trash": trashed += result.bytes

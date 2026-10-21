@@ -59,7 +59,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         ]
         for (relative, reason) in expected { #expect(r.defaults[h + "/" + relative] == reason, "\(relative)") }
         #expect(r.defaults.count == expected.count)
-        #expect(r.noPreselect.isEmpty)
+        #expect(r.noPreselect == [.java]) // Java nunca se preselecciona (M7)
     }
 
     @Test func pathResolutionMarksInUse() async {
@@ -90,7 +90,7 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         #expect(r.requested[h + "/.nvm/versions/node/v20.1.0"] == nil)
         #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "La pide ~/Projects/mono/web (.python-version).")
         #expect(r.requested[h + "/.pyenv/versions/3.12.1"] == nil)
-        #expect(r.projectsComplete && r.noPreselect.isEmpty)
+        #expect(r.projectsComplete && r.noPreselect == [.node]) // nvm sin alias por defecto (M7)
     }
 
     @Test func pinMatchingIsComponentWise() {
@@ -135,6 +135,15 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
         #expect(r.requested.isEmpty)
     }
 
+    @Test func nvmWithoutDefaultAliasIsConservative() async {
+        let base = toolchainTempDir()
+        let h = base + "/home"
+        for d in [".nvm/versions/node/v18.17.0", ".nvm/versions/node/v20.1.0"] { tcMakeDir(h + "/" + d) }
+        let r = await report(base)
+        #expect(r.defaults == [h + "/.nvm/versions/node/v20.1.0": "Es la versión por defecto de nvm."])
+        #expect(r.noPreselect.contains(.node))
+    }
+
     @Test func condaEnvironmentYmlRequestsEnv() async {
         let base = toolchainTempDir()
         let h = base + "/home"
@@ -173,4 +182,67 @@ private func install(_ manager: ToolchainManager, _ language: ToolchainLanguage,
 struct TCNoListing: ProcessListing {
     func processes() -> [RunningProcess]? { [] }
     func holders(ofPathsUnder paths: [String]) -> [RunningProcess]? { [] }
+}
+
+@Suite struct PyenvVirtualenvPinTests {
+    private func setUp() -> (String, String) {
+        let base = toolchainTempDir()
+        let h = base + "/home"
+        for d in [".pyenv/versions/3.11.4/envs/myenv", ".pyenv/versions/3.12.1"] { tcMakeDir(h + "/" + d) }
+        link(h + "/.pyenv/versions/myenv", to: h + "/.pyenv/versions/3.11.4/envs/myenv")
+        return (base, h)
+    }
+
+    @Test func shortNamePinMakesTheBaseVersionRequested() async {
+        let (base, h) = setUp()
+        tcWrite(h + "/Projects/app/.python-version", "myenv\n")
+        let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
+        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "La pide ~/Projects/app (.python-version).")
+        #expect(r.requested[h + "/.pyenv/versions/3.12.1"] == nil)
+        #expect(r.noPreselect.contains(.python))
+    }
+
+    @Test func longFormPinMakesTheBaseVersionRequested() async {
+        let (base, h) = setUp()
+        tcWrite(h + "/Projects/app/.python-version", "3.11.4/envs/myenv\n")
+        let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
+        #expect(r.requested[h + "/.pyenv/versions/3.11.4"] == "La pide ~/Projects/app (.python-version).")
+        #expect(r.requested[h + "/.pyenv/versions/3.12.1"] == nil)
+        #expect(r.noPreselect.contains(.python))
+    }
+
+    @Test func longFormPinWithMissingEnvStillProtectsTheBase() async {
+        let (base, h) = setUp()
+        tcWrite(h + "/Projects/app/.python-version", "3.12.1/envs/gone\n")
+        let r = await report(base, projects: ProjectList(projects: [h + "/Projects/app"], complete: true))
+        #expect(r.requested[h + "/.pyenv/versions/3.12.1"] != nil)
+        // Ruta larga que no lleva a ninguna versión: nada en rojo, pero Python nunca se preselecciona.
+        tcWrite(h + "/Projects/other/.python-version", "9.9.9/envs/nope\n")
+        let r2 = await report(base, projects: ProjectList(projects: [h + "/Projects/other"], complete: true))
+        #expect(r2.requested.isEmpty && r2.noPreselect.contains(.python))
+    }
+
+    @Test func globalLongFormVersionIsTheDefault() async {
+        let (base, h) = setUp()
+        tcWrite(h + "/.pyenv/version", "3.11.4/envs/myenv\n")
+        let r = await report(base)
+        #expect(r.defaults[h + "/.pyenv/versions/3.11.4"] == "Es la versión por defecto de pyenv.")
+    }
+
+    @Test func pinnedVirtualenvBaseIsRedAndNeverPreselected() async throws {
+        for pin in ["myenv", "3.11.4/envs/myenv"] {
+            let (base, h) = setUp()
+            tcWrite(h + "/Projects/app/.python-version", pin + "\n")
+            let roots = tcRoots(base)
+            let installs = ToolchainInventory.scan(roots)
+            let usage = await ToolchainUsage.report(
+                installs: installs, roots: roots,
+                projects: ProjectList(projects: [h + "/Projects/app"], complete: true), runner: FakeRunner())
+            let d = ToolchainDetection(installs: installs, usage: usage, brewDependents: [:], processes: [],
+                                       complete: true, brew: nil)
+            let baseInstall = try #require(installs.first { $0.path == h + "/.pyenv/versions/3.11.4" })
+            #expect(ToolchainSource.verdict(baseInstall, d) == .red("La pide ~/Projects/app (.python-version)."), "\(pin)")
+            #expect(!installs.contains { $0.path.hasSuffix("/myenv") }, "el entorno no se ofrece aparte")
+        }
+    }
 }

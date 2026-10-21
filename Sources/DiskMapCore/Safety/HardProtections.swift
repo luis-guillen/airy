@@ -102,10 +102,15 @@ public struct HardProtections: Sendable {
         virtualbox vagrant alfred raycast karabiner rectangle bartender obsidian notion logseq evernote dayone \
         goodnotes adobe figma sketch affinity pixelmator maxon autodesk nativeinstruments izotope fabfilter slack \
         discord teams telegram whatsapp wechat dropbox onedrive googledrive backblaze teamviewer anydesk \
-        signal firefox mozilla vivaldi microsoftedge bravesoftware bravebrowser google
+        signal firefox mozilla vivaldi microsoftedge bravesoftware bravebrowser google safari thebrowser \
+        operasoftware chromium
         """.split(separator: " ").map(String.init)
     /// El último componente DNS de la carpeta **es** uno de estos.
-    static let sensitiveShortAppNames = ["jan", "box", "paw", "code", "bear", "zoom", "warp", "nova", "fork", "utm", "tower"]
+    static let sensitiveShortAppNames = ["jan", "box", "paw", "code", "bear", "zoom", "warp", "nova", "fork", "utm", "tower",
+                                         "arc"]
+    /// Carpetas sensibles fuera de las raíces de datos de apps (relativas a home): igual que la capa C, salvo lo que
+    /// el catálogo declara dentro. `~/Library/Safari` guarda historial, marcadores y la última sesión.
+    static let sensitiveHomeFolders: [(String, String)] = [("Library/Safari", "Safari")]
     /// Subárboles regenerables dentro de una carpeta de app sensible, que sí se pueden tocar.
     static let appDataCacheSubtrees = ["Caches", "Data/Library/Caches", "Data/tmp"]
 
@@ -131,12 +136,16 @@ public struct HardProtections: Sendable {
     // MARK: - Comprobación
 
     /// `canonicalPath` en minúsculas (RiskPolicy.canonical). `nil` si no está protegida.
-    public func match(canonicalPath: String, home: String, catalog: Catalog?) -> ProtectionMatch? {
-        matches(canonicalPath: canonicalPath, home: home, catalog: catalog).first
+    /// `commandTarget`: la ficha de comando cuyo `{target}` se valida (su propia ruta declarada vale como excepción
+    /// de la capa C, p. ej. `~/Library/Safari/History.db` para `sqlite3 … VACUUM`). Nunca para la Papelera.
+    public func match(canonicalPath: String, home: String, catalog: Catalog?,
+                      commandTarget: CatalogEntry? = nil) -> ProtectionMatch? {
+        matches(canonicalPath: canonicalPath, home: home, catalog: catalog, commandTarget: commandTarget).first
     }
 
     /// Todas las coincidencias, en el orden en que `match` las comprueba; `match(...) == matches(...).first`.
-    public func matches(canonicalPath rawPath: String, home rawHome: String, catalog: Catalog?) -> [ProtectionMatch] {
+    public func matches(canonicalPath rawPath: String, home rawHome: String, catalog: Catalog?,
+                        commandTarget: CatalogEntry? = nil) -> [ProtectionMatch] {
         let path = RiskPolicy.canonical(rawPath)
         let home = RiskPolicy.canonical(rawHome)
         let prefix = home == "/" ? "" : home
@@ -175,7 +184,10 @@ public struct HardProtections: Sendable {
         }
 
         // Capa C antes que los fragmentos (motivo más claro); sus excepciones no saltan los fragmentos.
-        if let match = sensitiveAppData(path: path, parts: parts, home: home, catalog: catalog) { found.append(match) }
+        if let match = sensitiveAppData(path: path, parts: parts, home: home, catalog: catalog,
+                                        commandTarget: commandTarget) {
+            found.append(match)
+        }
 
         for part in parts {
             for fragment in Self.fragments where part.contains(fragment) {
@@ -186,8 +198,23 @@ public struct HardProtections: Sendable {
     }
 
     /// Capa C: datos de apps sensibles, salvo sus cachés y lo que el catálogo declara dentro.
-    private func sensitiveAppData(path: String, parts: [String], home: String, catalog: Catalog?) -> ProtectionMatch? {
+    private func sensitiveAppData(path: String, parts: [String], home: String, catalog: Catalog?,
+                                  commandTarget: CatalogEntry?) -> ProtectionMatch? {
         let prefix = home == "/" ? "" : home
+        /// Lo que declara el catálogo dentro de `folder`, o la ruta exacta de la ficha cuyo `{target}` se valida.
+        func declared(inside folder: String) -> Bool {
+            if let catalog, Self.catalogDeclares(path, inside: folder, catalog: catalog, home: home) { return true }
+            if let commandTarget {
+                return Self.catalogDeclares(path, inside: folder, catalog: Catalog(entries: [commandTarget]), home: home)
+            }
+            return false
+        }
+        for (location, name) in Self.sensitiveHomeFolders {
+            let folder = RiskPolicy.canonical(prefix + "/" + location)
+            guard RiskPolicy.isInside(path, root: folder) else { continue }
+            if declared(inside: folder) { return nil }
+            return airy("~/" + location, "Datos de una app sensible (\(name)).", .sensitiveAppData)
+        }
         for root in Self.appDataRoots {
             let rootPath = RiskPolicy.canonical(prefix + "/" + root)
             let rootParts = Self.components(rootPath)
@@ -199,7 +226,7 @@ public struct HardProtections: Sendable {
             where RiskPolicy.isInside(path, root: RiskPolicy.canonical(folder + "/" + subtree)) {
                 return nil
             }
-            if let catalog, Self.catalogDeclares(path, inside: folder, catalog: catalog, home: home) { return nil }
+            if declared(inside: folder) { return nil }
             return airy("~/\(root)/\(folderLower)", "Datos de una app sensible (\(appName)).", .sensitiveAppData)
         }
         return nil
@@ -217,6 +244,7 @@ public struct HardProtections: Sendable {
 
     private static let displayNames = [
         "1password": "1Password", "microsoftedge": "Microsoft Edge", "bravesoftware": "Brave", "bravebrowser": "Brave",
+        "thebrowser": "Arc", "operasoftware": "Opera",
     ]
 
     private static func displayName(_ name: String) -> String {

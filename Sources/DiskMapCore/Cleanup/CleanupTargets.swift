@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Lo que una fuente necesita para descubrir o revalidar objetivos.
 public struct DiscoveryContext: Sendable {
@@ -22,6 +23,24 @@ public struct DiscoveryContext: Sendable {
         self.home = home.count > 1 && home.hasSuffix("/") ? String(home.dropLast()) : home
         self.runner = runner; self.processListing = processListing; self.now = now; self.scan = scan
         self.docker = docker
+    }
+}
+
+/// Una tanda de vista previa (la hoja de confirmación) o de ejecución: las fuentes revalidan con un único
+/// `DiscoveryContext`, así que lo caro (inventario de versiones, lista de proyectos, `brew uses`) se calcula una vez
+/// para todas sus filas y no una por fila. Solo vive lo que dura la tanda.
+public final class RevalidationPass: Sendable {
+    private let context = Mutex<DiscoveryContext?>(nil)
+
+    public init() {}
+
+    func context(_ make: () -> DiscoveryContext) -> DiscoveryContext {
+        context.withLock { current in
+            if let current { return current }
+            let fresh = make()
+            current = fresh
+            return fresh
+        }
     }
 }
 

@@ -34,14 +34,6 @@ struct CleanupRow: View {
                         .font(.headline)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    if item.highlighted {
-                        Text("Para ti")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.Airy.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(Theme.Airy.accent.opacity(0.12), in: Capsule())
-                    }
                     Spacer(minLength: 8)
                     Text(CleanupBoard.sizeText(item))
                         .font(.system(.title3, design: .rounded, weight: .semibold))

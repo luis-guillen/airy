@@ -131,12 +131,30 @@ public enum ToolchainUsage {
             guard isSymlink(link) else { return nil }
             return CleanupTargets.realPath(link)
         }
+        /// Una línea de `.python-version` como la resuelve pyenv: `~/.pyenv/versions/<línea>` (enlace de
+        /// pyenv-virtualenv `myenv` o ruta larga `3.11.4/envs/myenv`) dentro de una versión base; si no existe,
+        /// el primer componente de una ruta `<ver>/envs/<nombre>`.
+        func pyenvOwner(_ line: String) -> InstalledToolchain? {
+            guard !line.isEmpty, !line.hasPrefix("/") else { return nil }
+            let entry = home + "/.pyenv/versions/" + line
+            if ProjectArtifactRules.exists(entry), let real = CleanupTargets.realPath(entry),
+               let install = owner(.pyenv, containing: real) {
+                return install
+            }
+            if let range = line.range(of: "/envs/") {
+                let base = String(line[..<range.lowerBound])
+                return of(.pyenv).first { $0.name == base }
+            }
+            return nil
+        }
 
         // pyenv: ~/.pyenv/version (todas sus líneas).
         if let text = read(home + "/.pyenv/version") {
             for line in lines(text) where line != "system" {
                 let entry = home + "/.pyenv/versions/" + line
                 if let real = linkTarget(entry), let install = owner(.pyenv, containing: real) {
+                    mark(install, defaultReason(.pyenv))
+                } else if line.contains("/"), let install = pyenvOwner(line) {
                     mark(install, defaultReason(.pyenv))
                 } else if let install = of(.pyenv).first(where: { $0.name == line }) {
                     mark(install, defaultReason(.pyenv))
@@ -254,19 +272,39 @@ public enum ToolchainUsage {
                 }
             }
         }
+        // nvm sin alias por defecto y con varias versiones: la que elige la shell (`nvm use` en .zshrc) no se ve
+        // (y el PATH de la app nunca lleva el node de nvm). Va después del PATH para no tapar su motivo.
+        if read(home + "/.nvm/alias/default") == nil, of(.nvm).count > 1 { unresolved(.nvm) }
+        // Java: el ejecutable del PATH es el stub de /usr/bin y `JAVA_HOME` no se ve desde la app; la que se usa
+        // puede no detectarse, así que Java nunca se preselecciona.
+        if offered.contains(where: { $0.language == .java }) { report.noPreselect.insert(.java) }
 
         // Pins de los proyectos.
         if !projects.complete { report.noPreselect.formUnion(ToolchainLanguage.allCases) }
         for project in projects.projects {
             for pin in pins(inProject: project, home: home) {
+                let file = (pin.source as NSString).lastPathComponent
+                let folder = (pin.source as NSString).deletingLastPathComponent
+                // pyenv-virtualenv (I1): el entorno vive dentro de su versión base; esa base queda pedida.
+                if pin.language == .python, file == ".python-version", pin.raw.contains("/") || !pin.resolvable {
+                    if let install = pyenvOwner(pin.raw) {
+                        if report.requested[install.path] == nil {
+                            report.requested[install.path] = "La pide \(folder) (\(file))."
+                        }
+                        report.noPreselect.insert(.python)
+                        continue
+                    }
+                    if pin.raw.contains("/") {
+                        report.noPreselect.insert(.python)
+                        continue
+                    }
+                }
                 let matches = offered.filter(pin.matches)
                 if !pin.resolvable || (pin.language == .rust && VersionPin.rustChannels.contains(pin.raw)
                                        && matches.isEmpty) {
                     report.noPreselect.insert(pin.language)
                     continue
                 }
-                let file = (pin.source as NSString).lastPathComponent
-                let folder = (pin.source as NSString).deletingLastPathComponent
                 for install in matches where report.requested[install.path] == nil {
                     report.requested[install.path] = "La pide \(folder) (\(file))."
                 }

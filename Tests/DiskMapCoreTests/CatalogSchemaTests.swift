@@ -331,7 +331,9 @@ private func replaceWithLink(_ path: String, to destination: String) {
         let db2 = home + "/Library/Safari/Other.db"
         writeFile(db1)
         writeFile(db2)
-        let compact = entry("safari-compact", paths: ["~/Library/Safari/*.db"],
+        // Literales: `~/Library/Safari` es de una app sensible y un comodín a su nivel nunca vale de excepción.
+        let compact = entry("safari-compact", paths: ["~/Library/Safari/History.db", "~/Library/Safari/Other.db",
+                                                      "~/Library/Safari/Evil.db"],
                             cleanup: .command(executable: "sqlite3", arguments: ["{target}", "VACUUM;"], sizeProbe: nil))
         let runner = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])
         let detected = try #require(await scanner([compact], home: home, runner: runner).findItems(scan: nil).first)
@@ -393,7 +395,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         let db2 = home + "/Library/Safari/Other.db"
         let keychain = home + "/Library/Keychains/login.keychain-db"
         for path in [db1, db2, keychain] { writeFile(path) }
-        let compact = entry("safari-compact", paths: ["~/Library/Safari/*.db"],
+        let compact = entry("safari-compact", paths: ["~/Library/Safari/History.db", "~/Library/Safari/Other.db"],
                             cleanup: .command(executable: "sqlite3", arguments: ["{target}", "VACUUM;"], sizeProbe: nil))
         let detected = try #require(await scanner(
             [compact], home: home, runner: FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])).findItems(scan: nil).first)
@@ -525,3 +527,35 @@ private func replaceWithLink(_ path: String, to destination: String) {
         for (manager, entry) in entries where trash.contains(manager) { #expect(entry.cleanup == .trash, "\(entry.id)") }
     }
 }
+
+/// M5: la excepción de catálogo dentro de la carpeta de una app sensible solo vale para cachés. Cualquier ficha
+/// futura con algo como `Google/Chrome/*/History` rompe esta prueba.
+@Suite struct SensitiveAppCatalogPatternTests {
+    /// Nombres sin «cache» que también son regenerables (informes de fallos enviados, imágenes de VM descargadas).
+    static let allowedLastComponents: Set<String> = ["completed", "vm_bundles"]
+
+    /// `Cache`, `Code Cache`, `GPUCache`, `Dawn*Cache`, `CacheStorage`, `ScriptCache`, `CachedData`,
+    /// `component_crx_cache`, `Media Cache Files`…; nunca `History`, `Cookies`, `Login Data`, `Default`.
+    static func isCacheName(_ name: String) -> Bool {
+        allowedLastComponents.contains(name) || name.lowercased().contains("cache")
+    }
+
+    @Test func patternsUnderSensitiveAppFoldersEndInACacheName() throws {
+        let catalog = try Catalog.bundled()
+        var offenders: [String] = []
+        for entry in catalog.entries where entry.cleanup != .info {
+            for pattern in entry.paths where pattern.hasPrefix("~/") {
+                let relative = String(pattern.dropFirst(2))
+                for root in HardProtections.appDataRoots where relative.hasPrefix(root + "/") {
+                    let rest = relative.dropFirst(root.count + 1).split(separator: "/").map(String.init)
+                    guard let folder = rest.first, rest.count > 1,
+                          HardProtections.sensitiveAppName(folder) != nil else { continue }
+                    let last = rest.last!
+                    if !Self.isCacheName(last) { offenders.append("\(entry.id): \(pattern)") }
+                }
+            }
+        }
+        #expect(offenders.isEmpty, "\(offenders)")
+    }
+}
+

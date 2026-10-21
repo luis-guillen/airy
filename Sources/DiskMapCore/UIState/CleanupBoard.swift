@@ -26,11 +26,9 @@ public struct CleanupBoard: Sendable {
         reviewItems = visible.filter(Self.isReviewOnly).sorted { (a, b) in (a.bytes, b.id) > (b.bytes, a.id) }
         let actionable = visible.filter { !Self.isReviewOnly($0) }
         groups = [Risk.safe, .yourCall, .doNotTouch].compactMap { risk in
+            // Por tamaño (el perfil «Para ti» está retirado: `highlighted` ya no ordena).
             let members = actionable.filter { $0.risk == risk }
-                .sorted { a, b in
-                    if a.highlighted != b.highlighted { return a.highlighted }
-                    return (a.bytes, b.id) > (b.bytes, a.id)
-                }
+                .sorted { a, b in (a.bytes, b.id) > (b.bytes, a.id) }
             return members.isEmpty ? nil : Group(risk: risk, items: members)
         }
     }

@@ -267,9 +267,9 @@ private struct HeroCard: View {
 
     private func detail(ready: [CleanupItem]) -> String {
         let safeCount = board.groups.first { $0.risk == .safe }?.items.count ?? 0
-        guard safeCount > 0 else { return "Nada marcado como «Borrar sin riesgo» ahora mismo." }
+        guard safeCount > 0 else { return "Nada marcado como «Sin problema» ahora mismo." }
         let waiting = board.items.filter { $0.risk == .safe && CleanupBoard.showsCheckbox($0) && !$0.blockedByOpenApps.isEmpty }
-        let base = "sin riesgo, en \(Theme.count(safeCount)) \(safeCount == 1 ? "elemento" : "elementos")"
+        let base = "Sin problema, en \(Theme.count(safeCount)) \(safeCount == 1 ? "elemento" : "elementos")"
         guard !waiting.isEmpty else { return base }
         let bytes = waiting.reduce(Int64(0)) { $0 + $1.bytes }
         return base + " · \(Format.bytes(bytes)) esperan a que cierres una app"

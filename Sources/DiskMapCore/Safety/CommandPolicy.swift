@@ -32,6 +32,26 @@ public enum CommandPolicy {
            arguments.contains(where: { $0 == "--all" || $0 == "base" || $0.hasPrefix("--name=base") }) {
             return condaBaseReason
         }
+        // Por ruta (`-p`/`--prefix`): solo un entorno que cuelga directamente de una carpeta `envs`.
+        if name == "conda", arguments.contains(where: { ["remove", "uninstall"].contains($0) }) {
+            for (index, argument) in arguments.enumerated() {
+                let value: String?
+                if argument == "-p" || argument == "--prefix" {
+                    value = index + 1 < arguments.count ? arguments[index + 1] : ""
+                } else if argument.hasPrefix("--prefix=") {
+                    value = String(argument.dropFirst("--prefix=".count))
+                } else {
+                    value = nil
+                }
+                // La plantilla del catálogo (`-p {target}`) se vuelve a comprobar ya sustituida.
+                guard let value, value != CleanupMethod.targetPlaceholder else { continue }
+                let parent = (value as NSString).deletingLastPathComponent
+                if !value.hasPrefix("/") || value.contains("/..") || value.hasSuffix("/")
+                    || (parent as NSString).lastPathComponent != "envs" {
+                    return condaBaseReason
+                }
+            }
+        }
         guard name == "docker" else { return nil }
         for argument in arguments {
             // `volume …`, `--volumes…`, y `compose`/`rm` (que con `-v` se llevan volúmenes).
