@@ -25,7 +25,11 @@ public struct FileTypeBreakdown: Sendable, Equatable {
         var found: [FileNode] = []
         var stack = [root]
         while let node = stack.popLast() {
+            // Lector cancelable del árbol: si lo cancelan, deja de recorrer.
+            if Task.isCancelled { return ([], 0) }
             if node.aggregatedCount > 0 { continue }
+            // Un repositorio (`.git`) o una carpeta de compilación nunca se ofrecen enteros ni por dentro.
+            if node.isDirectory, Self.skippedFolders.contains(node.name.lowercased()) { continue }
             if node.isDirectory {
                 if (kind == .apps && node.kind == .apps && node.name.hasSuffix(".app"))
                     || Self.hasAttributedBytes(node, of: kind) {
@@ -43,6 +47,8 @@ public struct FileTypeBreakdown: Sendable, Equatable {
         let all = root.kindBytes[kind.index]
         return (shown, max(0, all - listed))
     }
+
+    static let skippedFolders: Set<String> = [".git", ".build"]
 
     /// Carpeta cuyo tipo el escáner atribuyó a sus bytes sin reconocer (Cachés, paquetes, sistema): bytes de `kind`
     /// que no pertenecen a ningún hijo. Se lista la carpeta entera, sin bajar dentro.
