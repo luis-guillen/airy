@@ -179,6 +179,13 @@ public enum WindMotion {
         return min(min(Double(rowCount - 1) * gustRowDelay, gustMaxDelay) + gustRowDuration, gustMaxDuration)
     }
 
+    /// Cuánto vive la capa de la ráfaga: hasta que acaben las filas *y* la banda haya cruzado
+    /// (con 2–7 filas las filas terminan antes que la banda, y quitarla entonces la cortaría).
+    public static func gustLifetime(rowCount: Int) -> Double {
+        guard rowCount > 0 else { return 0 }
+        return max(gustDuration(rowCount: rowCount), gustBandDuration) + 0.1
+    }
+
     public static func gustRowOffset(row: Int, rowCount: Int, elapsed: Double) -> Double {
         let delay = min(Double(max(row, 0)) * gustRowDelay, gustMaxDelay)
         let q = (elapsed - delay) / gustRowDuration

@@ -135,6 +135,22 @@ private struct HoverSway: ViewModifier {
 
 // MARK: - Animación del servidor de render
 
+extension CAAnimation {
+    /// Tope de fotogramas del movimiento ambiente (brisa, logo, destello, órbita): todo es lento
+    /// (≤ 1 vuelta/s), y a 30 fps se ve igual de suave que a 120 Hz con la cuarta parte de
+    /// fotogramas que componer en WindowServer (incluido el desenfoque de los cristales encima).
+    static let ambientFrameRate = CAFrameRateRange(minimum: 20, maximum: 30, preferred: 30)
+
+    /// Hora local de `layer` a partir de la que una animación periódica de `period` segundos
+    /// sigue donde iba: `timeOffset` para que su fase dependa solo del reloj de la capa (más
+    /// `phase`, en vueltas), y una reconstrucción (tamaño, escala, aspecto) no la devuelva al inicio.
+    static func continuousOffset(in layer: CALayer, period: Double, phase: Double = 0) -> CFTimeInterval {
+        let now = layer.convertTime(CACurrentMediaTime(), from: nil)
+        let turns = (now / period + phase).truncatingRemainder(dividingBy: 1)
+        return (turns < 0 ? turns + 1 : turns) * period
+    }
+}
+
 /// Capa de Core Animation cuyas animaciones infinitas interpola el servidor de render: la app no
 /// hace nada por fotograma. Un `repeatForever` de SwiftUI, en cambio, recalcula el grafo en cada
 /// fotograma (≈ 10 % de CPU a 120 Hz por animación, medido). Quien la usa la retira cuando no hay
@@ -142,6 +158,9 @@ private struct HoverSway: ViewModifier {
 struct RenderServerLayer: NSViewRepresentable {
     /// Cuando cambia, la capa se reconstruye (además de con cada cambio de tamaño).
     var key: AnyHashable
+    /// Congela las animaciones en su sitio (velocidad 0: el servidor de render no las interpola) y,
+    /// al quitarlo, siguen desde ahí, sin salto. Las capas reconstruidas mientras tanto nacen congeladas.
+    var paused = false
     /// Llena `container` (coordenadas con y hacia abajo, como SwiftUI) para el tamaño dado;
     /// `container.contentsScale` es la escala de la pantalla.
     var build: @MainActor (_ container: CALayer, _ size: CGSize) -> Void
@@ -150,11 +169,13 @@ struct RenderServerLayer: NSViewRepresentable {
         let view = HostView()
         view.build = build
         view.key = key
+        view.setPaused(paused)
         return view
     }
 
     func updateNSView(_ view: HostView, context: Context) {
         view.build = build
+        view.setPaused(paused)
         if view.key != key {
             view.key = key
             view.rebuild()
@@ -187,6 +208,25 @@ struct RenderServerLayer: NSViewRepresentable {
         override func viewDidChangeBackingProperties() {
             super.viewDidChangeBackingProperties()
             if builtSize != nil { rebuild() }
+        }
+
+        /// Receta estándar de Core Animation para pausar y reanudar una capa y sus subcapas.
+        func setPaused(_ paused: Bool) {
+            guard paused != (container.speed == 0) else { return }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            if paused {
+                let now = container.convertTime(CACurrentMediaTime(), from: nil)
+                container.speed = 0
+                container.timeOffset = now
+            } else {
+                let frozen = container.timeOffset
+                container.speed = 1
+                container.timeOffset = 0
+                container.beginTime = 0
+                container.beginTime = container.convertTime(CACurrentMediaTime(), from: nil) - frozen
+            }
+            CATransaction.commit()
         }
 
         func rebuild() {

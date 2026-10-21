@@ -100,7 +100,7 @@ struct CleanupView: View {
         }
         .overlay {
             // Ráfaga de la tanda: cruza la lista y desaparece; no recibe clics.
-            if let gust = flow.gust {
+            if let gust = flow.gust(for: .items) {
                 GustSweep(start: gust.start)
                     .id(gust.id)
             }
@@ -320,7 +320,7 @@ private struct GroupSection: View {
                                 withAnimation(Theme.pressSpring) { selection.formSymmetricDifference([item.id]) }
                             }
                         }
-                        .gustSway(index: flow.gust?.order.firstIndex(of: item.id), start: flow.gust?.start)
+                        .gustSway(index: flow.gust(for: .items)?.order.firstIndex(of: item.id), start: flow.gust(for: .items)?.start)
                         .id(item.id)
                         // Al borrarse, la fila se la lleva el viento (con el mismo muelle que la colapsa).
                         .transition(.leafAway)

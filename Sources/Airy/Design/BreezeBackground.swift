@@ -3,8 +3,9 @@ import DiskMapCore
 
 /// Fondo de marca: noche (o cielo claro) con dos halos suaves y unos trazos de brisa que cruzan
 /// de izquierda a derecha. El cruce lo anima el servidor de render (`RenderServerLayer`): la app
-/// no trabaja por fotograma. Sin movimiento ambiente se dibuja otra vista, estática (los trazos
-/// quietos en su `phase`), y la animación infinita desaparece de verdad.
+/// no trabaja por fotograma, y a 30 fps como mucho (`CAAnimation.ambientFrameRate`). En pausa
+/// (ventana oculta o app inactiva) los trazos se congelan donde están y luego siguen sin salto; con
+/// «Reducir movimiento» se dibuja otra vista, estática (los trazos quietos en su `phase`).
 struct BreezeBackground: View {
     let intensity: BreezeIntensity
 
@@ -24,8 +25,9 @@ struct BreezeBackground: View {
                            center: .topTrailing, startRadius: 0, endRadius: 700)
             RadialGradient(colors: [Theme.Airy.logoBottom.opacity(dark ? 0.08 : 0.04), .clear],
                            center: .bottomLeading, startRadius: 0, endRadius: 600)
-            if motion == .running {
-                MovingStreaks(streaks: streaks, sky: AiryPalette.tokens(dark ? .dark : .light).sky)
+            if motion != .reduced {
+                MovingStreaks(streaks: streaks, sky: AiryPalette.tokens(dark ? .dark : .light).sky,
+                              paused: motion != .running)
             } else {
                 StillStreaks(streaks: streaks)
             }
@@ -68,9 +70,10 @@ private struct StillStreaks: View {
 private struct MovingStreaks: View {
     let streaks: [BreezeStreak]
     let sky: UInt32
+    let paused: Bool
 
     var body: some View {
-        RenderServerLayer(key: sky) { container, size in
+        RenderServerLayer(key: sky, paused: paused) { container, size in
             let color = Color(hex: sky)
             for streak in streaks {
                 let layer = CAGradientLayer()
@@ -86,8 +89,11 @@ private struct MovingStreaks: View {
                 cross.toValue = streak.lap(in: size)
                 cross.duration = streak.period
                 cross.repeatCount = .infinity
-                // Arranca en `phase` y, como sale y entra fuera de la vista, el bucle no se nota.
-                cross.timeOffset = streak.phase * streak.period
+                // Desfasados por `phase` y, como sale y entra fuera de la vista, el bucle no se nota.
+                // La fase sale del reloj de la capa: al redimensionar la ventana sigue donde iba.
+                cross.timeOffset = CAAnimation.continuousOffset(in: container, period: streak.period,
+                                                                phase: streak.phase)
+                cross.preferredFrameRateRange = CAAnimation.ambientFrameRate
                 cross.isRemovedOnCompletion = false
                 layer.add(cross, forKey: "cross")
                 container.addSublayer(layer)
