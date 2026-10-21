@@ -1,7 +1,7 @@
 import Foundation
 
 /// Lo único que «¿Por qué va lento?» envía a Claude: números y nombres de apps. Nunca rutas, PIDs,
-/// argumentos, carpetas de trabajo ni identificadores de bundle.
+/// argumentos, carpetas de trabajo, identificadores de bundle ni nombres de imágenes de disco; Airy no se incluye.
 public enum PerformanceAIContext {
     public static let appLimit = 10
 
@@ -17,6 +17,7 @@ public enum PerformanceAIContext {
         let cpu: [String: Any] = ["total_percent": snapshot.cpu.map { round($0.total * 10) / 10 } as Any? ?? NSNull()]
         let cores = snapshot.raw.cores.count
         let apps = snapshot.groups
+            .filter { !QuitPolicy.isAiry($0) }
             .sorted { $0.impact(totalMemory: m.total, logicalCores: cores) > $1.impact(totalMemory: m.total, logicalCores: cores) }
             .prefix(appLimit)
             .map { g -> [String: Any] in
@@ -29,11 +30,19 @@ public enum PerformanceAIContext {
             }
         let object: [String: Any] = [
             "memory": memory, "thermal": thermal, "cpu": cpu, "apps": apps,
-            "findings": verdict.findings.map(\.sentence),
+            "findings": verdict.findings.map(sentence),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: object,
                                                      options: [.sortedKeys, .withoutEscapingSlashes]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// M5: la frase de las imágenes de disco lleva nombres de archivos `.dmg` (pueden ser personales); a Claude va
+    /// sin ellos.
+    static let diskImagesSentence = "Hay imágenes de disco montadas que hacen trabajar a la comprobación de seguridad de apps."
+
+    static func sentence(_ finding: Finding) -> String {
+        finding.id == "disk-images" ? diskImagesSentence : finding.sentence
     }
 
     /// Un nombre con aspecto de ruta se queda en su último componente.
