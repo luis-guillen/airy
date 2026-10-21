@@ -1,7 +1,8 @@
 import SwiftUI
 import DiskMapCore
 
-/// Confirmación del Desinstalador (`.uninstall`, `.orphans`, `.brokenLinks`) dentro de `ConfirmSheet`.
+/// Confirmación del Desinstalador (`.uninstall`, `.orphans`, `.brokenLinks`) y de Duplicados (`.duplicates`)
+/// dentro de `ConfirmSheet`.
 /// Dice qué se cierra, qué va a la Papelera, qué borra Homebrew directamente y qué se queda.
 struct UninstallConfirmContent: View {
     @Environment(AppModel.self) private var model
@@ -34,7 +35,7 @@ struct UninstallConfirmContent: View {
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
                 // Intro solo confirma lo que va entero a la Papelera (restos huérfanos).
-                if case .orphans = request.kind {
+                if isTrashOnly {
                     confirmButton.keyboardShortcut(.defaultAction)
                 } else {
                     confirmButton
@@ -52,6 +53,18 @@ struct UninstallConfirmContent: View {
     }
 
     // MARK: Datos
+
+    private var isDuplicates: Bool { if case .duplicates = request.kind { true } else { false } }
+
+    private var isTrashOnly: Bool {
+        switch request.kind {
+        case .orphans, .duplicates: true
+        default: false
+        }
+    }
+
+    /// Lo que liberarían las copias marcadas (lo calcula el tablero de Duplicados; 0 en clones APFS).
+    private var duplicatesBytes: Int64 { model.sections.duplicates.board.reclaimableBytes }
 
     /// Apps que Airy no desinstala (rechazo del plan): no se ejecutan.
     private var blocked: Set<String> {
@@ -82,6 +95,10 @@ struct UninstallConfirmContent: View {
                               : "¿Mover \(Theme.count(groups.count)) restos huérfanos a la Papelera?"
         case .brokenLinks(let links):
             links.count == 1 ? "¿Quitar 1 enlace roto?" : "¿Quitar \(Theme.count(links.count)) enlaces rotos?"
+        case .duplicates(let removals):
+            removals.reduce(0) { $0 + $1.remove.count } == 1
+                ? "¿Mover 1 copia a la Papelera?"
+                : "¿Mover \(Theme.count(removals.reduce(0) { $0 + $1.remove.count })) copias a la Papelera?"
         default: ""
         }
     }
@@ -96,6 +113,8 @@ struct UninstallConfirmContent: View {
             return "\(Format.bytes(groups.reduce(0) { $0 + $1.bytes })) irán a la Papelera. Se liberan al vaciarla."
         case .brokenLinks:
             return "Enlaces de /usr/local/bin que ya no apuntan a nada."
+        case .duplicates:
+            return "Total: \(Format.bytes(duplicatesBytes)). Se liberan al vaciar la Papelera."
         default: return ""
         }
     }
@@ -105,7 +124,7 @@ struct UninstallConfirmContent: View {
         case .uninstall(let requests):
             let count = requests.count - blocked.count
             return count <= 1 ? "Desinstalar" : "Desinstalar \(Theme.count(count)) apps"
-        case .orphans: return "Mover a la Papelera"
+        case .orphans, .duplicates: return "Mover a la Papelera"
         case .brokenLinks: return "Quitar enlaces rotos"
         default: return ""
         }
@@ -115,7 +134,7 @@ struct UninstallConfirmContent: View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle().fill(isIrreversible ? AnyShapeStyle(Theme.Airy.destructiveGradient) : AnyShapeStyle(Theme.brand))
-                Image(systemName: "xmark.app.fill")
+                Image(systemName: isDuplicates ? "doc.on.doc.fill" : "xmark.app.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.white)
             }
@@ -160,6 +179,22 @@ struct UninstallConfirmContent: View {
             if links.contains(where: \.needsAdmin) {
                 note("lock.fill", .secondary, "Pedirá tu contraseña de administrador.")
             }
+        case .duplicates(let removals):
+            ForEach(Array(removals.enumerated()), id: \.offset) { index, removal in
+                if index > 0 { Divider().opacity(0.5) }
+                VStack(alignment: .leading, spacing: 6) {
+                    note("checkmark.circle.fill", Theme.Airy.riskInk(.safe),
+                         "Se conserva: \(Format.tildePath(removal.keep))")
+                    note("trash", .secondary,
+                         "A la Papelera: \(removal.remove.map { Format.tildePath($0) }.joined(separator: ", "))")
+                }
+            }
+            HStack {
+                Text("Total").font(.callout.weight(.semibold))
+                Spacer()
+                Text(Format.bytes(duplicatesBytes)).font(.callout.weight(.semibold)).monospacedDigit()
+            }
+            note("checkmark.shield", .secondary, "Antes de mover nada, Airy vuelve a comparar cada copia.")
         default:
             EmptyView()
         }

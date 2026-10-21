@@ -1,4 +1,250 @@
+import AppKit
 import SwiftUI
+import DiskMapCore
 
-// placeholder, replaced by Task 11
-struct DuplicatesView: View { var body: some View { EmptySectionCard(symbol: "hourglass", line: "En construcción.").padding(Theme.contentPadding) } }
+/// Duplicados: ficheros idénticos del índice ya analizado. La búsqueda solo arranca con «Buscar duplicados».
+/// En cada grupo una copia se conserva (radio) y nunca se marca; lo rojo o protegido no tiene casilla.
+/// Lo marcado pasa por `CleanupFlow` (hoja `.duplicates`) → `AppModel.trashDuplicates` → `CleanupExecutor`.
+struct DuplicatesView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(CleanupFlow.self) private var flow
+
+    var body: some View {
+        let store = model.sections.duplicates
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                SectionHeader(title: Section.duplicates.title, subtitle: subtitle(store))
+                filters(store)
+                if let result = flow.duplicatesResult { UninstallerResultBanner(summary: result.summary) }
+                content(store)
+            }
+            .padding(.horizontal, Theme.contentPadding)
+            .padding(.top, 34)
+            .padding(.bottom, 96)
+            .frame(maxWidth: 980, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollContentBackground(.hidden)
+        .overlay(alignment: .bottom) {
+            if let result = store.result, !result.groups.isEmpty, !store.isSearching {
+                bar(store)
+                    .padding(.horizontal, Theme.contentPadding)
+                    .padding(.bottom, 18)
+                    .frame(maxWidth: 980)
+            }
+        }
+    }
+
+    private func subtitle(_ store: DuplicatesStore) -> String {
+        guard model.scan != nil else { return "Sin análisis todavía" }
+        guard let result = store.result else { return "Busca archivos idénticos en tus carpetas." }
+        let groups = visibleGroups(store)
+        let wasted = groups.reduce(Int64(0)) { $0 + $1.wastedBytes }
+        return "\(groups.count == 1 ? "1 grupo" : "\(Theme.count(groups.count)) grupos") · "
+            + "\(Theme.count(result.filesExamined)) archivos comparados · \(Format.bytes(wasted)) repetidos"
+    }
+
+    // MARK: Filtros
+
+    private func filters(_ store: DuplicatesStore) -> some View {
+        @Bindable var store = store
+        return HStack(spacing: 10) {
+            chip("Tu carpeta", selected: store.place == .home) { store.place = .home }
+            chip(folderTitle(store), selected: store.place != .home) { chooseFolder(store) }
+                .help(store.search.roots.count == 1 ? Format.tildePath(store.search.roots[0]) : "")
+            Picker("Tamaño mínimo", selection: $store.search.minBytes) {
+                ForEach(DuplicateSearch.sizeSteps, id: \.self) { Text("≥ \(Format.bytes($0))").tag($0) }
+            }
+            .labelsHidden()
+            .fixedSize()
+            Spacer(minLength: 8)
+            PrimaryButton("Buscar duplicados", systemImage: "magnifyingglass") { store.start(model: model) }
+                .fixedSize()
+                .disabled(store.isSearching || model.scan == nil || flow.isBusy)
+        }
+        .disabled(store.isSearching)
+    }
+
+    private func folderTitle(_ store: DuplicatesStore) -> String {
+        if case .folder(let path) = store.place { return (path as NSString).lastPathComponent }
+        return "Elegir carpeta…"
+    }
+
+    private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.callout.weight(selected ? .semibold : .regular))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(selected ? AnyShapeStyle(Theme.Airy.accent.opacity(0.18)) : AnyShapeStyle(.primary.opacity(0.06)),
+                            in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? Theme.Airy.accent.opacity(0.5) : .clear, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    private func chooseFolder(_ store: DuplicatesStore) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
+        panel.prompt = "Elegir"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        store.place = .folder(url.standardizedFileURL.path)
+    }
+
+    // MARK: Contenido
+
+    @ViewBuilder
+    private func content(_ store: DuplicatesStore) -> some View {
+        if model.scan == nil {
+            EmptySectionCard(symbol: Section.duplicates.symbol, line: "Analiza el disco para buscar duplicados.")
+        } else if store.isSearching {
+            progress(store)
+        } else if let result = store.result {
+            if !result.complete {
+                Label("Búsqueda incompleta: se canceló o no se pudo leer todo.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+            }
+            let groups = visibleGroups(store)
+            if groups.isEmpty {
+                EmptySectionCard(symbol: "checkmark.circle", line: "No hay archivos repetidos.")
+            } else {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    ForEach(groups) { group in groupCard(group, store: store) }
+                }
+            }
+        } else {
+            EmptySectionCard(symbol: Section.duplicates.symbol,
+                             line: "Elige dónde buscar y pulsa «Buscar duplicados».")
+        }
+    }
+
+    private func visibleGroups(_ store: DuplicatesStore) -> [DuplicateGroup] {
+        store.board.groups.filter { store.visibleCopies($0).count >= 2 }
+    }
+
+    private func progress(_ store: DuplicatesStore) -> some View {
+        VStack(spacing: 22) {
+            ScanRing(fraction: 0.25, lineWidth: 10) {
+                Image(systemName: "doc.on.doc").font(.system(size: 28, weight: .semibold)).foregroundStyle(.secondary)
+            }
+            .frame(width: 120, height: 120)
+            .background {
+                WindLeaves(mode: .orbit(radius: 72), count: 6)
+                    .frame(width: 180, height: 180)
+            }
+            Text("Comparando \(Theme.count(store.examined)) archivos…")
+                .font(.headline)
+                .monospacedDigit()
+            Button("Cancelar") { store.cancel() }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 30)
+    }
+
+    private func groupCard(_ group: DuplicateGroup, store: DuplicatesStore) -> some View {
+        let copies = store.visibleCopies(group)
+        let keeper = store.board.keepers[group.id] ?? group.keeper
+        let name = (keeper as NSString).lastPathComponent
+        return GlassCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(name).font(.headline).lineLimit(1).truncationMode(.middle)
+                        Text("\(copies.count) copias de \(Format.bytes(group.size))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("Libera \(Format.bytes(group.wastedBytes))")
+                        .font(.callout.weight(.semibold)).monospacedDigit()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                ForEach(copies) { copy in
+                    Divider().opacity(0.5)
+                    copyRow(copy, group: group, keeper: keeper, store: store)
+                }
+            }
+        }
+    }
+
+    private func copyRow(_ copy: DuplicateCopy, group: DuplicateGroup, keeper: String,
+                         store: DuplicatesStore) -> some View {
+        let isKeeper = copy.path == keeper
+        return HStack(alignment: .center, spacing: 10) {
+            Button { withAnimation(Theme.pressSpring) { store.board.keep(copy.path, in: group) } } label: {
+                Image(systemName: isKeeper ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(isKeeper ? Theme.Airy.accent : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Conservar")
+            .accessibilityLabel("Conservar")
+            if copy.canSelect {
+                Toggle("", isOn: Binding(get: { store.board.selected.contains(copy.path) },
+                                         set: { _ in store.board.toggle(copy.path, in: group) }))
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .disabled(isKeeper)
+                    .frame(width: 18)
+            } else {
+                Image(systemName: "lock.fill").foregroundStyle(.secondary).frame(width: 18)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Format.tildePath(copy.path))
+                    .font(.callout.monospaced())
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                HStack(spacing: 8) {
+                    if isKeeper { Text("Conservar").font(.caption.weight(.semibold)).foregroundStyle(Theme.Airy.accent) }
+                    if let date = copy.modified {
+                        Text(date.formatted(.dateTime.day().month(.abbreviated).year().locale(Theme.locale)))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let protection = copy.protection {
+                        Text(protection.reason).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    } else if copy.reclaimableBytes == 0 {
+                        Text("Copia APFS: no ocupa espacio extra").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Spacer(minLength: 8)
+            RiskBadge(risk: copy.risk, compact: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
+    // MARK: Barra
+
+    private func bar(_ store: DuplicatesStore) -> some View {
+        let removals = store.board.removals()
+        return HStack(spacing: 14) {
+            Button("Seleccionar todas las copias") { withAnimation(Theme.pressSpring) { store.selectAllCopies() } }
+            Button("Quitar selección") { withAnimation(Theme.pressSpring) { store.board.clear() } }
+                .disabled(store.board.selected.isEmpty)
+            Spacer(minLength: 8)
+            PrimaryButton("Mover copias a la Papelera · \(Format.bytes(store.board.reclaimableBytes))",
+                          systemImage: "trash") {
+                flow.requestRemoveDuplicates(removals) { _ in store.pruneMissing() }
+            }
+            .fixedSize()
+            .disabled(removals.isEmpty || flow.isBusy)
+        }
+        .buttonStyle(.plain)
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .padding(.leading, 20)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 0.75))
+        .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+    }
+}

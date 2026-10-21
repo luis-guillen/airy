@@ -178,7 +178,7 @@ struct ConfirmSheet: View {
             }
         case .emptyTrash:
             if let refusal = model.destructiveRefusal { reasons["trash"] = refusal }
-        case .uninstall, .orphans, .brokenLinks:
+        case .uninstall, .orphans, .brokenLinks, .duplicates:
             break  // `UninstallConfirmContent` decide lo bloqueado.
         case .quitApps, .forceQuitApps: break
         }
@@ -189,7 +189,7 @@ struct ConfirmSheet: View {
     private var returnConfirms: Bool {
         switch request.kind {
         case .emptyTrash, .uninstall, .brokenLinks, .quitApps, .forceQuitApps: return false
-        case .trashPaths, .orphans: return true
+        case .trashPaths, .orphans, .duplicates: return true
         case .items:
             return keptItems.allSatisfy { if case .trash = liveMethod($0) { true } else { false } }
         }
@@ -271,7 +271,7 @@ struct ConfirmSheet: View {
 
     private var isUninstallerKind: Bool {
         switch request.kind {
-        case .uninstall, .orphans, .brokenLinks: true
+        case .uninstall, .orphans, .brokenLinks, .duplicates: true
         case .items, .emptyTrash, .trashPaths: false
         case .quitApps, .forceQuitApps: false
         }
@@ -323,7 +323,7 @@ struct ConfirmSheet: View {
         case .items:
             let count = keptItems.count
             return count == 1 ? "¿Borrar 1 elemento?" : "¿Borrar \(Theme.count(count)) elementos?"
-        case .uninstall, .orphans, .brokenLinks: return ""
+        case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         case .quitApps, .forceQuitApps: return ""
         }
     }
@@ -352,7 +352,7 @@ struct ConfirmSheet: View {
             return upperBound
                 ? "Hasta \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
                 : "Unos \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
-        case .uninstall, .orphans, .brokenLinks: return ""
+        case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         }
     }
 
@@ -373,7 +373,7 @@ struct ConfirmSheet: View {
             }
         case .items:
             return sections.regular.map(itemRow)
-        case .uninstall, .orphans, .brokenLinks: return []
+        case .uninstall, .orphans, .brokenLinks, .duplicates: return []
         }
     }
 
@@ -466,7 +466,7 @@ struct ConfirmSheet: View {
                                   text: "Se hacen de uno en uno; antes de cada uno se vuelve a comprobar que sigue siendo seguro."))
             }
             return notes
-        case .uninstall, .orphans, .brokenLinks: return []
+        case .uninstall, .orphans, .brokenLinks, .duplicates: return []
         }
     }
 
@@ -478,7 +478,7 @@ struct ConfirmSheet: View {
             if keptItems.allSatisfy({ $0.entry.section == .maintenance }) { return "Aplicar" }
             let (bytes, upperBound) = CleanupBoard.total(keptItems)
             return "Borrar \(Theme.count(keptItems.count)) · " + CleanupBoard.amountText(bytes, upperBound: upperBound)
-        case .uninstall, .orphans, .brokenLinks: return ""
+        case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         case .quitApps, .forceQuitApps: return ""
         }
     }
