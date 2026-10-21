@@ -132,7 +132,11 @@ struct CleanupView: View {
                 applyNextSelection()
             }
         }
-        .onAppear { if !model.isRefreshingCleanup { applyNextSelection() } }
+        .onAppear {
+            // Abrir Limpieza mientras la detección automática espera a un análisis la adelanta (QoS del usuario).
+            model.cleanupOpened()
+            if !model.isRefreshingCleanup { applyNextSelection() }
+        }
         .onChange(of: flow.isRunning) { _, running in
             if running { selection = [] }
         }
