@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Mantenimiento reversible (siempre ámbar, por el embudo de limpieza) y elementos de inicio rotos (solo aviso).
+/// Mantenimiento (al menos ámbar, por el embudo de limpieza; Spotlight no se deshace pero no borra nada) y elementos de inicio rotos (solo aviso).
 struct MaintenanceCard: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
@@ -28,7 +28,7 @@ struct MaintenanceCard: View {
                 }
                 ForEach(session.maintenance) { item in
                     HStack(alignment: .top, spacing: 10) {
-                        RiskBadge(risk: .yourCall, compact: true)
+                        RiskBadge(risk: item.risk, compact: true)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.title).font(.callout.weight(.semibold))
                             Text(item.entry.explanation).font(.caption).foregroundStyle(.secondary).lineLimit(nil)

@@ -21,8 +21,18 @@ public actor PerformanceMonitor {
 
     public var history: [PerformanceSnapshot] { snapshots }
 
-    /// Olvida la muestra previa (al salir de la sección).
-    public func reset() { previous = nil }
+    /// Olvida la muestra previa y el historial (M1: al volver, «sostenido» no mezcla una muestra vieja con una nueva).
+    public func reset() {
+        previous = nil
+        snapshots = []
+    }
+
+    /// La última instantánea si se tomó en `since` o después; si no, mide ahora (I2: una propuesta nunca se
+    /// resuelve contra una instantánea de una visita anterior).
+    public func snapshot(since: Date) async -> PerformanceSnapshot {
+        if let last = snapshots.last, last.date >= since { return last }
+        return await refresh()
+    }
 
     /// Una muestra, con deltas contra la anterior; se añade al historial.
     public func refresh() async -> PerformanceSnapshot {

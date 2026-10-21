@@ -181,4 +181,68 @@ import Testing
         #expect(catalog.entry(bundleID: nil, processName: "nada") == nil)
         #expect(catalog.entry(bundleID: nil, processName: "node")?.explanation.hasPrefix("Programa de JavaScript") == true)
     }
+
+    // MARK: - I1: apps abiertas después de arrancar airy-mcp
+
+    static let spotifyApp = "/Applications/Spotify.app"
+    static let spotifyProcs = [
+        OwnProcess(pid: 70, name: "Spotify", executablePath: "/Applications/Spotify.app/Contents/MacOS/Spotify",
+                   footprint: 400 << 20),
+        OwnProcess(pid: 71, ppid: 70, name: "Spotify Helper",
+                   executablePath: "/Applications/Spotify.app/Contents/Frameworks/Spotify Helper.app/Contents/MacOS/Spotify Helper",
+                   footprint: 200 << 20),
+    ]
+
+    /// Decisión explícita: sin información de app (ni de NSWorkspace ni de LaunchServices) un `.app` sigue siendo
+    /// «de fondo» y no se ofrece cerrar. La corrección está en rellenar esa información, no en adivinar.
+    @Test func bundleWithoutAppInfoStaysBackground() {
+        let g = AppGrouper.group(raw(Self.spotifyProcs), cpu: [:], energy: [:], catalog: nil)
+        #expect(g.count == 1 && g[0].kind == .background)
+        #expect(!QuitPolicy(currentUID: 501, ownPIDs: []).eligibility(g[0]).isAllowed)
+    }
+
+    /// NSWorkspace sin la app (lista caducada): se pregunta a LaunchServices por los PIDs del `.app` y la app
+    /// se reconoce como normal y se puede cerrar.
+    @Test func staleWorkspaceIsFilledFromFreshLookup() {
+        var asked: [Int32] = []
+        let apps = ProcessProbe.merge(workspace: [], processes: Self.spotifyProcs) { pid in
+            asked.append(pid)
+            return pid == 70 ? RunningAppInfo(pid: 70, bundleID: "com.spotify.client", name: "Spotify",
+                                              bundlePath: Self.spotifyApp, policy: .regular) : nil
+        }
+        #expect(asked == [70])
+        #expect(apps.map(\.bundleID) == ["com.spotify.client"])
+        let g = AppGrouper.group(raw(Self.spotifyProcs, apps: apps), cpu: [:], energy: [:], catalog: nil)
+        #expect(g.count == 1 && g[0].kind == .app && g[0].name == "Spotify" && g[0].leadPID == 70)
+        #expect(QuitPolicy(currentUID: 501, ownPIDs: []).eligibility(g[0]) == .allowed(.safe))
+    }
+
+    @Test func freshLookupSkipsKnownBundlesAndInnerApps() {
+        let known = RunningAppInfo(pid: 10, bundleID: "com.google.Chrome", name: "Google Chrome",
+                                   bundlePath: Self.chromeApp, policy: .regular)
+        let chrome = chromeRaw().processes
+        var asked: [Int32] = []
+        // El ayudante de Spotify responde con su propio `.app` interior: no cuenta como Spotify.
+        let apps = ProcessProbe.merge(workspace: [known], processes: chrome + Self.spotifyProcs) { pid in
+            asked.append(pid)
+            return pid == 71 ? RunningAppInfo(pid: 71, name: "Spotify Helper",
+                                              bundlePath: "/Applications/Spotify.app/Contents/Frameworks/Spotify Helper.app",
+                                              policy: .prohibited) : nil
+        }
+        #expect(asked == [70, 71])
+        #expect(apps == [known])
+    }
+
+    // MARK: - M3: /usr/local y temporales del usuario no son macOS
+
+    @Test func userBinariesUnderSystemPrefixesAreLoose() {
+        let brew = OwnProcess(pid: 80, name: "node", executablePath: "/usr/local/bin/node")
+        let goRun = OwnProcess(pid: 81, name: "main", executablePath: "/private/var/folders/ab/T/go-build1/b001/exe/main")
+        let tmp = OwnProcess(pid: 82, name: "tool", executablePath: "/private/tmp/tool")
+        let system = OwnProcess(pid: 83, name: "cfprefsd", executablePath: "/usr/sbin/cfprefsd")
+        let g = AppGrouper.group(raw([brew, goRun, tmp, system]), cpu: [:], energy: [:], catalog: nil)
+        let kinds = Dictionary(g.map { ($0.leadPID, $0.kind) }, uniquingKeysWith: { a, _ in a })
+        #expect(kinds[80] == .looseProcess && kinds[81] == .looseProcess && kinds[82] == .looseProcess)
+        #expect(kinds[83] == .system)
+    }
 }

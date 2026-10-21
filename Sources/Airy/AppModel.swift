@@ -372,6 +372,17 @@ final class AppModel {
         pendingURLCommand = PendingURLCommand(command: command)
     }
 
+    /// Desminiaturiza y trae al frente la ventana principal de Airy (nunca otra app).
+    static func bringMainWindowForward() {
+        if NSApp.isHidden { NSApp.unhide(nil) }
+        guard let window = NSApp.windows.first(where: {
+            $0.contentView != nil && $0.sheetParent == nil && $0.canBecomeMain && ($0.isVisible || $0.isMiniaturized)
+        }) else { return }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
     /// Procesa la orden pendiente (la llama `RootView`). Nunca ejecuta una limpieza por sí misma:
     /// una propuesta solo abre la hoja de confirmación, y el usuario es quien confirma.
     func run(_ pending: PendingURLCommand, flow: CleanupFlow) async {
@@ -386,8 +397,16 @@ final class AppModel {
             navigation.reveal(path: path)
         case .proposeQuit(let app, let reason, let agent):
             // Nunca cierra nada: como mucho abre la confirmación, y el usuario decide.
+            // M8: con otra hoja abierta o algo en marcha, ni se cambia de sección.
+            if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
+                report(.performance, refusal)
+                return
+            }
+            // I3: la confirmación va en la ventana, así que primero se trae al frente (si estaba minimizada u
+            // oculta). Si no llega a verse, Rendimiento no mide: lo decide la visibilidad real de la ventana.
+            Self.bringMainWindowForward()
             section = .performance
-            let snapshot = await performance.firstSnapshot()
+            let snapshot = await performance.freshSnapshot()
             guard let row = PerformanceBoard(snapshot: snapshot, policy: QuitPolicy()).row(matching: app) else {
                 report(.performance, "Un agente propuso cerrar «\(app)», pero no está abierta.")
                 return

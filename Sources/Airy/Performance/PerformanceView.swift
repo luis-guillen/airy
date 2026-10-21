@@ -7,7 +7,8 @@ import DiskMapCore
 struct PerformanceView: View {
     @Environment(AppModel.self) private var model
     @ViewState private var appeared = false
-    @ViewState private var windowVisible = true
+    /// nil hasta que el lector de la ventana informe (I3): no se supone visible.
+    @ViewState private var windowVisible: Bool?
     @ViewState private var showsAI = false
 
     private var session: PerformanceSession { model.performance }
@@ -42,21 +43,30 @@ struct PerformanceView: View {
         .onAppear {
             appeared = true
             model.assistant.locateIfNeeded()
-            if windowVisible { session.start() }
-            Task { await session.refreshMaintenance() }
+            updateSampling()
         }
         .onDisappear {
             appeared = false
             session.stop()
         }
-        .onChange(of: windowVisible) { _, visible in
+        .onChange(of: windowVisible) { _, _ in
             guard appeared else { return }
-            if visible { session.start() } else { session.stop() }
+            updateSampling()
         }
         .sheet(isPresented: $showsAI) {
             SlowAISheet()
                 .environment(model)
                 .tint(Theme.Airy.accent)
+        }
+    }
+
+    /// Mide solo con la sección a la vista y la ventana visible; el mantenimiento se comprueba entonces (con caché).
+    private func updateSampling() {
+        if PerformanceSamplingGate.shouldSample(appeared: appeared, windowVisible: windowVisible) {
+            session.start()
+            Task { await session.refreshMaintenanceIfStale() }
+        } else {
+            session.stop()
         }
     }
 
@@ -180,6 +190,9 @@ private struct VisibilityReader: NSViewRepresentable {
                     }
                 })
             }
+            // I3: el estado de partida también cuenta (una ventana minimizada u oculta no avisa de nada al crearse
+            // la vista). Fuera del ciclo de actualización de SwiftUI.
+            DispatchQueue.main.async { [weak self] in self?.report() }
         }
 
         private func report() {

@@ -451,8 +451,19 @@ struct ConfirmSheet: View {
                                   text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes."))
             }
             if items.allSatisfy({ $0.entry.section == .maintenance }) {
-                notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
-                                  text: "Es un ajuste reversible: la explicación dice cómo deshacerlo."))
+                // M4: solo los ajustes (`defaults`) y los archivos a la Papelera se deshacen; reindexar Spotlight
+                // (un comando) no se deshace, pero tampoco borra nada.
+                let isCommand = { (item: CleanupItem) in
+                    if case .command = liveMethod(item) { true } else { false }
+                }
+                if items.contains(where: { !isCommand($0) }) {
+                    notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
+                                      text: "Los ajustes se pueden deshacer: la explicación dice cómo."))
+                }
+                if items.contains(where: isCommand) {
+                    notes.append(Note(symbol: "magnifyingglass", tint: Theme.Airy.accent,
+                                      text: "Reindexar Spotlight no se deshace, pero no borra nada: rehace el índice y, mientras tanto, las búsquedas pueden salir incompletas y el Mac irá algo más cargado."))
+                }
             } else if methods.contains(where: { if case .command = $0 { true } else { false } }) {
                 notes.append(Note(symbol: "terminal", tint: Theme.Airy.accent,
                                   text: "Los comandos oficiales liberan el espacio al momento y no se pueden deshacer."))
