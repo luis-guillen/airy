@@ -67,6 +67,8 @@ public struct LargeOldFinder: Sendable {
         let homeCanonical = RiskPolicy.canonical(home)
         var candidates: [Candidate] = []
         collect(root, path: root.path, query: query, home: homeCanonical, into: &candidates)
+        // Lector cancelable del árbol: si lo cancelan (un cambio del árbol, otro filtro), deja de recorrer.
+        if Task.isCancelled { return [] }
 
         let current = now()
         let cutoff = query.minMonthsIdle.map { current.addingTimeInterval(-Double($0) * Self.monthSeconds) }
@@ -74,6 +76,7 @@ public struct LargeOldFinder: Sendable {
         let deadline = clock.now.advanced(by: budget)
         var result: [Candidate] = []
         for var candidate in candidates {
+            if Task.isCancelled { return [] }
             // Un fichero modificado después del corte nunca será «antiguo»: no hace falta preguntar.
             if let cutoff, let modified = candidate.node.lastModified, modified > cutoff { continue }
             if clock.now < deadline {
@@ -112,6 +115,7 @@ public struct LargeOldFinder: Sendable {
 
     private func collect(_ node: FileNode, path: String, query: LargeOldQuery, home: String,
                          into out: inout [Candidate]) {
+        if Task.isCancelled { return }
         let canonical = RiskPolicy.canonical(path)
         if query.scope == .home {
             let inside = RiskPolicy.isInside(canonical, root: home)

@@ -7,6 +7,7 @@ public enum CommandPolicy {
     static let invalidReason = "Orden no válida."
     static let brewDependenciesReason = "Airy nunca fuerza a Homebrew a ignorar dependencias."
     static let condaBaseReason = "Airy nunca borra el entorno base de conda."
+    static let brewZapReason = "Airy nunca usa --zap de Homebrew: los restos los elige y comprueba Airy."
 
     /// Motivo para no ejecutar nunca esta orden aunque venga del catálogo; `nil` si se permite.
     public static func refusal(executable: String, arguments: [String]) -> String? {
@@ -21,6 +22,10 @@ public enum CommandPolicy {
         if name.hasPrefix("docker-compose") { return dockerVolumesReason }
         if name == "brew", arguments.contains(where: { $0.hasPrefix("--ignore-dependencies") }) {
             return brewDependenciesReason
+        }
+        // `--zap` borra la lista del cask sin pasar por las protecciones de Airy.
+        if name == "brew", arguments.contains(where: { $0 == "--zap" || $0.hasPrefix("--zap=") }) {
+            return brewZapReason
         }
         // `conda env remove` / `conda remove`: nunca `--all` ni el entorno base (`conda clean --all` sí vale).
         if name == "conda", arguments.contains(where: { ["remove", "uninstall"].contains($0) }),

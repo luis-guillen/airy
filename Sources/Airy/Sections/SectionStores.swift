@@ -10,7 +10,8 @@ final class SectionStores {
     let largeOld = LargeOldStore()
     let fileTypes = FileTypesStore()
     let duplicates = DuplicatesStore()
-    // Desinstalador (Task 12): `let uninstaller = UninstallerStore()`, en `UninstallerStore.swift`.
+    /// Desinstalador, en `UninstallerStore.swift`.
+    let uninstaller = UninstallerStore()
 }
 
 /// Ráfaga de una tanda de varias filas que se van a la vez (`GustSweep` + `.gustSway`).
