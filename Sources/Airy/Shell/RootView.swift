@@ -212,7 +212,7 @@ private struct SectionContent: View {
     private func mapSubtitle(now: Date) -> String {
         guard let scan = model.scan else { return "Sin análisis todavía" }
         let date = model.lastScanDate.map { " · Último análisis: \(Theme.relative($0, now: now))" } ?? ""
-        return "\(Format.bytes(scan.root.allocatedSize)) analizados en \(model.currentVolume.name)\(date)"
+        return "\(Format.bytes(scan.root.allocatedSize, partial: !scan.inaccessible.isEmpty)) analizados en \(model.currentVolume.name)\(date)"
     }
 }
 
