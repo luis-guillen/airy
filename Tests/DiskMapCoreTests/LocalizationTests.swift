@@ -61,7 +61,10 @@ private let compiledTablesAvailable =
             let variations = ((value["localizations"] as? [String: Any])?["es"] as? [String: Any])?["variations"]
             #expect(unit?["state"] as? String == "translated" || variations != nil, "\(key)")
         }
-        let labels = ["Safe to remove": "Sin problema", "Your call": "Tú decides", "Don't delete": "No borrar"]
+        let labels = ["Safe to remove": "Sin problema", "Your call": "Tú decides", "Don't delete": "No borrar",
+                      "Airy won’t delete this whole folder, but you can clean what’s inside.":
+                        "Airy no borrará la carpeta entera, pero sí puedes limpiar lo que hay dentro.",
+                      "Neither this folder nor anything inside it is deleted.": "Ni esta carpeta ni lo que contiene se borran."]
         for (key, expected) in labels {
             let unit = ((strings[key]?["localizations"] as? [String: Any])?["es"] as? [String: Any])?["stringUnit"] as? [String: Any]
             #expect(unit?["value"] as? String == expected, "\(key)")

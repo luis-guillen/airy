@@ -10,9 +10,17 @@ public struct ProtectionMatch: Sendable, Equatable {
     /// Visible reason, localized.
     public let reason: String
     public let rule: Rule
+    /// What the protection covers. Display information only: it never changes what is protected.
+    public var scope: Scope
 
-    public init(source: Source, pattern: String, reason: String, rule: Rule = .other) {
-        self.source = source; self.pattern = pattern; self.reason = reason; self.rule = rule
+    /// `folderOnly`: the folder is not deleted as a whole (and neither are its parents), but what is inside
+    /// can be cleaned (`/Users`, the home, `~/Library`…). `folderAndContents`: neither the folder nor anything
+    /// inside it is touched (`/System`, `~/Library/Mail`, keys, browser profiles…).
+    public enum Scope: String, Sendable { case folderOnly = "folder_only", folderAndContents = "folder_and_contents" }
+
+    public init(source: Source, pattern: String, reason: String, rule: Rule = .other,
+                scope: Scope = .folderAndContents) {
+        self.source = source; self.pattern = pattern; self.reason = reason; self.rule = rule; self.scope = scope
     }
 }
 
@@ -143,9 +151,34 @@ public struct HardProtections: Sendable {
         matches(canonicalPath: canonicalPath, home: home, catalog: catalog, commandTarget: commandTarget).first
     }
 
-    /// Every match, in the order `match` checks them; `match(...) == matches(...).first`.
+    /// Name of the child `contentsAreProtected` probes: no fragment, no sensitive app name, no catalog path.
+    static let contentsProbeName = "airy-contents-probe-0"
+
+    /// Display only: whether what is *inside* `path` is protected too. It probes an imaginary child of `path`:
+    /// if no rule covers it, only the folder itself (and its parents) is protected, as with `/Users`, the home
+    /// or `~/Library`. The critical-root rule never counts for the child (`/Users/<anything>` is a user folder,
+    /// itself protected only as a whole). It never changes what `match`/`matches` protect.
+    public func contentsAreProtected(path rawPath: String, home: String, catalog: Catalog?) -> Bool {
+        let path = RiskPolicy.canonical(rawPath)
+        let child = (path == "/" ? "" : path) + "/" + Self.contentsProbeName
+        return rawMatches(canonicalPath: child, home: home, catalog: catalog, commandTarget: nil)
+            .contains { $0.rule != .critical && $0.rule != .upward }
+    }
+
+    /// Every match, in the order `match` checks them; `match(...) == matches(...).first`. Each one carries the
+    /// path's `scope` (display only).
     public func matches(canonicalPath rawPath: String, home rawHome: String, catalog: Catalog?,
                         commandTarget: CatalogEntry? = nil) -> [ProtectionMatch] {
+        var found = rawMatches(canonicalPath: rawPath, home: rawHome, catalog: catalog, commandTarget: commandTarget)
+        if !found.isEmpty, !contentsAreProtected(path: rawPath, home: rawHome, catalog: catalog) {
+            for index in found.indices { found[index].scope = .folderOnly }
+        }
+        return found
+    }
+
+    /// The matches without their scope (`scope` stays `.folderAndContents`).
+    private func rawMatches(canonicalPath rawPath: String, home rawHome: String, catalog: Catalog?,
+                            commandTarget: CatalogEntry?) -> [ProtectionMatch] {
         let path = RiskPolicy.canonical(rawPath)
         let home = RiskPolicy.canonical(rawHome)
         let prefix = home == "/" ? "" : home

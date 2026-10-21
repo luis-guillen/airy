@@ -223,6 +223,15 @@ public struct CleanupBoard: Sendable {
         }
     }
 
+    /// What a protection covers, in one sentence (display only): only the folder as a whole, or the folder and
+    /// everything inside it.
+    public static func protectionScopeText(_ protection: ProtectionMatch) -> String {
+        switch protection.scope {
+        case .folderOnly: String(localized: "Airy won’t delete this whole folder, but you can clean what’s inside.", bundle: .airyCore)
+        case .folderAndContents: String(localized: "Neither this folder nor anything inside it is deleted.", bundle: .airyCore)
+        }
+    }
+
     private static let plain = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./=:,@%+")
 
     private static func displayQuoted(_ word: String) -> String {

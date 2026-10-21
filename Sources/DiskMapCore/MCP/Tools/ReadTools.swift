@@ -200,7 +200,9 @@ public struct ExplainPathTool: MCPTool {
     public var name: String { "explain_path" }
     public var description: String {
         "Explains a path: what it is, who creates it, whether it regenerates, how much it takes up according to the last scan and the risk of "
-            + "deleting it (Airy's traffic light). It reads the contents of nothing."
+            + "deleting it (Airy's traffic light). For a protected path, `protection_scope` says whether only the folder "
+            + "as a whole is protected (`folder_only`: its contents can still be cleaned) or everything inside too "
+            + "(`folder_and_contents`). It reads the contents of nothing."
     }
     public var inputSchema: JSONValue {
         objectSchema(["path": .object(["type": .string("string"), "minLength": .number(1), "maxLength": .number(4096)])],
@@ -238,8 +240,22 @@ public struct ExplainPathTool: MCPTool {
             "size_bytes": size,
             "exists": .bool(exists),
         ]
-        value.merge(MCPFormat.risk(classifier.classify(path: path))) { $1 }
+        let verdict = classifier.classify(path: path)
+        value.merge(MCPFormat.risk(verdict)) { $1 }
+        // Display only: whether the protection covers the contents too (`/Users`, the home or `~/Library` only
+        // as a whole; `/System` or `~/Library/Mail` with everything inside).
+        value["protection_scope"] = verdict.protection.map { .string($0.scope.rawValue) } ?? .null
+        value["protection_scope_note"] = verdict.protection.map { .string(Self.scopeNote($0.scope)) } ?? .null
         return .ok(.object(value), summary: "\(title): \(explanation)")
+    }
+
+    /// English, like the rest of the MCP's own sentences.
+    static func scopeNote(_ scope: ProtectionMatch.Scope) -> String {
+        switch scope {
+        case .folderOnly:
+            "Airy won't delete this whole folder, but what is inside can still be cleaned: explain or list its children."
+        case .folderAndContents: "Neither this folder nor anything inside it is deleted."
+        }
     }
 }
 

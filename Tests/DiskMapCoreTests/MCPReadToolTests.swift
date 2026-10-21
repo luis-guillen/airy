@@ -220,6 +220,24 @@ private func texts(_ result: MCPToolResult) -> String { result.text }
         #expect(!reasons.isEmpty)
     }
 
+    @Test func explainProtectionScope() async throws {
+        let f = try fixture()
+        let library = try #require(await f.call(ExplainPathTool(), ["path": .string(f.home + "/Library")]).structured)
+        #expect(library["risk"]?.stringValue == "doNotTouch")   // unchanged
+        #expect(library["protection_scope"]?.stringValue == "folder_only")
+        #expect(library["protection_scope_note"]?.stringValue?.contains("what is inside can still be cleaned") == true)
+        let home = try #require(await f.call(ExplainPathTool(), ["path": .string(f.home)]).structured)
+        #expect(home["protection_scope"]?.stringValue == "folder_only")
+        let keychains = try #require(await f.call(ExplainPathTool(),
+                                                   ["path": .string(f.home + "/Library/Keychains")]).structured)
+        #expect(keychains["protection_scope"]?.stringValue == "folder_and_contents")
+        #expect(keychains["protection_scope_note"]?.stringValue
+            == "Neither this folder nor anything inside it is deleted.")
+        let free = try #require(await f.call(ExplainPathTool(), ["path": .string(f.home + "/Documents/x")]).structured)
+        #expect(free["protection_scope"] == .null)
+        #expect(free["protection_scope_note"] == .null)
+    }
+
     @Test func explainUserProtected() async throws {
         let f = try fixture(protected: ["~/Proyectos/secreto"])
         let result = await f.call(ExplainPathTool(), ["path": .string(f.home + "/Proyectos/secreto/app")])

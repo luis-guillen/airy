@@ -689,6 +689,22 @@
         }
       }
     },
+    "Airy won’t delete this whole folder, but you can clean what’s inside.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy won’t delete this whole folder, but you can clean what’s inside."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airy no borrará la carpeta entera, pero sí puedes limpiar lo que hay dentro."
+          }
+        }
+      }
+    },
     "Another catalog entry manages it now: %@.": {
       "localizations": {
         "en": {
@@ -3261,6 +3277,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Música y audio"
+          }
+        }
+      }
+    },
+    "Neither this folder nor anything inside it is deleted.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neither this folder nor anything inside it is deleted."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ni esta carpeta ni lo que contiene se borran."
           }
         }
       }
