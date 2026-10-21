@@ -139,6 +139,22 @@ private func staleNodeApp(_ home: String) -> String {
         #expect(gate.cleanupOpened(hasTree: true) == .user)
     }
 
+    /// Limpieza ya abierta antes de que empiece el reanálisis automático (índice viejo): al acabar, la lista se
+    /// rellena sola, en segundo plano, sin pulsar «Buscar de nuevo».
+    @Test func cleanupOpenBeforeAnAutomaticRescanRefillsWhenItFinishes() {
+        var gate = DetectionGate()
+        #expect(gate.cleanupOpened(hasTree: false) == nil)  // onAppear antes de leer el índice
+        gate.scanStarted()
+        #expect(gate.indexRead(hasIndex: true, plan: .scan(.background)) == nil)
+        let trigger = gate.scanFinished(.automatic)
+        #expect(trigger == .automatic)
+        #expect(DetectionSchedule.budget(.automatic, lowPowerMode: false, thermalState: .nominal).qos == .background)
+        // Un segundo reanálisis automático con Limpieza aún abierta también la rellena.
+        gate.scanStarted()
+        #expect(gate.indexRead(hasIndex: true, plan: .scan(.background)) == nil)
+        #expect(gate.scanFinished(.automatic) == .automatic)
+    }
+
     @Test func detectionAfterAUserScanKeepsTheUserQoSAndAgentsStayInBackground() {
         var user = DetectionGate()
         _ = user.indexRead(hasIndex: true, plan: .scan(.normal))
