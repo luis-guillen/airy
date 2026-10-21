@@ -78,6 +78,15 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollIndicators(.automatic)
+            #if DEBUG
+            // `AIRY_SETTINGS_GROUP=<group>` (DEBUG only): opens scrolled to that group, for UI checks.
+            .task {
+                guard let raw = ProcessInfo.processInfo.environment["AIRY_SETTINGS_GROUP"],
+                      let group = SettingsGroup(rawValue: raw) else { return }
+                try? await Task.sleep(for: .milliseconds(300))
+                proxy.scrollTo(group.id, anchor: .top)
+            }
+            #endif
         }
         // The latest from disk (another process or a hand edit) when it opens.
         .onAppear {
