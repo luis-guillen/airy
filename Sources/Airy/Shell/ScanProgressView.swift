@@ -182,6 +182,7 @@ private struct SpinningGlint: View {
             spin.fromValue = -Double.pi / 2
             spin.toValue = 1.5 * Double.pi
             spin.duration = Self.period
+            spin.preferredFrameRateRange = CAAnimation.ambientFrameRate
             spin.repeatCount = .infinity
             spin.isRemovedOnCompletion = false
             arc.add(spin, forKey: "spin")

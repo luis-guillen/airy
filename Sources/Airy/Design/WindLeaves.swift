@@ -244,6 +244,7 @@ private struct OrbitingLeaves: View {
             // Con y hacia abajo, un ángulo positivo gira en sentido horario, como `orbitLeaf`.
             spin.toValue = 2 * Double.pi
             spin.duration = 2 * Double.pi / WindMotion.orbitAngularSpeed
+            spin.preferredFrameRateRange = CAAnimation.ambientFrameRate
             spin.repeatCount = .infinity
             spin.isRemovedOnCompletion = false
             disc.add(spin, forKey: "spin")
@@ -271,6 +272,7 @@ private struct OrbitingLeaves: View {
                 breath.repeatCount = .infinity
                 breath.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 breath.timeOffset = 2 * breathHalf * WindMotion.noise(index, 3)
+                breath.preferredFrameRateRange = CAAnimation.ambientFrameRate
                 breath.isRemovedOnCompletion = false
                 leaf.add(breath, forKey: "breath")
                 arm.addSublayer(leaf)
