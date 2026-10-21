@@ -133,6 +133,24 @@ private struct UFixture {
     }
 }
 
+private let brewInfo = ["/opt/homebrew/bin/brew", "info", "--cask", "--json=v2", "foo"]
+private let brewUninstall = ["/opt/homebrew/bin/brew", "uninstall", "--cask", "foo"]
+
+/// Salida de `brew info --cask --json=v2 foo` con estos pasos de `uninstall` (y `zap`, que nunca se ejecuta).
+private func caskJSON(uninstall: [String: Any], zap: [String: Any]? = nil, extra: [[String: Any]] = []) -> String {
+    var artifacts: [[String: Any]] = [["uninstall": [uninstall]], ["app": ["Foo.app"]]]
+    if let zap { artifacts.append(["zap": [zap]]) }
+    artifacts += extra
+    let root: [String: Any] = ["formulae": [], "casks": [["token": "foo", "full_token": "foo", "artifacts": artifacts]]]
+    let data = try! JSONSerialization.data(withJSONObject: root)
+    return String(data: data, encoding: .utf8)!
+}
+
+private func brewRunner(info: String) -> FakeRunner {
+    FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"],
+               outputs: [brewInfo.joined(separator: " "): CommandOutput(status: 0, stdout: info, stderr: "")])
+}
+
 private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
     if case .blocked = outcome { return true }
     return false
@@ -213,46 +231,163 @@ private func isBlocked(_ outcome: CleanupOutcome) -> Bool {
         #expect(runner.calls.isEmpty && exists(f.app) && exists(f.caches))
     }
 
-    @Test func brewCaskRunsZapFirst() async {
+    // MARK: Homebrew (nunca `--zap`; antes, revisión del cask)
+
+    @Test func cleanCaskUsesBrewWithoutZapThenBootsOut() async {
         let f = UFixture()
-        let runner = FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"])
+        let runner = brewRunner(info: caskJSON(uninstall: ["quit": "com.example.foo", "delete": f.app]))
         let report = await f.executor(runner: runner).uninstall(f.all(f.plan(cask: "foo")))
         let calls = runner.calls.map { [$0.executable] + $0.arguments }
-        #expect(calls.contains(["/opt/homebrew/bin/brew", "uninstall", "--cask", "--zap", "foo"]))
-        #expect(calls.firstIndex { $0.first == "/opt/homebrew/bin/brew" }
-                == calls.firstIndex { $0.first == "/bin/launchctl" }.map { $0 + 1 })
+        #expect(calls.contains(brewInfo))
+        #expect(calls.contains(brewUninstall))
+        #expect(!calls.contains { $0.contains("--zap") })
+        // Homebrew primero; los agentes de inicio, solo después de que Homebrew termine bien.
+        #expect(calls.firstIndex { $0.first == "/bin/launchctl" }
+                == calls.firstIndex(of: brewUninstall).map { $0 + 1 })
         // Brew falso: no borra nada, así que el `.app` va a la Papelera después.
         guard case .movedToTrash = report.outcome else { Issue.record("\(report)"); return }
         #expect(!exists(f.app))
     }
 
-    @Test func zapSkippedWhenAnyLeftoverIsProtected() async {
+    @Test func chromeLikeCaskNeverRunsBrewNorZap() async {
         let f = UFixture()
-        let runner = FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"])
-        _ = await f.executor(runner: runner, protected: [f.logs]).uninstall(f.all(f.plan(cask: "foo")))
+        let profile = f.home + "/Library/Application Support/Google/Chrome"
+        writeFile(profile + "/Default/Bookmarks")
+        let runner = brewRunner(info: caskJSON(
+            uninstall: ["quit": "com.example.foo", "delete": ["~/Library/Application Support/Google/Chrome", f.app]],
+            zap: ["trash": ["~/Library/Application Support/Google/Chrome", "~/Library/Google"]]))
+        let report = await f.executor(runner: runner).uninstall(f.all(f.plan(cask: "foo")))
         let calls = runner.calls.map { [$0.executable] + $0.arguments }
-        #expect(calls.contains(["/opt/homebrew/bin/brew", "uninstall", "--cask", "foo"]))
+        #expect(!calls.contains(brewUninstall))
         #expect(!calls.contains { $0.contains("--zap") })
-        #expect(exists(f.logs))
-        // Un resto sin seleccionar también evita `--zap`.
-        let g = UFixture()
-        let other = FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"])
-        let plan = g.plan(cask: "foo")
-        _ = await g.executor(runner: other).uninstall(UninstallRequest(
-            plan: plan, selected: Set(plan.leftovers.filter { $0.path != g.logs }.map(\.id))))
-        #expect(!other.calls.contains { $0.arguments.contains("--zap") })
+        #expect(report.notes.contains(CaskReview.unsafeReason))
+        guard case .movedToTrash = report.outcome else { Issue.record("\(report)"); return }
+        // Camino normal: el `.app` a la Papelera, el perfil intacto.
+        #expect(!exists(f.app) && exists(profile + "/Default/Bookmarks"))
+        let last = try? f.log.records().last
+        #expect(last?.command == nil)
     }
 
-    @Test func brewFailureStopsBeforeTrash() async {
+    @Test func zapOnlyListIsNeverRun() async {
+        let f = UFixture()
+        let profile = f.home + "/Library/Application Support/Google/Chrome"
+        writeFile(profile + "/Default/Bookmarks")
+        let runner = brewRunner(info: caskJSON(uninstall: ["quit": "com.example.foo"],
+                                               zap: ["trash": ["~/Library/Application Support/Google/Chrome"]]))
+        _ = await f.executor(runner: runner).uninstall(f.all(f.plan(cask: "foo")))
+        let calls = runner.calls.map { [$0.executable] + $0.arguments }
+        #expect(calls.contains(brewUninstall))
+        #expect(!calls.contains { $0.contains("--zap") })
+        #expect(exists(profile + "/Default/Bookmarks"))
+    }
+
+    @Test func signalScriptOrForeignIDsFallBack() async {
+        let cases: [[String: Any]] = [
+            ["signal": [["TERM", "com.example.foo"]]],
+            ["script": ["executable": "uninstall.sh"]],
+            ["early_script": "x.sh"],
+            ["pkgutil": "com.other.pkg"],
+            ["launchctl": ["com.example.foo.helper", "com.google.keystone.agent"]],
+            ["kext": "com.other.driver"],
+            ["quit": "com.other.app"],
+            ["rmdir": "~/Library/Application Support"],
+            ["trash": "~/Documents"],
+            ["delete": "~/Library/Application Support/Goo*/Chrome"],
+        ]
+        for directives in cases {
+            let f = UFixture()
+            writeFile(f.home + "/Library/Application Support/Google/Chrome/Default/Bookmarks")
+            let runner = brewRunner(info: caskJSON(uninstall: directives))
+            let report = await f.executor(runner: runner).uninstall(f.all(f.plan(cask: "foo")))
+            let calls = runner.calls.map { [$0.executable] + $0.arguments }
+            #expect(!calls.contains(brewUninstall), "\(directives)")
+            #expect(report.notes.contains(CaskReview.unsafeReason), "\(directives)")
+            #expect(!exists(f.app), "\(directives)")
+        }
+    }
+
+    @Test func otherArtifactsFallBack() async {
+        for extra in [["suite": ["Foo Suite"]], ["app": ["Foo.app", "Other.app"]],
+                      ["uninstall_postflight": NSNull()], ["artifact": [["x", ["target": "~/Library/x"]]]]] as [[String: Any]] {
+            let f = UFixture()
+            let runner = brewRunner(info: caskJSON(uninstall: ["quit": "com.example.foo"], extra: [extra]))
+            _ = await f.executor(runner: runner).uninstall(f.all(f.plan(cask: "foo")))
+            #expect(!runner.calls.map { [$0.executable] + $0.arguments }.contains(brewUninstall), "\(extra)")
+        }
+    }
+
+    @Test func unreadableMetadataFallsBack() async {
+        let outputs: [CommandOutput] = [
+            CommandOutput(status: 1, stdout: "", stderr: "Error: Cask 'foo' is unavailable"),
+            CommandOutput(status: 0, stdout: "not json", stderr: ""),
+            CommandOutput(status: 0, stdout: #"{"formulae":[],"casks":[]}"#, stderr: ""),
+            CommandOutput(status: 0, stdout: #"{"casks":[{"token":"bar","artifacts":[]}]}"#, stderr: ""),
+            CommandOutput(status: 0, stdout: #"{"casks":[{"token":"foo","artifacts":[{"uninstall":"x"}]}]}"#, stderr: ""),
+        ]
+        for output in outputs {
+            let f = UFixture()
+            let runner = FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"], outputs: [brewInfo.joined(separator: " "): output])
+            let report = await f.executor(runner: runner).uninstall(f.all(f.plan(cask: "foo")))
+            let calls = runner.calls.map { [$0.executable] + $0.arguments }
+            #expect(!calls.contains(brewUninstall), "\(output)")
+            #expect(report.notes.contains(CaskReview.unreadableReason), "\(output)")
+            guard case .movedToTrash = report.outcome else { Issue.record("\(report)"); continue }
+            #expect(!exists(f.app))
+        }
+        // Token raro: ni siquiera se consulta a Homebrew.
+        let g = UFixture()
+        let runner = FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"])
+        _ = await g.executor(runner: runner).uninstall(g.all(g.plan(cask: "--force")))
+        #expect(!runner.calls.contains { $0.executable.hasSuffix("brew") })
+    }
+
+    @Test func brewMissingFallsBackToTrash() async {
+        let f = UFixture()
+        let report = await f.executor(runner: FakeRunner()).uninstall(f.all(f.plan(cask: "foo")))
+        #expect(report.notes.contains(CaskReview.brewMissingReason))
+        guard case .movedToTrash = report.outcome else { Issue.record("\(report)"); return }
+        #expect(!exists(f.app))
+    }
+
+    /// Con la lista dura estándar (sin las raíces de prueba): rutas del sistema o datos de otras apps ⇒ fallback.
+    @Test func standardProtectionsRejectSystemAndSharedPaths() {
+        let home = NSHomeDirectory()
+        let gate = PathGate(home: home, catalog: nil, userProtected: ProtectList(patterns: [], home: home))
+        let app = AppRecord(bundleID: "com.example.foo", name: "Foo", version: "1", path: "/Applications/Foo.app",
+                            helperBundleIDs: [], isSystem: false, isAppStore: false, caskToken: "foo", lastUsed: nil)
+        func verdict(_ directives: [String: Any]) -> CaskVerdict {
+            CaskReview.verdict(json: caskJSON(uninstall: directives), token: "foo", app: app, home: home,
+                               refusal: { gate.refusalWithoutWaiver($0) })
+        }
+        #expect(verdict(["quit": "com.example.foo", "delete": "/Applications/Foo.app"]) == .useBrew)
+        for path in ["/Library/PrivilegedHelperTools/com.example.foo.helper", "~/Library/Application Support/Google/Chrome",
+                     "~/Library/Application Support/Firefox/Profiles", "/Applications/Other.app", "~/Library/Keychains",
+                     "~/Library/Group Containers/*", "relative/path", "~/Library/../Documents"] {
+            #expect(verdict(["delete": path]) == .fallback(reason: CaskReview.unsafeReason), "\(path)")
+            #expect(verdict(["trash": [path]]) == .fallback(reason: CaskReview.unsafeReason), "\(path)")
+        }
+    }
+
+    @Test func commandPolicyRefusesZap() {
+        #expect(CommandPolicy.refusal(executable: "/opt/homebrew/bin/brew",
+                                      arguments: ["uninstall", "--cask", "--zap", "foo"]) == CommandPolicy.brewZapReason)
+        #expect(CommandPolicy.refusal(executable: "/opt/homebrew/bin/brew",
+                                      arguments: ["uninstall", "--zap=true", "foo"]) == CommandPolicy.brewZapReason)
+        #expect(CommandPolicy.refusal(executable: "/opt/homebrew/bin/brew", arguments: brewUninstall.dropFirst().map { $0 }) == nil)
+    }
+
+    @Test func brewFailureStopsBeforeTrashAndBootout() async {
         let f = UFixture()
         let runner = FakeRunner(resolved: ["brew": "/opt/homebrew/bin/brew"], outputs: [
-            "/opt/homebrew/bin/brew uninstall --cask --zap foo": CommandOutput(status: 1, stdout: "", stderr: "boom"),
+            brewInfo.joined(separator: " "): CommandOutput(status: 0, stdout: caskJSON(uninstall: ["quit": "com.example.foo"]), stderr: ""),
+            brewUninstall.joined(separator: " "): CommandOutput(status: 1, stdout: "", stderr: "boom"),
         ])
         let priv = FakePrivileged()
         let report = await f.executor(runner: runner, privileged: priv).uninstall(f.all(f.plan(cask: "foo")))
         #expect(report.outcome == .failed("Homebrew no pudo desinstalarla: boom"))
         #expect(report.notes.contains(CleanupExecutor.brewUnfinishedNote))
         #expect(exists(f.app) && exists(f.caches) && priv.calls.isEmpty)
+        #expect(!runner.calls.contains { $0.executable == "/bin/launchctl" })
     }
 
     @Test func onlySelectedLeftoversAreTrashed() async {

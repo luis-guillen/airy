@@ -4,7 +4,8 @@ import Observation
 import DiskMapCore
 
 /// Estado del Desinstalador: inventario, planes (uno a uno, poco a poco), restos huérfanos y enlaces rotos.
-/// Solo calcula al primer aparecer y con «Actualizar»; nunca en segundo plano.
+/// Vive en `SectionStores`. Solo calcula al primer aparecer, con «Actualizar» o si lo calculado tiene más de
+/// 10 min; si se salió a medias, al volver termina lo que falta. Nunca en segundo plano.
 @MainActor @Observable
 final class UninstallerStore {
     enum Tab: String, CaseIterable, Identifiable {
@@ -53,11 +54,29 @@ final class UninstallerStore {
     private var tasks: [Task<Void, Never>] = []
     private var generation = 0
 
+    /// Cuándo empezó el último «Actualizar» (o el primer cálculo).
+    private(set) var loadedAt: Date?
+    /// Inventario, planes, huérfanos y enlaces terminados (no se cortó al salir de la sección).
+    private var complete = false
+    /// Pasado este tiempo, al volver a la sección se recalcula todo.
+    static let staleAfter: TimeInterval = 600
+
+    /// Al aparecer la sección: vive en `SectionStores`, así que la selección y los resultados se conservan.
+    /// Solo recalcula si no hay nada, si es de hace más de `staleAfter`, o termina lo que quedó a medias.
+    func appear(model: AppModel, now: Date = Date()) {
+        runningIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+        guard let loadedAt, now.timeIntervalSince(loadedAt) < Self.staleAfter else {
+            refresh(model: model)
+            return
+        }
+        if !complete { load(model: model) }
+    }
+
+    /// «Actualizar»: empieza de cero.
     func refresh(model: AppModel) {
         cancel()
-        generation += 1
-        let generation = generation
-        isLoading = true
+        loadedAt = Date()
+        complete = false
         inventory = nil
         plans = [:]
         checkedApps = []
@@ -68,27 +87,47 @@ final class UninstallerStore {
         links = []
         linkSelection = []
         runningIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+        load(model: model)
+    }
+
+    /// Calcula solo lo que falta (inventario, planes, huérfanos, enlaces), sin tocar la selección.
+    private func load(model: AppModel) {
+        cancel()
+        generation += 1
+        let generation = generation
+        isLoading = true
+        if !linksLoaded {
+            tasks.append(Task { [weak self] in
+                let links = await model.brokenLinks()
+                guard let self, !Task.isCancelled, generation == self.generation else { return }
+                self.links = links
+                self.linksLoaded = true
+            })
+        }
         tasks.append(Task { [weak self] in
-            let links = await model.brokenLinks()
-            guard let self, !Task.isCancelled, generation == self.generation else { return }
-            self.links = links
-            self.linksLoaded = true
-        })
-        tasks.append(Task { [weak self] in
-            let inventory = await model.inventorySnapshot()
-            guard let self, !Task.isCancelled, generation == self.generation else { return }
-            self.inventory = inventory
+            guard let self else { return }
+            let inventory: AppInventorySnapshot
+            if let known = self.inventory {
+                inventory = known
+            } else {
+                inventory = await model.inventorySnapshot()
+                guard !Task.isCancelled, generation == self.generation else { return }
+                self.inventory = inventory
+            }
             // Restos huérfanos y planes: primero lo visible (apps), luego huérfanos.
-            for app in self.sorted(inventory.apps) where !app.isSystem {
+            for app in self.sorted(inventory.apps) where !app.isSystem && self.plans[app.path] == nil {
                 if Task.isCancelled || generation != self.generation { return }
                 let plan = await model.uninstallPlan(for: app, inventory: inventory)
                 guard !Task.isCancelled, generation == self.generation else { return }
                 self.plans[app.path] = plan
                 if self.leftoverSelection[app.path] == nil { self.leftoverSelection[app.path] = plan.defaultSelection }
             }
-            let scan = await model.orphanScan(inventory: inventory)
-            guard !Task.isCancelled, generation == self.generation else { return }
-            self.orphans = scan
+            if self.orphans == nil {
+                let scan = await model.orphanScan(inventory: inventory)
+                guard !Task.isCancelled, generation == self.generation else { return }
+                self.orphans = scan
+            }
+            self.complete = true
             self.isLoading = false
         })
     }
@@ -147,11 +186,6 @@ final class UninstallerStore {
             guard let plan = plans[path], plan.refusal == nil, !Self.isLinked(plan.app) else { return nil }
             return request(for: plan)
         }
-    }
-
-    /// Igual que el ejecutor: `--zap` solo si el usuario dejó elegidos todos los restos y ninguno es rojo.
-    static func zapExpected(_ request: UninstallRequest) -> Bool {
-        request.plan.leftovers.filter { $0.kind != .receipt }.allSatisfy { $0.canSelect && request.selected.contains($0.id) }
     }
 
     /// Un `.app` que es un enlace: Airy no lo desinstala (no toca el original ni sabe si es el mismo).
