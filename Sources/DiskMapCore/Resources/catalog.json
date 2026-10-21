@@ -2,8 +2,8 @@
   "entries": [
     {
       "id": "docker-build-cache",
-      "title": "Caché de compilación de Docker",
-      "explanation": "Son capas intermedias que Docker guarda para construir imágenes más rápido. Se pueden borrar sin perder nada: Docker las vuelve a crear cuando las necesita.",
+      "title": "Docker build cache",
+      "explanation": "Intermediate layers Docker keeps to build images faster. They can be deleted without losing anything: Docker creates them again when it needs them.",
       "whoCreatesIt": "Docker",
       "regenerates": true,
       "risk": "safe",
@@ -26,18 +26,23 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Docker la vuelve a descargar o construir cuando la necesita.",
+      "shortReason": "Docker downloads or builds it again when it needs it.",
       "profiles": [
         "developer"
       ],
       "discovery": {
         "type": "docker"
+      },
+      "es": {
+        "title": "Caché de compilación de Docker",
+        "explanation": "Son capas intermedias que Docker guarda para construir imágenes más rápido. Se pueden borrar sin perder nada: Docker las vuelve a crear cuando las necesita.",
+        "shortReason": "Docker la vuelve a descargar o construir cuando la necesita."
       }
     },
     {
       "id": "docker-volumes",
-      "title": "Volúmenes de Docker",
-      "explanation": "Aquí Docker guarda los datos de tus contenedores, como bases de datos. Si se borran, esa información se pierde para siempre, así que la app solo te la muestra.",
+      "title": "Docker volumes",
+      "explanation": "This is where Docker keeps your containers' data, such as databases. If they are deleted, that information is lost for good, so the app only shows them to you.",
       "whoCreatesIt": "Docker",
       "regenerates": false,
       "risk": "doNotTouch",
@@ -49,18 +54,23 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Guarda los datos de tus contenedores (bases de datos…): no se recuperan.",
+      "shortReason": "It holds your containers' data (databases…): it cannot be recovered.",
       "profiles": [
         "developer"
       ],
       "discovery": {
         "type": "docker"
+      },
+      "es": {
+        "title": "Volúmenes de Docker",
+        "explanation": "Aquí Docker guarda los datos de tus contenedores, como bases de datos. Si se borran, esa información se pierde para siempre, así que la app solo te la muestra.",
+        "shortReason": "Guarda los datos de tus contenedores (bases de datos…): no se recuperan."
       }
     },
     {
       "id": "docker-images",
-      "title": "Imágenes de Docker",
-      "explanation": "Son las plantillas con las que Docker crea contenedores. Se borran con su comando oficial las que ningún contenedor usa; Docker las vuelve a descargar o construir cuando las necesita, aunque las que construiste tú tardarán en rehacerse.",
+      "title": "Docker images",
+      "explanation": "The templates Docker creates containers from. The ones no container uses are deleted with its official command; Docker downloads or builds them again when it needs them, although the ones you built yourself will take a while to rebuild.",
       "whoCreatesIt": "Docker",
       "regenerates": true,
       "risk": "yourCall",
@@ -78,18 +88,23 @@
       },
       "mustBeClosed": [],
       "aggressiveRisk": "safe",
-      "shortReason": "Borra todas las imágenes que no usa ningún contenedor: Docker las vuelve a descargar o tendrás que reconstruirlas.",
+      "shortReason": "It deletes every image no container uses: Docker downloads them again or you will have to rebuild them.",
       "profiles": [
         "developer"
       ],
       "discovery": {
         "type": "docker"
+      },
+      "es": {
+        "title": "Imágenes de Docker",
+        "explanation": "Son las plantillas con las que Docker crea contenedores. Se borran con su comando oficial las que ningún contenedor usa; Docker las vuelve a descargar o construir cuando las necesita, aunque las que construiste tú tardarán en rehacerse.",
+        "shortReason": "Borra todas las imágenes que no usa ningún contenedor: Docker las vuelve a descargar o tendrás que reconstruirlas."
       }
     },
     {
       "id": "docker-containers",
-      "title": "Contenedores parados de Docker",
-      "explanation": "Contenedores que ya no están en marcha. Se borran con el comando oficial de Docker; antes de hacerlo, mira la lista: si alguno guardaba datos en su propia capa (no en un volumen), se pierden.",
+      "title": "Stopped Docker containers",
+      "explanation": "Containers that are no longer running. They are deleted with Docker's official command; before doing it, check the list: if one kept data in its own layer (not in a volume), it is lost.",
       "whoCreatesIt": "Docker",
       "regenerates": false,
       "risk": "yourCall",
@@ -106,18 +121,23 @@
       },
       "mustBeClosed": [],
       "preselectInAggressive": true,
-      "shortReason": "Un contenedor parado puede guardar datos en su capa: lo pierdes.",
+      "shortReason": "A stopped container may keep data in its layer: you lose it.",
       "profiles": [
         "developer"
       ],
       "discovery": {
         "type": "docker"
+      },
+      "es": {
+        "title": "Contenedores parados de Docker",
+        "explanation": "Contenedores que ya no están en marcha. Se borran con el comando oficial de Docker; antes de hacerlo, mira la lista: si alguno guardaba datos en su propia capa (no en un volumen), se pierden.",
+        "shortReason": "Un contenedor parado puede guardar datos en su capa: lo pierdes."
       }
     },
     {
       "id": "docker-networks",
-      "title": "Redes sin usar de Docker",
-      "explanation": "Redes que creó Docker y que ya no usa ningún contenedor. No ocupan espacio en disco; quitarlas solo ordena la lista y Docker crea las que necesite.",
+      "title": "Unused Docker networks",
+      "explanation": "Networks Docker created that no container uses anymore. They take no disk space; removing them only tidies the list, and Docker creates the ones it needs.",
       "whoCreatesIt": "Docker",
       "regenerates": true,
       "risk": "safe",
@@ -133,18 +153,23 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Docker crea de nuevo las redes que necesite.",
+      "shortReason": "Docker creates the networks it needs again.",
       "profiles": [
         "developer"
       ],
       "discovery": {
         "type": "docker"
+      },
+      "es": {
+        "title": "Redes sin usar de Docker",
+        "explanation": "Redes que creó Docker y que ya no usa ningún contenedor. No ocupan espacio en disco; quitarlas solo ordena la lista y Docker crea las que necesite.",
+        "shortReason": "Docker crea de nuevo las redes que necesite."
       }
     },
     {
       "id": "homebrew",
-      "title": "Caché de Homebrew",
-      "explanation": "Instaladores descargados y versiones antiguas de programas que instaló Homebrew. Se limpia con su propio comando, que puede dejar parte de la carpeta; Homebrew vuelve a descargar lo que haga falta.",
+      "title": "Homebrew cache",
+      "explanation": "Downloaded installers and old versions of programs Homebrew installed. It is cleaned with its own command, which may leave part of the folder; Homebrew downloads again whatever it needs.",
       "whoCreatesIt": "Homebrew",
       "regenerates": true,
       "risk": "safe",
@@ -166,15 +191,20 @@
       "processNames": [
         "brew"
       ],
-      "shortReason": "Solo quita descargas y versiones antiguas que Homebrew ya no usa.",
+      "shortReason": "It only removes downloads and old versions Homebrew no longer uses.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Homebrew",
+        "explanation": "Instaladores descargados y versiones antiguas de programas que instaló Homebrew. Se limpia con su propio comando, que puede dejar parte de la carpeta; Homebrew vuelve a descargar lo que haga falta.",
+        "shortReason": "Solo quita descargas y versiones antiguas que Homebrew ya no usa."
+      }
     },
     {
       "id": "pip",
-      "title": "Caché de pip",
-      "explanation": "Paquetes de Python descargados por pip para no bajarlos otra vez. Se limpia con su comando, que puede dejar parte de la carpeta; pip vuelve a descargar lo que haga falta.",
+      "title": "pip cache",
+      "explanation": "Python packages downloaded by pip so it does not fetch them again. It is cleaned with its command, which may leave part of the folder; pip downloads again whatever it needs.",
       "whoCreatesIt": "pip (Python)",
       "regenerates": true,
       "risk": "safe",
@@ -196,15 +226,20 @@
         "pip",
         "pip3"
       ],
-      "shortReason": "pip vuelve a descargar los paquetes cuando los necesita.",
+      "shortReason": "pip downloads the packages again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de pip",
+        "explanation": "Paquetes de Python descargados por pip para no bajarlos otra vez. Se limpia con su comando, que puede dejar parte de la carpeta; pip vuelve a descargar lo que haga falta.",
+        "shortReason": "pip vuelve a descargar los paquetes cuando los necesita."
+      }
     },
     {
       "id": "uv",
-      "title": "Caché de uv",
-      "explanation": "Paquetes de Python que guarda uv para instalar más rápido. Se limpia con su comando oficial y se rellena sola al usar uv de nuevo.",
+      "title": "uv cache",
+      "explanation": "Python packages uv keeps to install faster. It is cleaned with its official command and refills itself when you use uv again.",
       "whoCreatesIt": "uv (Astral)",
       "regenerates": true,
       "risk": "safe",
@@ -224,15 +259,20 @@
       "processNames": [
         "uv"
       ],
-      "shortReason": "uv vuelve a descargar los paquetes cuando los necesita.",
+      "shortReason": "uv downloads the packages again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de uv",
+        "explanation": "Paquetes de Python que guarda uv para instalar más rápido. Se limpia con su comando oficial y se rellena sola al usar uv de nuevo.",
+        "shortReason": "uv vuelve a descargar los paquetes cuando los necesita."
+      }
     },
     {
       "id": "pnpm",
-      "title": "Almacén de pnpm",
-      "explanation": "Copia de los paquetes de JavaScript que descargó pnpm. El comando solo quita los paquetes que ningún proyecto usa, así que puede liberar menos de lo que se muestra; pnpm vuelve a descargar lo que haga falta.",
+      "title": "pnpm store",
+      "explanation": "A copy of the JavaScript packages pnpm downloaded. The command only removes the packages no project uses, so it may free less than shown; pnpm downloads again whatever it needs.",
       "whoCreatesIt": "pnpm",
       "regenerates": true,
       "risk": "safe",
@@ -253,15 +293,20 @@
       "processNames": [
         "pnpm"
       ],
-      "shortReason": "Solo quita los paquetes que ya no usa ningún proyecto.",
+      "shortReason": "It only removes the packages no project uses anymore.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Almacén de pnpm",
+        "explanation": "Copia de los paquetes de JavaScript que descargó pnpm. El comando solo quita los paquetes que ningún proyecto usa, así que puede liberar menos de lo que se muestra; pnpm vuelve a descargar lo que haga falta.",
+        "shortReason": "Solo quita los paquetes que ya no usa ningún proyecto."
+      }
     },
     {
       "id": "pnpm-cache",
-      "title": "Caché de pnpm",
-      "explanation": "Datos que pnpm guarda sobre los paquetes (versiones disponibles y descargas temporales) para ir más rápido. No contiene tus proyectos: pnpm la rellena sola la próxima vez que instales algo.",
+      "title": "pnpm cache",
+      "explanation": "Data pnpm keeps about packages (available versions and temporary downloads) to go faster. It does not contain your projects: pnpm refills it by itself the next time you install something.",
       "whoCreatesIt": "pnpm",
       "regenerates": true,
       "risk": "safe",
@@ -276,15 +321,20 @@
       "processNames": [
         "pnpm"
       ],
-      "shortReason": "pnpm la vuelve a crear cuando la necesita.",
+      "shortReason": "pnpm creates it again when it needs it.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de pnpm",
+        "explanation": "Datos que pnpm guarda sobre los paquetes (versiones disponibles y descargas temporales) para ir más rápido. No contiene tus proyectos: pnpm la rellena sola la próxima vez que instales algo.",
+        "shortReason": "pnpm la vuelve a crear cuando la necesita."
+      }
     },
     {
       "id": "npm",
-      "title": "Caché de npm",
-      "explanation": "Paquetes de JavaScript que npm descargó antes. Se puede vaciar con su comando; npm los descarga de nuevo cuando los necesita.",
+      "title": "npm cache",
+      "explanation": "JavaScript packages npm downloaded before. It can be emptied with its command; npm downloads them again when it needs them.",
       "whoCreatesIt": "npm (Node.js)",
       "regenerates": true,
       "risk": "safe",
@@ -305,15 +355,20 @@
       "processNames": [
         "npm"
       ],
-      "shortReason": "npm vuelve a descargar los paquetes cuando los necesita.",
+      "shortReason": "npm downloads the packages again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de npm",
+        "explanation": "Paquetes de JavaScript que npm descargó antes. Se puede vaciar con su comando; npm los descarga de nuevo cuando los necesita.",
+        "shortReason": "npm vuelve a descargar los paquetes cuando los necesita."
+      }
     },
     {
       "id": "cargo",
-      "title": "Caché de Cargo",
-      "explanation": "Código de librerías de Rust que Cargo descargó. Si lo mandas a la Papelera, Cargo lo vuelve a bajar la próxima vez que compiles un proyecto.",
+      "title": "Cargo cache",
+      "explanation": "Source code of Rust libraries Cargo downloaded. If you send it to the Trash, Cargo downloads it again the next time you build a project.",
       "whoCreatesIt": "Cargo (Rust)",
       "regenerates": true,
       "risk": "safe",
@@ -329,15 +384,20 @@
       "processNames": [
         "cargo"
       ],
-      "shortReason": "Cargo vuelve a bajar las librerías la próxima vez que compiles.",
+      "shortReason": "Cargo downloads the libraries again the next time you build.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Cargo",
+        "explanation": "Código de librerías de Rust que Cargo descargó. Si lo mandas a la Papelera, Cargo lo vuelve a bajar la próxima vez que compiles un proyecto.",
+        "shortReason": "Cargo vuelve a bajar las librerías la próxima vez que compiles."
+      }
     },
     {
       "id": "conda",
-      "title": "Paquetes de conda",
-      "explanation": "Paquetes descargados por conda o Anaconda que ya no se usan. Se limpia con su comando oficial, que puede liberar menos de lo que se muestra; si un entorno necesita luego alguno de esos paquetes, conda lo vuelve a descargar.",
+      "title": "conda packages",
+      "explanation": "Packages downloaded by conda or Anaconda that are no longer used. It is cleaned with its official command, which may free less than shown; if an environment later needs one of those packages, conda downloads it again.",
       "whoCreatesIt": "conda (Anaconda)",
       "regenerates": true,
       "risk": "safe",
@@ -360,15 +420,20 @@
       "processNames": [
         "conda"
       ],
-      "shortReason": "Quita descargas y paquetes sin usar; conda los vuelve a bajar si un entorno los necesita.",
+      "shortReason": "It removes downloads and unused packages; conda downloads them again if an environment needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Paquetes de conda",
+        "explanation": "Paquetes descargados por conda o Anaconda que ya no se usan. Se limpia con su comando oficial, que puede liberar menos de lo que se muestra; si un entorno necesita luego alguno de esos paquetes, conda lo vuelve a descargar.",
+        "shortReason": "Quita descargas y paquetes sin usar; conda los vuelve a bajar si un entorno los necesita."
+      }
     },
     {
       "id": "yarn",
-      "title": "Caché de Yarn",
-      "explanation": "Paquetes de JavaScript que Yarn descargó antes. Se vacía con su comando; Yarn los descarga de nuevo cuando los necesita.",
+      "title": "Yarn cache",
+      "explanation": "JavaScript packages Yarn downloaded before. It is emptied with its command; Yarn downloads them again when it needs them.",
       "whoCreatesIt": "Yarn (Node.js)",
       "regenerates": true,
       "risk": "safe",
@@ -388,15 +453,20 @@
       "processNames": [
         "yarn"
       ],
-      "shortReason": "Yarn vuelve a descargar los paquetes cuando los necesita.",
+      "shortReason": "Yarn downloads the packages again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Yarn",
+        "explanation": "Paquetes de JavaScript que Yarn descargó antes. Se vacía con su comando; Yarn los descarga de nuevo cuando los necesita.",
+        "shortReason": "Yarn vuelve a descargar los paquetes cuando los necesita."
+      }
     },
     {
       "id": "yarn-berry",
-      "title": "Caché global de Yarn 2 o posterior",
-      "explanation": "Copias comprimidas de los paquetes que guarda Yarn 2 o posterior para todos tus proyectos. Si la mandas a la Papelera, Yarn la vuelve a llenar en la próxima instalación.",
+      "title": "Global cache of Yarn 2 or later",
+      "explanation": "Compressed copies of the packages Yarn 2 or later keeps for all your projects. If you send it to the Trash, Yarn fills it again on the next install.",
       "whoCreatesIt": "Yarn (Node.js)",
       "regenerates": true,
       "risk": "safe",
@@ -411,15 +481,20 @@
       "processNames": [
         "yarn"
       ],
-      "shortReason": "Los proyectos que la usan fallarán hasta que ejecutes «yarn install», que la vuelve a descargar.",
+      "shortReason": "The projects that use it will fail until you run “yarn install”, which downloads it again.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché global de Yarn 2 o posterior",
+        "explanation": "Copias comprimidas de los paquetes que guarda Yarn 2 o posterior para todos tus proyectos. Si la mandas a la Papelera, Yarn la vuelve a llenar en la próxima instalación.",
+        "shortReason": "Los proyectos que la usan fallarán hasta que ejecutes «yarn install», que la vuelve a descargar."
+      }
     },
     {
       "id": "bun",
-      "title": "Caché de Bun",
-      "explanation": "Paquetes de JavaScript que Bun descargó antes. Se vacía con su comando; Bun los descarga de nuevo cuando los necesita.",
+      "title": "Bun cache",
+      "explanation": "JavaScript packages Bun downloaded before. It is emptied with its command; Bun downloads them again when it needs them.",
       "whoCreatesIt": "Bun",
       "regenerates": true,
       "risk": "safe",
@@ -440,15 +515,20 @@
       "processNames": [
         "bun"
       ],
-      "shortReason": "Bun vuelve a descargar los paquetes cuando los necesita.",
+      "shortReason": "Bun downloads the packages again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Bun",
+        "explanation": "Paquetes de JavaScript que Bun descargó antes. Se vacía con su comando; Bun los descarga de nuevo cuando los necesita.",
+        "shortReason": "Bun vuelve a descargar los paquetes cuando los necesita."
+      }
     },
     {
       "id": "corepack",
-      "title": "Caché de Corepack",
-      "explanation": "Copias de gestores de paquetes (pnpm, Yarn) que Corepack descargó para tus proyectos. Corepack las vuelve a bajar cuando un proyecto las pide.",
+      "title": "Corepack cache",
+      "explanation": "Copies of package managers (pnpm, Yarn) Corepack downloaded for your projects. Corepack downloads them again when a project asks for them.",
       "whoCreatesIt": "Corepack (Node.js)",
       "regenerates": true,
       "risk": "safe",
@@ -463,15 +543,20 @@
       "processNames": [
         "corepack"
       ],
-      "shortReason": "Corepack vuelve a descargar el gestor que pida cada proyecto; para eso necesita conexión.",
+      "shortReason": "Corepack downloads again the manager each project asks for; it needs a connection for that.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Corepack",
+        "explanation": "Copias de gestores de paquetes (pnpm, Yarn) que Corepack descargó para tus proyectos. Corepack las vuelve a bajar cuando un proyecto las pide.",
+        "shortReason": "Corepack vuelve a descargar el gestor que pida cada proyecto; para eso necesita conexión."
+      }
     },
     {
       "id": "go-build-cache",
-      "title": "Caché de compilación de Go",
-      "explanation": "Resultados de compilaciones anteriores de Go para compilar más rápido. Se vacía con su comando; Go la rehace al compilar.",
+      "title": "Go build cache",
+      "explanation": "Results of earlier Go builds, to build faster. It is emptied with its command; Go rebuilds it when compiling.",
       "whoCreatesIt": "Go",
       "regenerates": true,
       "risk": "safe",
@@ -491,15 +576,20 @@
       "processNames": [
         "go"
       ],
-      "shortReason": "Go la vuelve a generar al compilar; la primera vez tarda algo más.",
+      "shortReason": "Go generates it again when compiling; the first time takes a bit longer.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de compilación de Go",
+        "explanation": "Resultados de compilaciones anteriores de Go para compilar más rápido. Se vacía con su comando; Go la rehace al compilar.",
+        "shortReason": "Go la vuelve a generar al compilar; la primera vez tarda algo más."
+      }
     },
     {
       "id": "go-mod-cache",
-      "title": "Módulos descargados de Go",
-      "explanation": "Código de los módulos de Go que han descargado tus proyectos. Se vacía con su comando; Go los vuelve a descargar en la próxima compilación, y para eso necesitas conexión a internet.",
+      "title": "Downloaded Go modules",
+      "explanation": "Source code of the Go modules your projects have downloaded. It is emptied with its command; Go downloads them again on the next build, and for that you need an internet connection.",
       "whoCreatesIt": "Go",
       "regenerates": true,
       "risk": "yourCall",
@@ -520,15 +610,20 @@
       "processNames": [
         "go"
       ],
-      "shortReason": "Go vuelve a descargar los módulos al compilar, y para eso necesitas conexión.",
+      "shortReason": "Go downloads the modules again when compiling, and for that you need a connection.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Módulos descargados de Go",
+        "explanation": "Código de los módulos de Go que han descargado tus proyectos. Se vacía con su comando; Go los vuelve a descargar en la próxima compilación, y para eso necesitas conexión a internet.",
+        "shortReason": "Go vuelve a descargar los módulos al compilar, y para eso necesitas conexión."
+      }
     },
     {
       "id": "poetry-cache",
-      "title": "Caché de Poetry",
-      "explanation": "Paquetes de Python que Poetry descargó antes. Los entornos virtuales de tus proyectos no se tocan.",
+      "title": "Poetry cache",
+      "explanation": "Python packages Poetry downloaded before. Your projects' virtual environments are not touched.",
       "whoCreatesIt": "Poetry (Python)",
       "regenerates": true,
       "risk": "safe",
@@ -544,15 +639,20 @@
       "processNames": [
         "poetry"
       ],
-      "shortReason": "Poetry vuelve a descargar los paquetes; tus entornos virtuales no se tocan.",
+      "shortReason": "Poetry downloads the packages again; your virtual environments are not touched.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Poetry",
+        "explanation": "Paquetes de Python que Poetry descargó antes. Los entornos virtuales de tus proyectos no se tocan.",
+        "shortReason": "Poetry vuelve a descargar los paquetes; tus entornos virtuales no se tocan."
+      }
     },
     {
       "id": "pyenv-cache",
-      "title": "Caché de pyenv",
-      "explanation": "Instaladores de Python que pyenv descargó para compilar versiones. Las versiones ya instaladas no se tocan.",
+      "title": "pyenv cache",
+      "explanation": "Python installers pyenv downloaded to build versions. The versions already installed are not touched.",
       "whoCreatesIt": "pyenv (Python)",
       "regenerates": true,
       "risk": "safe",
@@ -564,15 +664,20 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Son descargas; las versiones de Python instaladas se conservan.",
+      "shortReason": "They are downloads; the installed Python versions are kept.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de pyenv",
+        "explanation": "Instaladores de Python que pyenv descargó para compilar versiones. Las versiones ya instaladas no se tocan.",
+        "shortReason": "Son descargas; las versiones de Python instaladas se conservan."
+      }
     },
     {
       "id": "bundler-cache",
-      "title": "Caché de Bundler",
-      "explanation": "Gemas de Ruby que Bundler descargó antes. Bundler las vuelve a bajar cuando un proyecto las necesita.",
+      "title": "Bundler cache",
+      "explanation": "Ruby gems Bundler downloaded before. Bundler downloads them again when a project needs them.",
       "whoCreatesIt": "Bundler (Ruby)",
       "regenerates": true,
       "risk": "safe",
@@ -588,15 +693,20 @@
         "bundle",
         "bundler"
       ],
-      "shortReason": "Bundler vuelve a descargar las gemas cuando las necesita.",
+      "shortReason": "Bundler downloads the gems again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Bundler",
+        "explanation": "Gemas de Ruby que Bundler descargó antes. Bundler las vuelve a bajar cuando un proyecto las necesita.",
+        "shortReason": "Bundler vuelve a descargar las gemas cuando las necesita."
+      }
     },
     {
       "id": "composer-cache",
-      "title": "Caché de Composer",
-      "explanation": "Paquetes de PHP que Composer descargó antes. Se vacía con su comando; Composer los descarga de nuevo cuando los necesita.",
+      "title": "Composer cache",
+      "explanation": "PHP packages Composer downloaded before. It is emptied with its command; Composer downloads them again when it needs them.",
       "whoCreatesIt": "Composer (PHP)",
       "regenerates": true,
       "risk": "safe",
@@ -616,16 +726,21 @@
       "processNames": [
         "composer"
       ],
-      "shortReason": "Composer vuelve a descargar los paquetes cuando los necesita.",
+      "shortReason": "Composer downloads the packages again when it needs them.",
       "profiles": [
         "developer"
       ],
-      "partialCleanup": true
+      "partialCleanup": true,
+      "es": {
+        "title": "Caché de Composer",
+        "explanation": "Paquetes de PHP que Composer descargó antes. Se vacía con su comando; Composer los descarga de nuevo cuando los necesita.",
+        "shortReason": "Composer vuelve a descargar los paquetes cuando los necesita."
+      }
     },
     {
       "id": "gradle-caches",
-      "title": "Cachés de Gradle",
-      "explanation": "Dependencias y resultados de compilación que Gradle guarda para proyectos de Java, Kotlin o Android. Se rehacen, pero bajarlo todo otra vez puede tardar mucho.",
+      "title": "Gradle caches",
+      "explanation": "Dependencies and build results Gradle keeps for Java, Kotlin or Android projects. They are rebuilt, but downloading everything again can take a long time.",
       "whoCreatesIt": "Gradle",
       "regenerates": true,
       "risk": "yourCall",
@@ -640,15 +755,20 @@
       "processNames": [
         "gradle"
       ],
-      "shortReason": "Gradle tarda en volver a bajarlo todo y no podrás compilar sin conexión hasta entonces.",
+      "shortReason": "Gradle takes a while to download everything again, and until then you will not be able to build offline.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Cachés de Gradle",
+        "explanation": "Dependencias y resultados de compilación que Gradle guarda para proyectos de Java, Kotlin o Android. Se rehacen, pero bajarlo todo otra vez puede tardar mucho.",
+        "shortReason": "Gradle tarda en volver a bajarlo todo y no podrás compilar sin conexión hasta entonces."
+      }
     },
     {
       "id": "swiftpm-cache",
-      "title": "Caché de Swift Package Manager",
-      "explanation": "Copias de los paquetes de Swift que han descargado tus proyectos. SwiftPM las vuelve a bajar al compilar.",
+      "title": "Swift Package Manager cache",
+      "explanation": "Copies of the Swift packages your projects have downloaded. SwiftPM downloads them again when building.",
       "whoCreatesIt": "Swift Package Manager",
       "regenerates": true,
       "risk": "safe",
@@ -664,15 +784,20 @@
         "swift-build",
         "swift-package"
       ],
-      "shortReason": "SwiftPM vuelve a descargar los paquetes al compilar.",
+      "shortReason": "SwiftPM downloads the packages again when building.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Swift Package Manager",
+        "explanation": "Copias de los paquetes de Swift que han descargado tus proyectos. SwiftPM las vuelve a bajar al compilar.",
+        "shortReason": "SwiftPM vuelve a descargar los paquetes al compilar."
+      }
     },
     {
       "id": "cocoapods-cache",
-      "title": "Caché de CocoaPods",
-      "explanation": "Copias de los pods que CocoaPods descargó antes. Se vacía con su comando; CocoaPods los descarga de nuevo en el próximo «pod install».",
+      "title": "CocoaPods cache",
+      "explanation": "Copies of the pods CocoaPods downloaded before. It is emptied with its command; CocoaPods downloads them again on the next “pod install”.",
       "whoCreatesIt": "CocoaPods",
       "regenerates": true,
       "risk": "safe",
@@ -693,17 +818,22 @@
       "processNames": [
         "pod"
       ],
-      "shortReason": "CocoaPods vuelve a descargar los pods en la próxima instalación.",
+      "shortReason": "CocoaPods downloads the pods again on the next install.",
       "profiles": [
         "developer"
       ],
-      "partialCleanup": true
+      "partialCleanup": true,
+      "es": {
+        "title": "Caché de CocoaPods",
+        "explanation": "Copias de los pods que CocoaPods descargó antes. Se vacía con su comando; CocoaPods los descarga de nuevo en el próximo «pod install».",
+        "shortReason": "CocoaPods vuelve a descargar los pods en la próxima instalación."
+      }
     },
     {
       "id": "dart-pub-cache",
-      "title": "Paquetes de Dart y Flutter",
-      "explanation": "Paquetes que han descargado tus proyectos de Dart o Flutter y las herramientas que instalaste con «dart pub global activate». Se vacía entera con su comando: tendrás que volver a ejecutar «pub get» en cada proyecto y volver a instalar esas herramientas.",
-      "whoCreatesIt": "Dart y Flutter",
+      "title": "Dart and Flutter packages",
+      "explanation": "Packages your Dart or Flutter projects have downloaded and the tools you installed with “dart pub global activate”. It is emptied completely with its command: you will have to run “pub get” again in each project and reinstall those tools.",
+      "whoCreatesIt": "Dart and Flutter",
       "regenerates": true,
       "risk": "yourCall",
       "kind": "caches",
@@ -725,15 +855,21 @@
         "dart",
         "flutter"
       ],
-      "shortReason": "Borra también las herramientas que instalaste con «pub global activate»; hay que volver a instalarlas y ejecutar «pub get» en cada proyecto.",
+      "shortReason": "It also deletes the tools you installed with “pub global activate”; you have to reinstall them and run “pub get” in each project.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Paquetes de Dart y Flutter",
+        "explanation": "Paquetes que han descargado tus proyectos de Dart o Flutter y las herramientas que instalaste con «dart pub global activate». Se vacía entera con su comando: tendrás que volver a ejecutar «pub get» en cada proyecto y volver a instalar esas herramientas.",
+        "whoCreatesIt": "Dart y Flutter",
+        "shortReason": "Borra también las herramientas que instalaste con «pub global activate»; hay que volver a instalarlas y ejecutar «pub get» en cada proyecto."
+      }
     },
     {
       "id": "electron-cache",
-      "title": "Caché de Electron",
-      "explanation": "Copias de Electron que se descargan al instalar o empaquetar apps de escritorio hechas con él. Se vuelven a bajar cuando hacen falta.",
+      "title": "Electron cache",
+      "explanation": "Copies of Electron downloaded when installing or packaging desktop apps made with it. They are downloaded again when needed.",
       "whoCreatesIt": "Electron",
       "regenerates": true,
       "risk": "safe",
@@ -745,15 +881,20 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Se vuelve a descargar al instalar o empaquetar la próxima vez.",
+      "shortReason": "It is downloaded again the next time you install or package.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Electron",
+        "explanation": "Copias de Electron que se descargan al instalar o empaquetar apps de escritorio hechas con él. Se vuelven a bajar cuando hacen falta.",
+        "shortReason": "Se vuelve a descargar al instalar o empaquetar la próxima vez."
+      }
     },
     {
       "id": "node-gyp-cache",
-      "title": "Cabeceras de node-gyp",
-      "explanation": "Archivos de Node.js que node-gyp descarga para compilar módulos nativos. Se vuelven a bajar cuando hacen falta.",
+      "title": "node-gyp headers",
+      "explanation": "Node.js files node-gyp downloads to build native modules. They are downloaded again when needed.",
       "whoCreatesIt": "node-gyp (Node.js)",
       "regenerates": true,
       "risk": "safe",
@@ -766,15 +907,20 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "node-gyp los vuelve a descargar al compilar un módulo nativo.",
+      "shortReason": "node-gyp downloads them again when building a native module.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Cabeceras de node-gyp",
+        "explanation": "Archivos de Node.js que node-gyp descarga para compilar módulos nativos. Se vuelven a bajar cuando hacen falta.",
+        "shortReason": "node-gyp los vuelve a descargar al compilar un módulo nativo."
+      }
     },
     {
       "id": "prisma-cache",
-      "title": "Caché de Prisma",
-      "explanation": "Motores de Prisma descargados para tus proyectos. Prisma los vuelve a bajar cuando los necesita.",
+      "title": "Prisma cache",
+      "explanation": "Prisma engines downloaded for your projects. Prisma downloads them again when it needs them.",
       "whoCreatesIt": "Prisma",
       "regenerates": true,
       "risk": "safe",
@@ -786,15 +932,20 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Prisma vuelve a descargar sus motores cuando los necesita.",
+      "shortReason": "Prisma downloads its engines again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Prisma",
+        "explanation": "Motores de Prisma descargados para tus proyectos. Prisma los vuelve a bajar cuando los necesita.",
+        "shortReason": "Prisma vuelve a descargar sus motores cuando los necesita."
+      }
     },
     {
       "id": "terraform-plugins",
-      "title": "Caché de proveedores de Terraform",
-      "explanation": "Proveedores de Terraform guardados para no descargarlos en cada proyecto. Se vuelven a bajar con «terraform init».",
+      "title": "Terraform provider cache",
+      "explanation": "Terraform providers kept so they are not downloaded in every project. They are downloaded again with “terraform init”.",
       "whoCreatesIt": "Terraform",
       "regenerates": true,
       "risk": "safe",
@@ -809,15 +960,20 @@
       "processNames": [
         "terraform"
       ],
-      "shortReason": "Los proyectos que la usan fallarán hasta que ejecutes «terraform init», que los vuelve a descargar.",
+      "shortReason": "The projects that use it will fail until you run “terraform init”, which downloads them again.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de proveedores de Terraform",
+        "explanation": "Proveedores de Terraform guardados para no descargarlos en cada proyecto. Se vuelven a bajar con «terraform init».",
+        "shortReason": "Los proyectos que la usan fallarán hasta que ejecutes «terraform init», que los vuelve a descargar."
+      }
     },
     {
       "id": "expo-cache",
-      "title": "Caché de Expo",
-      "explanation": "Descargas y cachés de Expo para apps de React Native. Tu sesión de Expo y su configuración se conservan.",
+      "title": "Expo cache",
+      "explanation": "Expo downloads and caches for React Native apps. Your Expo session and its settings are kept.",
       "whoCreatesIt": "Expo",
       "regenerates": true,
       "risk": "safe",
@@ -832,19 +988,24 @@
       "processNames": [
         "expo"
       ],
-      "shortReason": "Expo lo vuelve a descargar; tu sesión y tu configuración se conservan.",
+      "shortReason": "Expo downloads it again; your session and your settings are kept.",
       "profiles": [
         "developer"
       ],
       "except": [
         "state.json"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Expo",
+        "explanation": "Descargas y cachés de Expo para apps de React Native. Tu sesión de Expo y su configuración se conservan.",
+        "shortReason": "Expo lo vuelve a descargar; tu sesión y tu configuración se conservan."
+      }
     },
     {
       "id": "android-build-cache",
-      "title": "Caché de compilación de Android",
-      "explanation": "Resultados de compilación y descargas de las herramientas de Android. Se rehacen al compilar.",
-      "whoCreatesIt": "Herramientas de Android",
+      "title": "Android build cache",
+      "explanation": "Build results and downloads of the Android tools. They are rebuilt when compiling.",
+      "whoCreatesIt": "Android tools",
       "regenerates": true,
       "risk": "safe",
       "kind": "caches",
@@ -856,15 +1017,21 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Se vuelve a generar al compilar; la primera vez tarda más.",
+      "shortReason": "It is generated again when compiling; the first time takes longer.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de compilación de Android",
+        "explanation": "Resultados de compilación y descargas de las herramientas de Android. Se rehacen al compilar.",
+        "whoCreatesIt": "Herramientas de Android",
+        "shortReason": "Se vuelve a generar al compilar; la primera vez tarda más."
+      }
     },
     {
       "id": "jetbrains-caches",
-      "title": "Cachés de los IDE de JetBrains",
-      "explanation": "Índices y cachés de IntelliJ IDEA, PyCharm, WebStorm y los demás IDE de JetBrains. Se rehacen solos, pero al abrir cada proyecto el IDE tardará en volver a indexarlo.",
+      "title": "JetBrains IDE caches",
+      "explanation": "Indexes and caches of IntelliJ IDEA, PyCharm, WebStorm and the other JetBrains IDEs. They rebuild themselves, but when you open each project the IDE will take a while to index it again.",
       "whoCreatesIt": "JetBrains",
       "regenerates": true,
       "risk": "yourCall",
@@ -888,15 +1055,20 @@
         "datagrip",
         "studio"
       ],
-      "shortReason": "El IDE vuelve a indexar cada proyecto al abrirlo, y con proyectos grandes tarda.",
+      "shortReason": "The IDE indexes each project again when you open it, and with large projects it takes a while.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Cachés de los IDE de JetBrains",
+        "explanation": "Índices y cachés de IntelliJ IDEA, PyCharm, WebStorm y los demás IDE de JetBrains. Se rehacen solos, pero al abrir cada proyecto el IDE tardará en volver a indexarlo.",
+        "shortReason": "El IDE vuelve a indexar cada proyecto al abrirlo, y con proyectos grandes tarda."
+      }
     },
     {
       "id": "vscode-caches",
-      "title": "Cachés de Visual Studio Code",
-      "explanation": "Archivos temporales de VS Code: caché del navegador interno, código compilado y extensiones descargadas. Tu configuración y tus extensiones instaladas no se tocan.",
+      "title": "Visual Studio Code caches",
+      "explanation": "VS Code temporary files: the built-in browser's cache, compiled code and downloaded extensions. Your settings and your installed extensions are not touched.",
       "whoCreatesIt": "Visual Studio Code",
       "regenerates": true,
       "risk": "safe",
@@ -914,15 +1086,20 @@
       "mustBeClosed": [
         "com.microsoft.VSCode"
       ],
-      "shortReason": "VS Code los vuelve a crear; tu configuración y extensiones se conservan.",
+      "shortReason": "VS Code creates them again; your settings and extensions are kept.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Cachés de Visual Studio Code",
+        "explanation": "Archivos temporales de VS Code: caché del navegador interno, código compilado y extensiones descargadas. Tu configuración y tus extensiones instaladas no se tocan.",
+        "shortReason": "VS Code los vuelve a crear; tu configuración y extensiones se conservan."
+      }
     },
     {
       "id": "cursor-caches",
-      "title": "Cachés de Cursor",
-      "explanation": "Archivos temporales de Cursor: caché del navegador interno, código compilado y extensiones descargadas. Tu configuración y tus extensiones instaladas no se tocan.",
+      "title": "Cursor caches",
+      "explanation": "Cursor temporary files: the built-in browser's cache, compiled code and downloaded extensions. Your settings and your installed extensions are not touched.",
       "whoCreatesIt": "Cursor",
       "regenerates": true,
       "risk": "safe",
@@ -940,15 +1117,20 @@
       "mustBeClosed": [
         "com.todesktop.230313mzl4w4u92"
       ],
-      "shortReason": "Cursor los vuelve a crear; tu configuración y extensiones se conservan.",
+      "shortReason": "Cursor creates them again; your settings and extensions are kept.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Cachés de Cursor",
+        "explanation": "Archivos temporales de Cursor: caché del navegador interno, código compilado y extensiones descargadas. Tu configuración y tus extensiones instaladas no se tocan.",
+        "shortReason": "Cursor los vuelve a crear; tu configuración y extensiones se conservan."
+      }
     },
     {
       "id": "huggingface-model",
-      "title": "Modelos de Hugging Face",
-      "explanation": "Modelos o conjuntos de datos de IA descargados desde Hugging Face. Se pueden volver a bajar, pero pueden ocupar muchos GB y tardar; decide según si aún los usas.",
+      "title": "Hugging Face models",
+      "explanation": "AI models or datasets downloaded from Hugging Face. They can be downloaded again, but they can take up many GB and take a while; decide based on whether you still use them.",
       "whoCreatesIt": "Hugging Face",
       "regenerates": true,
       "risk": "yourCall",
@@ -962,15 +1144,20 @@
       },
       "mustBeClosed": [],
       "referenceCheck": "{name}",
-      "shortReason": "Tendrías que volver a descargar el modelo para usarlo.",
+      "shortReason": "You would have to download the model again to use it.",
       "profiles": [
         "localAI"
-      ]
+      ],
+      "es": {
+        "title": "Modelos de Hugging Face",
+        "explanation": "Modelos o conjuntos de datos de IA descargados desde Hugging Face. Se pueden volver a bajar, pero pueden ocupar muchos GB y tardar; decide según si aún los usas.",
+        "shortReason": "Tendrías que volver a descargar el modelo para usarlo."
+      }
     },
     {
       "id": "ollama-models",
-      "title": "Modelos de Ollama",
-      "explanation": "Modelos de IA que has descargado con Ollama para usarlos en tu Mac. Para quitar uno, usa el comando ollama rm con el nombre del modelo; la app solo te lo explica.",
+      "title": "Ollama models",
+      "explanation": "AI models you have downloaded with Ollama to use on your Mac. To remove one, use the ollama rm command with the model's name; the app only explains it to you.",
       "whoCreatesIt": "Ollama",
       "regenerates": false,
       "risk": "yourCall",
@@ -985,16 +1172,22 @@
       "processNames": [
         "ollama"
       ],
-      "shortReason": "Tendrías que volver a descargar el modelo con Ollama.",
+      "shortReason": "You would have to download the model again with Ollama.",
       "profiles": [
         "localAI"
       ],
-      "reviewHint": "Bórralos con «ollama rm» y el nombre del modelo; «ollama list» te dice cuáles tienes."
+      "reviewHint": "Delete them with “ollama rm” and the model's name; “ollama list” tells you which ones you have.",
+      "es": {
+        "title": "Modelos de Ollama",
+        "explanation": "Modelos de IA que has descargado con Ollama para usarlos en tu Mac. Para quitar uno, usa el comando ollama rm con el nombre del modelo; la app solo te lo explica.",
+        "shortReason": "Tendrías que volver a descargar el modelo con Ollama.",
+        "reviewHint": "Bórralos con «ollama rm» y el nombre del modelo; «ollama list» te dice cuáles tienes."
+      }
     },
     {
       "id": "whisper-cache",
-      "title": "Modelos de Whisper",
-      "explanation": "Modelos de reconocimiento de voz que descargó Whisper. Se pueden volver a descargar, pero tardan; decide si los sigues usando.",
+      "title": "Whisper models",
+      "explanation": "Speech recognition models Whisper downloaded. They can be downloaded again, but it takes a while; decide whether you still use them.",
       "whoCreatesIt": "Whisper (OpenAI)",
       "regenerates": true,
       "risk": "yourCall",
@@ -1009,15 +1202,20 @@
       "processNames": [
         "whisper"
       ],
-      "shortReason": "Whisper vuelve a descargar el modelo la próxima vez, y puede tardar.",
+      "shortReason": "Whisper downloads the model again next time, and it can take a while.",
       "profiles": [
         "localAI"
-      ]
+      ],
+      "es": {
+        "title": "Modelos de Whisper",
+        "explanation": "Modelos de reconocimiento de voz que descargó Whisper. Se pueden volver a descargar, pero tardan; decide si los sigues usando.",
+        "shortReason": "Whisper vuelve a descargar el modelo la próxima vez, y puede tardar."
+      }
     },
     {
       "id": "playwright",
-      "title": "Navegadores de Playwright",
-      "explanation": "Copias de los navegadores que usa Playwright para las pruebas automáticas. Si las borras, las pruebas fallarán hasta que ejecutes «npx playwright install» para volver a instalarlas.",
+      "title": "Playwright browsers",
+      "explanation": "Copies of the browsers Playwright uses for automated tests. If you delete them, the tests will fail until you run “npx playwright install” to install them again.",
       "whoCreatesIt": "Playwright",
       "regenerates": false,
       "risk": "safe",
@@ -1029,15 +1227,20 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Las pruebas fallarán hasta que vuelvas a instalar los navegadores.",
+      "shortReason": "The tests will fail until you install the browsers again.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Navegadores de Playwright",
+        "explanation": "Copias de los navegadores que usa Playwright para las pruebas automáticas. Si las borras, las pruebas fallarán hasta que ejecutes «npx playwright install» para volver a instalarlas.",
+        "shortReason": "Las pruebas fallarán hasta que vuelvas a instalar los navegadores."
+      }
     },
     {
       "id": "brave-cache",
-      "title": "Caché de Brave",
-      "explanation": "Imágenes y archivos de páginas web que Brave guarda para cargar más rápido. Se recrean solos al navegar; cierra Brave antes de limpiar.",
+      "title": "Brave cache",
+      "explanation": "Images and web page files Brave keeps to load faster. They are recreated by themselves as you browse; quit Brave before cleaning.",
       "whoCreatesIt": "Brave",
       "regenerates": true,
       "risk": "safe",
@@ -1074,15 +1277,20 @@
       "mustBeClosed": [
         "com.brave.Browser"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Brave",
+        "explanation": "Imágenes y archivos de páginas web que Brave guarda para cargar más rápido. Se recrean solos al navegar; cierra Brave antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "chrome-cache",
-      "title": "Caché de Chrome",
-      "explanation": "Archivos de páginas web que Chrome guarda para ir más rápido. Se recrean solos al navegar; cierra Chrome antes de limpiar.",
+      "title": "Chrome cache",
+      "explanation": "Web page files Chrome keeps to go faster. They are recreated by themselves as you browse; quit Chrome before cleaning.",
       "whoCreatesIt": "Google Chrome",
       "regenerates": true,
       "risk": "safe",
@@ -1118,15 +1326,20 @@
       "mustBeClosed": [
         "com.google.Chrome"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Chrome",
+        "explanation": "Archivos de páginas web que Chrome guarda para ir más rápido. Se recrean solos al navegar; cierra Chrome antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "safari-cache",
-      "title": "Caché de Safari",
-      "explanation": "Archivos de páginas web que Safari guarda para cargar más rápido. Se recrean solos al navegar; cierra Safari antes de limpiar.",
+      "title": "Safari cache",
+      "explanation": "Web page files Safari keeps to load faster. They are recreated by themselves as you browse; quit Safari before cleaning.",
       "whoCreatesIt": "Safari (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1143,12 +1356,17 @@
       "profiles": [
         "basic"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra Safari antes."
+      "shortReason": "It recreates itself as you browse; quit Safari first.",
+      "es": {
+        "title": "Caché de Safari",
+        "explanation": "Archivos de páginas web que Safari guarda para cargar más rápido. Se recrean solos al navegar; cierra Safari antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra Safari antes."
+      }
     },
     {
       "id": "spotify-cache",
-      "title": "Caché de Spotify",
-      "explanation": "Canciones y portadas que Spotify guarda para no descargarlas otra vez; puede incluir las canciones descargadas para escuchar sin conexión, que habría que volver a descargar. Cierra Spotify antes de limpiar.",
+      "title": "Spotify cache",
+      "explanation": "Songs and artwork Spotify keeps so it does not download them again; it may include songs downloaded for offline listening, which would have to be downloaded again. Quit Spotify before cleaning.",
       "whoCreatesIt": "Spotify",
       "regenerates": true,
       "risk": "yourCall",
@@ -1165,12 +1383,16 @@
       "profiles": [
         "music",
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Spotify",
+        "explanation": "Canciones y portadas que Spotify guarda para no descargarlas otra vez; puede incluir las canciones descargadas para escuchar sin conexión, que habría que volver a descargar. Cierra Spotify antes de limpiar."
+      }
     },
     {
       "id": "xcode-deriveddata",
-      "title": "Datos derivados de Xcode",
-      "explanation": "Resultados de compilar tus proyectos en Xcode. Xcode los recrea al compilar de nuevo, aunque la primera vez tardará más.",
+      "title": "Xcode derived data",
+      "explanation": "The results of building your projects in Xcode. Xcode recreates them when you build again, although the first time will take longer.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1186,15 +1408,20 @@
         "Xcode",
         "xcodebuild"
       ],
-      "shortReason": "Xcode lo vuelve a generar al compilar; la primera compilación tarda más.",
+      "shortReason": "Xcode generates it again when building; the first build takes longer.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Datos derivados de Xcode",
+        "explanation": "Resultados de compilar tus proyectos en Xcode. Xcode los recrea al compilar de nuevo, aunque la primera vez tardará más.",
+        "shortReason": "Xcode lo vuelve a generar al compilar; la primera compilación tarda más."
+      }
     },
     {
       "id": "xcode-simulators",
-      "title": "Simuladores no disponibles de Xcode",
-      "explanation": "Elimina los simuladores de iPhone o iPad que ya no están disponibles con tu versión de Xcode, junto con los datos de apps que contienen. Se hace con el comando oficial de Xcode; los simuladores que sí usas se quedan, así que puede liberar bastante menos de lo que ocupa la carpeta.",
+      "title": "Unavailable Xcode simulators",
+      "explanation": "Removes the iPhone or iPad simulators that are no longer available with your version of Xcode, together with the app data they contain. It is done with Xcode's official command; the simulators you do use stay, so it may free much less than the folder takes up.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": false,
       "risk": "safe",
@@ -1217,15 +1444,20 @@
         "Simulator",
         "xcodebuild"
       ],
-      "shortReason": "Solo quita simuladores que tu Xcode ya no puede usar.",
+      "shortReason": "It only removes simulators your Xcode can no longer use.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Simuladores no disponibles de Xcode",
+        "explanation": "Elimina los simuladores de iPhone o iPad que ya no están disponibles con tu versión de Xcode, junto con los datos de apps que contienen. Se hace con el comando oficial de Xcode; los simuladores que sí usas se quedan, así que puede liberar bastante menos de lo que ocupa la carpeta.",
+        "shortReason": "Solo quita simuladores que tu Xcode ya no puede usar."
+      }
     },
     {
       "id": "xcode-device-support",
-      "title": "Soporte de dispositivos de Xcode",
-      "explanation": "Copias de símbolos de cada versión de iOS, watchOS, tvOS o visionOS de los dispositivos que has conectado para depurar. De cada tipo se conservan las 2 que usaste más recientemente.",
+      "title": "Xcode device support",
+      "explanation": "Copies of symbols for each iOS, watchOS, tvOS or visionOS version of the devices you have connected for debugging. For each kind, the 2 you used most recently are kept.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1244,19 +1476,24 @@
         "Xcode",
         "xcodebuild"
       ],
-      "shortReason": "Xcode vuelve a copiarlo al conectar el dispositivo; se conservan las 2 que usaste más recientemente.",
+      "shortReason": "Xcode copies it again when you connect the device; the 2 you used most recently are kept.",
       "profiles": [
         "developer"
       ],
       "retention": {
         "keepNewest": 2
+      },
+      "es": {
+        "title": "Soporte de dispositivos de Xcode",
+        "explanation": "Copias de símbolos de cada versión de iOS, watchOS, tvOS o visionOS de los dispositivos que has conectado para depurar. De cada tipo se conservan las 2 que usaste más recientemente.",
+        "shortReason": "Xcode vuelve a copiarlo al conectar el dispositivo; se conservan las 2 que usaste más recientemente."
       }
     },
     {
       "id": "xcode-coresimulator-caches",
-      "title": "Cachés del simulador",
-      "explanation": "Archivos temporales del simulador de iPhone y iPad. El simulador los vuelve a crear al arrancar.",
-      "whoCreatesIt": "Simulador de Xcode (Apple)",
+      "title": "Simulator caches",
+      "explanation": "Temporary files of the iPhone and iPad simulator. The simulator creates them again when it starts.",
+      "whoCreatesIt": "Xcode Simulator (Apple)",
       "regenerates": true,
       "risk": "safe",
       "kind": "caches",
@@ -1271,15 +1508,21 @@
         "Simulator",
         "xcodebuild"
       ],
-      "shortReason": "El simulador los vuelve a crear al arrancar.",
+      "shortReason": "The simulator creates them again when it starts.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Cachés del simulador",
+        "explanation": "Archivos temporales del simulador de iPhone y iPad. El simulador los vuelve a crear al arrancar.",
+        "whoCreatesIt": "Simulador de Xcode (Apple)",
+        "shortReason": "El simulador los vuelve a crear al arrancar."
+      }
     },
     {
       "id": "xcode-test-devices",
-      "title": "Simuladores de pruebas de Xcode",
-      "explanation": "Copias de simuladores que Xcode crea para ejecutar pruebas en paralelo. Las vuelve a crear en las próximas pruebas.",
+      "title": "Xcode test simulators",
+      "explanation": "Copies of simulators Xcode creates to run tests in parallel. It creates them again on the next test run.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1295,15 +1538,20 @@
         "Xcode",
         "xcodebuild"
       ],
-      "shortReason": "Xcode los vuelve a crear en las próximas pruebas.",
+      "shortReason": "Xcode creates them again on the next test run.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Simuladores de pruebas de Xcode",
+        "explanation": "Copias de simuladores que Xcode crea para ejecutar pruebas en paralelo. Las vuelve a crear en las próximas pruebas.",
+        "shortReason": "Xcode los vuelve a crear en las próximas pruebas."
+      }
     },
     {
       "id": "xcode-doc-cache",
-      "title": "Caché de documentación de Xcode",
-      "explanation": "Documentación que Xcode guardó para consultarla. La vuelve a descargar cuando la abres.",
+      "title": "Xcode documentation cache",
+      "explanation": "Documentation Xcode saved for you to look up. It downloads it again when you open it.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1318,15 +1566,20 @@
       "processNames": [
         "Xcode"
       ],
-      "shortReason": "Xcode la vuelve a descargar cuando la consultas.",
+      "shortReason": "Xcode downloads it again when you look it up.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de documentación de Xcode",
+        "explanation": "Documentación que Xcode guardó para consultarla. La vuelve a descargar cuando la abres.",
+        "shortReason": "Xcode la vuelve a descargar cuando la consultas."
+      }
     },
     {
       "id": "xcode-caches",
-      "title": "Caché de Xcode",
-      "explanation": "Archivos temporales de Xcode. Xcode los vuelve a crear cuando los necesita.",
+      "title": "Xcode cache",
+      "explanation": "Xcode temporary files. Xcode creates them again when it needs them.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -1341,15 +1594,20 @@
       "processNames": [
         "Xcode"
       ],
-      "shortReason": "Xcode los vuelve a crear cuando los necesita.",
+      "shortReason": "Xcode creates them again when it needs them.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Xcode",
+        "explanation": "Archivos temporales de Xcode. Xcode los vuelve a crear cuando los necesita.",
+        "shortReason": "Xcode los vuelve a crear cuando los necesita."
+      }
     },
     {
       "id": "xcode-orphan-runtimes",
-      "title": "Entornos de simulador sin usar",
-      "explanation": "Versiones de iOS, watchOS, tvOS o visionOS para el simulador (runtimes) que ningún simulador usa. Se borran con el comando oficial de Xcode; si más adelante necesitas alguna, hay que volver a descargarla.",
+      "title": "Unused simulator runtimes",
+      "explanation": "iOS, watchOS, tvOS or visionOS versions for the simulator (runtimes) that no simulator uses. They are deleted with Xcode's official command; if you need one later, you have to download it again.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -1371,18 +1629,23 @@
         "Xcode",
         "xcodebuild"
       ],
-      "shortReason": "Tendrías que volver a descargar ese entorno de simulador desde Xcode.",
+      "shortReason": "You would have to download that simulator runtime again from Xcode.",
       "profiles": [
         "developer"
       ],
       "discovery": {
         "type": "simulatorRuntimes"
+      },
+      "es": {
+        "title": "Entornos de simulador sin usar",
+        "explanation": "Versiones de iOS, watchOS, tvOS o visionOS para el simulador (runtimes) que ningún simulador usa. Se borran con el comando oficial de Xcode; si más adelante necesitas alguna, hay que volver a descargarla.",
+        "shortReason": "Tendrías que volver a descargar ese entorno de simulador desde Xcode."
       }
     },
     {
       "id": "xcode-archives",
-      "title": "Versiones archivadas de Xcode",
-      "explanation": "Copias de cada versión de tus apps que archivaste para subirla o distribuirla. Sirven para leer informes de fallos de esas versiones, así que Airy solo te los muestra.",
+      "title": "Xcode archives",
+      "explanation": "Copies of each version of your apps that you archived to upload or distribute it. They are used to read crash reports for those versions, so Airy only shows them to you.",
       "whoCreatesIt": "Xcode (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -1394,17 +1657,23 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Si los borras, no podrás leer los informes de fallos de esas versiones.",
+      "shortReason": "If you delete them, you will not be able to read the crash reports for those versions.",
       "profiles": [
         "developer"
       ],
-      "reviewHint": "Bórralos desde Xcode › Window › Organizer: ahí ves cuáles ya subiste."
+      "reviewHint": "Delete them from Xcode › Window › Organizer: there you can see which ones you already uploaded.",
+      "es": {
+        "title": "Versiones archivadas de Xcode",
+        "explanation": "Copias de cada versión de tus apps que archivaste para subirla o distribuirla. Sirven para leer informes de fallos de esas versiones, así que Airy solo te los muestra.",
+        "shortReason": "Si los borras, no podrás leer los informes de fallos de esas versiones.",
+        "reviewHint": "Bórralos desde Xcode › Window › Organizer: ahí ves cuáles ya subiste."
+      }
     },
     {
       "id": "old-project-artifacts",
-      "title": "Carpeta regenerable de un proyecto viejo",
-      "explanation": "Dependencias y resultados de compilación (node_modules, .venv, target, .next, build) de un proyecto en el que no has cambiado ningún archivo en más de 3 meses. Tu código no se toca: solo esta carpeta, que el proyecto vuelve a crear con su comando de instalación o de compilación. Va a la Papelera.",
-      "whoCreatesIt": "Tus herramientas de desarrollo (npm, pip, uv, Cargo, Next.js…)",
+      "title": "Regenerable folder of an old project",
+      "explanation": "Dependencies and build results (node_modules, .venv, target, .next, build) of a project in which you have not changed any file for more than 3 months. Your code is not touched: only this folder, which the project creates again with its install or build command. It goes to the Trash.",
+      "whoCreatesIt": "Your development tools (npm, pip, uv, Cargo, Next.js…)",
       "regenerates": true,
       "risk": "yourCall",
       "kind": "code",
@@ -1414,7 +1683,7 @@
       },
       "mustBeClosed": [],
       "preselectInAggressive": true,
-      "shortReason": "Está en un proyecto que no tocas hace más de 3 meses; se rehace con su comando.",
+      "shortReason": "It is in a project you have not touched for more than 3 months; its command rebuilds it.",
       "profiles": [
         "developer"
       ],
@@ -1428,13 +1697,19 @@
           "build"
         ],
         "cachedirTag": false
+      },
+      "es": {
+        "title": "Carpeta regenerable de un proyecto viejo",
+        "explanation": "Dependencias y resultados de compilación (node_modules, .venv, target, .next, build) de un proyecto en el que no has cambiado ningún archivo en más de 3 meses. Tu código no se toca: solo esta carpeta, que el proyecto vuelve a crear con su comando de instalación o de compilación. Va a la Papelera.",
+        "whoCreatesIt": "Tus herramientas de desarrollo (npm, pip, uv, Cargo, Next.js…)",
+        "shortReason": "Está en un proyecto que no tocas hace más de 3 meses; se rehace con su comando."
       }
     },
     {
       "id": "old-project-build-leftovers",
-      "title": "Resto de compilación de un proyecto viejo",
-      "explanation": "Entornos, cachés y resultados de compilación de otras herramientas (Python, CocoaPods, Gradle, Flutter, Swift, .NET, Composer…) en un proyecto que no tocas hace más de 3 meses. Se vuelven a crear, pero algunos tardan en rehacerse; por eso Airy no los marca de entrada. Va a la Papelera.",
-      "whoCreatesIt": "Tus herramientas de desarrollo",
+      "title": "Build leftover of an old project",
+      "explanation": "Environments, caches and build results of other tools (Python, CocoaPods, Gradle, Flutter, Swift, .NET, Composer…) in a project you have not touched for more than 3 months. They are created again, but some take a while to rebuild; that is why Airy does not check them by default. It goes to the Trash.",
+      "whoCreatesIt": "Your development tools",
       "regenerates": true,
       "risk": "yourCall",
       "kind": "code",
@@ -1443,7 +1718,7 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Está en un proyecto que no tocas hace más de 3 meses; se rehace con su herramienta, aunque puede tardar.",
+      "shortReason": "It is in a project you have not touched for more than 3 months; its tool rebuilds it, although it may take a while.",
       "profiles": [
         "developer"
       ],
@@ -1480,13 +1755,19 @@
           "vendor"
         ],
         "cachedirTag": true
+      },
+      "es": {
+        "title": "Resto de compilación de un proyecto viejo",
+        "explanation": "Entornos, cachés y resultados de compilación de otras herramientas (Python, CocoaPods, Gradle, Flutter, Swift, .NET, Composer…) en un proyecto que no tocas hace más de 3 meses. Se vuelven a crear, pero algunos tardan en rehacerse; por eso Airy no los marca de entrada. Va a la Papelera.",
+        "whoCreatesIt": "Tus herramientas de desarrollo",
+        "shortReason": "Está en un proyecto que no tocas hace más de 3 meses; se rehace con su herramienta, aunque puede tardar."
       }
     },
     {
       "id": "user-logs",
-      "title": "Registros de apps",
-      "explanation": "Archivos de registro donde las apps anotan lo que hacen, útiles solo para diagnosticar fallos. Las apps los crean de nuevo cuando los necesitan.",
-      "whoCreatesIt": "Tus apps y macOS",
+      "title": "App logs",
+      "explanation": "Log files where apps write down what they do, only useful to diagnose failures. Apps create them again when they need them.",
+      "whoCreatesIt": "Your apps and macOS",
       "regenerates": true,
       "risk": "safe",
       "kind": "caches",
@@ -1497,15 +1778,21 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Las apps los crean de nuevo; solo sirven para diagnosticar fallos.",
+      "shortReason": "Apps create them again; they are only useful to diagnose failures.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Registros de apps",
+        "explanation": "Archivos de registro donde las apps anotan lo que hacen, útiles solo para diagnosticar fallos. Las apps los crean de nuevo cuando los necesitan.",
+        "whoCreatesIt": "Tus apps y macOS",
+        "shortReason": "Las apps los crean de nuevo; solo sirven para diagnosticar fallos."
+      }
     },
     {
       "id": "codex-stale-installs",
-      "title": "Instalaciones antiguas de Codex",
-      "explanation": "Restos de instalaciones anteriores del entorno de Codex que ya no se usan. Se pueden borrar; Codex crea una nueva si hace falta.",
+      "title": "Old Codex installs",
+      "explanation": "Leftovers of earlier installs of the Codex environment that are no longer used. They can be deleted; Codex creates a new one if needed.",
       "whoCreatesIt": "Codex",
       "regenerates": true,
       "risk": "safe",
@@ -1517,15 +1804,20 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Son restos de instalaciones antiguas que Codex ya no usa.",
+      "shortReason": "They are leftovers of old installs Codex no longer uses.",
       "profiles": [
         "developer"
-      ]
+      ],
+      "es": {
+        "title": "Instalaciones antiguas de Codex",
+        "explanation": "Restos de instalaciones anteriores del entorno de Codex que ya no se usan. Se pueden borrar; Codex crea una nueva si hace falta.",
+        "shortReason": "Son restos de instalaciones antiguas que Codex ya no usa."
+      }
     },
     {
       "id": "codex-runtime",
-      "title": "Entorno activo de Codex",
-      "explanation": "Es el entorno que Codex usa ahora mismo para funcionar. Si lo borras, Codex puede dejar de funcionar, así que la app solo te lo muestra.",
+      "title": "Active Codex environment",
+      "explanation": "This is the environment Codex uses right now to work. If you delete it, Codex may stop working, so the app only shows it to you.",
       "whoCreatesIt": "Codex",
       "regenerates": false,
       "risk": "doNotTouch",
@@ -1536,12 +1828,16 @@
       "cleanup": {
         "type": "info"
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "es": {
+        "title": "Entorno activo de Codex",
+        "explanation": "Es el entorno que Codex usa ahora mismo para funcionar. Si lo borras, Codex puede dejar de funcionar, así que la app solo te lo muestra."
+      }
     },
     {
       "id": "claude-vm",
-      "title": "Máquina virtual de Claude",
-      "explanation": "Archivos de la máquina virtual que la app de Claude para escritorio usa para ejecutar tareas. Se pueden borrar y la app los vuelve a crear, pero tardará en el próximo uso; cierra Claude antes.",
+      "title": "Claude virtual machine",
+      "explanation": "Files of the virtual machine the Claude desktop app uses to run tasks. They can be deleted and the app creates them again, but it will take a while the next time you use it; quit Claude first.",
       "whoCreatesIt": "Claude (Anthropic)",
       "regenerates": true,
       "risk": "yourCall",
@@ -1555,15 +1851,20 @@
       "mustBeClosed": [
         "com.anthropic.claudefordesktop"
       ],
-      "shortReason": "Claude vuelve a descargar su máquina virtual si la necesita, y ocupa varios GB.",
+      "shortReason": "Claude downloads its virtual machine again if it needs it, and it takes up several GB.",
       "profiles": [
         "localAI"
-      ]
+      ],
+      "es": {
+        "title": "Máquina virtual de Claude",
+        "explanation": "Archivos de la máquina virtual que la app de Claude para escritorio usa para ejecutar tareas. Se pueden borrar y la app los vuelve a crear, pero tardará en el próximo uso; cierra Claude antes.",
+        "shortReason": "Claude vuelve a descargar su máquina virtual si la necesita, y ocupa varios GB."
+      }
     },
     {
       "id": "time-machine-snapshots",
-      "title": "Instantáneas locales de Time Machine",
-      "explanation": "Mientras Time Machine está activado, macOS crea copias locales cada hora, esté o no conectado el disco de copias, y las borra solo pasadas unas 24 horas o si falta espacio. Puedes reducirlas ahora, pero perderás esos puntos de restauración.",
+      "title": "Time Machine local snapshots",
+      "explanation": "While Time Machine is on, macOS creates local copies every hour, whether or not the backup disk is connected, and only deletes them after about 24 hours or when space runs low. You can reduce them now, but you will lose those restore points.",
       "whoCreatesIt": "Time Machine (Apple)",
       "regenerates": true,
       "risk": "yourCall",
@@ -1583,13 +1884,17 @@
           "/"
         ]
       },
-      "mustBeClosed": []
+      "mustBeClosed": [],
+      "es": {
+        "title": "Instantáneas locales de Time Machine",
+        "explanation": "Mientras Time Machine está activado, macOS crea copias locales cada hora, esté o no conectado el disco de copias, y las borra solo pasadas unas 24 horas o si falta espacio. Puedes reducirlas ahora, pero perderás esos puntos de restauración."
+      }
     },
     {
       "id": "device-firmware",
-      "title": "Firmware de iPhone y iPad",
-      "explanation": "Archivos .ipsw con el sistema que Finder o Apple Configurator descargaron para actualizar o restaurar un iPhone o un iPad. Ocupan varios GB cada uno. Van a la Papelera.",
-      "whoCreatesIt": "Finder y Apple Configurator (Apple)",
+      "title": "iPhone and iPad firmware",
+      "explanation": ".ipsw files with the system that Finder or Apple Configurator downloaded to update or restore an iPhone or an iPad. Each one takes up several GB. They go to the Trash.",
+      "whoCreatesIt": "Finder and Apple Configurator (Apple)",
       "regenerates": true,
       "risk": "safe",
       "kind": "other",
@@ -1601,13 +1906,19 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "El Mac lo vuelve a descargar si actualizas el iPhone o el iPad.",
-      "perMatch": true
+      "shortReason": "The Mac downloads it again if you update the iPhone or the iPad.",
+      "perMatch": true,
+      "es": {
+        "title": "Firmware de iPhone y iPad",
+        "explanation": "Archivos .ipsw con el sistema que Finder o Apple Configurator descargaron para actualizar o restaurar un iPhone o un iPad. Ocupan varios GB cada uno. Van a la Papelera.",
+        "whoCreatesIt": "Finder y Apple Configurator (Apple)",
+        "shortReason": "El Mac lo vuelve a descargar si actualizas el iPhone o el iPad."
+      }
     },
     {
       "id": "claude-code-old-versions",
-      "title": "Versiones antiguas de Claude Code",
-      "explanation": "Claude Code guarda una carpeta por cada versión que instala y no borra las anteriores. Se conservan la versión activa y la anterior; el resto va a la Papelera.",
+      "title": "Old Claude Code versions",
+      "explanation": "Claude Code keeps one folder for each version it installs and does not delete the previous ones. The active version and the previous one are kept; the rest goes to the Trash.",
       "whoCreatesIt": "Claude Code (Anthropic)",
       "regenerates": true,
       "risk": "safe",
@@ -1619,7 +1930,7 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Se conservan la versión activa y la anterior.",
+      "shortReason": "The active version and the previous one are kept.",
       "profiles": [
         "developer",
         "localAI"
@@ -1627,12 +1938,17 @@
       "retention": {
         "keepNewest": 2,
         "activeLink": "~/.local/bin/claude"
+      },
+      "es": {
+        "title": "Versiones antiguas de Claude Code",
+        "explanation": "Claude Code guarda una carpeta por cada versión que instala y no borra las anteriores. Se conservan la versión activa y la anterior; el resto va a la Papelera.",
+        "shortReason": "Se conservan la versión activa y la anterior."
       }
     },
     {
       "id": "cursor-agent-old-versions",
-      "title": "Versiones antiguas de Cursor Agent",
-      "explanation": "Cursor Agent guarda una carpeta por cada versión que instala y no borra las anteriores. Se conservan la versión activa y la anterior; el resto va a la Papelera.",
+      "title": "Old Cursor Agent versions",
+      "explanation": "Cursor Agent keeps one folder for each version it installs and does not delete the previous ones. The active version and the previous one are kept; the rest goes to the Trash.",
       "whoCreatesIt": "Cursor",
       "regenerates": true,
       "risk": "safe",
@@ -1644,19 +1960,24 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Se conservan la versión activa y la anterior.",
+      "shortReason": "The active version and the previous one are kept.",
       "profiles": [
         "developer"
       ],
       "retention": {
         "keepNewest": 2,
         "activeLink": "~/.local/bin/cursor-agent"
+      },
+      "es": {
+        "title": "Versiones antiguas de Cursor Agent",
+        "explanation": "Cursor Agent guarda una carpeta por cada versión que instala y no borra las anteriores. Se conservan la versión activa y la anterior; el resto va a la Papelera.",
+        "shortReason": "Se conservan la versión activa y la anterior."
       }
     },
     {
       "id": "lmstudio-models",
-      "title": "Modelos de LM Studio",
-      "explanation": "Modelos de IA que has descargado con LM Studio para usarlos en tu Mac. Cada modelo ocupa varios GB y se muestra por separado. Cierra LM Studio antes de limpiar. Van a la Papelera.",
+      "title": "LM Studio models",
+      "explanation": "AI models you have downloaded with LM Studio to use on your Mac. Each model takes up several GB and is shown separately. Quit LM Studio before cleaning. They go to the Trash.",
       "whoCreatesIt": "LM Studio",
       "regenerates": false,
       "risk": "yourCall",
@@ -1671,16 +1992,21 @@
       "mustBeClosed": [
         "ai.elementlabs.lmstudio"
       ],
-      "shortReason": "Tendrías que volver a descargar {size}.",
+      "shortReason": "You would have to download {size} again.",
       "profiles": [
         "localAI"
       ],
-      "perMatch": true
+      "perMatch": true,
+      "es": {
+        "title": "Modelos de LM Studio",
+        "explanation": "Modelos de IA que has descargado con LM Studio para usarlos en tu Mac. Cada modelo ocupa varios GB y se muestra por separado. Cierra LM Studio antes de limpiar. Van a la Papelera.",
+        "shortReason": "Tendrías que volver a descargar {size}."
+      }
     },
     {
       "id": "safari-compact",
-      "title": "Compactar el historial de Safari",
-      "explanation": "La base del historial de Safari acumula espacio libre que no devuelve al disco. Compactarla lo recupera sin borrar tu historial. Solo se ofrece con Safari cerrado y si se puede recuperar al menos 10 MB.",
+      "title": "Compact Safari history",
+      "explanation": "Safari's history database piles up free space it does not give back to the disk. Compacting it recovers that space without deleting your history. It is only offered with Safari closed and if at least 10 MB can be recovered.",
       "whoCreatesIt": "Safari (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -1707,17 +2033,22 @@
       "processNames": [
         "Safari"
       ],
-      "shortReason": "Compacta el historial; solo con Safari cerrado.",
+      "shortReason": "It compacts the history; only with Safari closed.",
       "profiles": [
         "basic"
       ],
       "partialCleanup": true,
-      "minimumBytes": 10000000
+      "minimumBytes": 10000000,
+      "es": {
+        "title": "Compactar el historial de Safari",
+        "explanation": "La base del historial de Safari acumula espacio libre que no devuelve al disco. Compactarla lo recupera sin borrar tu historial. Solo se ofrece con Safari cerrado y si se puede recuperar al menos 10 MB.",
+        "shortReason": "Compacta el historial; solo con Safari cerrado."
+      }
     },
     {
       "id": "quarantine-history",
-      "title": "Historial de descargas de macOS",
-      "explanation": "Lista de las apps y archivos que has descargado, con su origen, que macOS guarda para el aviso «descargado de Internet». Va a la Papelera y macOS la vuelve a crear vacía.",
+      "title": "macOS download history",
+      "explanation": "A list of the apps and files you have downloaded, with their origin, that macOS keeps for the “downloaded from the Internet” warning. It goes to the Trash and macOS creates it again, empty.",
       "whoCreatesIt": "macOS (Apple)",
       "regenerates": true,
       "risk": "yourCall",
@@ -1729,13 +2060,18 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Borra el historial de lo que has descargado; macOS lo vuelve a crear vacío."
+      "shortReason": "It deletes the history of what you have downloaded; macOS creates it again, empty.",
+      "es": {
+        "title": "Historial de descargas de macOS",
+        "explanation": "Lista de las apps y archivos que has descargado, con su origen, que macOS guarda para el aviso «descargado de Internet». Va a la Papelera y macOS la vuelve a crear vacía.",
+        "shortReason": "Borra el historial de lo que has descargado; macOS lo vuelve a crear vacío."
+      }
     },
     {
       "id": "installers",
-      "title": "Instaladores descargados",
-      "explanation": "Instaladores (.dmg, .pkg, .mpkg, .iso, .xip) y archivos .zip con un instalador dentro, en Descargas, Escritorio y Documentos. Ya instalaste la app, así que normalmente sobran. Van a la Papelera.",
-      "whoCreatesIt": "Tú, al descargar apps",
+      "title": "Downloaded installers",
+      "explanation": "Installers (.dmg, .pkg, .mpkg, .iso, .xip) and .zip files with an installer inside, in Downloads, Desktop and Documents. You already installed the app, so they are usually not needed. They go to the Trash.",
+      "whoCreatesIt": "You, when downloading apps",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "other",
@@ -1744,19 +2080,25 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Si lo borras, tendrás que volver a descargarlo para reinstalar.",
+      "shortReason": "If you delete it, you will have to download it again to reinstall.",
       "profiles": [
         "basic"
       ],
       "discovery": {
         "type": "installers"
+      },
+      "es": {
+        "title": "Instaladores descargados",
+        "explanation": "Instaladores (.dmg, .pkg, .mpkg, .iso, .xip) y archivos .zip con un instalador dentro, en Descargas, Escritorio y Documentos. Ya instalaste la app, así que normalmente sobran. Van a la Papelera.",
+        "whoCreatesIt": "Tú, al descargar apps",
+        "shortReason": "Si lo borras, tendrás que volver a descargarlo para reinstalar."
       }
     },
     {
       "id": "old-downloads",
-      "title": "Descargas antiguas y grandes",
-      "explanation": "Archivos y carpetas de Descargas de más de 50 MB que no has tocado en 6 meses. Revisa la lista: pueden ser documentos que quieras conservar. Van a la Papelera.",
-      "whoCreatesIt": "Tú, al descargar",
+      "title": "Large, old downloads",
+      "explanation": "Files and folders in Downloads larger than 50 MB that you have not touched in 6 months. Check the list: they may be documents you want to keep. They go to the Trash.",
+      "whoCreatesIt": "You, when downloading",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "other",
@@ -1767,7 +2109,7 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Hace más de 6 meses que no los tocas; revisa que no los necesites.",
+      "shortReason": "You have not touched them for more than 6 months; check that you do not need them.",
       "profiles": [
         "basic"
       ],
@@ -1777,12 +2119,18 @@
         ".localized"
       ],
       "staleAfterDays": 180,
-      "minimumBytes": 50000000
+      "minimumBytes": 50000000,
+      "es": {
+        "title": "Descargas antiguas y grandes",
+        "explanation": "Archivos y carpetas de Descargas de más de 50 MB que no has tocado en 6 meses. Revisa la lista: pueden ser documentos que quieras conservar. Van a la Papelera.",
+        "whoCreatesIt": "Tú, al descargar",
+        "shortReason": "Hace más de 6 meses que no los tocas; revisa que no los necesites."
+      }
     },
     {
       "id": "system-diagnostic-reports",
-      "title": "Informes de fallos del sistema",
-      "explanation": "Informes que macOS escribe cuando una app falla. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+      "title": "System crash reports",
+      "explanation": "Reports macOS writes when an app crashes. They are outside your home folder, so Airy only shows them to you.",
       "whoCreatesIt": "macOS (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -1794,13 +2142,19 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
-      "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+      "shortReason": "It needs your administrator password; Airy does not delete outside your home folder.",
+      "reviewHint": "It needs your administrator password and Airy does not delete outside your home folder. You can delete them yourself from Finder (⌘⇧G).",
+      "es": {
+        "title": "Informes de fallos del sistema",
+        "explanation": "Informes que macOS escribe cuando una app falla. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+        "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
+        "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+      }
     },
     {
       "id": "system-logs",
-      "title": "Registros del sistema",
-      "explanation": "Registros que macOS y los servicios del sistema escriben. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+      "title": "System logs",
+      "explanation": "Logs that macOS and the system services write. They are outside your home folder, so Airy only shows them to you.",
       "whoCreatesIt": "macOS (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -1812,14 +2166,20 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
-      "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+      "shortReason": "It needs your administrator password; Airy does not delete outside your home folder.",
+      "reviewHint": "It needs your administrator password and Airy does not delete outside your home folder. You can delete them yourself from Finder (⌘⇧G).",
+      "es": {
+        "title": "Registros del sistema",
+        "explanation": "Registros que macOS y los servicios del sistema escriben. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+        "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
+        "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+      }
     },
     {
       "id": "system-caches",
-      "title": "Cachés del sistema",
-      "explanation": "Cachés compartidas por todos los usuarios del Mac. Están fuera de tu carpeta, así que Airy solo te las muestra.",
-      "whoCreatesIt": "macOS y tus apps",
+      "title": "System caches",
+      "explanation": "Caches shared by every user of the Mac. They are outside your home folder, so Airy only shows them to you.",
+      "whoCreatesIt": "macOS and your apps",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "system",
@@ -1830,13 +2190,20 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
-      "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+      "shortReason": "It needs your administrator password; Airy does not delete outside your home folder.",
+      "reviewHint": "It needs your administrator password and Airy does not delete outside your home folder. You can delete them yourself from Finder (⌘⇧G).",
+      "es": {
+        "title": "Cachés del sistema",
+        "explanation": "Cachés compartidas por todos los usuarios del Mac. Están fuera de tu carpeta, así que Airy solo te las muestra.",
+        "whoCreatesIt": "macOS y tus apps",
+        "shortReason": "Necesita tu contraseña de administrador; Airy no borra fuera de tu carpeta.",
+        "reviewHint": "Necesita tu contraseña de administrador y Airy no borra fuera de tu carpeta. Puedes borrarlos tú desde Finder (⌘⇧G)."
+      }
     },
     {
       "id": "macos-installers",
-      "title": "Instaladores de macOS",
-      "explanation": "Instaladores completos de macOS («Install macOS…») que quedan en Aplicaciones tras actualizar. Ocupan unos 13 GB cada uno; Airy solo te los muestra.",
+      "title": "macOS installers",
+      "explanation": "Full macOS installers (“Install macOS…”) left in Applications after updating. Each takes up about 13 GB; Airy only shows them to you.",
       "whoCreatesIt": "Apple",
       "regenerates": false,
       "risk": "yourCall",
@@ -1848,13 +2215,19 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Ocupa varios GB y sobra una vez actualizado el Mac.",
-      "reviewHint": "Arrástralo a la Papelera desde Aplicaciones si ya actualizaste."
+      "shortReason": "It takes up several GB and is not needed once the Mac is updated.",
+      "reviewHint": "Drag it to the Trash from Applications if you have already updated.",
+      "es": {
+        "title": "Instaladores de macOS",
+        "explanation": "Instaladores completos de macOS («Install macOS…») que quedan en Aplicaciones tras actualizar. Ocupan unos 13 GB cada uno; Airy solo te los muestra.",
+        "shortReason": "Ocupa varios GB y sobra una vez actualizado el Mac.",
+        "reviewHint": "Arrástralo a la Papelera desde Aplicaciones si ya actualizaste."
+      }
     },
     {
       "id": "chrome-old-frameworks",
-      "title": "Versiones antiguas de Google Chrome",
-      "explanation": "Google Chrome deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+      "title": "Old Google Chrome versions",
+      "explanation": "Google Chrome leaves old versions of its engine inside the app after updating. They are inside the Applications folder, so Airy only shows them to you.",
       "whoCreatesIt": "Google Chrome",
       "regenerates": false,
       "risk": "yourCall",
@@ -1866,7 +2239,7 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+      "shortReason": "They go away when the browser updates; if not, reinstall it.",
       "except": [
         "Current"
       ],
@@ -1874,12 +2247,18 @@
         "keepNewest": 1,
         "activeLink": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/Current"
       },
-      "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+      "reviewHint": "They go away when the browser updates; if not, reinstall it.",
+      "es": {
+        "title": "Versiones antiguas de Google Chrome",
+        "explanation": "Google Chrome deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+        "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+        "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+      }
     },
     {
       "id": "brave-old-frameworks",
-      "title": "Versiones antiguas de Brave Browser",
-      "explanation": "Brave Browser deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+      "title": "Old Brave Browser versions",
+      "explanation": "Brave Browser leaves old versions of its engine inside the app after updating. They are inside the Applications folder, so Airy only shows them to you.",
       "whoCreatesIt": "Brave",
       "regenerates": false,
       "risk": "yourCall",
@@ -1891,7 +2270,7 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+      "shortReason": "They go away when the browser updates; if not, reinstall it.",
       "except": [
         "Current"
       ],
@@ -1899,12 +2278,18 @@
         "keepNewest": 1,
         "activeLink": "/Applications/Brave Browser.app/Contents/Frameworks/Brave Browser Framework.framework/Versions/Current"
       },
-      "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+      "reviewHint": "They go away when the browser updates; if not, reinstall it.",
+      "es": {
+        "title": "Versiones antiguas de Brave Browser",
+        "explanation": "Brave Browser deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+        "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+        "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+      }
     },
     {
       "id": "edge-old-frameworks",
-      "title": "Versiones antiguas de Microsoft Edge",
-      "explanation": "Microsoft Edge deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+      "title": "Old Microsoft Edge versions",
+      "explanation": "Microsoft Edge leaves old versions of its engine inside the app after updating. They are inside the Applications folder, so Airy only shows them to you.",
       "whoCreatesIt": "Microsoft",
       "regenerates": false,
       "risk": "yourCall",
@@ -1916,7 +2301,7 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+      "shortReason": "They go away when the browser updates; if not, reinstall it.",
       "except": [
         "Current"
       ],
@@ -1924,12 +2309,18 @@
         "keepNewest": 1,
         "activeLink": "/Applications/Microsoft Edge.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/Current"
       },
-      "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+      "reviewHint": "They go away when the browser updates; if not, reinstall it.",
+      "es": {
+        "title": "Versiones antiguas de Microsoft Edge",
+        "explanation": "Microsoft Edge deja versiones antiguas de su motor dentro de la app tras actualizarse. Están dentro de la carpeta Aplicaciones, así que Airy solo te las muestra.",
+        "shortReason": "Se quitan al actualizar el navegador; si no, reinstálalo.",
+        "reviewHint": "Se quitan al actualizar el navegador; si no, reinstálalo."
+      }
     },
     {
       "id": "ios-backups",
-      "title": "Copias de seguridad de iPhone y iPad",
-      "explanation": "Copias de tus dispositivos que Finder guarda en el Mac. Pueden ser tu única copia, así que Airy solo te las muestra.",
+      "title": "iPhone and iPad backups",
+      "explanation": "Backups of your devices that Finder keeps on the Mac. They may be your only copy, so Airy only shows them to you.",
       "whoCreatesIt": "Finder (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -1941,13 +2332,19 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Pueden ser la única copia de tu iPhone o iPad.",
-      "reviewHint": "Gestiónalas desde Finder › tu iPhone › Gestionar copias."
+      "shortReason": "They may be the only copy of your iPhone or iPad.",
+      "reviewHint": "Manage them from Finder › your iPhone › Manage Backups.",
+      "es": {
+        "title": "Copias de seguridad de iPhone y iPad",
+        "explanation": "Copias de tus dispositivos que Finder guarda en el Mac. Pueden ser tu única copia, así que Airy solo te las muestra.",
+        "shortReason": "Pueden ser la única copia de tu iPhone o iPad.",
+        "reviewHint": "Gestiónalas desde Finder › tu iPhone › Gestionar copias."
+      }
     },
     {
       "id": "android-emulators",
-      "title": "Emuladores de Android",
-      "explanation": "Dispositivos virtuales de Android Studio con sus datos. Airy solo te los muestra.",
+      "title": "Android emulators",
+      "explanation": "Android Studio virtual devices with their data. Airy only shows them to you.",
       "whoCreatesIt": "Android Studio",
       "regenerates": false,
       "risk": "yourCall",
@@ -1959,17 +2356,23 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Cada emulador guarda sus propias apps y datos.",
+      "shortReason": "Each emulator keeps its own apps and data.",
       "profiles": [
         "developer"
       ],
-      "reviewHint": "Bórralos desde Android Studio › Device Manager."
+      "reviewHint": "Delete them from Android Studio › Device Manager.",
+      "es": {
+        "title": "Emuladores de Android",
+        "explanation": "Dispositivos virtuales de Android Studio con sus datos. Airy solo te los muestra.",
+        "shortReason": "Cada emulador guarda sus propias apps y datos.",
+        "reviewHint": "Bórralos desde Android Studio › Device Manager."
+      }
     },
     {
       "id": "agent-worktrees",
-      "title": "Copias de trabajo de agentes",
-      "explanation": "Carpetas de trabajo (git worktrees) que Codex y Claude Code crean para cada tarea. Pueden tener cambios sin guardar, así que Airy solo te las muestra.",
-      "whoCreatesIt": "Codex y Claude Code",
+      "title": "Agent working copies",
+      "explanation": "Working folders (git worktrees) that Codex and Claude Code create for each task. They may have unsaved changes, so Airy only shows them to you.",
+      "whoCreatesIt": "Codex and Claude Code",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "code",
@@ -1981,16 +2384,23 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Pueden tener cambios sin subir.",
+      "shortReason": "They may have changes that were not pushed.",
       "profiles": [
         "developer"
       ],
-      "reviewHint": "Quítalos con git worktree remove desde su repositorio."
+      "reviewHint": "Remove them with git worktree remove from their repository.",
+      "es": {
+        "title": "Copias de trabajo de agentes",
+        "explanation": "Carpetas de trabajo (git worktrees) que Codex y Claude Code crean para cada tarea. Pueden tener cambios sin guardar, así que Airy solo te las muestra.",
+        "whoCreatesIt": "Codex y Claude Code",
+        "shortReason": "Pueden tener cambios sin subir.",
+        "reviewHint": "Quítalos con git worktree remove desde su repositorio."
+      }
     },
     {
       "id": "time-machine-in-progress",
-      "title": "Copias de Time Machine sin terminar",
-      "explanation": "Copias de Time Machine que se interrumpieron y no se completaron. Airy solo te las muestra.",
+      "title": "Unfinished Time Machine backups",
+      "explanation": "Time Machine backups that were interrupted and not completed. Airy only shows them to you.",
       "whoCreatesIt": "Time Machine (Apple)",
       "regenerates": false,
       "risk": "yourCall",
@@ -2002,14 +2412,20 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Es una copia que no terminó; Time Machine decide qué hacer con ella.",
-      "reviewHint": "Es una copia de Time Machine que no terminó; revísala desde Time Machine."
+      "shortReason": "It is a backup that did not finish; Time Machine decides what to do with it.",
+      "reviewHint": "It is a Time Machine backup that did not finish; review it from Time Machine.",
+      "es": {
+        "title": "Copias de Time Machine sin terminar",
+        "explanation": "Copias de Time Machine que se interrumpieron y no se completaron. Airy solo te las muestra.",
+        "shortReason": "Es una copia que no terminó; Time Machine decide qué hacer con ella.",
+        "reviewHint": "Es una copia de Time Machine que no terminó; revísala desde Time Machine."
+      }
     },
     {
       "id": "music-sound-libraries",
-      "title": "Bibliotecas de sonidos de Logic y GarageBand",
-      "explanation": "Instrumentos, bucles y sonidos que descargan GarageBand y Logic Pro. Están fuera de tu carpeta, así que Airy solo te los muestra.",
-      "whoCreatesIt": "GarageBand y Logic Pro (Apple)",
+      "title": "Logic and GarageBand sound libraries",
+      "explanation": "Instruments, loops and sounds that GarageBand and Logic Pro download. They are outside your home folder, so Airy only shows them to you.",
+      "whoCreatesIt": "GarageBand and Logic Pro (Apple)",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "other",
@@ -2022,16 +2438,23 @@
         "type": "info"
       },
       "mustBeClosed": [],
-      "shortReason": "Se pueden volver a descargar desde la app, pero tardan.",
+      "shortReason": "They can be downloaded again from the app, but it takes a while.",
       "profiles": [
         "music"
       ],
-      "reviewHint": "Gestiónalas desde Logic Pro o GarageBand › Biblioteca de sonidos: así se pueden volver a descargar."
+      "reviewHint": "Manage them from Logic Pro or GarageBand › Sound Library: that way they can be downloaded again.",
+      "es": {
+        "title": "Bibliotecas de sonidos de Logic y GarageBand",
+        "explanation": "Instrumentos, bucles y sonidos que descargan GarageBand y Logic Pro. Están fuera de tu carpeta, así que Airy solo te los muestra.",
+        "whoCreatesIt": "GarageBand y Logic Pro (Apple)",
+        "shortReason": "Se pueden volver a descargar desde la app, pero tardan.",
+        "reviewHint": "Gestiónalas desde Logic Pro o GarageBand › Biblioteca de sonidos: así se pueden volver a descargar."
+      }
     },
     {
       "id": "edge-cache",
-      "title": "Caché de Microsoft Edge",
-      "explanation": "Archivos de páginas web, código compilado y sombreadores que Microsoft Edge guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Microsoft Edge antes de limpiar.",
+      "title": "Microsoft Edge cache",
+      "explanation": "Web page files, compiled code and shaders Microsoft Edge keeps to go faster. It does not touch your tabs, passwords, bookmarks or history. They are recreated by themselves as you browse; quit Microsoft Edge before cleaning.",
       "whoCreatesIt": "Microsoft Edge",
       "regenerates": true,
       "risk": "safe",
@@ -2067,15 +2490,20 @@
       "mustBeClosed": [
         "com.microsoft.edgemac"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Microsoft Edge",
+        "explanation": "Archivos de páginas web, código compilado y sombreadores que Microsoft Edge guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Microsoft Edge antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "chromium-cache",
-      "title": "Caché de Chromium",
-      "explanation": "Archivos de páginas web, código compilado y sombreadores que Chromium guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Chromium antes de limpiar.",
+      "title": "Chromium cache",
+      "explanation": "Web page files, compiled code and shaders Chromium keeps to go faster. It does not touch your tabs, passwords, bookmarks or history. They are recreated by themselves as you browse; quit Chromium before cleaning.",
       "whoCreatesIt": "Chromium",
       "regenerates": true,
       "risk": "safe",
@@ -2111,15 +2539,20 @@
       "mustBeClosed": [
         "org.chromium.Chromium"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Chromium",
+        "explanation": "Archivos de páginas web, código compilado y sombreadores que Chromium guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Chromium antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "arc-cache",
-      "title": "Caché de Arc",
-      "explanation": "Archivos de páginas web, código compilado y sombreadores que Arc guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Arc antes de limpiar.",
+      "title": "Arc cache",
+      "explanation": "Web page files, compiled code and shaders Arc keeps to go faster. It does not touch your tabs, passwords, bookmarks or history. They are recreated by themselves as you browse; quit Arc before cleaning.",
       "whoCreatesIt": "Arc",
       "regenerates": true,
       "risk": "safe",
@@ -2155,15 +2588,20 @@
       "mustBeClosed": [
         "company.thebrowser.Browser"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Arc",
+        "explanation": "Archivos de páginas web, código compilado y sombreadores que Arc guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Arc antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "vivaldi-cache",
-      "title": "Caché de Vivaldi",
-      "explanation": "Archivos de páginas web, código compilado y sombreadores que Vivaldi guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Vivaldi antes de limpiar.",
+      "title": "Vivaldi cache",
+      "explanation": "Web page files, compiled code and shaders Vivaldi keeps to go faster. It does not touch your tabs, passwords, bookmarks or history. They are recreated by themselves as you browse; quit Vivaldi before cleaning.",
       "whoCreatesIt": "Vivaldi",
       "regenerates": true,
       "risk": "safe",
@@ -2199,15 +2637,20 @@
       "mustBeClosed": [
         "com.vivaldi.Vivaldi"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Vivaldi",
+        "explanation": "Archivos de páginas web, código compilado y sombreadores que Vivaldi guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Vivaldi antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "opera-cache",
-      "title": "Caché de Opera",
-      "explanation": "Archivos de páginas web, código compilado y sombreadores que Opera guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Opera antes de limpiar.",
+      "title": "Opera cache",
+      "explanation": "Web page files, compiled code and shaders Opera keeps to go faster. It does not touch your tabs, passwords, bookmarks or history. They are recreated by themselves as you browse; quit Opera before cleaning.",
       "whoCreatesIt": "Opera",
       "regenerates": true,
       "risk": "safe",
@@ -2243,15 +2686,20 @@
       "mustBeClosed": [
         "com.operasoftware.Opera"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Opera",
+        "explanation": "Archivos de páginas web, código compilado y sombreadores que Opera guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Opera antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "firefox-cache",
-      "title": "Caché de Firefox",
-      "explanation": "Archivos de páginas web, código compilado y sombreadores que Firefox guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Firefox antes de limpiar.",
+      "title": "Firefox cache",
+      "explanation": "Web page files, compiled code and shaders Firefox keeps to go faster. It does not touch your tabs, passwords, bookmarks or history. They are recreated by themselves as you browse; quit Firefox before cleaning.",
       "whoCreatesIt": "Firefox",
       "regenerates": true,
       "risk": "safe",
@@ -2265,15 +2713,20 @@
       "mustBeClosed": [
         "org.mozilla.firefox"
       ],
-      "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes.",
+      "shortReason": "It recreates itself as you browse; quit the browser first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Firefox",
+        "explanation": "Archivos de páginas web, código compilado y sombreadores que Firefox guarda para ir más rápido. No toca tus pestañas, contraseñas, marcadores ni historial. Se recrean solos al navegar; cierra Firefox antes de limpiar.",
+        "shortReason": "Se vuelve a crear sola al navegar; cierra el navegador antes."
+      }
     },
     {
       "id": "slack-cache",
-      "title": "Caché de Slack",
-      "explanation": "Datos temporales que Slack guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Slack antes de limpiar. Van a la Papelera.",
+      "title": "Slack cache",
+      "explanation": "Temporary data Slack keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Slack before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Slack",
       "regenerates": true,
       "risk": "safe",
@@ -2291,15 +2744,20 @@
       "mustBeClosed": [
         "com.tinyspeck.slackmacgap"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Slack",
+        "explanation": "Datos temporales que Slack guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Slack antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "discord-cache",
-      "title": "Caché de Discord",
-      "explanation": "Datos temporales que Discord guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Discord antes de limpiar. Van a la Papelera.",
+      "title": "Discord cache",
+      "explanation": "Temporary data Discord keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Discord before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Discord",
       "regenerates": true,
       "risk": "safe",
@@ -2315,15 +2773,20 @@
       "mustBeClosed": [
         "com.hnc.Discord"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Discord",
+        "explanation": "Datos temporales que Discord guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Discord antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "zoom-cache",
-      "title": "Caché de Zoom",
-      "explanation": "Datos temporales que Zoom guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Zoom antes de limpiar. Van a la Papelera.",
+      "title": "Zoom cache",
+      "explanation": "Temporary data Zoom keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Zoom before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Zoom",
       "regenerates": true,
       "risk": "safe",
@@ -2337,15 +2800,20 @@
       "mustBeClosed": [
         "us.zoom.xos"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Zoom",
+        "explanation": "Datos temporales que Zoom guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Zoom antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "teams-cache",
-      "title": "Caché de Microsoft Teams",
-      "explanation": "Datos temporales que Microsoft Teams guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Microsoft Teams antes de limpiar. Van a la Papelera.",
+      "title": "Microsoft Teams cache",
+      "explanation": "Temporary data Microsoft Teams keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Microsoft Teams before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Microsoft Teams",
       "regenerates": true,
       "risk": "safe",
@@ -2359,15 +2827,20 @@
       "mustBeClosed": [
         "com.microsoft.teams2"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Microsoft Teams",
+        "explanation": "Datos temporales que Microsoft Teams guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Microsoft Teams antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "whatsapp-cache",
-      "title": "Caché de WhatsApp",
-      "explanation": "Datos temporales que WhatsApp guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra WhatsApp antes de limpiar. Van a la Papelera.",
+      "title": "WhatsApp cache",
+      "explanation": "Temporary data WhatsApp keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit WhatsApp before cleaning. It goes to the Trash.",
       "whoCreatesIt": "WhatsApp",
       "regenerates": true,
       "risk": "safe",
@@ -2381,15 +2854,20 @@
       "mustBeClosed": [
         "net.whatsapp.WhatsApp"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de WhatsApp",
+        "explanation": "Datos temporales que WhatsApp guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra WhatsApp antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "telegram-cache",
-      "title": "Caché de Telegram",
-      "explanation": "Datos temporales que Telegram guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Telegram antes de limpiar. Van a la Papelera.",
+      "title": "Telegram cache",
+      "explanation": "Temporary data Telegram keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Telegram before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Telegram",
       "regenerates": true,
       "risk": "safe",
@@ -2403,15 +2881,20 @@
       "mustBeClosed": [
         "ru.keepcoder.Telegram"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Telegram",
+        "explanation": "Datos temporales que Telegram guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Telegram antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "office-caches",
-      "title": "Cachés de Microsoft Office",
-      "explanation": "Datos temporales que Microsoft Office guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Microsoft Office antes de limpiar. Van a la Papelera.",
+      "title": "Microsoft Office caches",
+      "explanation": "Temporary data Microsoft Office keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Microsoft Office before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Microsoft Office",
       "regenerates": true,
       "risk": "safe",
@@ -2431,15 +2914,20 @@
         "com.microsoft.Powerpoint",
         "com.microsoft.Outlook"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Cachés de Microsoft Office",
+        "explanation": "Datos temporales que Microsoft Office guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Microsoft Office antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "notion-cache",
-      "title": "Caché de Notion",
-      "explanation": "Datos temporales que Notion guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Notion antes de limpiar. Van a la Papelera.",
+      "title": "Notion cache",
+      "explanation": "Temporary data Notion keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Notion before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Notion",
       "regenerates": true,
       "risk": "safe",
@@ -2455,15 +2943,20 @@
       "mustBeClosed": [
         "notion.id"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "basic"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Notion",
+        "explanation": "Datos temporales que Notion guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Notion antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "adobe-media-cache",
-      "title": "Caché de medios de Adobe",
-      "explanation": "Datos temporales que Adobe guarda para ir más rápido o para trabajar con tus proyectos. La app los vuelve a crear. Cierra la app antes de limpiar. Van a la Papelera.",
+      "title": "Adobe media cache",
+      "explanation": "Temporary data Adobe keeps to go faster or to work with your projects. The app creates it again. Quit the app before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Adobe",
       "regenerates": true,
       "risk": "safe",
@@ -2482,15 +2975,20 @@
         "After Effects",
         "Adobe Media Encoder"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "creative"
-      ]
+      ],
+      "es": {
+        "title": "Caché de medios de Adobe",
+        "explanation": "Datos temporales que Adobe guarda para ir más rápido o para trabajar con tus proyectos. La app los vuelve a crear. Cierra la app antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "figma-cache",
-      "title": "Caché de Figma",
-      "explanation": "Datos temporales que Figma guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Figma antes de limpiar. Van a la Papelera.",
+      "title": "Figma cache",
+      "explanation": "Temporary data Figma keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Figma before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Figma",
       "regenerates": true,
       "risk": "safe",
@@ -2506,15 +3004,20 @@
       "mustBeClosed": [
         "com.figma.Desktop"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "creative"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Figma",
+        "explanation": "Datos temporales que Figma guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Figma antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "finalcut-cache",
-      "title": "Caché de Final Cut Pro",
-      "explanation": "Datos temporales que Final Cut Pro (Apple) guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Final Cut Pro (Apple) antes de limpiar. Van a la Papelera.",
+      "title": "Final Cut Pro cache",
+      "explanation": "Temporary data Final Cut Pro (Apple) keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Final Cut Pro (Apple) before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Final Cut Pro (Apple)",
       "regenerates": true,
       "risk": "safe",
@@ -2528,15 +3031,20 @@
       "mustBeClosed": [
         "com.apple.FinalCut"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "creative"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Final Cut Pro",
+        "explanation": "Datos temporales que Final Cut Pro (Apple) guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Final Cut Pro (Apple) antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "davinci-cache",
-      "title": "Caché de clips de DaVinci Resolve",
-      "explanation": "Clips ya procesados que DaVinci Resolve guarda para reproducir sin esperas. Resolve los vuelve a generar, pero puede tardar en proyectos grandes; está en tu carpeta Películas, por eso queda en «Tú decides». Va a la Papelera.",
+      "title": "DaVinci Resolve clip cache",
+      "explanation": "Already processed clips DaVinci Resolve keeps to play back without waiting. Resolve generates them again, but it can take a while on large projects; it is in your Movies folder, which is why it stays as “Your call”. It goes to the Trash.",
       "whoCreatesIt": "DaVinci Resolve",
       "regenerates": true,
       "risk": "safe",
@@ -2550,15 +3058,20 @@
       "mustBeClosed": [
         "com.blackmagic-design.DaVinciResolve"
       ],
-      "shortReason": "Se vuelve a generar, pero tarda; está en tu carpeta Películas.",
+      "shortReason": "It is generated again, but it takes a while; it is in your Movies folder.",
       "profiles": [
         "creative"
-      ]
+      ],
+      "es": {
+        "title": "Caché de clips de DaVinci Resolve",
+        "explanation": "Clips ya procesados que DaVinci Resolve guarda para reproducir sin esperas. Resolve los vuelve a generar, pero puede tardar en proyectos grandes; está en tu carpeta Películas, por eso queda en «Tú decides». Va a la Papelera.",
+        "shortReason": "Se vuelve a generar, pero tarda; está en tu carpeta Películas."
+      }
     },
     {
       "id": "sketch-cache",
-      "title": "Caché de Sketch",
-      "explanation": "Datos temporales que Sketch guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Sketch antes de limpiar. Van a la Papelera.",
+      "title": "Sketch cache",
+      "explanation": "Temporary data Sketch keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Sketch before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Sketch",
       "regenerates": true,
       "risk": "safe",
@@ -2572,16 +3085,21 @@
       "mustBeClosed": [
         "com.bohemiancoding.sketch3"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "creative"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Sketch",
+        "explanation": "Datos temporales que Sketch guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Sketch antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "apple-music-cache",
-      "title": "Caché de Música",
-      "explanation": "Datos temporales que Música (Apple) guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Música (Apple) antes de limpiar. Van a la Papelera.",
-      "whoCreatesIt": "Música (Apple)",
+      "title": "Music cache",
+      "explanation": "Temporary data Music (Apple) keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Music (Apple) before cleaning. It goes to the Trash.",
+      "whoCreatesIt": "Music (Apple)",
       "regenerates": true,
       "risk": "safe",
       "kind": "caches",
@@ -2594,15 +3112,21 @@
       "mustBeClosed": [
         "com.apple.Music"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "music"
-      ]
+      ],
+      "es": {
+        "title": "Caché de Música",
+        "explanation": "Datos temporales que Música (Apple) guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Música (Apple) antes de limpiar. Van a la Papelera.",
+        "whoCreatesIt": "Música (Apple)",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "vlc-cache",
-      "title": "Caché de VLC",
-      "explanation": "Datos temporales que VLC guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra VLC antes de limpiar. Van a la Papelera.",
+      "title": "VLC cache",
+      "explanation": "Temporary data VLC keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit VLC before cleaning. It goes to the Trash.",
       "whoCreatesIt": "VLC",
       "regenerates": true,
       "risk": "safe",
@@ -2616,15 +3140,20 @@
       "mustBeClosed": [
         "org.videolan.vlc"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "music"
-      ]
+      ],
+      "es": {
+        "title": "Caché de VLC",
+        "explanation": "Datos temporales que VLC guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra VLC antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "steam-caches",
-      "title": "Cachés de Steam",
-      "explanation": "Datos temporales que Steam guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Steam antes de limpiar. Van a la Papelera.",
+      "title": "Steam caches",
+      "explanation": "Temporary data Steam keeps to go faster (images, compiled code, shaders or logs). It does not touch your accounts, messages or projects; the app creates it again. Quit Steam before cleaning. It goes to the Trash.",
       "whoCreatesIt": "Steam",
       "regenerates": true,
       "risk": "safe",
@@ -2642,15 +3171,20 @@
       "mustBeClosed": [
         "com.valvesoftware.steam"
       ],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "gaming"
-      ]
+      ],
+      "es": {
+        "title": "Cachés de Steam",
+        "explanation": "Datos temporales que Steam guarda para ir más rápido (imágenes, código compilado, sombreadores o registros). No tocan tus cuentas, mensajes ni proyectos; la app los vuelve a crear. Cierra Steam antes de limpiar. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "minecraft-logs",
-      "title": "Registros de Minecraft",
-      "explanation": "Registros de partidas anteriores de Minecraft. Solo sirven para diagnosticar fallos. Van a la Papelera.",
+      "title": "Minecraft logs",
+      "explanation": "Logs of earlier Minecraft sessions. They are only useful to diagnose failures. They go to the Trash.",
       "whoCreatesIt": "Minecraft",
       "regenerates": true,
       "risk": "safe",
@@ -2662,15 +3196,20 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Se vuelve a crear sola; cierra la app antes.",
+      "shortReason": "It recreates itself; quit the app first.",
       "profiles": [
         "gaming"
-      ]
+      ],
+      "es": {
+        "title": "Registros de Minecraft",
+        "explanation": "Registros de partidas anteriores de Minecraft. Solo sirven para diagnosticar fallos. Van a la Papelera.",
+        "shortReason": "Se vuelve a crear sola; cierra la app antes."
+      }
     },
     {
       "id": "steam-games",
-      "title": "Juegos de Steam sin abrir",
-      "explanation": "Juegos instalados con Steam que no has tocado en 3 meses. Se vuelven a descargar desde Steam, pero pesan decenas de GB. Cierra Steam antes de limpiar. Van a la Papelera.",
+      "title": "Unopened Steam games",
+      "explanation": "Games installed with Steam that you have not touched in 3 months. They can be downloaded again from Steam, but they weigh tens of GB. Quit Steam before cleaning. They go to the Trash.",
       "whoCreatesIt": "Steam",
       "regenerates": true,
       "risk": "yourCall",
@@ -2684,17 +3223,22 @@
       "mustBeClosed": [
         "com.valvesoftware.steam"
       ],
-      "shortReason": "Tendrías que volver a descargar el juego desde Steam.",
+      "shortReason": "You would have to download the game again from Steam.",
       "profiles": [
         "gaming"
       ],
       "perMatch": true,
-      "staleAfterDays": 90
+      "staleAfterDays": 90,
+      "es": {
+        "title": "Juegos de Steam sin abrir",
+        "explanation": "Juegos instalados con Steam que no has tocado en 3 meses. Se vuelven a descargar desde Steam, pero pesan decenas de GB. Cierra Steam antes de limpiar. Van a la Papelera.",
+        "shortReason": "Tendrías que volver a descargar el juego desde Steam."
+      }
     },
     {
       "id": "epic-games",
-      "title": "Juegos de Epic Games sin abrir",
-      "explanation": "Juegos instalados con Epic Games Launcher que no has tocado en 3 meses. Se vuelven a descargar, pero pesan decenas de GB. Cierra el lanzador antes de limpiar. Van a la Papelera.",
+      "title": "Unopened Epic Games games",
+      "explanation": "Games installed with the Epic Games Launcher that you have not touched in 3 months. They can be downloaded again, but they weigh tens of GB. Quit the launcher before cleaning. They go to the Trash.",
       "whoCreatesIt": "Epic Games",
       "regenerates": true,
       "risk": "yourCall",
@@ -2708,17 +3252,22 @@
       "mustBeClosed": [
         "com.epicgames.EpicGamesLauncher"
       ],
-      "shortReason": "Tendrías que volver a descargar el juego desde Epic.",
+      "shortReason": "You would have to download the game again from Epic.",
       "profiles": [
         "gaming"
       ],
       "perMatch": true,
-      "staleAfterDays": 90
+      "staleAfterDays": 90,
+      "es": {
+        "title": "Juegos de Epic Games sin abrir",
+        "explanation": "Juegos instalados con Epic Games Launcher que no has tocado en 3 meses. Se vuelven a descargar, pero pesan decenas de GB. Cierra el lanzador antes de limpiar. Van a la Papelera.",
+        "shortReason": "Tendrías que volver a descargar el juego desde Epic."
+      }
     },
     {
       "id": "whisky-bottles",
-      "title": "Botellas de Whisky sin abrir",
-      "explanation": "Entornos de Windows de Whisky (con sus juegos y partidas guardadas) que no has tocado en 3 meses. No se pueden recuperar si guardan partidas solo ahí. Cierra Whisky antes de limpiar. Van a la Papelera.",
+      "title": "Unopened Whisky bottles",
+      "explanation": "Whisky Windows environments (with their games and saved games) that you have not touched in 3 months. They cannot be recovered if saved games live only there. Quit Whisky before cleaning. They go to the Trash.",
       "whoCreatesIt": "Whisky",
       "regenerates": false,
       "risk": "yourCall",
@@ -2732,17 +3281,22 @@
       "mustBeClosed": [
         "com.isaacmarovitz.Whisky"
       ],
-      "shortReason": "Pierdes los juegos y las partidas guardadas de esa botella.",
+      "shortReason": "You lose that bottle's games and saved games.",
       "profiles": [
         "gaming"
       ],
       "perMatch": true,
-      "staleAfterDays": 90
+      "staleAfterDays": 90,
+      "es": {
+        "title": "Botellas de Whisky sin abrir",
+        "explanation": "Entornos de Windows de Whisky (con sus juegos y partidas guardadas) que no has tocado en 3 meses. No se pueden recuperar si guardan partidas solo ahí. Cierra Whisky antes de limpiar. Van a la Papelera.",
+        "shortReason": "Pierdes los juegos y las partidas guardadas de esa botella."
+      }
     },
     {
       "id": "toolchain-pyenv",
-      "title": "Versión de Python (pyenv)",
-      "explanation": "Una versión de Python instalada con pyenv. Si tienes varias, puedes quitar las que ya no usas.",
+      "title": "Python version (pyenv)",
+      "explanation": "A Python version installed with pyenv. If you have several, you can remove the ones you no longer use.",
       "whoCreatesIt": "pyenv",
       "regenerates": false,
       "risk": "yourCall",
@@ -2762,16 +3316,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "pyenv"
+      },
+      "es": {
+        "title": "Versión de Python (pyenv)",
+        "explanation": "Una versión de Python instalada con pyenv. Si tienes varias, puedes quitar las que ya no usas.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-conda",
-      "title": "Entorno de conda",
-      "explanation": "Un entorno de conda con su propio Python y sus paquetes. El entorno base nunca se ofrece.",
+      "title": "conda environment",
+      "explanation": "A conda environment with its own Python and packages. The base environment is never offered.",
       "whoCreatesIt": "conda (Anaconda, Miniconda, Miniforge)",
       "regenerates": false,
       "risk": "yourCall",
@@ -2797,16 +3356,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "conda"
+      },
+      "es": {
+        "title": "Entorno de conda",
+        "explanation": "Un entorno de conda con su propio Python y sus paquetes. El entorno base nunca se ofrece.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-nvm",
-      "title": "Versión de Node (nvm)",
-      "explanation": "Una versión de Node instalada con nvm. Va a la Papelera, porque nvm no tiene una orden que Airy pueda usar.",
+      "title": "Node version (nvm)",
+      "explanation": "A Node version installed with nvm. It goes to the Trash, because nvm has no command Airy can use.",
       "whoCreatesIt": "nvm",
       "regenerates": false,
       "risk": "yourCall",
@@ -2820,16 +3384,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "nvm"
+      },
+      "es": {
+        "title": "Versión de Node (nvm)",
+        "explanation": "Una versión de Node instalada con nvm. Va a la Papelera, porque nvm no tiene una orden que Airy pueda usar.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-fnm",
-      "title": "Versión de Node (fnm)",
-      "explanation": "Una versión de Node instalada con fnm.",
+      "title": "Node version (fnm)",
+      "explanation": "A Node version installed with fnm.",
       "whoCreatesIt": "fnm",
       "regenerates": false,
       "risk": "yourCall",
@@ -2850,16 +3419,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "fnm"
+      },
+      "es": {
+        "title": "Versión de Node (fnm)",
+        "explanation": "Una versión de Node instalada con fnm.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-volta",
-      "title": "Versión de Node (Volta)",
-      "explanation": "Una versión de Node instalada con Volta. Va a la Papelera, porque Volta no tiene orden para quitar versiones de Node.",
+      "title": "Node version (Volta)",
+      "explanation": "A Node version installed with Volta. It goes to the Trash, because Volta has no command to remove Node versions.",
       "whoCreatesIt": "Volta",
       "regenerates": false,
       "risk": "yourCall",
@@ -2873,16 +3447,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "volta"
+      },
+      "es": {
+        "title": "Versión de Node (Volta)",
+        "explanation": "Una versión de Node instalada con Volta. Va a la Papelera, porque Volta no tiene orden para quitar versiones de Node.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-asdf",
-      "title": "Versión instalada con asdf",
-      "explanation": "Una versión de una herramienta instalada con asdf. Va a la Papelera; luego ejecuta asdf reshim.",
+      "title": "Version installed with asdf",
+      "explanation": "A version of a tool installed with asdf. It goes to the Trash; then run asdf reshim.",
       "whoCreatesIt": "asdf",
       "regenerates": false,
       "risk": "yourCall",
@@ -2896,16 +3475,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "asdf"
+      },
+      "es": {
+        "title": "Versión instalada con asdf",
+        "explanation": "Una versión de una herramienta instalada con asdf. Va a la Papelera; luego ejecuta asdf reshim.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-rbenv",
-      "title": "Versión de Ruby (rbenv)",
-      "explanation": "Una versión de Ruby instalada con rbenv.",
+      "title": "Ruby version (rbenv)",
+      "explanation": "A Ruby version installed with rbenv.",
       "whoCreatesIt": "rbenv",
       "regenerates": false,
       "risk": "yourCall",
@@ -2925,16 +3509,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "rbenv"
+      },
+      "es": {
+        "title": "Versión de Ruby (rbenv)",
+        "explanation": "Una versión de Ruby instalada con rbenv.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-rvm",
-      "title": "Versión de Ruby (rvm)",
-      "explanation": "Una versión de Ruby instalada con rvm. Va a la Papelera, porque rvm es una función de la shell.",
+      "title": "Ruby version (rvm)",
+      "explanation": "A Ruby version installed with rvm. It goes to the Trash, because rvm is a shell function.",
       "whoCreatesIt": "rvm",
       "regenerates": false,
       "risk": "yourCall",
@@ -2948,16 +3537,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "rvm"
+      },
+      "es": {
+        "title": "Versión de Ruby (rvm)",
+        "explanation": "Una versión de Ruby instalada con rvm. Va a la Papelera, porque rvm es una función de la shell.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-sdkman",
-      "title": "Versión instalada con SDKMAN",
-      "explanation": "Una versión de Java u otra herramienta instalada con SDKMAN. Va a la Papelera, porque sdk es una función de la shell.",
+      "title": "Version installed with SDKMAN",
+      "explanation": "A version of Java or another tool installed with SDKMAN. It goes to the Trash, because sdk is a shell function.",
       "whoCreatesIt": "SDKMAN",
       "regenerates": false,
       "risk": "yourCall",
@@ -2971,16 +3565,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "sdkman"
+      },
+      "es": {
+        "title": "Versión instalada con SDKMAN",
+        "explanation": "Una versión de Java u otra herramienta instalada con SDKMAN. Va a la Papelera, porque sdk es una función de la shell.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-rustup",
-      "title": "Toolchain de Rust",
-      "explanation": "Un toolchain de Rust instalado con rustup.",
+      "title": "Rust toolchain",
+      "explanation": "A Rust toolchain installed with rustup.",
       "whoCreatesIt": "rustup",
       "regenerates": false,
       "risk": "yourCall",
@@ -3000,16 +3599,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "rustup"
+      },
+      "es": {
+        "title": "Toolchain de Rust",
+        "explanation": "Un toolchain de Rust instalado con rustup.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-go-sdk",
-      "title": "Versión de Go (~/sdk)",
-      "explanation": "Una versión de Go descargada en ~/sdk.",
+      "title": "Go version (~/sdk)",
+      "explanation": "A Go version downloaded into ~/sdk.",
       "whoCreatesIt": "go install golang.org/dl",
       "regenerates": false,
       "risk": "yourCall",
@@ -3023,16 +3627,21 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "goSDK"
+      },
+      "es": {
+        "title": "Versión de Go (~/sdk)",
+        "explanation": "Una versión de Go descargada en ~/sdk.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-homebrew",
-      "title": "Versión de Homebrew",
-      "explanation": "Una versión de Python, Node, Java o Go instalada con Homebrew. Airy no la quita si otra fórmula la necesita.",
+      "title": "Homebrew version",
+      "explanation": "A Python, Node, Java or Go version installed with Homebrew. Airy does not remove it if another formula needs it.",
       "whoCreatesIt": "Homebrew",
       "regenerates": false,
       "risk": "yourCall",
@@ -3049,17 +3658,22 @@
       "mustBeClosed": [],
       "preselectInAggressive": true,
       "profiles": [],
-      "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan.",
+      "shortReason": "Another version of the same tool; the one you use and the ones your projects ask for are not touched.",
       "discovery": {
         "type": "toolchains",
         "manager": "homebrew"
+      },
+      "es": {
+        "title": "Versión de Homebrew",
+        "explanation": "Una versión de Python, Node, Java o Go instalada con Homebrew. Airy no la quita si otra fórmula la necesita.",
+        "shortReason": "Otra versión de la misma herramienta; la que usas y las que piden tus proyectos no se tocan."
       }
     },
     {
       "id": "toolchain-system-info",
-      "title": "Versiones instaladas en el sistema",
-      "explanation": "Varias versiones de la misma herramienta fuera de tu carpeta (Xcode, /Library). Airy solo te las muestra.",
-      "whoCreatesIt": "Instaladores de Apple, Python.org y Java",
+      "title": "Versions installed in the system",
+      "explanation": "Several versions of the same tool outside your home folder (Xcode, /Library). Airy only shows them to you.",
+      "whoCreatesIt": "Apple, Python.org and Java installers",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "code",
@@ -3069,17 +3683,24 @@
       },
       "mustBeClosed": [],
       "profiles": [],
-      "shortReason": "Están fuera de tu carpeta; se quitan a mano.",
+      "shortReason": "They are outside your home folder; they are removed by hand.",
       "discovery": {
         "type": "toolchainSystemInfo"
       },
-      "reviewHint": "Las versiones de /Library y las apps Xcode se quitan a mano o con el Desinstalador de Airy."
+      "reviewHint": "The versions in /Library and the Xcode apps are removed by hand or with Airy's Uninstaller.",
+      "es": {
+        "title": "Versiones instaladas en el sistema",
+        "explanation": "Varias versiones de la misma herramienta fuera de tu carpeta (Xcode, /Library). Airy solo te las muestra.",
+        "whoCreatesIt": "Instaladores de Apple, Python.org y Java",
+        "shortReason": "Están fuera de tu carpeta; se quitan a mano.",
+        "reviewHint": "Las versiones de /Library y las apps Xcode se quitan a mano o con el Desinstalador de Airy."
+      }
     },
     {
       "id": "node-dependency-duplicates",
-      "title": "Paquetes de Node repetidos entre proyectos",
-      "explanation": "El mismo paquete, en la misma versión, copiado en el node_modules de varios proyectos. Airy solo te lo muestra.",
-      "whoCreatesIt": "npm y yarn",
+      "title": "Node packages repeated across projects",
+      "explanation": "The same package, in the same version, copied into the node_modules of several projects. Airy only shows it to you.",
+      "whoCreatesIt": "npm and yarn",
       "regenerates": false,
       "risk": "yourCall",
       "kind": "code",
@@ -3089,17 +3710,24 @@
       },
       "mustBeClosed": [],
       "profiles": [],
-      "shortReason": "Cada proyecto necesita su copia mientras uses npm o yarn.",
+      "shortReason": "Each project needs its copy as long as you use npm or yarn.",
       "discovery": {
         "type": "dependencyDuplicates"
       },
-      "reviewHint": "Con pnpm cada versión de un paquete se guarda una sola vez en el disco y la comparten todos tus proyectos."
+      "reviewHint": "With pnpm, each version of a package is stored only once on disk and all your projects share it.",
+      "es": {
+        "title": "Paquetes de Node repetidos entre proyectos",
+        "explanation": "El mismo paquete, en la misma versión, copiado en el node_modules de varios proyectos. Airy solo te lo muestra.",
+        "whoCreatesIt": "npm y yarn",
+        "shortReason": "Cada proyecto necesita su copia mientras uses npm o yarn.",
+        "reviewHint": "Con pnpm cada versión de un paquete se guarda una sola vez en el disco y la comparten todos tus proyectos."
+      }
     },
     {
       "id": "app-support-caches",
-      "title": "Cachés regenerables de una app",
-      "explanation": "Carpetas de caché de apps (GPUCache, Code Cache, DawnCache…) que Airy encuentra en Application Support sin que ninguna otra ficha las conozca. Se vuelven a crear al abrir la app; Airy nunca toca apps de contraseñas, mensajería ni claves. Van a la Papelera.",
-      "whoCreatesIt": "Tus apps",
+      "title": "Regenerable caches of an app",
+      "explanation": "App cache folders (GPUCache, Code Cache, DawnCache…) that Airy finds in Application Support without any other entry knowing them. They are created again when you open the app; Airy never touches password, messaging or key apps. They go to the Trash.",
+      "whoCreatesIt": "Your apps",
       "regenerates": true,
       "risk": "yourCall",
       "kind": "caches",
@@ -3108,16 +3736,22 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "Se vuelve a crear sola cuando abres la app.",
+      "shortReason": "It recreates itself when you open the app.",
       "aggressiveRisk": "safe",
       "discovery": {
         "type": "appSupportCaches"
+      },
+      "es": {
+        "title": "Cachés regenerables de una app",
+        "explanation": "Carpetas de caché de apps (GPUCache, Code Cache, DawnCache…) que Airy encuentra en Application Support sin que ninguna otra ficha las conozca. Se vuelven a crear al abrir la app; Airy nunca toca apps de contraseñas, mensajería ni claves. Van a la Papelera.",
+        "whoCreatesIt": "Tus apps",
+        "shortReason": "Se vuelve a crear sola cuando abres la app."
       }
     },
     {
       "id": "maintenance-dsstore-network",
-      "title": "No crear archivos .DS_Store en discos de red",
-      "explanation": "Evita que Finder deje archivos ocultos .DS_Store en carpetas compartidas. Se deshace con: defaults delete com.apple.desktopservices DSDontWriteNetworkStores.",
+      "title": "Do not create .DS_Store files on network drives",
+      "explanation": "Stops Finder from leaving hidden .DS_Store files in shared folders. Undo it with: defaults delete com.apple.desktopservices DSDontWriteNetworkStores.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3135,13 +3769,18 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Solo cambia un ajuste de Finder; se deshace con una orden.",
-      "section": "maintenance"
+      "shortReason": "It only changes a Finder setting; one command undoes it.",
+      "section": "maintenance",
+      "es": {
+        "title": "No crear archivos .DS_Store en discos de red",
+        "explanation": "Evita que Finder deje archivos ocultos .DS_Store en carpetas compartidas. Se deshace con: defaults delete com.apple.desktopservices DSDontWriteNetworkStores.",
+        "shortReason": "Solo cambia un ajuste de Finder; se deshace con una orden."
+      }
     },
     {
       "id": "maintenance-dsstore-usb",
-      "title": "No crear archivos .DS_Store en discos USB",
-      "explanation": "Evita que Finder deje archivos ocultos .DS_Store en memorias y discos externos. Se deshace con: defaults delete com.apple.desktopservices DSDontWriteUSBStores.",
+      "title": "Do not create .DS_Store files on USB drives",
+      "explanation": "Stops Finder from leaving hidden .DS_Store files on flash drives and external disks. Undo it with: defaults delete com.apple.desktopservices DSDontWriteUSBStores.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3159,13 +3798,18 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Solo cambia un ajuste de Finder; se deshace con una orden.",
-      "section": "maintenance"
+      "shortReason": "It only changes a Finder setting; one command undoes it.",
+      "section": "maintenance",
+      "es": {
+        "title": "No crear archivos .DS_Store en discos USB",
+        "explanation": "Evita que Finder deje archivos ocultos .DS_Store en memorias y discos externos. Se deshace con: defaults delete com.apple.desktopservices DSDontWriteUSBStores.",
+        "shortReason": "Solo cambia un ajuste de Finder; se deshace con una orden."
+      }
     },
     {
       "id": "maintenance-legacy-appnap",
-      "title": "Quitar el ajuste antiguo que desactiva App Nap",
-      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo deja que macOS duerma las apps que no ves. Se deshace con: defaults write -g NSAppSleepDisabled -bool true.",
+      "title": "Remove the old setting that disables App Nap",
+      "explanation": "It is an old setting that no longer helps on current versions of macOS and can drain the battery or skip security checks. Removing it lets macOS put the apps you do not see to sleep. Undo it with: defaults write -g NSAppSleepDisabled -bool true.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3181,13 +3825,18 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
-      "section": "maintenance"
+      "shortReason": "It goes back to macOS's normal behaviour; one command undoes it.",
+      "section": "maintenance",
+      "es": {
+        "title": "Quitar el ajuste antiguo que desactiva App Nap",
+        "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo deja que macOS duerma las apps que no ves. Se deshace con: defaults write -g NSAppSleepDisabled -bool true.",
+        "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden."
+      }
     },
     {
       "id": "maintenance-legacy-skipverify",
-      "title": "Volver a comprobar las imágenes de disco",
-      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes .dmg al abrirlas. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify -bool true.",
+      "title": "Verify disk images again",
+      "explanation": "It is an old setting that no longer helps on current versions of macOS and can drain the battery or skip security checks. Removing it makes macOS verify .dmg images again when opening them. Undo it with: defaults write com.apple.frameworks.diskimages skip-verify -bool true.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3203,13 +3852,18 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
-      "section": "maintenance"
+      "shortReason": "It goes back to macOS's normal behaviour; one command undoes it.",
+      "section": "maintenance",
+      "es": {
+        "title": "Volver a comprobar las imágenes de disco",
+        "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes .dmg al abrirlas. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify -bool true.",
+        "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden."
+      }
     },
     {
       "id": "maintenance-legacy-skipverify-locked",
-      "title": "Volver a comprobar las imágenes de disco bloqueadas",
-      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes de disco bloqueadas. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify-locked -bool true.",
+      "title": "Verify locked disk images again",
+      "explanation": "It is an old setting that no longer helps on current versions of macOS and can drain the battery or skip security checks. Removing it makes macOS verify locked disk images again. Undo it with: defaults write com.apple.frameworks.diskimages skip-verify-locked -bool true.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3225,13 +3879,18 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
-      "section": "maintenance"
+      "shortReason": "It goes back to macOS's normal behaviour; one command undoes it.",
+      "section": "maintenance",
+      "es": {
+        "title": "Volver a comprobar las imágenes de disco bloqueadas",
+        "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes de disco bloqueadas. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify-locked -bool true.",
+        "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden."
+      }
     },
     {
       "id": "maintenance-legacy-skipverify-remote",
-      "title": "Volver a comprobar las imágenes de disco remotas",
-      "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes de disco descargadas o en red. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify-remote -bool true.",
+      "title": "Verify remote disk images again",
+      "explanation": "It is an old setting that no longer helps on current versions of macOS and can drain the battery or skip security checks. Removing it makes macOS verify downloaded or network disk images again. Undo it with: defaults write com.apple.frameworks.diskimages skip-verify-remote -bool true.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3247,13 +3906,18 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden.",
-      "section": "maintenance"
+      "shortReason": "It goes back to macOS's normal behaviour; one command undoes it.",
+      "section": "maintenance",
+      "es": {
+        "title": "Volver a comprobar las imágenes de disco remotas",
+        "explanation": "Es un ajuste antiguo que ya no ayuda en las versiones actuales de macOS y puede gastar batería o saltarse comprobaciones de seguridad. Quitarlo hace que macOS vuelva a verificar las imágenes de disco descargadas o en red. Se deshace con: defaults write com.apple.frameworks.diskimages skip-verify-remote -bool true.",
+        "shortReason": "Vuelve al comportamiento normal de macOS; se deshace con una orden."
+      }
     },
     {
       "id": "maintenance-corrupt-plist",
-      "title": "Preferencias dañadas",
-      "explanation": "Este archivo de ajustes de una app está dañado y puede impedir que arranque. Va a la Papelera y la app crea uno nuevo; si algo falla, sácalo de la Papelera.",
+      "title": "Damaged preferences",
+      "explanation": "This settings file of an app is damaged and may stop it from launching. It goes to the Trash and the app creates a new one; if something goes wrong, take it out of the Trash.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3265,13 +3929,18 @@
         "type": "trash"
       },
       "mustBeClosed": [],
-      "shortReason": "La app pierde sus ajustes guardados, pero el archivo queda en la Papelera.",
-      "section": "maintenance"
+      "shortReason": "The app loses its saved settings, but the file stays in the Trash.",
+      "section": "maintenance",
+      "es": {
+        "title": "Preferencias dañadas",
+        "explanation": "Este archivo de ajustes de una app está dañado y puede impedir que arranque. Va a la Papelera y la app crea uno nuevo; si algo falla, sácalo de la Papelera.",
+        "shortReason": "La app pierde sus ajustes guardados, pero el archivo queda en la Papelera."
+      }
     },
     {
       "id": "maintenance-spotlight-reindex",
-      "title": "Reindexar Spotlight",
-      "explanation": "Spotlight tarda en buscar. Reindexar lo rehace desde cero: pedirá la contraseña de administrador y durante 1–2 horas el Mac irá algo más cargado.",
+      "title": "Reindex Spotlight",
+      "explanation": "Spotlight is slow to search. Reindexing rebuilds it from scratch: it will ask for the administrator password and for 1–2 hours the Mac will be somewhat busier.",
       "whoCreatesIt": "macOS",
       "regenerates": false,
       "risk": "yourCall",
@@ -3286,8 +3955,13 @@
         ]
       },
       "mustBeClosed": [],
-      "shortReason": "No se pierde nada, pero las búsquedas irán incompletas hasta que termine.",
-      "section": "maintenance"
+      "shortReason": "Nothing is lost, but searches will be incomplete until it finishes.",
+      "section": "maintenance",
+      "es": {
+        "title": "Reindexar Spotlight",
+        "explanation": "Spotlight tarda en buscar. Reindexar lo rehace desde cero: pedirá la contraseña de administrador y durante 1–2 horas el Mac irá algo más cargado.",
+        "shortReason": "No se pierde nada, pero las búsquedas irán incompletas hasta que termine."
+      }
     }
   ]
 }
