@@ -1,13 +1,13 @@
 import SwiftUI
 import DiskMapCore
 
-/// Barra lateral translúcida: marca, secciones, selector de disco y tarjeta de uso.
+/// Translucent sidebar: brand, sections, disk picker and usage card.
 struct Sidebar: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        // Sin ScrollView: con ella el área que recibe clics se quedaba más corta que las filas dibujadas
-        // (las de debajo de Limpieza no respondían). Ocho filas caben siempre en la altura mínima.
+        // No ScrollView: with it, the clickable area ended up shorter than the drawn rows
+        // (the ones below Cleanup didn't respond). Eight rows always fit in the minimum height.
         VStack(alignment: .leading, spacing: 2) {
             brand
                 .padding(.horizontal, -10)
@@ -63,9 +63,9 @@ struct Sidebar: View {
     }
 }
 
-// MARK: - Fila de sección
+// MARK: - Section row
 
-/// Fila de la barra lateral con selección propia en azul Airy (la de `List` usa el acento del sistema).
+/// Sidebar row with its own selection in Airy blue (`List`'s uses the system accent).
 private struct SidebarRow: View {
     let section: Section
     let selected: Bool
@@ -92,7 +92,7 @@ private struct SidebarRow: View {
     }
 }
 
-// MARK: - Selector de disco
+// MARK: - Disk picker
 
 private struct VolumePicker: View {
     @Environment(AppModel.self) private var model
@@ -118,7 +118,7 @@ private struct VolumePicker: View {
                     Text(current.name)
                         .font(.callout.weight(.semibold))
                         .lineLimit(1)
-                    // Se redibuja cada 30 s para que "hace X" no se quede viejo.
+                    // Redrawn every 30 s so "X ago" doesn't go stale.
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         Text(lastScanLine(now: context.date))
                             .font(.caption)
@@ -142,26 +142,26 @@ private struct VolumePicker: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .onHover { hovering in withAnimation(Theme.pressSpring) { self.hovering = hovering } }
-        .help("Elegir el disco que se analiza")
+        .help("Choose the disk to scan")
     }
 
     private func lastScanLine(now: Date) -> String {
-        if model.isScanning && model.scan == nil { return "Analizando…" }
-        guard let date = model.lastScanDate else { return "Sin analizar" }
-        return "Analizado \(Theme.relative(date, now: now))"
+        if model.isScanning && model.scan == nil { return String(localized: "Scanning…") }
+        guard let date = model.lastScanDate else { return String(localized: "Not scanned") }
+        return String(localized: "Scanned \(Theme.relative(date, now: now))")
     }
 }
 
-// MARK: - Tarjeta del disco
+// MARK: - Disk card
 
 private struct DiskCard: View {
     @Environment(AppModel.self) private var model
-    /// Opcional: sin `CleanupFlow` en el entorno (vistas sueltas, vistas previas) no se cae; el botón queda inactivo.
+    /// Optional: without a `CleanupFlow` in the environment (standalone views, previews) it doesn't crash; the button stays disabled.
     @Environment(CleanupFlow.self) private var flow: CleanupFlow?
 
     var body: some View {
         let usage = model.diskUsage
-        // En el primer análisis "Analizado" cambia cada 100 ms: cifras fijas para que se lean.
+        // During the first scan "Scanned" changes every 100 ms: fixed digits so it can be read.
         let live = model.isScanning && model.scan == nil
         GlassCard(padding: 14, radius: 16, material: .thinMaterial) {
             VStack(alignment: .leading, spacing: 12) {
@@ -173,7 +173,7 @@ private struct DiskCard: View {
                             .font(.system(.title3, design: .rounded, weight: .bold))
                             .monospacedDigit()
                             .contentTransition(.numericText(value: Double(usage.free)))
-                        Text("libres de \(Format.bytes(usage.total))")
+                        Text("free of \(Format.bytes(usage.total))")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -181,16 +181,16 @@ private struct DiskCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
-                    LegendRow(color: Theme.userFilesColor, title: "Analizado", bytes: usage.analyzed, rolls: !live)
-                        .help("Lo que suma el análisis de este disco (al analizar el disco de arranque incluye macOS y las apps).")
-                    // Si lo analizado ya cubre lo usado, el resto no se puede saber: "—", nunca "0 kB".
-                    LegendRow(color: Theme.systemColor, title: "Sistema y otros", bytes: usage.other, rolls: !live)
+                    LegendRow(color: Theme.userFilesColor, title: "Scanned", bytes: usage.analyzed, rolls: !live)
+                        .help("What this disk’s scan adds up to (for the startup disk it includes macOS and the apps).")
+                    // If the scanned part already covers what is used, the rest can't be known: "—", never "0 kB".
+                    LegendRow(color: Theme.systemColor, title: "System & Other", bytes: usage.other, rolls: !live)
                         .help(usage.other == nil
-                              ? "El análisis ya cubre todo lo ocupado: no queda un resto que se pueda medir."
-                              : "Lo ocupado que el análisis no ve: partes del sistema, otros usuarios y lo que no se pudo leer.")
-                    LegendRow(color: Theme.purgeableColor, title: "Purgable", bytes: usage.purgeable, rolls: !live)
-                        .help("Espacio que macOS libera solo cuando hace falta (instantáneas locales, cachés purgables).")
-                    LegendRow(color: .primary.opacity(0.18), title: "Libre", bytes: usage.free, rolls: !live)
+                              ? "The scan already covers all used space: there’s no remainder left to measure."
+                              : "Used space the scan doesn’t see: parts of the system, other users and whatever couldn’t be read.")
+                    LegendRow(color: Theme.purgeableColor, title: "Purgeable", bytes: usage.purgeable, rolls: !live)
+                        .help("Space macOS frees by itself only when needed (local snapshots, purgeable caches).")
+                    LegendRow(color: .primary.opacity(0.18), title: "Free", bytes: usage.free, rolls: !live)
                 }
 
                 Divider().opacity(0.5)
@@ -200,25 +200,25 @@ private struct DiskCard: View {
                         HStack(spacing: 6) {
                             Image(systemName: "trash")
                                 .foregroundStyle(.secondary)
-                            Text("En la Papelera:")
+                            Text("In the Trash:")
                                 .foregroundStyle(.secondary)
                             BytesCounter(bytes: trash, font: .callout.weight(.semibold))
                         }
                         .font(.callout)
                     } else {
-                        // Sin permiso para leer ~/.Trash no se sabe cuánto hay: nunca "0 kB".
+                        // Without permission to read ~/.Trash, how much is there is unknown: never "0 kB".
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Image(systemName: "trash")
                                 .foregroundStyle(.secondary)
-                            Text("En la Papelera: no se puede leer sin Acceso total al disco")
+                            Text("In the Trash: can’t be read without Full Disk Access")
                                 .foregroundStyle(.secondary)
                         }
                         .font(.caption)
                     }
 
-                    // Activo también si no se puede leer: entonces lo vacía Finder.
-                    // La confirmación (qué, cuánto y el aviso de Finder) la abre `CleanupFlow`.
-                    PrimaryButton("Vaciar Papelera…", systemImage: "trash.slash", style: .secondary,
+                    // Enabled even if it can't be read: then Finder empties it.
+                    // `CleanupFlow` opens the confirmation (what, how much and the Finder warning).
+                    PrimaryButton("Empty Trash…", systemImage: "trash.slash", style: .secondary,
                                   isBusy: flow?.isEmptyingTrash ?? false) {
                         flow?.requestEmptyTrash(model)
                     }
@@ -227,13 +227,13 @@ private struct DiskCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "leaf.fill")
                             .foregroundStyle(Theme.Airy.riskInk(.safe))
-                        Text("Liberado en total:")
+                        Text("Total freed:")
                             .foregroundStyle(.secondary)
                         if model.totalFreedKnown {
                             BytesCounter(bytes: model.totalFreed, font: .callout.weight(.semibold))
                         } else {
                             Text("—").font(.callout.weight(.semibold))
-                                .help("No se pudo leer el historial de limpiezas")
+                                .help("Couldn’t read the cleanup history")
                         }
                     }
                     .font(.callout)
@@ -245,10 +245,10 @@ private struct DiskCard: View {
 
 private struct LegendRow: View {
     let color: Color
-    let title: String
-    /// `nil`: no se puede saber ("—").
+    let title: LocalizedStringKey
+    /// `nil`: can't be known ("—").
     let bytes: Int64?
-    /// `false` mientras el valor cambia cada 100 ms (primer análisis): cifras fijas, sin rodar.
+    /// `false` while the value changes every 100 ms (first scan): fixed digits, no rolling.
     var rolls = true
 
     var body: some View {
@@ -267,8 +267,8 @@ private struct LegendRow: View {
     }
 }
 
-/// Anillo de uso: "Analizado", "Sistema y otros" y "Purgable" sobre una pista que representa lo libre.
-/// Las tres partes suman lo usado (véase `DiskUsageBreakdown`).
+/// Usage ring: "Scanned", "System & Other" and "Purgeable" over a track that stands for free space.
+/// The three parts add up to what is used (see `DiskUsageBreakdown`).
 struct UsageRing: View {
     let usage: DiskUsageBreakdown
     var lineWidth: CGFloat = 9
@@ -296,11 +296,11 @@ struct UsageRing: View {
                 .stroke(Theme.userFiles, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             VStack(spacing: 0) {
-                Text("\(Int((used * 100).rounded())) %")
+                Text("\(Int((used * 100).rounded()))%")
                     .font(.system(.callout, design: .rounded, weight: .bold))
                     .monospacedDigit()
                     .contentTransition(.numericText(value: used))
-                Text("usado")
+                Text("used")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -309,6 +309,6 @@ struct UsageRing: View {
         .animation(Theme.counterSpring, value: usage)
         .onAppear { withAnimation(Theme.counterSpring.delay(0.15)) { appeared = true } }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Disco: \(Format.bytes(usage.used)) usados de \(Format.bytes(usage.total)); \(Format.bytes(usage.analyzed)) analizados, \(Format.bytes(usage.purgeable)) purgables")
+        .accessibilityLabel("Disk: \(Format.bytes(usage.used)) used of \(Format.bytes(usage.total)); \(Format.bytes(usage.analyzed)) scanned, \(Format.bytes(usage.purgeable)) purgeable")
     }
 }

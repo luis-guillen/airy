@@ -3,8 +3,8 @@ import Foundation
 import Observation
 import DiskMapCore
 
-/// Estado de Rendimiento. Ligereza: mide cada 1,5 s **solo** entre `start()` y `stop()` (sección a la vista,
-/// ventana visible); fuera de eso no hay ningún temporizador ni tarea viva.
+/// Performance state. Lightness: it measures every 1.5 s **only** between `start()` and `stop()` (section in view,
+/// window visible); outside of that there is no timer or live task.
 @MainActor @Observable
 final class PerformanceSession {
     static let interval: Duration = .milliseconds(1500)
@@ -13,13 +13,13 @@ final class PerformanceSession {
     private(set) var verdict: HealthVerdict?
     private(set) var board = PerformanceBoard(snapshot: nil, policy: QuitPolicy())
     var selection: Set<String> = []
-    /// Ids que no se cerraron con el cierre normal (`.didNotClose`): se pueden forzar.
+    /// Ids that didn't quit with the normal quit (`.didNotClose`): they can be forced.
     private(set) var unresponsive: Set<String> = []
-    /// Ids que salen volando de la lista (se cerraron).
+    /// Ids flying out of the list (they quit).
     private(set) var leaving: Set<String> = []
-    /// Mensaje de la última acción por fila (`.blocked`/`.failed`).
+    /// Message of the last action per row (`.blocked`/`.failed`).
     private(set) var rowMessages: [String: String] = [:]
-    /// Ids que se están cerrando ahora mismo.
+    /// Ids quitting right now.
     private(set) var closing: Set<String> = []
     private(set) var loginItems: [BrokenLoginItem] = []
     private(set) var maintenance: [CleanupItem] = []
@@ -44,14 +44,14 @@ final class PerformanceSession {
 
     var isRunning: Bool { task != nil }
 
-    /// Idempotente: una sola tarea de muestreo.
+    /// Idempotent: a single sampling task.
     func start() {
         guard task == nil else { return }
         Self.debugLog("start")
         let monitor = monitor
         let probes = probes
         task = Task { [weak self] in
-            // M1: el historial empieza de cero en cada visita, antes de la primera muestra (sin carreras con `stop()`).
+            // M1: the history starts from scratch on each visit, before the first sample (no races with `stop()`).
             await monitor.reset()
             while !Task.isCancelled {
                 let snapshot = await monitor.refresh()
@@ -65,18 +65,18 @@ final class PerformanceSession {
         }
     }
 
-    /// Para todo: ninguna medición después.
+    /// Stops everything: no measurement afterwards.
     func stop() {
         if task != nil { Self.debugLog("stop") }
         task?.cancel()
         task = nil
-        // I2: nada de una visita sirve en la siguiente (ni para la vista ni para una propuesta `airy://quit`).
+        // I2: nothing from one visit is used in the next (neither for the view nor for an `airy://quit` proposal).
         snapshot = nil
         verdict = nil
         board = PerformanceBoard(snapshot: nil, policy: QuitPolicy())
     }
 
-    /// Solo en Debug con `AIRY_PERF_LOG=1`: traza del muestreo (para comprobar que se para).
+    /// Debug only with `AIRY_PERF_LOG=1`: sampling trace (to check that it stops).
     nonisolated static func debugLog(_ event: String) {
         #if DEBUG
         guard ProcessInfo.processInfo.environment["AIRY_PERF_LOG"] == "1" else { return }
@@ -89,15 +89,15 @@ final class PerformanceSession {
         self.verdict = verdict
         board = PerformanceBoard(snapshot: snapshot, policy: QuitPolicy())
         let alive = Set(snapshot.groups.map(\.id))
-        // Lo que ya no existe deja de estar seleccionado, en salida o sin responder.
+        // What no longer exists stops being selected, leaving or not responding.
         selection.formIntersection(alive)
         unresponsive.formIntersection(alive)
         if !leaving.isEmpty { leaving.formIntersection(alive) }
         rowMessages = rowMessages.filter { alive.contains($0.key) }
     }
 
-    /// Para `airy://quit`: una instantánea tomada después de la petición (I2). Espera a la del muestreo de la
-    /// sección; si no llega (ventana oculta, sección sin abrir), mide una vez.
+    /// For `airy://quit`: a snapshot taken after the request (I2). It waits for the section's sampling
+    /// one; if it doesn't arrive (window hidden, section not open), it measures once.
     func freshSnapshot() async -> PerformanceSnapshot {
         let requested = Date()
         for _ in 0..<20 {
@@ -108,7 +108,7 @@ final class PerformanceSession {
         return await monitor.snapshot(since: requested)
     }
 
-    // MARK: Cerrar
+    // MARK: Quit
 
     func markClosing(_ id: String, _ on: Bool) {
         if on { closing.insert(id); rowMessages[id] = nil } else { closing.remove(id) }
@@ -124,18 +124,18 @@ final class PerformanceSession {
 
     func setMessage(_ id: String, _ message: String) { rowMessages[id] = message }
 
-    /// Filas a la vista: sin las que ya salieron.
+    /// Visible rows: without the ones that already left.
     var visibleRows: [PerformanceRow] { board.rows.filter { !leaving.contains($0.id) } }
 
-    // MARK: Mantenimiento
+    // MARK: Maintenance
 
-    /// Al aparecer con la ventana visible: solo si la última comprobación tiene más de unos minutos (M9).
+    /// On appearing with the window visible: only if the last check is more than a few minutes old (M9).
     func refreshMaintenanceIfStale() async {
         guard PerformanceSamplingGate.maintenanceIsStale(lastCheck: maintenanceCheckedAt, now: Date()) else { return }
         await refreshMaintenance()
     }
 
-    /// `MaintenanceScanner` + elementos de inicio rotos (solo lecturas). Al aparecer (con caché) y tras cada acción.
+    /// `MaintenanceScanner` + broken login items (reads only). On appearing (with a cache) and after each action.
     func refreshMaintenance() async {
         maintenanceCheckedAt = Date()
         let onAC = snapshot?.battery?.onACPower ?? BatteryProbe.cached()?.onACPower ?? true
@@ -166,8 +166,8 @@ final class PerformanceSession {
 
     func setMaintenanceResult(_ id: String, _ outcome: CleanupOutcome) {
         switch outcome {
-        case .freed: maintenanceResults[id] = "Hecho"
-        case .movedToTrash: maintenanceResults[id] = "Hecho: está en la Papelera"
+        case .freed: maintenanceResults[id] = String(localized: "Done")
+        case .movedToTrash: maintenanceResults[id] = String(localized: "Done: it’s in the Trash")
         case .blocked(let reason): maintenanceResults[id] = reason
         case .failed(let message): maintenanceResults[id] = message
         }

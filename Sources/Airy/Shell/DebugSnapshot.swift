@@ -1,46 +1,46 @@
 #if DEBUG
 import AppKit
 
-/// Solo en Debug: captura la propia ventana a PNG para revisar la interfaz sin permiso de
-/// Grabación de pantalla (una app puede capturar sus propias ventanas).
+/// Debug only: captures the app's own window to PNG to review the UI without Screen Recording
+/// permission (an app can capture its own windows).
 ///
-/// - `AIRY_SNAPSHOT_DIR`: carpeta de salida; sin ella no hace nada.
-/// - `AIRY_SNAPSHOT_TIMES`: segundos tras el arranque, separados por comas (por defecto "2,6").
-/// - `AIRY_SNAPSHOT_PREFIX`: prefijo del nombre (por defecto "shot").
-/// - `AIRY_APPEARANCE`: "dark" o "light" para forzar el modo.
-/// - `AIRY_SECTION`: sección inicial ("map", "cleanup", "assistant").
-/// - `AIRY_SNAPSHOT_SHEET`: "1" recorta la captura a la hoja abierta, si la hay.
-/// - `AIRY_SUPPORT_DIR` (en `AppModel`): carpeta de datos alternativa.
-/// - `AIRY_REDUCE_MOTION`: "1" fuerza «Reducir movimiento» en el portero de `RootView`.
-/// - `AIRY_HIDE_AT` / `AIRY_UNHIDE_AT`: segundos tras el arranque a los que la app se oculta y vuelve
-///   (`NSApp.hide`/`unhide`, solo la propia app); sirven para comprobar la pausa total.
-/// - `AIRY_SKIP_LAUNCH`: "1" salta la capa de arranque; también se salta con cualquier
-///   `AIRY_*_SCRIPT`, para que los guiones de depuración conserven sus tiempos.
-/// - `AIRY_SCAN_PREVIEW` (en `AppModel`): "1" enseña la pantalla de análisis con un progreso fijo
-///   sin analizar nada (para medir sus animaciones sin recorrer el disco).
-/// - `AIRY_MOTION_GALLERY`: "1" sustituye el contenido por la galería de movimiento (`MotionGallery`) y
-///   no analiza el disco.
-/// - `AIRY_GALLERY_AUTOPLAY`: segundos tras el arranque a los que la galería pulsa sola «Simular borrado».
+/// - `AIRY_SNAPSHOT_DIR`: output folder; without it, nothing happens.
+/// - `AIRY_SNAPSHOT_TIMES`: seconds after launch, comma-separated (default "2,6").
+/// - `AIRY_SNAPSHOT_PREFIX`: file name prefix (default "shot").
+/// - `AIRY_APPEARANCE`: "dark" or "light" to force the mode.
+/// - `AIRY_SECTION`: initial section ("map", "cleanup", "assistant").
+/// - `AIRY_SNAPSHOT_SHEET`: "1" crops the capture to the open sheet, if any.
+/// - `AIRY_SUPPORT_DIR` (in `AppModel`): alternative data folder.
+/// - `AIRY_REDUCE_MOTION`: "1" forces "Reduce motion" in `RootView`'s gatekeeper.
+/// - `AIRY_HIDE_AT` / `AIRY_UNHIDE_AT`: seconds after launch at which the app hides and comes back
+///   (`NSApp.hide`/`unhide`, only the app itself); used to check the full pause.
+/// - `AIRY_SKIP_LAUNCH`: "1" skips the launch layer; it is also skipped with any
+///   `AIRY_*_SCRIPT`, so debug scripts keep their timings.
+/// - `AIRY_SCAN_PREVIEW` (in `AppModel`): "1" shows the scan screen with fixed progress
+///   without scanning anything (to measure its animations without walking the disk).
+/// - `AIRY_MOTION_GALLERY`: "1" replaces the content with the motion gallery (`MotionGallery`) and
+///   doesn't scan the disk.
+/// - `AIRY_GALLERY_AUTOPLAY`: seconds after launch at which the gallery presses "Simulate Deletion" by itself.
 @MainActor
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
-    /// Reloj común de capturas y guiones de depuración (p. ej. `AIRY_MAP_SCRIPT`).
+    /// Shared clock for captures and debug scripts (e.g. `AIRY_MAP_SCRIPT`).
     nonisolated(unsafe) static private(set) var start = Date()
     private static var activity: NSObjectProtocol?
 
-    /// `AIRY_REDUCE_MOTION=1`: el portero se comporta como con «Reducir movimiento».
+    /// `AIRY_REDUCE_MOTION=1`: the gatekeeper behaves as with "Reduce motion".
     static var forcesReduceMotion: Bool { environment["AIRY_REDUCE_MOTION"] == "1" }
 
-    /// `AIRY_SKIP_LAUNCH=1` o algún `AIRY_*_SCRIPT`: sin capa de arranque.
+    /// `AIRY_SKIP_LAUNCH=1` or some `AIRY_*_SCRIPT`: no launch layer.
     static var skipsLaunch: Bool {
         environment["AIRY_SKIP_LAUNCH"] == "1"
             || environment.keys.contains { $0.hasPrefix("AIRY_") && $0.hasSuffix("_SCRIPT") }
     }
 
-    /// `AIRY_SCAN_PREVIEW=1`: pantalla de análisis con progreso fijo, sin recorrer el disco.
+    /// `AIRY_SCAN_PREVIEW=1`: scan screen with fixed progress, without walking the disk.
     static var previewsScan: Bool { environment["AIRY_SCAN_PREVIEW"] == "1" }
 
-    /// `AIRY_MOTION_GALLERY=1`: galería de movimiento en lugar de la sección, sin analizar el disco.
+    /// `AIRY_MOTION_GALLERY=1`: motion gallery instead of the section, without scanning the disk.
     static var showsGallery: Bool { environment["AIRY_MOTION_GALLERY"] == "1" }
 
     static func configure(_ model: AppModel) {
@@ -53,22 +53,22 @@ enum DebugSnapshot {
         if let raw = environment["AIRY_SECTION"], let section = Section(rawValue: raw) {
             model.section = section
         }
-        // Las variables nuevas se leen antes de la salida temprana de las capturas.
+        // The new variables are read before the captures' early exit.
         let hideAt = environment["AIRY_HIDE_AT"].flatMap(Double.init)
         let unhideAt = environment["AIRY_UNHIDE_AT"].flatMap(Double.init)
         if hideAt != nil || unhideAt != nil {
-            // Sin App Nap: el reloj de `unhide` llega a tiempo y la medida de CPU oculta no la rebaja
-            // el sistema (lo que cuenta es que la app no anime nada, no que macOS la frene).
+            // No App Nap: the `unhide` timer fires on time and the system doesn't lower the hidden CPU
+            // measurement (what counts is that the app animates nothing, not that macOS throttles it).
             activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical],
-                                                             reason: "Ocultar y mostrar de depuración")
+                                                             reason: "Debug hide and show")
         }
         if let hideAt { at(hideAt) { NSApp.hide(nil) } }
-        // `unhide` no reactiva la app; antes de ocultarse era la activa, así que vuelve a serlo.
+        // `unhide` doesn't reactivate the app; it was active before hiding, so it becomes active again.
         if let unhideAt { at(unhideAt) { NSApp.unhide(nil); NSApp.activate() } }
         guard let directory = environment["AIRY_SNAPSHOT_DIR"] else { return }
-        // Sin App Nap: con la ventana tapada, macOS retrasa los temporizadores y las capturas no llegan.
+        // No App Nap: with the window covered, macOS delays timers and the captures never arrive.
         activity = activity ?? ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical],
-                                                         reason: "Capturas de depuración")
+                                                         reason: "Debug captures")
         let prefix = environment["AIRY_SNAPSHOT_PREFIX"] ?? "shot"
         let times = (environment["AIRY_SNAPSHOT_TIMES"] ?? "2,6")
             .split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
@@ -80,8 +80,8 @@ enum DebugSnapshot {
         }
     }
 
-    /// Ejecuta `block` a `time` segundos del arranque con un `Timer` sin tolerancia: `asyncAfter` con
-    /// plazos de decenas de segundos lleva segundos de holgura y las capturas llegaban tarde.
+    /// Runs `block` `time` seconds after launch with a zero-tolerance `Timer`: `asyncAfter` with
+    /// delays of tens of seconds carries seconds of slack and the captures arrived late.
     static func at(_ time: Double, _ block: @escaping @MainActor () -> Void) {
         let timer = Timer(fire: start.addingTimeInterval(time), interval: 0, repeats: false) { _ in
             MainActor.assumeIsolated { block() }
@@ -90,28 +90,28 @@ enum DebugSnapshot {
         RunLoop.main.add(timer, forMode: .common)
     }
 
-    /// `CGWindowListCreateImageFromArray` (no disponible en Swift desde macOS 15, de ahí `dlsym`) sí
-    /// compone materiales y capas de SwiftUI, y una app puede capturar sus propias ventanas sin permiso.
-    /// Solo entran ventanas cuyo dueño es este proceso (la principal, sus hojas y sus menús), nunca las
-    /// de otras apps, y la imagen se recorta al marco de la ventana principal.
-    /// `cacheDisplay` queda de reserva, aunque no dibuja el contenido de SwiftUI.
+    /// `CGWindowListCreateImageFromArray` (unavailable in Swift since macOS 15, hence `dlsym`) does
+    /// composite SwiftUI materials and layers, and an app can capture its own windows without permission.
+    /// Only windows owned by this process are included (the main one, its sheets and its menus), never
+    /// other apps', and the image is cropped to the main window's frame.
+    /// `cacheDisplay` stays as a fallback, although it doesn't draw SwiftUI content.
     private typealias CreateImageFromArray = @convention(c) (CGRect, CFArray, UInt32) -> Unmanaged<CGImage>?
 
     static func capture(to url: URL) {
         let began = Date()
         defer {
-            FileHandle.standardError.write(Data(String(format: "[snap] %@ a %.2f s (%.0f ms)\n", url.lastPathComponent,
+            FileHandle.standardError.write(Data(String(format: "[snap] %@ at %.2f s (%.0f ms)\n", url.lastPathComponent,
                 began.timeIntervalSince(start), Date().timeIntervalSince(began) * 1000).utf8))
         }
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.sheetParent == nil })
         else { return }
         let pid = Int(getpid())
         let info = (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]) ?? []
-        // De delante hacia atrás, como las devuelve el sistema; solo las de este proceso.
+        // Front to back, as the system returns them; only this process's.
         let own = info.filter { ($0[kCGWindowOwnerPID as String] as? Int) == pid }
         let ids = own.compactMap { $0[kCGWindowNumber as String] as? Int }
-        // Con AIRY_SNAPSHOT_SHEET=1 y una hoja abierta, se recorta al marco de la hoja (misma
-        // composición de ventanas propias; nunca entran las de otras apps).
+        // With AIRY_SNAPSHOT_SHEET=1 and a sheet open, it is cropped to the sheet's frame (same
+        // composition of own windows; other apps' windows never get in).
         let target = environment["AIRY_SNAPSHOT_SHEET"] == "1" ? (window.attachedSheet ?? window) : window
         let bounds = own.first { ($0[kCGWindowNumber as String] as? Int) == target.windowNumber }
             .flatMap { $0[kCGWindowBounds as String] as! CFDictionary? }

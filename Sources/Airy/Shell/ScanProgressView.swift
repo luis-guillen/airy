@@ -1,11 +1,11 @@
 import SwiftUI
 import DiskMapCore
 
-/// Progreso del análisis: anillo vivo, contador de archivos y bytes y la ruta actual.
-/// Los contadores cambian cada 100 ms, así que se muestran con cifras tabulares fijas; el anillo
-/// y el porcentaje son los que se animan con muelle.
-/// `.hero` ocupa el centro cuando aún no hay nada que enseñar; `.compact` es una píldora
-/// sobre el contenido mientras se reanaliza un índice ya mostrado.
+/// Scan progress: a live ring, file and byte counters and the current path.
+/// The counters change every 100 ms, so they are shown with fixed tabular digits; the ring
+/// and the percentage are what animate with a spring.
+/// `.hero` fills the center when there is nothing to show yet; `.compact` is a pill
+/// over the content while an index already shown is rescanned.
 struct ScanProgressView: View {
     enum Style { case hero, compact }
 
@@ -19,7 +19,7 @@ struct ScanProgressView: View {
         }
     }
 
-    /// Fracción estimada: lo analizado frente a lo ocupado del volumen (nunca llega al 100 % antes de acabar).
+    /// Estimated fraction: what was scanned versus the volume's used space (never reaches 100% before finishing).
     private var fraction: Double {
         let used = Double(max(model.currentVolume.totalBytes - model.currentVolume.availableBytes, 1))
         let scanned = Double(model.progress?.bytesScanned ?? 0)
@@ -34,29 +34,29 @@ struct ScanProgressView: View {
         VStack(spacing: 26) {
             ScanRing(fraction: fraction, lineWidth: 14) {
                 VStack(spacing: 2) {
-                    Text("\(Int((fraction * 100).rounded())) %")
+                    Text("\(Int((fraction * 100).rounded()))%")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: fraction))
-                    Text("estimado")
+                    Text("estimated")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(width: 168, height: 168)
-            // Hojas en órbita alrededor del anillo; el cuadro mayor no cambia la maqueta.
+            // Leaves orbiting around the ring; the larger frame doesn't change the layout.
             .background {
                 WindLeaves(mode: .orbit(radius: 98), count: 7)
                     .frame(width: 240, height: 240)
             }
 
             VStack(spacing: 8) {
-                Text("Analizando \(model.currentVolume.name)")
+                Text("Scanning \(model.currentVolume.name)")
                     .font(.system(.title2, design: .rounded, weight: .bold))
                 HStack(spacing: 18) {
-                    counter(value: Theme.count(files), label: "archivos")
+                    counter(value: Theme.count(files), label: "files")
                     Divider().frame(height: 26)
-                    counter(value: Format.bytes(bytes), label: "analizados")
+                    counter(value: Format.bytes(bytes), label: "scanned")
                 }
             }
 
@@ -78,10 +78,10 @@ struct ScanProgressView: View {
                 .frame(width: 22, height: 22)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
-                    Text("Actualizando análisis")
+                    Text("Updating Scan")
                         .font(.callout.weight(.semibold))
-                    // Llega cada 100 ms: cifras fijas (sin rodar) para que se lean.
-                    Text("· \(Theme.count(files)) archivos · \(Format.bytes(bytes))")
+                    // Arrives every 100 ms: fixed digits (no rolling) so it can be read.
+                    Text("· \(Theme.count(files)) files · \(Format.bytes(bytes))")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -103,18 +103,18 @@ struct ScanProgressView: View {
                     .background(.primary.opacity(0.06), in: Circle())
             }
             .buttonStyle(.plain)
-            .help("Detener el análisis")
+            .help("Stop the scan")
         }
         .padding(.leading, 12)
         .padding(.trailing, 10)
         .padding(.vertical, 8)
-        .frame(width: 540) // ancho fijo: la ruta cambia cada 100 ms y la píldora no debe bailar
+        .frame(width: 540) // fixed width: the path changes every 100 ms and the pill must not jitter
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
     }
 
-    private func counter(value: String, label: String) -> some View {
+    private func counter(value: String, label: LocalizedStringKey) -> some View {
         VStack(spacing: 0) {
             Text(value)
                 .font(.system(.title3, design: .rounded, weight: .semibold))
@@ -124,10 +124,10 @@ struct ScanProgressView: View {
     }
 }
 
-/// Anillo con el avance estimado y un destello que gira sin parar mientras hay movimiento ambiente.
-/// El giro lo interpola el servidor de render (`SpinningGlint`): ni el cuerpo ni la app trabajan
-/// por fotograma (un `repeatForever` de SwiftUI costaba ≈ 10–16 % de CPU a 120 Hz, medido).
-/// En pausa o con «Reducir movimiento» no hay destello.
+/// Ring with the estimated progress and a glint that spins nonstop while there is ambient motion.
+/// The render server interpolates the spin (`SpinningGlint`): neither the body nor the app works
+/// per frame (a SwiftUI `repeatForever` cost ≈ 10–16% CPU at 120 Hz, measured).
+/// When paused or with "Reduce motion" there is no glint.
 struct ScanRing<Center: View>: View {
     let fraction: Double
     var lineWidth: CGFloat
@@ -143,21 +143,21 @@ struct ScanRing<Center: View>: View {
                 .trim(from: 0, to: max(fraction, 0.02))
                 .stroke(Theme.Airy.logoGradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                // Sin animación de SwiftUI: el avance llega cada 100 ms y un muelle encadenado tendría la
-                // ventana entera recalculando su disposición en cada fotograma durante todo el análisis.
-            // Destello giratorio: indica actividad aunque la estimación avance despacio.
+                // No SwiftUI animation: progress arrives every 100 ms and a chained spring would have the
+                // whole window recomputing its layout every frame for the entire scan.
+            // Spinning glint: shows activity even when the estimate advances slowly.
             if motion == .running {
                 SpinningGlint(lineWidth: lineWidth)
             }
             center
         }
         .padding(lineWidth / 2)
-        // Un solo bloque geométrico: al moverse el anillo (entrada de la píldora) sus capas no se separan.
+        // A single geometry group: when the ring moves (pill entrance) its layers don't separate.
         .geometryGroup()
     }
 }
 
-/// Arco blanco (12 % de la vuelta) que da una vuelta cada 1,4 s empezando arriba.
+/// White arc (12% of the turn) that makes one turn every 1.4 s starting at the top.
 private struct SpinningGlint: View {
     let lineWidth: CGFloat
 
@@ -167,7 +167,7 @@ private struct SpinningGlint: View {
         RenderServerLayer(key: lineWidth) { container, size in
             let arc = CAShapeLayer()
             arc.frame = CGRect(origin: .zero, size: size)
-            // Como `Circle().stroke`: el trazo va centrado en el círculo inscrito.
+            // Like `Circle().stroke`: the stroke is centered on the inscribed circle.
             let radius = min(size.width, size.height) / 2
             let path = CGMutablePath()
             path.addArc(center: CGPoint(x: size.width / 2, y: size.height / 2), radius: radius,
@@ -179,7 +179,7 @@ private struct SpinningGlint: View {
             arc.lineCap = .round
             arc.contentsScale = container.contentsScale
             let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-            // Con y hacia abajo, positivo es horario: de las 12 en punto a las 12 en punto.
+            // With y pointing down, positive is clockwise: from 12 o'clock to 12 o'clock.
             spin.fromValue = -Double.pi / 2
             spin.toValue = 1.5 * Double.pi
             spin.duration = Self.period

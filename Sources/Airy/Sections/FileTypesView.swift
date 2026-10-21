@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Tipos de archivo: anillo animado con la leyenda al lado; al elegir un tipo, sus archivos debajo.
+/// File types: an animated ring with the legend beside it; choosing a kind shows its files below.
 struct FileTypesView: View {
     @Environment(AppModel.self) private var model
     @ViewState private var hovered: ContentKind?
@@ -29,7 +29,7 @@ struct FileTypesView: View {
                     }
                     chosenList(store, selection: $bindable.selection)
                 } else {
-                    EmptySectionCard(symbol: Section.types.symbol, line: "Analiza el disco para ver qué tipos ocupan más.")
+                    EmptySectionCard(symbol: Section.types.symbol, line: "Scan the disk to see which kinds take up the most space.")
                 }
             }
             .padding(.horizontal, Theme.contentPadding)
@@ -58,9 +58,10 @@ struct FileTypesView: View {
     }
 
     private func subtitle(_ store: FileTypesStore) -> String {
-        guard let breakdown = store.breakdown else { return "Sin análisis todavía" }
+        guard let breakdown = store.breakdown else { return String(localized: "No scan yet") }
         let count = breakdown.slices.count
-        return "\(Format.bytes(breakdown.total)) en \(count == 1 ? "1 tipo" : "\(count) tipos")"
+        return count == 1 ? String(localized: "\(Format.bytes(breakdown.total)) in 1 kind")
+                          : String(localized: "\(Format.bytes(breakdown.total)) in \(count) kinds")
     }
 
     private func choose(_ kind: ContentKind, _ store: FileTypesStore) {
@@ -116,12 +117,12 @@ struct FileTypesView: View {
                     if store.isLoading { ProgressView().controlSize(.small) }
                 }
                 if store.files.isEmpty, !store.isLoading {
-                    EmptySectionCard(symbol: "line.3.horizontal.decrease.circle", line: "Nada que listar de este tipo.")
+                    EmptySectionCard(symbol: "line.3.horizontal.decrease.circle", line: "Nothing to list for this kind.")
                 } else {
                     RiskGroupedList(files: store.files, selection: selection, gust: store.gust)
                 }
                 if store.hiddenBytes > 0 {
-                    Text("y \(Format.bytes(store.hiddenBytes)) en archivos pequeños")
+                    Text("and \(Format.bytes(store.hiddenBytes)) in small files")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 4)

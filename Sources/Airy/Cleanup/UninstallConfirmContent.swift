@@ -1,14 +1,14 @@
 import SwiftUI
 import DiskMapCore
 
-/// Confirmación del Desinstalador (`.uninstall`, `.orphans`, `.brokenLinks`) y de Duplicados (`.duplicates`)
-/// dentro de `ConfirmSheet`.
-/// Dice qué se cierra, qué va a la Papelera, qué borra Homebrew directamente y qué se queda.
+/// Confirmation for the Uninstaller (`.uninstall`, `.orphans`, `.brokenLinks`) and Duplicates (`.duplicates`)
+/// inside `ConfirmSheet`.
+/// It says what quits, what goes to the Trash, what Homebrew deletes directly and what stays.
 struct UninstallConfirmContent: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
     let request: CleanupFlow.ConfirmRequest
-    /// Veredicto de Homebrew por app (`UninstallRequest.id`), leído al abrir la hoja (`brew info`, solo lectura).
+    /// Homebrew's verdict per app (`UninstallRequest.id`), read when the sheet opens (`brew info`, read-only).
     @State private var caskVerdicts: [String: CaskVerdict] = [:]
 
     var body: some View {
@@ -33,10 +33,10 @@ struct UninstallConfirmContent: View {
             }
             HStack(spacing: 10) {
                 Spacer()
-                Button("Cancelar") { flow.cancelSheet() }
+                Button("Cancel") { flow.cancelSheet() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
-                // Intro solo confirma lo que va entero a la Papelera (restos huérfanos).
+                // Return only confirms what goes entirely to the Trash (orphaned leftovers).
                 if isTrashOnly {
                     confirmButton.keyboardShortcut(.defaultAction)
                 } else {
@@ -55,7 +55,7 @@ struct UninstallConfirmContent: View {
         .disabled(model.destructiveRefusal != nil || nothingToDo || checkingHomebrew)
     }
 
-    // MARK: Datos
+    // MARK: Data
 
     private var isDuplicates: Bool { if case .duplicates = request.kind { true } else { false } }
 
@@ -66,16 +66,16 @@ struct UninstallConfirmContent: View {
         }
     }
 
-    /// Lo que liberarían las copias marcadas (lo calcula el tablero de Duplicados; 0 en clones APFS).
+    /// What the checked copies would free (computed by the Duplicates board; 0 for APFS clones).
     private var duplicatesBytes: Int64 { model.sections.duplicates.board.reclaimableBytes }
 
-    /// Apps que Airy no desinstala (rechazo del plan): no se ejecutan.
+    /// Apps Airy doesn't uninstall (the plan refused them): they don't run.
     private var blocked: Set<String> {
         guard case .uninstall(let requests) = request.kind else { return [] }
         return Set(requests.filter { $0.plan.refusal != nil }.map(\.id))
     }
 
-    /// Mientras no se sabe si Homebrew borrará la app sin Papelera, no se confirma.
+    /// While it isn't known whether Homebrew will delete the app without the Trash, no confirming.
     private var checkingHomebrew: Bool {
         guard case .uninstall(let requests) = request.kind else { return false }
         return requests.contains {
@@ -88,7 +88,7 @@ struct UninstallConfirmContent: View {
         return requests.allSatisfy { blocked.contains($0.id) }
     }
 
-    /// Homebrew borra la app sin Papelera; mientras no se sabe qué hará, se trata como irreversible.
+    /// Homebrew deletes the app without the Trash; until it is known what it will do, treat it as irreversible.
     private var isIrreversible: Bool {
         switch request.kind {
         case .brokenLinks: true
@@ -109,17 +109,18 @@ struct UninstallConfirmContent: View {
     private var title: String {
         switch request.kind {
         case .uninstall(let requests):
-            requests.count == 1 ? "¿Desinstalar «\(requests[0].plan.app.name)»?"
-                                : "¿Desinstalar \(Theme.count(requests.count)) apps?"
+            requests.count == 1 ? String(localized: "Uninstall “\(requests[0].plan.app.name)”?")
+                                : String(localized: "Uninstall \(Theme.count(requests.count)) apps?")
         case .orphans(let groups):
-            groups.count == 1 ? "¿Mover los restos de «\(groups[0].bundleID)» a la Papelera?"
-                              : "¿Mover \(Theme.count(groups.count)) restos huérfanos a la Papelera?"
+            groups.count == 1 ? String(localized: "Move the leftovers of “\(groups[0].bundleID)” to the Trash?")
+                              : String(localized: "Move \(Theme.count(groups.count)) orphaned leftovers to the Trash?")
         case .brokenLinks(let links):
-            links.count == 1 ? "¿Quitar 1 enlace roto?" : "¿Quitar \(Theme.count(links.count)) enlaces rotos?"
+            links.count == 1 ? String(localized: "Remove 1 broken link?")
+                             : String(localized: "Remove \(Theme.count(links.count)) broken links?")
         case .duplicates(let removals):
             removals.reduce(0) { $0 + $1.remove.count } == 1
-                ? "¿Mover 1 copia a la Papelera?"
-                : "¿Mover \(Theme.count(removals.reduce(0) { $0 + $1.remove.count })) copias a la Papelera?"
+                ? String(localized: "Move 1 copy to the Trash?")
+                : String(localized: "Move \(Theme.count(removals.reduce(0) { $0 + $1.remove.count })) copies to the Trash?")
         default: ""
         }
     }
@@ -129,13 +130,13 @@ struct UninstallConfirmContent: View {
         case .uninstall(let requests):
             let total = requests.filter { !blocked.contains($0.id) }
                 .reduce(Int64(0)) { $0 + $1.plan.bytes(selected: $1.selected) }
-            return "Total: \(Format.bytes(total))."
+            return String(localized: "Total: \(Format.bytes(total)).")
         case .orphans(let groups):
-            return "\(Format.bytes(groups.reduce(0) { $0 + $1.bytes })) irán a la Papelera. Se liberan al vaciarla."
+            return String(localized: "\(Format.bytes(groups.reduce(0) { $0 + $1.bytes })) will go to the Trash. The space is freed when you empty it.")
         case .brokenLinks:
-            return "Enlaces de /usr/local/bin que ya no apuntan a nada."
+            return String(localized: "Links in /usr/local/bin that no longer point to anything.")
         case .duplicates:
-            return "Total: \(Format.bytes(duplicatesBytes)). Se liberan al vaciar la Papelera."
+            return String(localized: "Total: \(Format.bytes(duplicatesBytes)). The space is freed when you empty the Trash.")
         default: return ""
         }
     }
@@ -144,9 +145,9 @@ struct UninstallConfirmContent: View {
         switch request.kind {
         case .uninstall(let requests):
             let count = requests.count - blocked.count
-            return count <= 1 ? "Desinstalar" : "Desinstalar \(Theme.count(count)) apps"
-        case .orphans, .duplicates: return "Mover a la Papelera"
-        case .brokenLinks: return "Quitar enlaces rotos"
+            return count <= 1 ? String(localized: "Uninstall") : String(localized: "Uninstall \(Theme.count(count)) Apps")
+        case .orphans, .duplicates: return String(localized: "Move to Trash")
+        case .brokenLinks: return String(localized: "Remove Broken Links")
         default: return ""
         }
     }
@@ -167,7 +168,7 @@ struct UninstallConfirmContent: View {
         }
     }
 
-    // MARK: Contenido
+    // MARK: Content
 
     @ViewBuilder
     private var content: some View {
@@ -179,7 +180,7 @@ struct UninstallConfirmContent: View {
             }
             if requests.count > 1 {
                 note("list.number", .secondary,
-                     "Se desinstalan de una en una; antes de cada una se vuelve a comprobar que sigue siendo seguro.")
+                     "They’re uninstalled one at a time; before each one Airy checks again that it’s still safe.")
             }
         case .orphans(let groups):
             ForEach(groups) { group in
@@ -187,27 +188,27 @@ struct UninstallConfirmContent: View {
                      size: group.bytes, risk: group.risk)
             }
             note("arrow.uturn.backward.circle", Theme.Airy.riskInk(.safe),
-                 "Lo que va a la Papelera se puede recuperar hasta que la vacíes.")
+                 "What goes to the Trash can be recovered until you empty it.")
             note("checkmark.shield", .secondary,
-                 "Justo antes de moverlos, Airy vuelve a comprobar que su app sigue sin estar instalada.")
+                 "Right before moving them, Airy checks again that their app still isn’t installed.")
         case .brokenLinks(let links):
             ForEach(links) { link in
                 line("\((link.path as NSString).lastPathComponent) → \(link.target)", detail: link.path, size: nil,
                      risk: nil)
             }
             note("exclamationmark.triangle.fill", Theme.Airy.riskInk(.yourCall),
-                 "Los enlaces rotos se borran: no apuntan a nada y no van a la Papelera.")
+                 "Broken links are deleted: they point to nothing and don’t go to the Trash.")
             if links.contains(where: \.needsAdmin) {
-                note("lock.fill", .secondary, "Pedirá tu contraseña de administrador.")
+                note("lock.fill", .secondary, "You’ll be asked for your administrator password.")
             }
         case .duplicates(let removals):
             ForEach(Array(removals.enumerated()), id: \.offset) { index, removal in
                 if index > 0 { Divider().opacity(0.5) }
                 VStack(alignment: .leading, spacing: 6) {
                     note("checkmark.circle.fill", Theme.Airy.riskInk(.safe),
-                         "Se conserva: \(Format.tildePath(removal.keep))")
+                         "Kept: \(Format.tildePath(removal.keep))")
                     note("trash", .secondary,
-                         "A la Papelera: \(removal.remove.map { Format.tildePath($0) }.joined(separator: ", "))")
+                         "To the Trash: \(removal.remove.map { Format.tildePath($0) }.joined(separator: ", "))")
                 }
             }
             HStack {
@@ -215,7 +216,7 @@ struct UninstallConfirmContent: View {
                 Spacer()
                 Text(Format.bytes(duplicatesBytes)).font(.callout.weight(.semibold)).monospacedDigit()
             }
-            note("checkmark.shield", .secondary, "Antes de mover nada, Airy vuelve a comparar cada copia.")
+            note("checkmark.shield", .secondary, "Before moving anything, Airy compares each copy again.")
         default:
             EmptyView()
         }
@@ -237,35 +238,35 @@ struct UninstallConfirmContent: View {
                     .font(.callout.weight(.semibold)).monospacedDigit()
             }
             if let refusal = plan.refusal {
-                note("nosign", Theme.Airy.riskInk(.doNotTouch), "No se hará: \(refusal)")
+                note("nosign", Theme.Airy.riskInk(.doNotTouch), "Won’t be done: \(refusal)")
             } else {
-                note("power", .secondary, "Se cerrará «\(app.name)» si está abierta (podrá pedirte guardar).")
+                note("power", .secondary, "“\(app.name)” will quit if it’s open (it may ask you to save).")
                 if let token = app.caskToken {
                     switch caskVerdicts[request.id] {
                     case .some(.useBrew):
                         note("exclamationmark.triangle.fill", Theme.Airy.riskInk(.doNotTouch),
-                             "La app la borra Homebrew directamente con `brew uninstall --cask \(token)`: no va a la Papelera y no se puede recuperar desde ella.")
+                             "Homebrew deletes the app directly with `brew uninstall --cask \(token)`: it doesn’t go to the Trash and can’t be recovered from it.")
                         note("terminal", .secondary,
-                             "Homebrew puede ejecutar los pasos de desinstalación de la propia app; Airy los ha revisado antes.")
+                             "Homebrew may run the app’s own uninstall steps; Airy has reviewed them first.")
                     case .some(.fallback(let reason)):
-                        note("info.circle", .secondary, reason)
-                        note("trash", Theme.Airy.riskInk(.safe), "La app irá a la Papelera.")
+                        note("info.circle", .secondary, verbatim: reason)
+                        note("trash", Theme.Airy.riskInk(.safe), "The app will go to the Trash.")
                     case .none:
-                        note("hourglass", .secondary, "Comprobando qué haría Homebrew con «\(app.name)»…")
+                        note("hourglass", .secondary, "Checking what Homebrew would do with “\(app.name)”…")
                     }
                 } else {
-                    note("trash", Theme.Airy.riskInk(.safe), "La app irá a la Papelera.")
+                    note("trash", Theme.Airy.riskInk(.safe), "The app will go to the Trash.")
                 }
                 if !chosen.filter({ $0.kind != .receipt && $0.kind != .systemLocation }).isEmpty {
                     note("arrow.uturn.backward.circle", .secondary,
-                         "Los restos que eliges van a la Papelera (Airy los comprueba antes de moverlos).")
+                         "The leftovers you choose go to the Trash (Airy checks them before moving them).")
                 }
                 ForEach(green) { leftover in
                     line(Format.tildePath(leftover.path), detail: leftover.reason, size: leftover.bytes, risk: .safe)
                 }
                 if !amber.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Label("Revisa: esto no se regenera solo", systemImage: Theme.symbol(for: .yourCall))
+                        Label("Check: this doesn’t regenerate by itself", systemImage: Theme.symbol(for: .yourCall))
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                         ForEach(amber) { leftover in
@@ -278,13 +279,13 @@ struct UninstallConfirmContent: View {
                                 in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 if !red.isEmpty {
-                    Text("Se quedan").font(.callout.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("Stays").font(.callout.weight(.semibold)).foregroundStyle(.secondary)
                     ForEach(red) { leftover in
                         line(Format.tildePath(leftover.path), detail: leftover.reason, size: nil, risk: .doNotTouch)
                     }
                 }
                 if chosen.contains(where: { $0.kind == .receipt }) {
-                    note("lock.fill", .secondary, "Pedirá tu contraseña de administrador (una vez por cada app con registros de instalación).")
+                    note("lock.fill", .secondary, "You’ll be asked for your administrator password (once for each app with install receipts).")
                 }
             }
         }
@@ -304,8 +305,17 @@ struct UninstallConfirmContent: View {
         }
     }
 
-    private func note(_ symbol: String, _ tint: Color, _ text: String) -> some View {
-        Label { Text(text) } icon: { Image(systemName: symbol).foregroundStyle(tint) }
+    /// `text` is a localization key; `verbatim:` takes a `String` already localized (e.g. from DiskMapCore).
+    private func note(_ symbol: String, _ tint: Color, _ text: LocalizedStringKey) -> some View {
+        note(symbol, tint, label: Text(text))
+    }
+
+    private func note(_ symbol: String, _ tint: Color, verbatim text: String) -> some View {
+        note(symbol, tint, label: Text(text))
+    }
+
+    private func note(_ symbol: String, _ tint: Color, label text: Text) -> some View {
+        Label { text } icon: { Image(systemName: symbol).foregroundStyle(tint) }
             .font(.callout)
             .foregroundStyle(.secondary)
     }

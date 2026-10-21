@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Sin Claude Code: una frase, "Elegir ejecutable…" (se guarda en `UserDefaults` como `claudePath`)
-/// y "Reintentar". El resto de la app funciona igual.
+/// Without Claude Code: one sentence, "Choose Executable…" (saved in `UserDefaults` as `claudePath`)
+/// and "Try Again". The rest of the app works the same.
 struct ClaudeMissingView: View {
     @Environment(AppModel.self) private var model
-    /// Ruta elegida por el usuario que no responde como Claude Code.
+    /// Path chosen by the user that doesn't respond like Claude Code.
     let chosen: String?
 
     @ViewState private var appeared = false
@@ -28,7 +28,7 @@ struct ClaudeMissingView: View {
                     .frame(width: 64, height: 64)
 
                     VStack(spacing: 6) {
-                        Text("Falta Claude Code")
+                        Text("Claude Code Is Missing")
                             .font(.title3.weight(.semibold))
                         Text(sentence)
                             .font(.callout)
@@ -37,9 +37,9 @@ struct ClaudeMissingView: View {
                     }
 
                     HStack(spacing: 10) {
-                        PrimaryButton("Elegir ejecutable…", systemImage: "folder") { choose() }
+                        PrimaryButton("Choose Executable…", systemImage: "folder") { choose() }
                             .fixedSize()
-                        PrimaryButton("Reintentar", systemImage: "arrow.clockwise", style: .secondary) {
+                        PrimaryButton("Try Again", systemImage: "arrow.clockwise", style: .secondary) {
                             session.locate()
                         }
                         .fixedSize()
@@ -47,7 +47,7 @@ struct ClaudeMissingView: View {
                     .padding(.top, 4)
 
                     if chosen != nil {
-                        Button("Buscar automáticamente") { session.forgetChosenPath() }
+                        Button("Find Automatically") { session.forgetChosenPath() }
                             .buttonStyle(.link)
                             .font(.caption)
                     }
@@ -66,16 +66,16 @@ struct ClaudeMissingView: View {
 
     private var sentence: String {
         if let chosen {
-            return "El ejecutable elegido (\(Format.tildePath(chosen))) no responde como Claude Code; elige otro o deja que Airy lo busque."
+            return String(localized: "The chosen executable (\(Format.tildePath(chosen))) doesn’t respond like Claude Code; choose another one or let Airy look for it.")
         }
-        return "El asistente usa Claude Code instalado en este Mac y no lo encuentro; si lo tienes en otro sitio, elígelo."
+        return String(localized: "The assistant uses the Claude Code installed on this Mac and I can’t find it; if you have it somewhere else, choose it.")
     }
 
     private func choose() {
         let panel = NSOpenPanel()
-        panel.title = "Elegir Claude Code"
-        panel.message = "Elige el ejecutable «claude» (por ejemplo, ~/.local/bin/claude)."
-        panel.prompt = "Usar este"
+        panel.title = String(localized: "Choose Claude Code")
+        panel.message = String(localized: "Choose the “claude” executable (for example, ~/.local/bin/claude).")
+        panel.prompt = String(localized: "Use This")
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false

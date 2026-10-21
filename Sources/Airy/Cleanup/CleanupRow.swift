@@ -1,8 +1,8 @@
 import SwiftUI
 import DiskMapCore
 
-/// Una fila de la limpieza: qué es, quién lo crea, si se regenera, cuánto ocupa, su riesgo y,
-/// si hace falta, por qué no se puede limpiar ahora.
+/// A cleanup row: what it is, who creates it, whether it regenerates, how much it takes, its risk and,
+/// if needed, why it can't be cleaned right now.
 struct CleanupRow: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
@@ -18,7 +18,7 @@ struct CleanupRow: View {
     private var isCurrent: Bool { flow.currentID == item.id }
     private var isQueued: Bool { flow.queuedIDs.contains(item.id) }
     private var isInfo: Bool { if case .info = item.entry.cleanup { true } else { false } }
-    /// El método sale de la ficha viva del catálogo (la que usará el ejecutor).
+    /// The method comes from the live catalog entry (the one the executor will use).
     private var liveMethod: CleanupMethod { model.catalog?.entry(id: item.entry.id)?.cleanup ?? item.entry.cleanup }
 
     var body: some View {
@@ -41,7 +41,7 @@ struct CleanupRow: View {
                         .foregroundStyle(item.risk == .doNotTouch ? .secondary : .primary)
                 }
 
-                // Por qué tiene esta etiqueta: en el color del riesgo si hay que pensarlo (ámbar o rojo).
+                // Why it has this label: in the risk color if it needs thought (amber or red).
                 Text(why)
                     .font(.callout.weight(.medium))
                     .foregroundStyle(item.risk == .safe ? AnyShapeStyle(.secondary)
@@ -81,18 +81,18 @@ struct CleanupRow: View {
         .contentShape(Rectangle())
         .onTapGesture { if canSelect { onToggle() } }
         .contextMenu {
-            // No destructivo: sin confirmación. Lo ya protegido (o sin rutas, como Docker) no lo ofrece.
+            // Non-destructive: no confirmation. Not offered for what is already protected (or has no paths, like Docker).
             if item.protection == nil, !item.paths.isEmpty {
-                Button("Proteger esto", systemImage: "lock") { model.protect(paths: item.paths) }
+                Button("Protect This", systemImage: "lock") { model.protect(paths: item.paths) }
             }
         }
         .onHover { hovering in withAnimation(Theme.pressSpring) { self.hovering = hovering } }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(showsCheckbox ? .isButton : [])
-        .accessibilityValue(showsCheckbox ? (isSelected ? "Seleccionado" : "No seleccionado") : "")
+        .accessibilityValue(showsCheckbox ? (isSelected ? "Selected" : "Not selected") : "")
     }
 
-    // MARK: Partes
+    // MARK: Parts
 
     @ViewBuilder private var leading: some View {
         if isCurrent {
@@ -100,24 +100,26 @@ struct CleanupRow: View {
         } else if isQueued {
             Image(systemName: "clock")
                 .foregroundStyle(.tertiary)
-                .help("En cola")
+                .help("Queued")
         } else if showsCheckbox {
             CheckCircle(isOn: isSelected, enabled: canSelect)
                 .onTapGesture { if canSelect { onToggle() } }
-                .help(canSelect ? (isSelected ? "Quitar de la selección" : "Seleccionar") : CleanupBoard.blockedReasonText(item) ?? "No se puede limpiar ahora")
+                .help(canSelect ? (isSelected ? String(localized: "Remove from Selection") : String(localized: "Select"))
+                      : CleanupBoard.blockedReasonText(item) ?? String(localized: "Can’t be cleaned right now"))
         } else {
             Image(systemName: isInfo && item.risk != .doNotTouch ? "info.circle" : "lock.fill")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.tertiary)
-                .help(item.protection.map(CleanupBoard.protectionText) ?? (isInfo ? "Solo informativo" : "No tocar"))
+                .help(item.protection.map(CleanupBoard.protectionText)
+                      ?? (isInfo ? String(localized: "Informational only") : String(localized: "Don't delete")))
         }
     }
 
     private var metadata: some View {
         HStack(spacing: 8) {
-            MetaChip(symbol: "person.crop.circle", text: "Lo crea: \(item.entry.whoCreatesIt)")
+            MetaChip(symbol: "person.crop.circle", text: "Created by: \(item.entry.whoCreatesIt)")
             MetaChip(symbol: item.entry.regenerates ? "arrow.triangle.2.circlepath" : "exclamationmark.arrow.circlepath",
-                     text: item.entry.regenerates ? "Se regenera" : "No se regenera")
+                     text: item.entry.regenerates ? "Regenerates" : "Doesn’t regenerate")
             MethodChip(method: liveMethod)
             Spacer(minLength: 6)
             RiskBadge(risk: item.risk, reason: why)
@@ -126,9 +128,9 @@ struct CleanupRow: View {
 
     @ViewBuilder private var notices: some View {
         if isCurrent {
-            Text("Limpiando…").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            Text("Cleaning…").font(.caption.weight(.medium)).foregroundStyle(.secondary)
         } else if isQueued {
-            Text("En cola").font(.caption.weight(.medium)).foregroundStyle(.tertiary)
+            Text("Queued").font(.caption.weight(.medium)).foregroundStyle(.tertiary)
         }
         let blocked = item.risk == .doNotTouch ? [] : blockedApps
         if !blocked.isEmpty {
@@ -141,7 +143,7 @@ struct CleanupRow: View {
                 Spacer(minLength: 8)
                 ForEach(blocked, id: \.self) { bundleID in
                     let closing = flow.closingApps.contains(bundleID)
-                    PrimaryButton(closing ? "Cerrando…" : "Cerrar \(CleanupFlow.appName(bundleID))",
+                    PrimaryButton(closing ? "Quitting…" : "Quit \(CleanupFlow.appName(bundleID))",
                                   systemImage: "xmark.circle", style: .secondary, isBusy: closing) {
                         flow.closeApp(bundleID, model: model)
                     }
@@ -180,7 +182,7 @@ struct CleanupRow: View {
                 .truncationMode(.middle)
         }
         if isInfo {
-            Label("Solo informativo: Airy no lo borra.", systemImage: "eye")
+            Label("Informational only: Airy doesn’t delete it.", systemImage: "eye")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
         }
@@ -195,20 +197,20 @@ struct CleanupRow: View {
 
     private var why: String { RiskExplanation.why(item) }
 
-    /// Los tres primeros detalles y «y N más».
+    /// The first three details and "and N more".
     private var detailsText: String {
         let shown = item.details.prefix(3).joined(separator: ", ")
         let rest = item.details.count - 3
-        return rest > 0 ? "\(shown) y \(rest) más" : shown
+        return rest > 0 ? String(localized: "\(shown) and \(rest) more") : shown
     }
 
-    /// Dónde está (mismo texto que la confirmación).
+    /// Where it is (same text as the confirmation).
     private var location: String? { CleanupBoard.locationSummary(item) }
 }
 
-// MARK: - Piezas
+// MARK: - Pieces
 
-/// Casilla redonda con la marca y un pequeño muelle al marcar.
+/// Round checkbox with the checkmark and a small spring when checked.
 private struct CheckCircle: View {
     let isOn: Bool
     let enabled: Bool
@@ -235,7 +237,7 @@ private struct CheckCircle: View {
     }
 }
 
-/// Icono por tipo: un azulejo con el color de la paleta y un SF Symbol del elemento.
+/// Icon per kind: a tile in the palette color and an SF Symbol for the item.
 struct CleanupIcon: View {
     let entry: CatalogEntry
     var dimmed = false
@@ -260,7 +262,7 @@ struct CleanupIcon: View {
                 radius: quietShadows ? 0 : 6, y: quietShadows ? 0 : 3)
     }
 
-    /// Glifo con contraste AA sobre los dos extremos del degradado del tipo, como en el mapa.
+    /// Glyph with AA contrast on both ends of the kind's gradient, as on the map.
     private var glyphInk: Color {
         let base = AiryPalette.kind(entry.kind)
         return Color(hex: AiryPalette.inkForFill([ColorMath.mix(base, 0xffffff, 0.18), base]))
@@ -291,7 +293,7 @@ struct CleanupIcon: View {
 
 private struct MetaChip: View {
     let symbol: String
-    let text: String
+    let text: LocalizedStringKey
 
     var body: some View {
         Label {
@@ -307,16 +309,16 @@ private struct MetaChip: View {
     }
 }
 
-/// "A la Papelera" o "Comando oficial" (la orden completa en la ayuda y en la confirmación).
+/// "To the Trash" or "Official command" (the full command in the tooltip and the confirmation).
 private struct MethodChip: View {
     let method: CleanupMethod
 
     var body: some View {
         switch method {
         case .trash:
-            MetaChip(symbol: "trash", text: "A la Papelera")
+            MetaChip(symbol: "trash", text: "To the Trash")
         case .command:
-            MetaChip(symbol: "terminal", text: "Comando oficial")
+            MetaChip(symbol: "terminal", text: "Official command")
                 .help(CleanupBoard.methodDescription(method))
         case .info:
             EmptyView()

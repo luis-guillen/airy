@@ -2,19 +2,19 @@ import SwiftUI
 import QuartzCore
 import DiskMapCore
 
-// MARK: - Layout ya calculado
+// MARK: - Precomputed layout
 
-/// Aspecto de una tesela: el color de su tipo o el rayado gris de "Otros".
+/// A tile's look: its kind's color or the gray stripes of "Other".
 enum TileStyle: Hashable, Sendable {
     case kind(ContentKind)
     case others
 }
 
-/// Una tesela lista para dibujar: geometría, textos ya formateados y su puesto en la entrada.
+/// A tile ready to draw: geometry, preformatted texts and its place in the entrance.
 struct MapTile: Sendable, Identifiable {
     let id: Int
     let rect: CGRect
-    /// `nil` en la tesela de grupo "Otros (N elementos)".
+    /// `nil` on the "Other (N items)" group tile.
     let node: FileNode?
     let style: TileStyle
     let name: String
@@ -22,32 +22,32 @@ struct MapTile: Sendable, Identifiable {
     let bytes: Int64
     let othersCount: Int
     let isZoomable: Bool
-    /// 0 = la primera en aparecer (la más cercana al centro).
+    /// 0 = the first to appear (the closest to the center).
     let rank: Int
-    /// Clave para emparejar teselas entre dos árboles distintos (reanálisis): el nombre.
+    /// Key to match tiles between two different trees (rescan): the name.
     let matchKey: String
-    /// Vista previa de su contenido (un nivel), en coordenadas del lienzo. Vacía si no cabe.
+    /// Preview of its content (one level), in canvas coordinates. Empty if it doesn't fit.
     var inner: [InnerTile] = []
 
     var isOthers: Bool { style == .others }
 }
 
-/// Tesela de la vista previa anidada: solo se dibuja (no se señala ni se pulsa por separado).
+/// Tile of the nested preview: only drawn (not hovered or clicked separately).
 struct InnerTile: Sendable {
-    /// El mismo id que tendrá la tesela al entrar en la carpeta: así el zoom la hace crecer.
+    /// The same id the tile will have when entering the folder: that way the zoom makes it grow.
     let id: Int
     let rect: CGRect
     let style: TileStyle
     let name: String
 }
 
-/// Teselas de un nodo para un tamaño de lienzo, con su índice de búsqueda por posición.
+/// Tiles of a node for a canvas size, with their position lookup index.
 struct MapLayout: Sendable {
     let nodeID: Int
     let bounds: CGRect
     let tiles: [MapTile]
     let hitIndex: TileHitIndex
-    /// Milisegundos que tardó el cálculo (para el registro de rendimiento).
+    /// Milliseconds the computation took (for the performance log).
     let milliseconds: Double
 
     func tile(id: Int) -> MapTile? { tiles.first { $0.id == id } }
@@ -65,8 +65,8 @@ struct MapLayout: Sendable {
     }
 }
 
-/// Lo que se necesita del árbol para calcular un layout, copiado en el hilo principal
-/// (dueño del árbol) para que el cálculo en segundo plano no lea `FileNode` mientras cambia.
+/// What is needed from the tree to compute a layout, copied on the main thread
+/// (owner of the tree) so the background computation doesn't read `FileNode` while it changes.
 struct LayoutInput: Sendable {
     struct Meta: Sendable {
         let name: String
@@ -75,13 +75,13 @@ struct LayoutInput: Sendable {
         let aggregatedCount: Int
     }
 
-    /// Hijos de una carpeta hija, para su vista previa.
+    /// Children of a child folder, for its preview.
     struct Inner: Sendable {
         let snapshot: Treemap.Snapshot
         let metas: [Int: Meta]
     }
 
-    /// Solo las carpetas más grandes pueden tener tesela con sitio para la vista previa.
+    /// Only the largest folders can have a tile with room for the preview.
     static let previewedFolders = 60
 
     let snapshot: Treemap.Snapshot
@@ -114,7 +114,7 @@ struct LayoutInput: Sendable {
         return metas
     }
 
-    /// Hueco para la vista previa dentro de una tesela: bajo la etiqueta, con un margen fino.
+    /// Space for the preview inside a tile: below the label, with a thin margin.
     static func previewRect(in rect: CGRect) -> CGRect? {
         guard rect.width >= 48, rect.height >= 44 else { return nil }
         let labeled = rect.width >= 70 && rect.height >= 36
@@ -125,12 +125,12 @@ struct LayoutInput: Sendable {
         return r.width >= 24 && r.height >= 18 ? r : nil
     }
 
-    /// La vista previa se calcula con la forma del lienzo (la misma disposición que tendrá la
-    /// carpeta al abrirla) y se encoge al hueco: así el zoom es casi una escala pura y ningún
-    /// bloque se cruza con otro por el camino.
+    /// The preview is computed with the canvas's shape (the same arrangement the folder will
+    /// have when opened) and shrunk into the space: that way the zoom is almost a pure scale and no
+    /// block crosses another along the way.
     private static func innerTiles(_ input: Inner, in area: CGRect, canvas: CGRect) -> [InnerTile] {
         let sx = area.width / canvas.width, sy = area.height / canvas.height
-        // Solo lo que mida al menos ~30 pt² ya encogido; el resto va al grupo "Otros".
+        // Only what measures at least ~30 pt² once shrunk; the rest goes into the "Other" group.
         let minArea = 30 / max(sx * sy, 0.0001)
         return Treemap.tiles(for: input.snapshot, in: canvas, gap: 0, minTileArea: minArea).compactMap { tile in
             let r = RectMath.map(tile.rect, from: canvas, to: area).insetBy(dx: 0.75, dy: 0.75)
@@ -138,11 +138,11 @@ struct LayoutInput: Sendable {
             let meta = input.metas[tile.id]
             let isOthers = tile.node == nil || (meta?.aggregatedCount ?? 0) > 0
             return InnerTile(id: tile.id, rect: r, style: isOthers ? .others : .kind(meta?.kind ?? .other),
-                             name: isOthers ? "Otros" : (meta?.name ?? ""))
+                             name: isOthers ? String(localized: "Other") : (meta?.name ?? ""))
         }
     }
 
-    /// Cálculo puro (se ejecuta fuera del hilo principal).
+    /// Pure computation (runs off the main thread).
     func layout(in bounds: CGRect) -> MapLayout {
         let start = CACurrentMediaTime()
         let raw = Treemap.tiles(for: snapshot, in: bounds, gap: 2, minTileArea: 36)
@@ -164,7 +164,7 @@ struct LayoutInput: Sendable {
                 rect: tile.rect,
                 node: tile.node,
                 style: isOthers ? .others : .kind(meta?.kind ?? .other),
-                name: isOthers ? "Otros (\(Theme.count(count)) elementos)" : (meta?.name ?? ""),
+                name: isOthers ? String(localized: "Other (\(Theme.count(count)) items)") : (meta?.name ?? ""),
                 sizeText: Format.bytes(bytes),
                 bytes: bytes,
                 othersCount: count,
@@ -179,21 +179,21 @@ struct LayoutInput: Sendable {
     }
 }
 
-// MARK: - Transiciones
+// MARK: - Transitions
 
-/// Una animación en curso del lienzo. Los tiempos son `CACurrentMediaTime()`.
+/// An animation in progress on the canvas. Times are `CACurrentMediaTime()`.
 struct MapTransition: Sendable {
     enum Kind: String, Sendable { case entrance, zoomIn, zoomOut, morph }
 
     let kind: Kind
     let start: Double
-    /// Nivel que se va (zoom y morph). En la entrada, `nil`.
+    /// Outgoing level (zoom and morph). On entrance, `nil`.
     let from: MapLayout?
-    /// Nivel que llega. En el zoom hacia dentro puede tardar unos milisegundos en calcularse.
+    /// Incoming level. On zoom-in it may take a few milliseconds to compute.
     var to: MapLayout?
-    /// Cuándo arranca la entrada escalonada de `to`.
+    /// When the staggered entrance of `to` starts.
     var toStart: Double
-    /// Tesela que hace de "ventana" del zoom: en `from` al entrar, en `to` al salir.
+    /// Tile acting as the zoom's "window": in `from` when zooming in, in `to` when zooming out.
     let focusID: Int?
     var focusRect: CGRect
 
@@ -203,7 +203,7 @@ struct MapTransition: Sendable {
         case .entrance:
             return toStart + (to?.maxEntranceDelay ?? 0) + settle
         case .zoomIn:
-            // Hasta tener los hijos no se sabe cuánto dura la cascada.
+            // Until the children are there, how long the cascade lasts is unknown.
             guard let to else { return start + settle + Theme.staggerMaxDelay + settle }
             return max(start + settle, toStart + to.maxEntranceDelay + settle)
         case .zoomOut, .morph:
@@ -212,8 +212,8 @@ struct MapTransition: Sendable {
     }
 }
 
-/// Una tesela que se deshace en hojas tras mandarla a la Papelera. `rect` en coordenadas del
-/// lienzo; `start` en `CACurrentMediaTime()`. Dura `WindMotion.dissolveDuration`.
+/// A tile breaking up into leaves after being moved to the Trash. `rect` in canvas
+/// coordinates; `start` in `CACurrentMediaTime()`. Lasts `WindMotion.dissolveDuration`.
 struct MapLeafBurst: Sendable, Equatable {
     let rect: CGRect
     let start: Double
@@ -221,25 +221,25 @@ struct MapLeafBurst: Sendable, Equatable {
     func isAlive(at time: Double) -> Bool { time < start + WindMotion.dissolveDuration }
 }
 
-// MARK: - Escena
+// MARK: - Scene
 
-/// Estado del mapa animado: el layout del nivel visible, la transición en curso, la tesela
-/// iluminada y el tipo resaltado desde la leyenda. Solo pide fotogramas mientras algo se mueve.
+/// State of the animated map: the visible level's layout, the transition in progress, the
+/// highlighted tile and the kind highlighted from the legend. It only requests frames while something moves.
 @MainActor @Observable
 final class MapScene {
     private(set) var layout: MapLayout?
     private(set) var transition: MapTransition?
-    /// `true` solo mientras hay algo que animar: con `false` el `TimelineView` queda en pausa.
+    /// `true` only while there is something to animate: with `false` the `TimelineView` stays paused.
     private(set) var isAnimating = false
     private(set) var hover = Fade<Int>()
-    /// Sube cada vez que termina un zoom: la vista vuelve a mirar qué hay bajo el puntero.
+    /// Bumps every time a zoom ends: the view looks again at what is under the pointer.
     private(set) var settledCount = 0
     private(set) var dim = Fade<ContentKind>()
-    /// Teselas que se están deshaciendo en hojas; `finishAnimating` quita las terminadas.
+    /// Tiles breaking up into leaves; `finishAnimating` removes the finished ones.
     private(set) var bursts: [MapLeafBurst] = []
 
     @ObservationIgnored private(set) var canvasSize: CGSize = .zero
-    /// Marco del lienzo en la ventana (coordenadas de SwiftUI); solo lo usa el guion de depuración.
+    /// The canvas frame in the window (SwiftUI coordinates); only the debug script uses it.
     @ObservationIgnored var canvasFrameInWindow: CGRect = .zero
     @ObservationIgnored private var displayed: FileNode?
     @ObservationIgnored private var displayedPath = ""
@@ -247,13 +247,13 @@ final class MapScene {
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var cache = LayoutCache()
-    /// Fin de la transición en curso (se puede acortar al llegar el layout) y de los fundidos.
+    /// End of the transition in progress (it can be shortened when the layout arrives) and of the fades.
     @ObservationIgnored private var transitionUntil: Double = 0
     @ObservationIgnored private var fadesUntil: Double = 0
     private var animatingUntil: Double { max(transitionUntil, fadesUntil) }
     @ObservationIgnored private var stopToken = 0
-    /// Hay un cambio de nivel esperando su layout: mientras, no se señala ninguna tesela
-    /// (el layout visible aún es el del nivel anterior).
+    /// A level change is waiting for its layout: meanwhile, no tile is highlighted
+    /// (the visible layout is still the previous level's).
     @ObservationIgnored private var awaitingLayout = false
 
     var isZooming: Bool {
@@ -261,10 +261,10 @@ final class MapScene {
         return CACurrentMediaTime() < transition.end
     }
 
-    // MARK: Entrada desde la vista
+    // MARK: Input from the view
 
-    /// Muestra `node`: decide la animación según su relación con el nivel anterior
-    /// (hijo → zoom hacia dentro, antepasado → hacia fuera, mismo sitio → morph, otro → entrada).
+    /// Shows `node`: picks the animation by its relation to the previous level
+    /// (child → zoom in, ancestor → zoom out, same place → morph, other → entrance).
     func show(_ node: FileNode?, revision newRevision: Int) {
         guard let node else {
             displayed = nil; layout = nil; transition = nil
@@ -284,8 +284,8 @@ final class MapScene {
         displayed = node
         let path = node.path
         defer { displayedPath = path }
-        // Árbol nuevo (reanálisis) o cambiado (Papelera): fuera los layouts viejos, que
-        // retendrían nodos del árbol anterior o lo ya borrado.
+        // New tree (rescan) or changed tree (Trash): drop the old layouts, which
+        // would retain nodes of the previous tree or what was already deleted.
         if let previous, Self.root(of: previous) !== Self.root(of: node) {
             cache.removeAll()
         } else if revisionChanged {
@@ -308,7 +308,7 @@ final class MapScene {
             kind = .entrance
         }
 
-        // Una animación anterior a medias se da por terminada: se parte de su estado final.
+        // A previous animation halfway through is considered finished: start from its final state.
         transition = nil
         generation += 1
         let gen = generation
@@ -319,7 +319,7 @@ final class MapScene {
             transition = MapTransition(kind: .zoomIn, start: now, from: from, to: nil,
                                        toStart: now, focusID: focusID, focusRect: focus.rect)
             #if DEBUG
-            FPSMeter.shared.begin("zoom hacia dentro")
+            FPSMeter.shared.begin("zoom in")
             #endif
             keepAnimating(transitionEnd: transition!.end)
             requestLayout(for: node, generation: gen) { [weak self] layout in
@@ -330,7 +330,7 @@ final class MapScene {
                     return
                 }
                 running.to = layout
-                // Los hijos entran cuando la tesela ya ha crecido un poco.
+                // The children enter once the tile has grown a little.
                 running.toStart = max(CACurrentMediaTime(), running.start + 0.12)
                 self.transition = running
                 self.layout = layout
@@ -352,7 +352,7 @@ final class MapScene {
                     effective = .entrance
                 }
             }
-            if kind == .zoomIn { effective = .entrance }   // sin tesela de origen visible
+            if kind == .zoomIn { effective = .entrance }   // no visible source tile
             if effective == .morph, previousLayout == nil { effective = .entrance }
             let transition = MapTransition(
                 kind: effective, start: now,
@@ -368,7 +368,7 @@ final class MapScene {
         }
     }
 
-    /// Cambio de tamaño del lienzo: se recalcula sin animación (mientras llega, se escala el anterior).
+    /// Canvas size change: recomputed without animation (until it arrives, the previous one is scaled).
     func resize(to size: CGSize) {
         let rounded = CGSize(width: size.width.rounded(), height: size.height.rounded())
         guard rounded != canvasSize, rounded.width >= 1, rounded.height >= 1 else { return }
@@ -386,10 +386,10 @@ final class MapScene {
         let gen = generation
         requestLayout(for: node, generation: gen) { [weak self] layout in
             guard let self else { return }
-            // Este layout es del nivel mostrado: ya no se espera nada (el cambio de nivel que
-            // lo pedía pudo quedar anulado al subir `generation`).
+            // This layout belongs to the shown level: nothing is awaited anymore (the level change
+            // that requested it may have been cancelled when `generation` went up).
             if layout.nodeID == self.displayed?.id { self.awaitingLayout = false }
-            // Un zoom hacia dentro que aún esperaba a sus hijos los recibe aquí y sigue.
+            // A zoom-in still waiting for its children receives them here and continues.
             if var running = self.transition, running.kind == .zoomIn, running.to == nil,
                layout.nodeID == self.displayed?.id {
                 running.to = layout
@@ -399,7 +399,7 @@ final class MapScene {
                 self.keepAnimating(transitionEnd: running.end)
                 return
             }
-            // Una animación en curso sigue, ya con el layout del tamaño nuevo.
+            // An animation in progress continues, now with the new size's layout.
             if var running = self.transition, CACurrentMediaTime() < running.end,
                running.to?.nodeID == layout.nodeID {
                 running.to = layout
@@ -414,7 +414,7 @@ final class MapScene {
         }
     }
 
-    // MARK: Ratón y leyenda
+    // MARK: Pointer and legend
 
     func setHover(_ id: Int?) {
         guard id != hover.current else { return }
@@ -428,22 +428,22 @@ final class MapScene {
         keepAnimating(fadeEnd: dim.start + Fade<ContentKind>.duration)
     }
 
-    /// La tesela de `rect` (coordenadas del lienzo) se deshace en hojas. Solo pinta: quien llama ya
-    /// sabe que se borró y que hay movimiento transitorio.
+    /// The tile at `rect` (canvas coordinates) breaks up into leaves. It only paints: the caller already
+    /// knows it was deleted and that there is transient motion.
     func burst(rect: CGRect) {
         let start = CACurrentMediaTime()
         bursts.append(MapLeafBurst(rect: rect, start: start))
         keepAnimating(fadeEnd: start + WindMotion.dissolveDuration)
     }
 
-    /// Tesela bajo el punto en el layout asentado (durante un zoom, ninguna).
+    /// Tile under the point in the settled layout (during a zoom, none).
     func tile(at point: CGPoint) -> MapTile? {
         guard !isZooming, !awaitingLayout, let layout else { return nil }
         let p = scaledToLayout(point, layout)
         return layout.tile(at: p)
     }
 
-    /// Precalcula el layout de una carpeta (al pasar el ratón por encima) para que el zoom no espere.
+    /// Precomputes a folder's layout (on hover) so the zoom doesn't wait.
     func prefetch(_ node: FileNode) {
         let bounds = CGRect(origin: .zero, size: canvasSize)
         guard bounds.width >= 1, cache.get(LayoutCache.Key(node.id, bounds.size, revision)) == nil else { return }
@@ -451,13 +451,13 @@ final class MapScene {
         let key = LayoutCache.Key(node.id, bounds.size, revision)
         let root = Self.root(of: node)
         Self.compute(input, in: bounds, qos: .utility) { [weak self] layout in
-            // Si mientras tanto cambió el árbol o su revisión, el resultado ya no vale.
+            // If the tree or its revision changed meanwhile, the result is no longer valid.
             guard let self, self.isCurrent(root: root, revision: key.revision) else { return }
             self.cache.put(key, layout)
         }
     }
 
-    // MARK: Internos
+    // MARK: Internals
 
     private func scaledToLayout(_ point: CGPoint, _ layout: MapLayout) -> CGPoint {
         guard layout.bounds.size != canvasSize, canvasSize.width > 0, canvasSize.height > 0 else { return point }
@@ -465,7 +465,7 @@ final class MapScene {
                        y: point.y * layout.bounds.height / canvasSize.height)
     }
 
-    /// Lo que se ve ahora mismo como nivel "de llegada" (para encadenar animaciones).
+    /// What is shown right now as the "incoming" level (to chain animations).
     private func currentlyVisibleLayout() -> MapLayout? {
         if let transition, let to = transition.to { return to }
         if let transition, transition.kind == .zoomIn { return transition.from }
@@ -490,33 +490,33 @@ final class MapScene {
             if self.isCurrent(root: root, revision: key.revision) { self.cache.put(key, layout) }
             #if DEBUG
             if FPSMeter.isEnabled {
-                FPSMeter.log(String(format: "[layout] %@ · %d teselas · %.2f ms (%.0f×%.0f)",
+                FPSMeter.log(String(format: "[layout] %@ · %d tiles · %.2f ms (%.0f×%.0f)",
                                     path, layout.tiles.count, layout.milliseconds,
                                     bounds.width, bounds.height))
             }
             #endif
-            // Cálculos viejos (otro zoom o tamaño posterior) se guardan en caché pero no se aplican.
+            // Old computations (a later zoom or size) are cached but not applied.
             guard gen == self.generation else { return }
             apply(layout)
         }
     }
 
-    /// El layout pedido para `root`/`revision` sigue siendo del árbol que se muestra.
+    /// The layout requested for `root`/`revision` still belongs to the tree being shown.
     private func isCurrent(root: FileNode, revision requested: Int) -> Bool {
         guard requested == revision, let displayed else { return false }
         return Self.root(of: displayed) === root
     }
 
-    /// Cola propia para los layouts, con la vuelta por `DispatchQueue.main` en vez de `Task`/`await`:
-    /// durante un análisis el *pool* cooperativo va saturado de E/S, y mientras el lienzo anima a
-    /// 120 fps los trabajos del actor principal llegaban con 200–330 ms de retraso (medido). Así el
-    /// cálculo (≈ 1 ms) sale del hilo principal y vuelve en el siguiente ciclo.
+    /// Dedicated queue for layouts, returning via `DispatchQueue.main` instead of `Task`/`await`:
+    /// during a scan the cooperative *pool* is saturated with I/O, and while the canvas animates at
+    /// 120 fps main-actor jobs arrived 200–330 ms late (measured). This way the
+    /// computation (≈ 1 ms) leaves the main thread and comes back on the next cycle.
     private nonisolated static let layoutQueue = DispatchQueue(label: "local.airy.layout",
                                                                qos: .userInteractive, attributes: .concurrent)
 
     private nonisolated static func compute(_ input: LayoutInput, in bounds: CGRect, qos: DispatchQoS,
                                             then deliver: @escaping @MainActor (MapLayout) -> Void) {
-        // `.enforceQoS`: la prioridad pedida manda aunque la cola tenga otra (la precarga es `.utility`).
+        // `.enforceQoS`: the requested priority wins even if the queue has another (prefetch is `.utility`).
         layoutQueue.async(qos: qos, flags: .enforceQoS) {
             let layout = input.layout(in: bounds)
             DispatchQueue.main.async {
@@ -532,10 +532,10 @@ final class MapScene {
         scheduleStop()
     }
 
-    /// Para el reloj de fotogramas al acabar. `asyncAfter` y no `Task.sleep`: con el lienzo a
-    /// 120 fps las tareas del actor principal despertaban hasta medio segundo tarde (medido).
+    /// Stops the frame clock when done. `asyncAfter` and not `Task.sleep`: with the canvas at
+    /// 120 fps main-actor tasks woke up to half a second late (measured).
     private func scheduleStop() {
-        // Cada aviso nuevo invalida los anteriores (el fin pudo adelantarse o retrasarse).
+        // Each new notice invalidates the previous ones (the end may have moved earlier or later).
         stopToken &+= 1
         let token = stopToken
         let remaining = max(animatingUntil - CACurrentMediaTime(), 0) + 0.016
@@ -584,15 +584,15 @@ final class MapScene {
 extension MapTransition.Kind {
     var label: String {
         switch self {
-        case .entrance: "entrada"
-        case .zoomIn: "zoom hacia dentro"
-        case .zoomOut: "zoom hacia fuera"
+        case .entrance: "entrance"
+        case .zoomIn: "zoom in"
+        case .zoomOut: "zoom out"
         case .morph: "morph"
         }
     }
 }
 
-/// Fundido corto entre dos valores (tesela iluminada, tipo resaltado).
+/// Short fade between two values (highlighted tile, highlighted kind).
 struct Fade<Value: Hashable & Sendable>: Sendable {
     static var duration: Double { 0.18 }
     var previous: Value?
@@ -603,20 +603,20 @@ struct Fade<Value: Hashable & Sendable>: Sendable {
         Fade(previous: current, current: value, start: time)
     }
 
-    /// 0…1 con salida suave.
+    /// 0…1 with a smooth ease-out.
     func progress(at time: Double) -> Double {
         let t = min(max((time - start) / Self.duration, 0), 1)
         return 1 - pow(1 - t, 3)
     }
 
-    /// Cuánto le corresponde a `value` ahora mismo (1 = del todo).
+    /// How much `value` gets right now (1 = fully).
     func weight(of value: Value?, at time: Double) -> Double {
         let p = progress(at: time)
         return (current == value ? p : 0) + (previous == value ? 1 - p : 0)
     }
 }
 
-/// Caché pequeña de layouts por (nodo, tamaño en puntos enteros, revisión del árbol).
+/// Small layout cache keyed by (node, size in whole points, tree revision).
 struct LayoutCache {
     struct Key: Hashable {
         let node: Int, width: Int, height: Int, revision: Int
@@ -639,7 +639,7 @@ struct LayoutCache {
         order.removeAll()
     }
 
-    /// Quita lo calculado para otras revisiones del árbol (retendrían subárboles ya borrados).
+    /// Removes what was computed for other tree revisions (they would retain deleted subtrees).
     mutating func removeAll(exceptRevision revision: Int) {
         order.removeAll { $0.revision != revision }
         storage = storage.filter { $0.key.revision == revision }

@@ -2,26 +2,26 @@ import Foundation
 import Observation
 import DiskMapCore
 
-/// Estado de las secciones de la fase 2. Vive en `AppModel`, así que filtros, resultados y selección
-/// sobreviven a los cambios de sección. Nada se calcula aquí por su cuenta: cada vista pide `refresh`
-/// al aparecer y cuando cambian sus datos (nunca mientras la sección no se ve).
+/// State of the phase 2 sections. It lives in `AppModel`, so filters, results and selection
+/// survive section changes. Nothing is computed here on its own: each view asks for `refresh`
+/// when it appears and when its data changes (never while the section isn't visible).
 @MainActor @Observable
 final class SectionStores {
     let largeOld = LargeOldStore()
     let fileTypes = FileTypesStore()
     let duplicates = DuplicatesStore()
-    /// Desinstalador, en `UninstallerStore.swift`.
+    /// Uninstaller, in `UninstallerStore.swift`.
     let uninstaller = UninstallerStore()
 }
 
-/// Ráfaga de una tanda de varias filas que se van a la vez (`GustSweep` + `.gustSway`).
+/// Gust of a batch of several rows leaving at once (`GustSweep` + `.gustSway`).
 struct SectionGust: Equatable {
     let id = UUID()
     let start: Date
     let order: [String]
 }
 
-// MARK: - Grandes y viejos
+// MARK: - Large & Old
 
 @MainActor @Observable
 final class LargeOldStore {
@@ -29,13 +29,13 @@ final class LargeOldStore {
     var files: [ActionableFile] = []
     var selection = FileSelection()
     var isLoading = false
-    /// Ráfaga en curso (tras confirmar varias filas a la vez).
+    /// Gust in progress (after confirming several rows at once).
     var gust: SectionGust?
 
     @ObservationIgnored private var job: Task<[ActionableFile], Never>?
     @ObservationIgnored private var generation = 0
 
-    /// Cancela el cálculo anterior y vuelve a buscar en el árbol ya analizado (lector cancelable del árbol).
+    /// Cancels the previous computation and searches again in the already scanned tree (a cancellable tree reader).
     func refresh(model: AppModel) {
         cancel()
         generation += 1
@@ -60,7 +60,7 @@ final class LargeOldStore {
         }
     }
 
-    /// La sección deja de verse: nada sigue corriendo.
+    /// The section is no longer visible: nothing keeps running.
     func cancel() {
         job?.cancel()
         job = nil
@@ -69,7 +69,7 @@ final class LargeOldStore {
     }
 }
 
-// MARK: - Tipos de archivo
+// MARK: - File types
 
 @MainActor @Observable
 final class FileTypesStore {
@@ -84,7 +84,7 @@ final class FileTypesStore {
     @ObservationIgnored private var job: Task<([ActionableFile], Int64), Never>?
     @ObservationIgnored private var generation = 0
 
-    /// Totales por tipo (leídos de la raíz, sin recorrer el árbol) y, si hay un tipo elegido, su lista.
+    /// Totals per kind (read from the root, without walking the tree) and, if a kind is chosen, its list.
     func refresh(model: AppModel) {
         guard let root = model.scan?.root else {
             cancel()
@@ -150,10 +150,10 @@ final class FileTypesStore {
     }
 }
 
-// MARK: - Duplicados
+// MARK: - Duplicates
 
-/// Búsqueda de Duplicados: solo con «Buscar duplicados» (nunca sola), en una tarea aparte cancelable.
-/// Las huellas se quedan dentro del buscador; aquí solo hay rutas, tamaños y fechas.
+/// Duplicates search: only with "Find Duplicates" (never by itself), in a separate cancellable task.
+/// The fingerprints stay inside the finder; here there are only paths, sizes and dates.
 @MainActor @Observable
 final class DuplicatesStore {
     enum Place: Equatable { case home, folder(String) }
@@ -164,7 +164,7 @@ final class DuplicatesStore {
     var board = DuplicateBoard(groups: [])
     var examined = 0
     var isSearching = false
-    /// Copias que ya se fueron a la Papelera: dejan de verse sin repetir la búsqueda.
+    /// Copies already moved to the Trash: they stop showing without repeating the search.
     var gone: Set<String> = []
 
     @ObservationIgnored private var job: Task<DuplicateResult, Never>?
@@ -177,8 +177,8 @@ final class DuplicatesStore {
         }
     }
 
-    /// Candidatos del índice (turno de lectura del árbol) y búsqueda en `Task.detached`. Al acabar, guarda
-    /// el resultado (sin huellas) en `duplicates.json`.
+    /// Candidates from the index (a tree read turn) and the search in `Task.detached`. When done, it saves
+    /// the result (without fingerprints) to `duplicates.json`.
     func start(model: AppModel) {
         guard !isSearching else { return }
         generation += 1
@@ -217,12 +217,12 @@ final class DuplicatesStore {
         }
     }
 
-    /// Para la búsqueda: lo hallado hasta ahora se muestra como incompleto.
+    /// Stops the search: what was found so far is shown as incomplete.
     func cancel() {
         job?.cancel()
     }
 
-    /// Todas las copias salvo la conservada (nunca rojo ni protegido; lo ya movido, tampoco).
+    /// All copies except the kept one (never red or protected; nor what was already moved).
     func selectAllCopies() {
         board.selectAllCopies()
         for group in board.groups {
@@ -232,7 +232,7 @@ final class DuplicatesStore {
         }
     }
 
-    /// Tras la Papelera: lo que ya no está deja de verse y la selección se vacía.
+    /// After the Trash: what is gone stops showing and the selection is cleared.
     func pruneMissing() {
         for group in board.groups {
             for copy in group.copies where !FileManager.default.fileExists(atPath: copy.path) { gone.insert(copy.path) }
@@ -240,7 +240,7 @@ final class DuplicatesStore {
         board.clear()
     }
 
-    /// Copias que siguen a la vista en un grupo (con menos de dos, el grupo ya no se enseña).
+    /// Copies still visible in a group (with fewer than two, the group is no longer shown).
     func visibleCopies(_ group: DuplicateGroup) -> [DuplicateCopy] {
         group.copies.filter { !gone.contains($0.path) }
     }

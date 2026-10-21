@@ -1,0 +1,2 @@
+/* Shown when macOS asks for permission to control Finder (Apple Events). */
+"NSAppleEventsUsageDescription" = "Airy usa Finder para vaciar la Papelera.";

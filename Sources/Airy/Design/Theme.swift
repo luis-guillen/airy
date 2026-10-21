@@ -1,44 +1,44 @@
 import SwiftUI
 import DiskMapCore
 
-/// Sistema visual de Airy: paleta por tipo, muelles y medidas compartidas por todas las vistas.
-/// Toda animación pasa por aquí para que el movimiento sea coherente en la app.
+/// Airy's visual system: palette per kind, springs and measurements shared by every view.
+/// Every animation goes through here so motion is consistent across the app.
 enum Theme {
-    // MARK: - Movimiento
+    // MARK: - Motion
 
-    /// Muelle de zoom del mapa (y de cualquier cambio de nivel o selección).
+    /// Map zoom spring (and for any level or selection change).
     static let zoomSpring = Animation.spring(response: 0.45, dampingFraction: 0.82)
-    /// La misma curva, calculada a mano, para lo que el mapa interpola en su `Canvas`.
+    /// The same curve, computed by hand, for what the map interpolates in its `Canvas`.
     static let springCurve = SpringCurve(response: 0.45, dampingFraction: 0.82)
-    /// Cambio de sección en la ventana: el mismo muelle, un poco más vivo.
+    /// Section change in the window: the same spring, a little livelier.
     static let sectionSpring = Animation.spring(response: 0.38, dampingFraction: 0.86)
-    /// Números que cuentan y anillos que crecen.
+    /// Counting numbers and growing rings.
     static let counterSpring = Animation.spring(response: 0.6, dampingFraction: 0.9)
-    /// Respuesta táctil de botones y filas al pulsar o pasar el ratón.
+    /// Tactile response of buttons and rows on press or hover.
     static let pressSpring = Animation.spring(response: 0.25, dampingFraction: 0.7)
 
-    /// Retardo entre bloques de una entrada escalonada.
+    /// Delay between blocks of a staggered entrance.
     static let staggerStep: Double = 0.012
-    /// Toda la cascada termina de arrancar como mucho a los 0,6 s.
+    /// The whole cascade has started by 0.6 s at the latest.
     static let staggerMaxDelay: Double = 0.6
 
-    /// Entrada escalonada: 12 ms por bloque, con el retardo acotado a 0,6 s.
+    /// Staggered entrance: 12 ms per block, with the delay capped at 0.6 s.
     static func stagger(index: Int) -> Animation {
         zoomSpring.delay(min(Double(max(index, 0)) * staggerStep, staggerMaxDelay))
     }
 
-    // MARK: - Paleta por tipo (mismo tono en oscuro y claro)
+    // MARK: - Palette per kind (same hue in dark and light)
 
     static func color(for kind: ContentKind) -> Color { Color(hex: AiryPalette.kind(kind)) }
 
-    /// Degradado sutil (más claro arriba) para bloques y segmentos del tipo.
+    /// Subtle gradient (lighter at the top) for the kind's blocks and segments.
     static func gradient(for kind: ContentKind) -> LinearGradient {
         let base = color(for: kind)
         return LinearGradient(colors: [base.mix(with: .white, by: 0.18), base],
                               startPoint: .top, endPoint: .bottom)
     }
 
-    /// Tinta AA del tipo para texto e iconos en primer plano (el color puro solo sirve de relleno).
+    /// The kind's AA ink for foreground text and icons (the pure color is only for fills).
     static func ink(for kind: ContentKind) -> Color {
         Airy.dynamic(dark: AiryPalette.kindInk(kind, .dark), light: AiryPalette.kindInk(kind, .light))
     }
@@ -58,10 +58,10 @@ enum Theme {
         }
     }
 
-    // MARK: - Riesgo
+    // MARK: - Risk
 
-    /// Color fijo de la señal de seguridad: fondos y rellenos grandes. Para texto, iconos, puntos
-    /// y anillos en primer plano, `Theme.Airy.riskInk(_:)` (contraste AA también en modo claro).
+    /// Fixed color of the safety signal: backgrounds and large fills. For foreground text, icons, dots
+    /// and rings, `Theme.Airy.riskInk(_:)` (AA contrast in light mode too).
     static func color(for risk: Risk) -> Color { Airy.riskFill(risk) }
 
     static func symbol(for risk: Risk) -> String {
@@ -72,19 +72,19 @@ enum Theme {
         }
     }
 
-    // MARK: - Disco
+    // MARK: - Disk
 
-    /// "Analizado" en el anillo de uso del disco.
+    /// "Scanned" in the disk usage ring.
     static let userFiles = Airy.logoGradient
     static let userFilesColor = Airy.accent
-    /// "Sistema y otros".
+    /// "System & other".
     static let systemColor = Color(hex: AiryPalette.kind(.system))
-    /// "Purgable": lo que macOS libera solo cuando hace falta.
+    /// "Purgeable": what macOS frees by itself only when needed.
     static let purgeableColor = Color(hex: 0x9fb3d9)
-    /// Acento de marca: los botones principales y el progreso del análisis.
+    /// Brand accent: the primary buttons and the scan progress.
     static let brand = Airy.accentGradient
 
-    // MARK: - Medidas
+    // MARK: - Measurements
 
     static let cardRadius: CGFloat = 18
     static let smallRadius: CGFloat = 10
@@ -92,12 +92,12 @@ enum Theme {
     static let contentPadding: CGFloat = 28
     static let spacing: CGFloat = 14
 
-    /// Locale de toda la interfaz.
-    static let locale = Locale(identifier: "es_ES")
+    /// Locale of the whole interface: the user's, so numbers and dates match the app's language.
+    static let locale = Locale.current
 
-    /// "ahora mismo" durante el primer minuto (el formateador relativo diría "dentro de 0 segundos").
+    /// "just now" during the first minute (the relative formatter would say "in 0 seconds").
     static func relative(_ date: Date, now: Date = Date()) -> String {
-        abs(now.timeIntervalSince(date)) < 60 ? "ahora mismo" : Format.relativeDate(date)
+        abs(now.timeIntervalSince(date)) < 60 ? String(localized: "just now") : Format.relativeDate(date)
     }
 
     static func count(_ value: Int) -> String {
@@ -108,7 +108,7 @@ enum Theme {
 // MARK: - Theme.Airy
 
 extension Theme {
-    /// Paleta de marca. Los colores dinámicos siguen la apariencia efectiva (oscuro/claro) de la vista.
+    /// Brand palette. Dynamic colors follow the view's effective appearance (dark/light).
     enum Airy {
         private static func dynamic(_ pick: @escaping (AiryTokens) -> UInt32) -> Color {
             dynamic(dark: pick(AiryPalette.tokens(.dark)), light: pick(AiryPalette.tokens(.light)))
@@ -132,7 +132,7 @@ extension Theme {
 
         static let logoTop = Color(hex: AiryPalette.logoTop)
         static let logoBottom = Color(hex: AiryPalette.logoBottom)
-        /// Noche fija: tinta sobre fondos de señal claros (ámbar, verde).
+        /// Fixed night: ink on light signal backgrounds (amber, green).
         static let night = Color(hex: 0x07112a)
         static let leafSky = Color(hex: AiryPalette.leafSky)
         static let destructiveTop = Color(hex: AiryPalette.destructiveTop)
@@ -145,15 +145,15 @@ extension Theme {
         static let logoGradient = LinearGradient(colors: [logoTop, logoBottom],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing)
 
-        /// Tinte del remolino de Rendimiento: azul de marca que se calienta con la temperatura.
+        /// Performance swirl tint: brand blue that warms up with the temperature.
         static func swirlTint(_ state: ProcessInfo.ThermalState) -> Color {
             Color(hex: AiryPalette.swirlTint(heat: WindMotion.heat(for: state)))
         }
 
-        /// Señal de seguridad fija: solo fondos y rellenos grandes (y primer plano en oscuro).
+        /// Fixed safety signal: only backgrounds and large fills (and foreground in dark mode).
         static func riskFill(_ risk: Risk) -> Color { Color(hex: AiryPalette.riskFill(risk)) }
 
-        /// Tinta de riesgo para texto, iconos, puntos y anillos: AA sobre el fondo de cada modo.
+        /// Risk ink for text, icons, dots and rings: AA on each mode's background.
         static func riskInk(_ risk: Risk) -> Color {
             dynamic(dark: AiryPalette.riskInk(risk, .dark), light: AiryPalette.riskInk(risk, .light))
         }
@@ -161,7 +161,7 @@ extension Theme {
 }
 
 extension Color {
-    /// Color sRGB a partir de un entero `0xRRGGBB`.
+    /// sRGB color from an integer `0xRRGGBB`.
     init(hex: UInt32, opacity: Double = 1) {
         self.init(.sRGB,
                   red: Double((hex >> 16) & 0xFF) / 255,

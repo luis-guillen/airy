@@ -1,11 +1,11 @@
 import SwiftUI
 import DiskMapCore
 
-/// Fondo de marca: noche (o cielo claro) con dos halos suaves y unos trazos de brisa que cruzan
-/// de izquierda a derecha. El cruce lo anima el servidor de render (`RenderServerLayer`): la app
-/// no trabaja por fotograma, y a 30 fps como mucho (`CAAnimation.ambientFrameRate`). En pausa
-/// (ventana oculta o app inactiva) los trazos se congelan donde están y luego siguen sin salto; con
-/// «Reducir movimiento» se dibuja otra vista, estática (los trazos quietos en su `phase`).
+/// Brand background: night (or a light sky) with two soft halos and a few breeze strokes crossing
+/// from left to right. The render server animates the crossing (`RenderServerLayer`): the app
+/// doesn't work per frame, and at 30 fps at most (`CAAnimation.ambientFrameRate`). When paused
+/// (window hidden or app inactive) the strokes freeze where they are and then continue without a jump; with
+/// "Reduce motion" another, static view is drawn (the strokes still at their `phase`).
 struct BreezeBackground: View {
     let intensity: BreezeIntensity
 
@@ -37,10 +37,10 @@ struct BreezeBackground: View {
     }
 }
 
-/// Geometría compartida de un trazo: entra por la izquierda (x = −largo) y sale por la derecha.
+/// Shared geometry of a stroke: it enters from the left (x = −length) and leaves on the right.
 private extension BreezeStreak {
     func length(in size: CGSize) -> CGFloat { CGFloat(lengthFraction) * size.width }
-    /// Recorrido completo de una pasada.
+    /// Full travel of one pass.
     func lap(in size: CGSize) -> CGFloat { size.width + length(in: size) }
     func frame(in size: CGSize, at fraction: Double) -> CGRect {
         let length = length(in: size)
@@ -89,8 +89,8 @@ private struct MovingStreaks: View {
                 cross.toValue = streak.lap(in: size)
                 cross.duration = streak.period
                 cross.repeatCount = .infinity
-                // Desfasados por `phase` y, como sale y entra fuera de la vista, el bucle no se nota.
-                // La fase sale del reloj de la capa: al redimensionar la ventana sigue donde iba.
+                // Offset by `phase` and, since it leaves and enters out of view, the loop isn't noticeable.
+                // The phase comes from the layer's clock: when the window is resized it carries on where it was.
                 cross.timeOffset = CAAnimation.continuousOffset(in: container, period: streak.period,
                                                                 phase: streak.phase)
                 cross.preferredFrameRateRange = CAAnimation.ambientFrameRate

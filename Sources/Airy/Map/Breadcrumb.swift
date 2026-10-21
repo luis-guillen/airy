@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Ruta de navegación del mapa: botón Atrás (⌘[) y un botón por nivel para volver a él.
+/// Map breadcrumb: a Back button (⌘[) and one button per level to return to it.
 struct Breadcrumb: View {
     let items: [String]
     var onBack: () -> Void
@@ -18,7 +18,7 @@ struct Breadcrumb: View {
             .keyboardShortcut("[", modifiers: .command)
             .disabled(items.count <= 1)
             .opacity(items.count > 1 ? 1 : 0.35)
-            .help("Subir un nivel (Esc o ⌘[)")
+            .help("Up One Level (Esc or ⌘[)")
             .padding(.trailing, 6)
 
             ForEach(Array(items.enumerated()), id: \.offset) { index, title in
@@ -41,7 +41,7 @@ struct Breadcrumb: View {
 }
 
 private struct CrumbButton: View {
-    /// Nombres muy largos se recortan por el medio para que la ruta quepa en una línea.
+    /// Very long names are truncated in the middle so the path fits on one line.
     static func shortened(_ title: String, limit: Int = 30) -> String {
         guard title.count > limit else { return title }
         let half = (limit - 1) / 2
@@ -78,6 +78,6 @@ private struct CrumbButton: View {
         .fixedSize()
         .onHover { hovering = $0 }
         .animation(Theme.pressSpring, value: hovering)
-        .help(isCurrent ? title : "Volver a \(title)")
+        .help(isCurrent ? title : String(localized: "Back to \(title)"))
     }
 }

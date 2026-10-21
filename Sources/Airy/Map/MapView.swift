@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import DiskMapCore
 
-/// Sección Mapa: cabecera, ruta de navegación, el mapa de bloques animado y la leyenda por tipo.
+/// Map section: header, breadcrumb, the animated block map and the legend by kind.
 struct MapView: View {
     @Environment(AppModel.self) private var model
     let subtitle: String
@@ -10,7 +10,7 @@ struct MapView: View {
     @ViewState private var scene = MapScene()
     @ViewState private var tracker = HoverTracker()
     @ViewState private var canvasSize: CGSize = .zero
-    /// La confirmación única de la app (la misma hoja que Limpieza y el asistente).
+    /// The app's single confirmation (the same sheet as Cleanup and the assistant).
     @Environment(CleanupFlow.self) private var flow: CleanupFlow?
     @ViewState private var toast: MapToast?
     @Environment(\.airyTransientMotion) private var transientMotion
@@ -18,9 +18,9 @@ struct MapView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(title: "Mapa", subtitle: subtitle) {
+            SectionHeader(title: Section.map.title, subtitle: subtitle) {
                 if !model.isScanning {
-                    PrimaryButton("Analizar de nuevo", systemImage: "arrow.clockwise", style: .secondary) {
+                    PrimaryButton("Scan Again", systemImage: "arrow.clockwise", style: .secondary) {
                         model.startScan()
                     }
                     .fixedSize()
@@ -35,9 +35,9 @@ struct MapView: View {
                 KindLegend(node: current) { scene.setDim($0) }
             }
 
-            // Pie del mapa: si el análisis no pudo leerlo todo, se dice (y los tamaños llevan «+»).
+            // Map footer: if the scan couldn't read everything, it says so (and sizes carry a "+").
             if model.scan != nil, case .partial = model.scanCompleteness {
-                Label(model.scanCompleteness.label + " · los tamaños con «+» pueden ser mayores",
+                Label(String(localized: "\(model.scanCompleteness.label) · sizes marked “+” may be larger"),
                       systemImage: "exclamationmark.circle")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
@@ -46,7 +46,7 @@ struct MapView: View {
         }
         .padding(.horizontal, Theme.contentPadding)
         .padding(.top, 34)
-        // Durante un reanálisis la píldora de progreso ocupa el pie: la leyenda sube por encima.
+        // During a rescan the progress pill takes the footer: the legend moves up above it.
         .padding(.bottom, model.isScanning && model.scan != nil ? 76 : 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .focusable()
@@ -68,7 +68,7 @@ struct MapView: View {
             scene.show(model.navigation.current, revision: model.treeRevision)
         }
         .onChange(of: scene.settledCount) { _, _ in
-            // Al acabar un zoom, si el puntero sigue encima, vuelve la tarjeta de lo que hay debajo.
+            // When a zoom ends, if the pointer is still over it, the card for what is underneath comes back.
             if tracker.pointerInside { hover(at: tracker.location) }
         }
         .onChange(of: model.treeRevision) { _, revision in
@@ -86,7 +86,7 @@ struct MapView: View {
         #endif
     }
 
-    // MARK: Lienzo
+    // MARK: Canvas
 
     private var canvas: some View {
         ZStack(alignment: .topLeading) {
@@ -102,8 +102,8 @@ struct MapView: View {
             }
 
             if let layout = scene.layout, layout.tiles.isEmpty, scene.transition == nil {
-                ContentUnavailableView("Carpeta vacía", systemImage: "folder",
-                                       description: Text("Aquí no hay nada que ocupe espacio."))
+                ContentUnavailableView("Empty Folder", systemImage: "folder",
+                                       description: Text("Nothing here takes up space."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
@@ -138,7 +138,7 @@ struct MapView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityAddTraits(.isImage)
-        .accessibilityAction(named: "Subir un nivel") { goBack() }
+        .accessibilityAction(named: "Up One Level") { goBack() }
     }
 
     private func updateSize(_ size: CGSize) {
@@ -146,7 +146,7 @@ struct MapView: View {
         scene.resize(to: size)
     }
 
-    // MARK: Ratón
+    // MARK: Pointer
 
     private func hover(at point: CGPoint) {
         tracker.location = point
@@ -186,25 +186,25 @@ struct MapView: View {
         model.navigation.jump(to: index)
     }
 
-    // MARK: Menú contextual
+    // MARK: Context menu
 
     @ViewBuilder private var contextMenu: some View {
         if let details = tracker.details, let path = details.path, let tildePath = details.tildePath {
-            Button("Mostrar en Finder", systemImage: "folder") {
+            Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             }
-            Button("Explicar con IA", systemImage: "sparkles") {
-                model.pendingAssistantQuestion = "¿Qué es \(tildePath) y puedo borrarlo?"
+            Button("Explain with AI", systemImage: "sparkles") {
+                model.pendingAssistantQuestion = String(localized: "What is \(tildePath) and can I delete it?")
                 model.section = .assistant
             }
-            // No destructivo: sin confirmación. Lo ya protegido no lo ofrece.
+            // Non-destructive: no confirmation. Not offered for what is already protected.
             if details.protection == nil {
-                Button("Proteger esto", systemImage: "lock") { model.protect(path: path) }
+                Button("Protect This", systemImage: "lock") { model.protect(path: path) }
             }
-            // Solo donde el ejecutor la aceptaría (misma regla: `CleanupExecutor.wouldRefuseTrash`).
+            // Only where the executor would accept it (same rule: `CleanupExecutor.wouldRefuseTrash`).
             if let risk = details.risk, risk != .doNotTouch, model.canOfferTrash(path: path) {
                 Divider()
-                Button("Mover a la Papelera…", systemImage: "trash", role: .destructive) {
+                Button("Move to Trash…", systemImage: "trash", role: .destructive) {
                     requestTrash(TrashCandidate(title: details.title, path: path, tildePath: tildePath,
                                                 bytes: details.bytes,
                                                 rect: scene.layout?.tile(id: details.id)?.rect))
@@ -214,8 +214,8 @@ struct MapView: View {
         }
     }
 
-    /// Abre `ConfirmSheet` (`.trashPaths`); al terminar, la tesela se deshace en hojas (si ya se
-    /// fue) y el aviso del mapa cuenta el resultado. La ráfaga solo reacciona al resultado.
+    /// Opens `ConfirmSheet` (`.trashPaths`); when done, the tile breaks up into leaves (if it is
+    /// gone) and the map toast reports the result. The gust only reacts to the result.
     private func requestTrash(_ candidate: TrashCandidate) {
         let title = candidate.title
         let rect = candidate.rect
@@ -236,28 +236,29 @@ struct MapView: View {
         }
     }
 
-    // MARK: Accesibilidad
+    // MARK: Accessibility
 
     private var accessibilitySummary: String {
-        guard let current = model.navigation.current else { return "Mapa del disco sin análisis" }
+        guard let current = model.navigation.current else { return String(localized: "Disk map, not scanned") }
         let name = model.navigation.breadcrumb.last ?? current.name
         let biggest = current.children.filter { $0.allocatedSize > 0 }
             .sorted { $0.allocatedSize > $1.allocatedSize }
             .prefix(5)
-            .map { "\($0.aggregatedCount > 0 ? "Otros" : $0.name), \(Format.bytes($0.allocatedSize))" }
-        let list = biggest.isEmpty ? "Está vacía." : "Lo que más ocupa: \(biggest.joined(separator: "; "))."
-        return "Mapa de \(name), \(Format.bytes(current.allocatedSize)). \(list)"
+            .map { "\($0.aggregatedCount > 0 ? String(localized: "Other") : $0.name), \(Format.bytes($0.allocatedSize))" }
+        let list = biggest.isEmpty ? String(localized: "It’s empty.")
+            : String(localized: "Largest items: \(biggest.joined(separator: "; ")).")
+        return String(localized: "Map of \(name), \(Format.bytes(current.allocatedSize)). \(list)")
     }
 }
 
-// MARK: - Papelera y aviso
+// MARK: - Trash and toast
 
 struct TrashCandidate: Equatable {
     let title: String
     let path: String
     let tildePath: String
     let bytes: Int64
-    /// Rectángulo de la tesela en el lienzo (para la ráfaga de hojas); `nil` si no se conoce.
+    /// The tile's rectangle on the canvas (for the leaf burst); `nil` if unknown.
     var rect: CGRect? = nil
 }
 
@@ -272,15 +273,15 @@ struct MapToast: Equatable {
         case .movedToTrash(let bytes):
             symbol = "trash.fill"
             tint = Theme.Airy.riskInk(.safe)
-            message = "«\(title)» está en la Papelera (\(Format.bytes(bytes))). Se libera al vaciarla."
+            message = String(localized: "“\(title)” is in the Trash (\(Format.bytes(bytes))). The space is freed when you empty it.")
         case .freed(let bytes):
             symbol = "checkmark.circle.fill"
             tint = Theme.Airy.riskInk(.safe)
-            message = "Liberados \(Format.bytes(bytes))."
+            message = String(localized: "Freed \(Format.bytes(bytes)).")
         case .blocked(let reason):
             symbol = "hand.raised.fill"
             tint = Theme.Airy.riskInk(.yourCall)
-            message = "No se ha movido: \(reason)"
+            message = String(localized: "Not moved: \(reason)")
         case .failed(let reason):
             symbol = "exclamationmark.triangle.fill"
             tint = Theme.Airy.riskInk(.doNotTouch)
@@ -349,7 +350,7 @@ extension Notification.Name {
     static let airyDebugToast = Notification.Name("AiryDebugToast")
 }
 
-/// Contador de fotogramas en pantalla (solo con AIRY_FPS=1).
+/// On-screen frame counter (only with AIRY_FPS=1).
 private struct FPSBadge: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
@@ -363,9 +364,9 @@ private struct FPSBadge: View {
     }
 }
 
-/// Solo en Debug: acciones programadas sobre el mapa para revisarlo sin ratón.
-/// `AIRY_MAP_SCRIPT="zoom@3,hover@5,legend:video@6,back@7"`. Acciones: `zoom[:nombre]`,
-/// `back`, `jump:N`, `hover[:nombre]`, `unhover`, `legend:<tipo>|none`, `trash[:nombre]` (abre la confirmación).
+/// Debug only: scheduled actions on the map to review it without a mouse.
+/// `AIRY_MAP_SCRIPT="zoom@3,hover@5,legend:video@6,back@7"`. Actions: `zoom[:name]`,
+/// `back`, `jump:N`, `hover[:name]`, `unhover`, `legend:<kind>|none`, `trash[:name]` (opens the confirmation).
 @MainActor
 enum MapDebugScript {
     static func run(scene: MapScene, tracker: HoverTracker, model: AppModel,
@@ -378,7 +379,7 @@ enum MapDebugScript {
             let action = parts[0].split(separator: ":", maxSplits: 1).map(String.init)
             return (action[0], action.count > 1 ? action[1] : nil, time)
         }
-        // Cada paso va en su propio `asyncAfter` (exacto al fotograma; `Task.sleep` llega tarde mientras anima).
+        // Each step goes in its own `asyncAfter` (frame-exact; `Task.sleep` arrives late while animating).
         for (action, argument, time) in steps {
             let wait = max(time - Date().timeIntervalSince(start), 0)
             DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
@@ -393,7 +394,7 @@ enum MapDebugScript {
                                 tracker: HoverTracker, model: AppModel,
                                 openTrash: @escaping (TrashCandidate) -> Void) {
         do {
-            FPSMeter.log("[script] \(action) \(argument ?? "") (previsto a \(time) s)")
+            FPSMeter.log("[script] \(action) \(argument ?? "") (scheduled at \(time) s)")
             let tiles = scene.layout?.tiles ?? []
             func pick(_ zoomable: Bool) -> MapTile? {
                 if let argument { return tiles.first { $0.name == argument } }
@@ -408,15 +409,15 @@ enum MapDebugScript {
                 let path = (argument ?? "").replacingOccurrences(of: "~", with: NSHomeDirectory())
                 if let node = model.node(atPath: path) { model.navigation.zoom(into: node) }
             case "key":
-                // Teclas de verdad en la cola de eventos de la app: "esc" o "cmd-[".
+                // Real keys in the app's event queue: "esc" or "cmd-[".
                 postKey(argument ?? "esc")
             case "move", "click", "rclick":
-                // Ratón de verdad sobre el centro de una tesela (hover, clic, menú contextual).
+                // Real mouse over the center of a tile (hover, click, context menu).
                 if let tile = pick(action == "click") {
                     postMouse(action, at: CGPoint(x: tile.rect.midX, y: tile.rect.midY), scene: scene)
                 }
             case "busiest":
-                // La carpeta con más hijos directos del análisis (prueba de miles de teselas).
+                // The scan's folder with the most direct children (a test with thousands of tiles).
                 var best: FileNode?
                 var stack = model.scan.map { [$0.root] } ?? []
                 while let node = stack.popLast() {
@@ -425,7 +426,7 @@ enum MapDebugScript {
                     stack.append(contentsOf: node.children.filter(\.isDirectory))
                 }
                 if let best {
-                    FPSMeter.log("[script] carpeta con más hijos: \(best.path) (\(best.children.count))")
+                    FPSMeter.log("[script] folder with the most children: \(best.path) (\(best.children.count))")
                     model.navigation.zoom(into: best)
                 }
             case "jump":
@@ -450,7 +451,7 @@ enum MapDebugScript {
                                              rect: tile.rect))
                 }
             default:
-                FPSMeter.log("[script] acción desconocida: \(action)")
+                FPSMeter.log("[script] unknown action: \(action)")
             }
         }
     }

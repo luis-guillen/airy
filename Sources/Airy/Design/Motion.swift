@@ -2,15 +2,15 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-// MARK: - Portero de movimiento
+// MARK: - Motion gatekeeper
 
-/// Movimiento ambiente (brisa, logo, órbita). Por defecto parado: una vista que no recibe el
-/// portero (p. ej. una hoja nueva que olvidó inyectarlo) no gasta CPU.
+/// Ambient motion (breeze, logo, orbit). Stopped by default: a view that doesn't receive the
+/// gatekeeper (e.g. a new sheet that forgot to inject it) spends no CPU.
 private struct AiryAmbientMotionKey: EnvironmentKey {
     static let defaultValue: MotionMode = .paused
 }
 
-/// Movimiento transitorio (borrar, ráfaga, arranque, balanceo). Por defecto reducido: solo fundidos.
+/// Transient motion (deletion, gust, launch, sway). Reduced by default: fades only.
 private struct AiryTransientMotionKey: EnvironmentKey {
     static let defaultValue: MotionMode = .reduced
 }
@@ -29,18 +29,18 @@ extension EnvironmentValues {
         get { self[AiryTransientMotionKey.self] }
         set { self[AiryTransientMotionKey.self] = newValue }
     }
-    /// Sin sombras difusas (p. ej. durante una tanda de Limpieza): nada que volver a desenfocar
-    /// en cada fotograma mientras la lista se colapsa.
+    /// No soft shadows (e.g. during a Cleanup batch): nothing to blur again
+    /// every frame while the list collapses.
     var airyQuietShadows: Bool {
         get { self[AiryQuietShadowsKey.self] }
         set { self[AiryQuietShadowsKey.self] = newValue }
     }
 }
 
-// MARK: - Actividad de la ventana
+// MARK: - Window activity
 
-/// Avisa de si la ventana que lo contiene se ve (no tapada, ni minimizada, ni la app oculta) y de
-/// si la app está activa. Informa al entrar en la ventana y en cada cambio.
+/// Reports whether its containing window is visible (not covered, minimized, or the app hidden) and
+/// whether the app is active. It reports on entering the window and on every change.
 struct WindowActivityReader: NSViewRepresentable {
     var onChange: (_ visible: Bool, _ active: Bool) -> Void
 
@@ -87,21 +87,21 @@ struct WindowActivityReader: NSViewRepresentable {
     }
 }
 
-// MARK: - Balanceo al pasar el ratón
+// MARK: - Sway on hover
 
 extension View {
-    /// Balanceo breve, como una hoja con la brisa, cada vez que `hovering` pasa a `true`.
-    /// Sin movimiento transitorio (`airyTransientMotion != .running`) no hace nada.
+    /// A brief sway, like a leaf in the breeze, every time `hovering` becomes `true`.
+    /// Without transient motion (`airyTransientMotion != .running`) it does nothing.
     func hoverSway(_ hovering: Bool) -> some View {
         modifier(HoverSway(hovering: hovering))
     }
 
-    /// Solo en Debug con `AIRY_FPS=1`: registra cada cambio del modo ambiente.
+    /// Debug only with `AIRY_FPS=1`: logs every ambient mode change.
     func logAmbientMotion(_ mode: MotionMode) -> some View {
         #if DEBUG
         onChange(of: mode, initial: true) { _, mode in
             guard FPSMeter.isEnabled else { return }
-            FPSMeter.log("[motion] ambiente: \(mode)")
+            FPSMeter.log("[motion] ambient: \(mode)")
         }
         #else
         self
@@ -119,7 +119,7 @@ private struct HoverSway: ViewModifier {
             .keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, degrees in
                 view.rotationEffect(.degrees(degrees), anchor: .bottom)
             } keyframes: { _ in
-                // `swayKeyframes` lleva instantes acumulados; cada fotograma clave quiere su duración.
+                // `swayKeyframes` holds cumulative instants; each keyframe wants its duration.
                 KeyframeTrack {
                     for (index, frame) in WindMotion.swayKeyframes.enumerated() {
                         let previous = index == 0 ? 0 : WindMotion.swayKeyframes[index - 1].time
@@ -133,17 +133,17 @@ private struct HoverSway: ViewModifier {
     }
 }
 
-// MARK: - Animación del servidor de render
+// MARK: - Render server animation
 
 extension CAAnimation {
-    /// Tope de fotogramas del movimiento ambiente (brisa, logo, destello, órbita): todo es lento
-    /// (≤ 1 vuelta/s), y a 30 fps se ve igual de suave que a 120 Hz con la cuarta parte de
-    /// fotogramas que componer en WindowServer (incluido el desenfoque de los cristales encima).
+    /// Frame cap for ambient motion (breeze, logo, glint, orbit): everything is slow
+    /// (≤ 1 revolution/s), and at 30 fps it looks as smooth as at 120 Hz with a quarter of the
+    /// frames to composite in WindowServer (including the blur of the glass on top).
     static let ambientFrameRate = CAFrameRateRange(minimum: 20, maximum: 30, preferred: 30)
 
-    /// Hora local de `layer` a partir de la que una animación periódica de `period` segundos
-    /// sigue donde iba: `timeOffset` para que su fase dependa solo del reloj de la capa (más
-    /// `phase`, en vueltas), y una reconstrucción (tamaño, escala, aspecto) no la devuelva al inicio.
+    /// Local time of `layer` from which a periodic animation of `period` seconds
+    /// continues where it was: `timeOffset` so its phase depends only on the layer's clock (plus
+    /// `phase`, in turns), and a rebuild (size, scale, appearance) doesn't send it back to the start.
     static func continuousOffset(in layer: CALayer, period: Double, phase: Double = 0) -> CFTimeInterval {
         let now = layer.convertTime(CACurrentMediaTime(), from: nil)
         let turns = (now / period + phase).truncatingRemainder(dividingBy: 1)
@@ -151,18 +151,18 @@ extension CAAnimation {
     }
 }
 
-/// Capa de Core Animation cuyas animaciones infinitas interpola el servidor de render: la app no
-/// hace nada por fotograma. Un `repeatForever` de SwiftUI, en cambio, recalcula el grafo en cada
-/// fotograma (≈ 10 % de CPU a 120 Hz por animación, medido). Quien la usa la retira cuando no hay
-/// movimiento ambiente, y con ella desaparece la animación.
+/// Core Animation layer whose endless animations the render server interpolates: the app does
+/// nothing per frame. A SwiftUI `repeatForever`, by contrast, recomputes the graph every
+/// frame (≈ 10% CPU at 120 Hz per animation, measured). Whoever uses it removes it when there is no
+/// ambient motion, and the animation goes away with it.
 struct RenderServerLayer: NSViewRepresentable {
-    /// Cuando cambia, la capa se reconstruye (además de con cada cambio de tamaño).
+    /// When it changes, the layer is rebuilt (in addition to every size change).
     var key: AnyHashable
-    /// Congela las animaciones en su sitio (velocidad 0: el servidor de render no las interpola) y,
-    /// al quitarlo, siguen desde ahí, sin salto. Las capas reconstruidas mientras tanto nacen congeladas.
+    /// Freezes the animations in place (speed 0: the render server doesn't interpolate them) and,
+    /// when removed, they continue from there without a jump. Layers rebuilt in the meantime are born frozen.
     var paused = false
-    /// Llena `container` (coordenadas con y hacia abajo, como SwiftUI) para el tamaño dado;
-    /// `container.contentsScale` es la escala de la pantalla.
+    /// Fills `container` (coordinates with y pointing down, like SwiftUI) for the given size;
+    /// `container.contentsScale` is the screen scale.
     var build: @MainActor (_ container: CALayer, _ size: CGSize) -> Void
 
     func makeNSView(context: Context) -> HostView {
@@ -194,7 +194,7 @@ struct RenderServerLayer: NSViewRepresentable {
             layer?.addSublayer(container)
         }
 
-        required init?(coder: NSCoder) { fatalError("init(coder:) no se usa") }
+        required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
         override var isFlipped: Bool { true }
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -204,13 +204,13 @@ struct RenderServerLayer: NSViewRepresentable {
             if builtSize != bounds.size { rebuild() }
         }
 
-        /// Las capas hechas a mano no heredan la escala de la pantalla: se rehacen al cambiar.
+        /// Hand-made layers don't inherit the screen scale: they are rebuilt when it changes.
         override func viewDidChangeBackingProperties() {
             super.viewDidChangeBackingProperties()
             if builtSize != nil { rebuild() }
         }
 
-        /// Receta estándar de Core Animation para pausar y reanudar una capa y sus subcapas.
+        /// Standard Core Animation recipe to pause and resume a layer and its sublayers.
         func setPaused(_ paused: Bool) {
             guard paused != (container.speed == 0) else { return }
             CATransaction.begin()
@@ -234,7 +234,7 @@ struct RenderServerLayer: NSViewRepresentable {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             container.frame = bounds
-            // Quien construye copia esta escala en sus capas rasterizadas (trazos, formas).
+            // The builder copies this scale into its rasterized layers (strokes, shapes).
             container.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
             container.sublayers?.forEach { $0.removeFromSuperlayer() }
             if bounds.width > 0, bounds.height > 0 { build?(container, bounds.size) }

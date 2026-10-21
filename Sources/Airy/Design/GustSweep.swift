@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Ráfaga de una tanda de borrado: una banda ancha (≈ 40 % del ancho) de cielo translúcido con unas
-/// pocas hojas cruza la vista de izquierda a derecha en `WindMotion.gustBandDuration`, contando
-/// desde `start`. La anima el servidor de render con una sola animación de ida (nada por fotograma
-/// en la app) y no queda nada pasado su final. Sin movimiento transitorio no se dibuja. Quien la
-/// muestra la retira al acabar la ráfaga; no recibe clics.
+/// Gust of a deletion batch: a wide band (≈ 40% of the width) of translucent sky with a
+/// few leaves crosses the view from left to right in `WindMotion.gustBandDuration`, counting
+/// from `start`. The render server animates it with a single one-way animation (nothing per frame
+/// in the app) and nothing remains after its end. Without transient motion it isn't drawn. Whoever
+/// shows it removes it when the gust ends; it doesn't receive clicks.
 struct GustSweep: View {
     let start: Date
 
@@ -33,8 +33,8 @@ struct GustSweep: View {
         .accessibilityHidden(true)
     }
 
-    /// Una banda con hojas que viaja de fuera por la izquierda a fuera por la derecha. Si la capa se
-    /// rehace a mitad (cambio de tamaño), retoma desde donde va la ráfaga.
+    /// A band with leaves that travels from off the left edge to off the right edge. If the layer is
+    /// rebuilt halfway (size change), it resumes from where the gust is.
     private static func build(_ container: CALayer, size: CGSize, start: Date, sky: UInt32, leafColors: [UInt32]) {
         let duration = WindMotion.gustBandDuration
         let elapsed = Date().timeIntervalSince(start)
@@ -44,7 +44,7 @@ struct GustSweep: View {
 
         let band = CALayer()
         band.bounds = CGRect(x: 0, y: 0, width: width, height: size.height)
-        // En reposo (antes y después de la animación) queda fuera de la vista.
+        // At rest (before and after the animation) it stays out of view.
         band.position = CGPoint(x: toX, y: size.height / 2)
 
         let gradient = CAGradientLayer()
@@ -57,7 +57,7 @@ struct GustSweep: View {
                            skyColor.withAlphaComponent(0).cgColor]
         band.addSublayer(gradient)
 
-        // Alineada con `start`, aunque la capa se monte tarde o se rehaga.
+        // Aligned with `start`, even if the layer is mounted late or rebuilt.
         let begin = container.convertTime(CACurrentMediaTime(), from: nil) - max(elapsed, 0)
         let leafPath = AiryLogoGeometry.leafPath(length: 11, width: 5)
         for index in 0..<leafCount {
@@ -90,12 +90,12 @@ struct GustSweep: View {
     }
 }
 
-// MARK: - Balanceo de las filas con la ráfaga
+// MARK: - Rows swaying with the gust
 
 extension View {
-    /// La fila `index` se mece a la derecha cuando pasa la ráfaga que empezó en `start`
-    /// (`WindMotion.gustRowOffset`: primero la de arriba). Es una animación de un solo disparo que
-    /// termina en `gustDuration`; sin índice, sin ráfaga o sin movimiento transitorio no hace nada.
+    /// Row `index` sways to the right when the gust that started at `start` passes
+    /// (`WindMotion.gustRowOffset`: the top one first). It is a one-shot animation that
+    /// ends at `gustDuration`; with no index, no gust or no transient motion it does nothing.
     func gustSway(index: Int?, start: Date?) -> some View {
         modifier(GustSway(index: index, start: start))
     }
@@ -108,7 +108,7 @@ private struct GustSway: ViewModifier {
     @Environment(\.airyTransientMotion) private var motion
     @ViewState private var trigger = 0
 
-    /// Muestras por segundo del desplazamiento; entre ellas, curvas suaves.
+    /// Offset samples per second; smooth curves between them.
     private static let samplesPerSecond = 30.0
 
     func body(content: Content) -> some View {
@@ -118,7 +118,7 @@ private struct GustSway: ViewModifier {
                 view.offset(x: dx)
             } keyframes: { _ in
                 KeyframeTrack {
-                    // `gustRowOffset` no depende del total de filas; la fila acaba en `gustDuration(row + 1)`.
+                    // `gustRowOffset` doesn't depend on the total row count; the row ends at `gustDuration(row + 1)`.
                     let end = WindMotion.gustDuration(rowCount: row + 1)
                     let steps = max(Int((end * Self.samplesPerSecond).rounded(.up)), 1)
                     for step in 1...steps {
@@ -134,10 +134,10 @@ private struct GustSway: ViewModifier {
     }
 }
 
-// MARK: - Contador de la tanda
+// MARK: - Batch counter
 
-/// Píldora que sube con cada fila borrada: hoja, cifra que rueda y «liberados». Si algo fue a la
-/// Papelera dice «despejados» y lo explica debajo (no se libera hasta vaciarla).
+/// Pill that goes up with each deleted row: a leaf, a rolling figure and "freed". If something went to the
+/// Trash it says "cleared" and explains it below (nothing is freed until it is emptied).
 struct BatchFreedPill: View {
     let tally: BatchMotion.Tally
 
@@ -161,7 +161,7 @@ struct BatchFreedPill: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        // Radio de media altura de una línea: cápsula con una línea, esquinas redondas con dos.
+        // Radius of half a line's height: a capsule with one line, rounded corners with two.
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
             .strokeBorder(Theme.Airy.sky.opacity(0.35), lineWidth: 0.5))

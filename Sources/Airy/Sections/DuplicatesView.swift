@@ -2,9 +2,9 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Duplicados: ficheros idénticos del índice ya analizado. La búsqueda solo arranca con «Buscar duplicados».
-/// En cada grupo una copia se conserva (radio) y nunca se marca; lo rojo o protegido no tiene casilla.
-/// Lo marcado pasa por `CleanupFlow` (hoja `.duplicates`) → `AppModel.trashDuplicates` → `CleanupExecutor`.
+/// Duplicates: identical files from the already scanned index. The search only starts with "Find Duplicates".
+/// In each group one copy is kept (radio button) and is never checked; red or protected items have no checkbox.
+/// What is checked goes through `CleanupFlow` (`.duplicates` sheet) → `AppModel.trashDuplicates` → `CleanupExecutor`.
 struct DuplicatesView: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
@@ -36,29 +36,29 @@ struct DuplicatesView: View {
     }
 
     private func subtitle(_ store: DuplicatesStore) -> String {
-        guard model.scan != nil else { return "Sin análisis todavía" }
-        guard let result = store.result else { return "Busca archivos idénticos en tus carpetas." }
+        guard model.scan != nil else { return String(localized: "No scan yet") }
+        guard let result = store.result else { return String(localized: "Finds identical files in your folders.") }
         let groups = visibleGroups(store)
         let wasted = groups.reduce(Int64(0)) { $0 + $1.wastedBytes }
-        return "\(groups.count == 1 ? "1 grupo" : "\(Theme.count(groups.count)) grupos") · "
-            + "\(Theme.count(result.filesExamined)) archivos comparados · \(Format.bytes(wasted)) repetidos"
+        let groupsText = groups.count == 1 ? String(localized: "1 group") : String(localized: "\(Theme.count(groups.count)) groups")
+        return String(localized: "\(groupsText) · \(Theme.count(result.filesExamined)) files compared · \(Format.bytes(wasted)) duplicated")
     }
 
-    // MARK: Filtros
+    // MARK: Filters
 
     private func filters(_ store: DuplicatesStore) -> some View {
         @Bindable var store = store
         return HStack(spacing: 10) {
-            chip("Tu carpeta", selected: store.place == .home) { store.place = .home }
+            chip(String(localized: "Your Folder"), selected: store.place == .home) { store.place = .home }
             chip(folderTitle(store), selected: store.place != .home) { chooseFolder(store) }
                 .help(store.search.roots.count == 1 ? Format.tildePath(store.search.roots[0]) : "")
-            Picker("Tamaño mínimo", selection: $store.search.minBytes) {
+            Picker("Minimum Size", selection: $store.search.minBytes) {
                 ForEach(DuplicateSearch.sizeSteps, id: \.self) { Text("≥ \(Format.bytes($0))").tag($0) }
             }
             .labelsHidden()
             .fixedSize()
             Spacer(minLength: 8)
-            PrimaryButton("Buscar duplicados", systemImage: "magnifyingglass") { store.start(model: model) }
+            PrimaryButton("Find Duplicates", systemImage: "magnifyingglass") { store.start(model: model) }
                 .fixedSize()
                 .disabled(store.isSearching || model.scan == nil || flow.isBusy)
         }
@@ -67,7 +67,7 @@ struct DuplicatesView: View {
 
     private func folderTitle(_ store: DuplicatesStore) -> String {
         if case .folder(let path) = store.place { return (path as NSString).lastPathComponent }
-        return "Elegir carpeta…"
+        return String(localized: "Choose Folder…")
     }
 
     private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -92,28 +92,28 @@ struct DuplicatesView: View {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
-        panel.prompt = "Elegir"
+        panel.prompt = String(localized: "Choose")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         store.place = .folder(url.standardizedFileURL.path)
     }
 
-    // MARK: Contenido
+    // MARK: Content
 
     @ViewBuilder
     private func content(_ store: DuplicatesStore) -> some View {
         if model.scan == nil {
-            EmptySectionCard(symbol: Section.duplicates.symbol, line: "Analiza el disco para buscar duplicados.")
+            EmptySectionCard(symbol: Section.duplicates.symbol, line: "Scan the disk to look for duplicates.")
         } else if store.isSearching {
             progress(store)
         } else if let result = store.result {
             if !result.complete {
-                Label("Búsqueda incompleta: se canceló o no se pudo leer todo.", systemImage: "exclamationmark.triangle.fill")
+                Label("Incomplete search: it was cancelled or not everything could be read.", systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
                     .foregroundStyle(Theme.Airy.riskInk(.yourCall))
             }
             let groups = visibleGroups(store)
             if groups.isEmpty {
-                EmptySectionCard(symbol: "checkmark.circle", line: "No hay archivos repetidos.")
+                EmptySectionCard(symbol: "checkmark.circle", line: "There are no duplicate files.")
             } else {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     ForEach(groups) { group in groupCard(group, store: store) }
@@ -121,7 +121,7 @@ struct DuplicatesView: View {
             }
         } else {
             EmptySectionCard(symbol: Section.duplicates.symbol,
-                             line: "Elige dónde buscar y pulsa «Buscar duplicados».")
+                             line: "Choose where to look and click “Find Duplicates”.")
         }
     }
 
@@ -139,10 +139,10 @@ struct DuplicatesView: View {
                 WindLeaves(mode: .orbit(radius: 72), count: 6)
                     .frame(width: 180, height: 180)
             }
-            Text("Comparando \(Theme.count(store.examined)) archivos…")
+            Text("Comparing \(Theme.count(store.examined)) files…")
                 .font(.headline)
                 .monospacedDigit()
-            Button("Cancelar") { store.cancel() }
+            Button("Cancel") { store.cancel() }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
@@ -157,11 +157,11 @@ struct DuplicatesView: View {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(name).font(.headline).lineLimit(1).truncationMode(.middle)
-                        Text("\(copies.count) copias de \(Format.bytes(group.size))")
+                        Text("\(copies.count) copies of \(Format.bytes(group.size))")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text("Libera \(Format.bytes(group.wastedBytes))")
+                    Text("Frees \(Format.bytes(group.wastedBytes))")
                         .font(.callout.weight(.semibold)).monospacedDigit()
                 }
                 .padding(.horizontal, 14)
@@ -183,8 +183,8 @@ struct DuplicatesView: View {
                     .foregroundStyle(isKeeper ? Theme.Airy.accent : .secondary)
             }
             .buttonStyle(.plain)
-            .help("Conservar")
-            .accessibilityLabel("Conservar")
+            .help("Keep")
+            .accessibilityLabel("Keep")
             if copy.canSelect {
                 Toggle("", isOn: Binding(get: { store.board.selected.contains(copy.path) },
                                          set: { _ in store.board.toggle(copy.path, in: group) }))
@@ -202,7 +202,7 @@ struct DuplicatesView: View {
                     .truncationMode(.middle)
                     .textSelection(.enabled)
                 HStack(spacing: 8) {
-                    if isKeeper { Text("Conservar").font(.caption.weight(.semibold)).foregroundStyle(Theme.Airy.accent) }
+                    if isKeeper { Text("Keep").font(.caption.weight(.semibold)).foregroundStyle(Theme.Airy.accent) }
                     if let date = copy.modified {
                         Text(date.formatted(.dateTime.day().month(.abbreviated).year().locale(Theme.locale)))
                             .font(.caption).foregroundStyle(.secondary)
@@ -210,7 +210,7 @@ struct DuplicatesView: View {
                     if let protection = copy.protection {
                         Text(protection.reason).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                     } else if copy.reclaimableBytes == 0 {
-                        Text("Copia APFS: no ocupa espacio extra").font(.caption).foregroundStyle(.secondary)
+                        Text("APFS copy: takes no extra space").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -221,16 +221,16 @@ struct DuplicatesView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: Barra
+    // MARK: Bar
 
     private func bar(_ store: DuplicatesStore) -> some View {
         let removals = store.board.removals()
         return HStack(spacing: 14) {
-            Button("Seleccionar todas las copias") { withAnimation(Theme.pressSpring) { store.selectAllCopies() } }
-            Button("Quitar selección") { withAnimation(Theme.pressSpring) { store.board.clear() } }
+            Button("Select All Copies") { withAnimation(Theme.pressSpring) { store.selectAllCopies() } }
+            Button("Clear Selection") { withAnimation(Theme.pressSpring) { store.board.clear() } }
                 .disabled(store.board.selected.isEmpty)
             Spacer(minLength: 8)
-            PrimaryButton("Mover copias a la Papelera · \(Format.bytes(store.board.reclaimableBytes))",
+            PrimaryButton("Move Copies to Trash · \(Format.bytes(store.board.reclaimableBytes))",
                           systemImage: "trash") {
                 flow.requestRemoveDuplicates(removals) { _ in store.pruneMissing() }
             }

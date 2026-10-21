@@ -3,57 +3,57 @@ import SwiftUI
 import Observation
 import DiskMapCore
 
-/// Coordina todo lo que borra algo desde la interfaz: la hoja de confirmación, la ejecución en
-/// tanda, la celebración, "Vaciar Papelera" (también desde la barra lateral), el aviso de
-/// instantáneas de Time Machine y "Cerrar <App>". Vive en `RootView` y se comparte por entorno.
+/// Coordinates everything that deletes something from the UI: the confirmation sheet, batch
+/// execution, the celebration, "Empty Trash" (also from the sidebar), the Time Machine
+/// snapshots notice and "Quit <App>". It lives in `RootView` and is shared through the environment.
 @MainActor @Observable
 final class CleanupFlow {
     struct ConfirmRequest: Identifiable {
         enum Kind {
             case items([CleanupItem])
-            /// Tamaño leído al pedirla, solo para la hoja; al confirmar se vuelve a leer.
-            /// `nil` = la Papelera no se puede leer (se vaciará con Finder, en todos los discos).
+            /// Size read when requested, only for the sheet; it is read again on confirmation.
+            /// `nil` = the Trash can't be read (Finder will empty it, on every disk).
             case emptyTrash(Int64?)
-            /// Rutas sueltas (mapa o asistente) que irán a la Papelera con `AppModel.trash(paths:title:)`.
+            /// Individual paths (map or assistant) that will go to the Trash via `AppModel.trash(paths:title:)`.
             case trashPaths([String], title: String)
-            /// Desinstalador: apps (una a una), restos huérfanos (Papelera) y enlaces rotos (se borran).
+            /// Uninstaller: apps (one by one), orphaned leftovers (Trash) and broken links (deleted).
             case uninstall([UninstallRequest])
             case orphans([OrphanGroup])
             case brokenLinks([BrokenLink])
-            /// Cerrar apps de Rendimiento (cierre normal primero) por `AppModel.quit` → `QuitExecutor`.
+            /// Quit apps from Performance (normal quit first) via `AppModel.quit` → `QuitExecutor`.
             case quitApps([AppGroup])
-            /// Forzar el cierre de lo que no respondió; siempre una segunda confirmación aparte.
+            /// Force quit what didn't respond; always a separate second confirmation.
             case forceQuitApps([AppGroup])
-            /// Duplicados: por grupo, la copia que se conserva y las que van a la Papelera (se verifican antes).
+            /// Duplicates: per group, the copy that is kept and the ones that go to the Trash (verified first).
             case duplicates([DuplicateRemoval])
         }
-        /// Primer paso opcional ("Esto depende de ti" del asistente): la confirmación real llega
-        /// solo tras "Sí, quiero moverlo…".
+        /// Optional first step (the assistant's "This is your call"): the real confirmation comes
+        /// only after "Yes, Move It…".
         struct Warning {
             let title: String
             let subtitle: String
             let reason: String
             let note: String
-            /// Botón para pasar a la confirmación (una desinstalación no es «moverlo» a la Papelera).
-            var continueTitle = "Sí, quiero moverlo…"
+            /// Button to go on to the confirmation (an uninstall isn't "moving it" to the Trash).
+            var continueTitle = String(localized: "Yes, Move It…")
         }
 
         let id = UUID()
-        /// Una tanda: su vista previa y su ejecución quedan en el registro con este mismo `runID`.
+        /// One batch: its preview and its execution are logged with this same `runID`.
         let runID = UUID()
         let kind: Kind
         var warning: Warning? = nil
-        /// Agente que propuso esto y por dónde (`airy://propose`: `OperationContext.viaUnverifiedURL`, el
-        /// nombre es solo lo que dice el enlace); la confirmación del usuario lo deja en el registro como
+        /// Agent that proposed this and through what (`airy://propose`: `OperationContext.viaUnverifiedURL`, the
+        /// name is only what the link says); the user's confirmation logs it as
         /// `.user(…, proposedBy:, proposedVia:)`.
         var proposedBy: String? = nil
         var proposedVia: String? = nil
-        /// Al confirmar (antes de ejecutar) y con el resultado de cada elemento, para quien pidió la
-        /// confirmación (p. ej. la tarjeta del asistente o el aviso del mapa).
+        /// On confirmation (before running) and with each item's result, for whoever requested the
+        /// confirmation (e.g. the assistant's card or the map toast).
         var onConfirm: (@MainActor () -> Void)? = nil
         var onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil
 
-        /// Lo confirma el usuario; si lo propuso un agente, queda anotado como tal.
+        /// The user confirms it; if an agent proposed it, that is logged as such.
         var context: OperationContext { .user(runID: runID, proposedBy: proposedBy, proposedVia: proposedVia) }
     }
 
@@ -82,30 +82,30 @@ final class CleanupFlow {
         let bytes: Int64
     }
 
-    /// Resultado de la última tanda que la vista Limpieza muestra arriba.
+    /// Result of the last batch, shown at the top of the Cleanup view.
     struct LastResult: Identifiable {
         let id = UUID()
         let summary: CleanupRunSummary
     }
 
-    // MARK: Estado
+    // MARK: State
 
     var sheet: Sheet?
     var celebration: Celebration?
     var lastResult: LastResult?
-    /// Ids pendientes de la tanda en curso (en orden) y el que se está ejecutando.
+    /// Pending ids of the batch in progress (in order) and the one running.
     private(set) var queuedIDs: [String] = []
     private(set) var currentID: String?
     private(set) var isEmptyingTrash = false
-    /// Limpiados en esta tanda: se ocultan al momento, sin esperar a la nueva detección.
+    /// Cleaned in this batch: hidden right away, without waiting for the new detection.
     private(set) var hiddenIDs: Set<String> = []
-    /// Bundle IDs que se están cerrando ("Cerrar Spotify") y avisos de apps que no quisieron cerrarse.
+    /// Bundle IDs being quit ("Quit Spotify") and notices for apps that refused to quit.
     private(set) var closingApps: Set<String> = []
     private(set) var appRefusals: [String: String] = [:]
 
-    /// Ráfaga de una tanda de dos filas o más: cuándo empezó y el orden de ejecución (`gustSway`).
+    /// Gust of a batch of two rows or more: when it started and the execution order (`gustSway`).
     struct Gust: Equatable {
-        /// Qué lista barre: cada vista enseña solo la suya (una desinstalación no sacude Limpieza).
+        /// Which list it sweeps: each view shows only its own (an uninstall doesn't shake Cleanup).
         enum Owner: Equatable { case items, uninstall }
         let id: UUID
         let start: Date
@@ -113,9 +113,9 @@ final class CleanupFlow {
         let owner: Owner
     }
     private(set) var gust: Gust?
-    /// La ráfaga en curso si barre la lista de `owner` (Limpieza o Desinstalador); si no, `nil`.
+    /// The gust in progress if it sweeps `owner`'s list (Cleanup or Uninstaller); otherwise `nil`.
     func gust(for owner: Gust.Owner) -> Gust? { gust?.owner == owner ? gust : nil }
-    /// Lo que va despejando la tanda `.items` en curso (píldora «liberados»/«despejados»).
+    /// What the `.items` batch in progress has cleared so far ("freed"/"cleared" pill).
     private(set) var batchTally = BatchMotion.Tally()
     var batchFreed: Int64 { batchTally.bytes }
 
@@ -124,7 +124,7 @@ final class CleanupFlow {
 
     private let probes = SystemProbes()
 
-    // MARK: Peticiones (abren la confirmación)
+    // MARK: Requests (they open the confirmation)
 
     func requestClean(_ items: [CleanupItem], warning: ConfirmRequest.Warning? = nil, proposedBy: String? = nil,
                       proposedVia: String? = nil,
@@ -162,7 +162,7 @@ final class CleanupFlow {
                                         onConfirm: onConfirm, onOutcome: onOutcome))
     }
 
-    /// Desinstalar una o varias apps (con aviso previo opcional, p. ej. una propuesta de un agente).
+    /// Uninstall one or more apps (with an optional prior warning, e.g. an agent's proposal).
     func requestUninstall(_ requests: [UninstallRequest], warning: ConfirmRequest.Warning? = nil,
                           proposedBy: String? = nil, proposedVia: String? = nil,
                           onOutcome: (@MainActor (CleanupOutcome) -> Void)? = nil) {
@@ -189,10 +189,10 @@ final class CleanupFlow {
 
     func cancelSheet() { sheet = nil }
 
-    /// El usuario confirmó en la hoja. El estado "ocupado" se fija aquí mismo, antes de lanzar la
-    /// tarea, para que un segundo clic no pueda arrancar otra tanda. `blocked`: ids de elementos (o
-    /// rutas sueltas) que la vista previa dio por bloqueados: no se ejecutan. `removed`: ids que el usuario quitó
-    /// en la hoja (un clic en «Quitar»): tampoco se ejecutan; vacío ⇒ todo lo pedido.
+    /// The user confirmed in the sheet. The "busy" state is set right here, before launching the
+    /// task, so a second click can't start another batch. `blocked`: ids of items (or individual
+    /// paths) the preview found blocked: they don't run. `removed`: ids the user removed
+    /// in the sheet (a click on "Remove"): they don't run either; empty ⇒ everything requested.
     func confirm(_ request: ConfirmRequest, model: AppModel, blocked: Set<String> = [],
                  excluding removed: Set<String> = []) {
         guard !isBusy else { return }
@@ -228,7 +228,7 @@ final class CleanupFlow {
             uninstallResult = nil
             queuedIDs = groups.map(\.id)
             Task {
-                await single(id: "orphans", title: "Restos huérfanos", onOutcome: request.onOutcome) {
+                await single(id: "orphans", title: String(localized: "Orphaned leftovers"), onOutcome: request.onOutcome) {
                     await model.trashOrphans(groups, context: context)
                 }
             }
@@ -237,7 +237,7 @@ final class CleanupFlow {
             uninstallResult = nil
             queuedIDs = links.map(\.id)
             Task {
-                await single(id: "links", title: "Enlaces rotos", onOutcome: request.onOutcome) {
+                await single(id: "links", title: String(localized: "Broken links"), onOutcome: request.onOutcome) {
                     await model.removeBrokenLinks(links, context: context)
                 }
             }
@@ -257,24 +257,24 @@ final class CleanupFlow {
                 currentID = nil
                 queuedIDs = []
                 var summary = CleanupRunSummary()
-                summary.record(id: "duplicates", title: "Duplicados", outcome: outcome)
-                for note in notes { summary.problems.append(.init(title: "No se movió", message: note)) }
+                summary.record(id: "duplicates", title: String(localized: "Duplicates"), outcome: outcome)
+                for note in notes { summary.problems.append(.init(title: String(localized: "Not moved"), message: note)) }
                 request.onOutcome?(outcome)
                 withAnimation(Theme.sectionSpring) { duplicatesResult = LastResult(summary: summary) }
             }
         }
     }
 
-    // MARK: Desinstalar
+    // MARK: Uninstall
 
-    /// Resultado de la última tanda de Duplicados (con los motivos de lo que no se movió).
+    /// Result of the last Duplicates batch (with the reasons for what wasn't moved).
     private(set) var duplicatesResult: LastResult?
-    /// Resultado de la última tanda del Desinstalador (apps, huérfanos o enlaces).
+    /// Result of the last Uninstaller batch (apps, orphans or links).
     private(set) var uninstallResult: LastResult?
-    /// Apps ya desinstaladas (ruta del `.app`): sus filas se van con el viento sin esperar a «Actualizar».
+    /// Apps already uninstalled (`.app` path): their rows fly away without waiting for "Refresh".
     private(set) var uninstalledPaths: Set<String> = []
 
-    /// Una a una, en orden, con progreso por fila (`currentID`) y resumen final, como `CleanupBatch`.
+    /// One by one, in order, with per-row progress (`currentID`) and a final summary, like `CleanupBatch`.
     private func uninstall(_ requests: [UninstallRequest], model: AppModel, context: OperationContext,
                            onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
         var summary = CleanupRunSummary()
@@ -313,13 +313,13 @@ final class CleanupFlow {
     private func start(_ request: ConfirmRequest) {
         sheet = nil
         lastResult = nil
-        // Cada tanda empieza su cuenta: otra operación (airy://, MCP, desinstalar) no hereda la
-        // píldora «liberados» de la tanda anterior; solo `.items` la vuelve a sumar.
+        // Each batch starts its own count: another operation (airy://, MCP, uninstall) doesn't inherit the
+        // previous batch's "freed" pill; only `.items` adds to it again.
         batchTally = BatchMotion.Tally()
         request.onConfirm?()
     }
 
-    /// Solo reacciona a una tanda ya confirmada; se retira sola al acabar la ráfaga.
+    /// Only reacts to an already confirmed batch; it removes itself when the gust ends.
     private func startGust(order: [String]?, owner: Gust.Owner) {
         guard let order else { gust = nil; return }
         let gust = Gust(id: UUID(), start: .now, order: order, owner: owner)
@@ -331,27 +331,27 @@ final class CleanupFlow {
         }
     }
 
-    /// La nueva detección ya refleja lo limpiado: nada que ocultar a mano.
+    /// The new detection already reflects what was cleaned: nothing to hide by hand.
     func detectionFinished() {
         guard !isRunning else { return }
         hiddenIDs = []
     }
 
-    // MARK: Limpiar
+    // MARK: Clean
 
     private func run(_ items: [CleanupItem], model: AppModel, context: OperationContext,
                      onOutcome: (@MainActor (CleanupOutcome) -> Void)?) async {
-        // Una tanda de ejecución: la detección cara se repite una vez (no la de la vista previa), no por fila.
+        // One execution batch: the expensive detection is repeated once (not the preview's), not per row.
         let pass = RevalidationPass()
         let summary = await CleanupBatch.run(items, onStart: { [weak self] index in
             guard let self else { return }
             self.currentID = items[index].id
             self.queuedIDs.removeAll { $0 == items[index].id }
         }, perform: { [weak self] item in
-            // Lo que desapareció desde la detección no bloquea el resto (el ejecutor revalida lo que queda).
+            // What disappeared since detection doesn't block the rest (the executor revalidates what remains).
             guard let current = CleanupBoard.withExistingPaths(item, exists: Self.exists) else {
                 withAnimation(Theme.zoomSpring) { _ = self?.hiddenIDs.insert(item.id) }
-                let gone = CleanupOutcome.blocked(reason: "Ya no existe.")
+                let gone = CleanupOutcome.blocked(reason: String(localized: "It no longer exists."))
                 onOutcome?(gone)
                 return gone
             }
@@ -359,7 +359,7 @@ final class CleanupFlow {
             switch outcome {
             case .freed, .movedToTrash:
                 self?.batchTally.add(outcome)
-                // La fila se colapsa con el muelle en cuanto termina (la detección llega después).
+                // The row collapses with the spring as soon as it finishes (detection comes later).
                 withAnimation(Theme.zoomSpring) { _ = self?.hiddenIDs.insert(item.id) }
             case .blocked, .failed: break
             }
@@ -368,7 +368,7 @@ final class CleanupFlow {
         })
         currentID = nil
         queuedIDs = []
-        // Una sola detección al final de la tanda (no una por elemento).
+        // A single detection at the end of the batch (not one per item).
         model.refreshCleanup()
         withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
         if summary.freed > 0 { celebration = Celebration(bytes: summary.freed) }
@@ -391,9 +391,9 @@ final class CleanupFlow {
         withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
     }
 
-    // MARK: Cerrar apps (Rendimiento)
+    // MARK: Quit apps (Performance)
 
-    /// De una en una; nunca encadena «Forzar» sin otra confirmación.
+    /// One at a time; never chains "Force Quit" without another confirmation.
     private func quit(_ groups: [AppGroup], force: Bool, model: AppModel, context: OperationContext) async {
         let session = model.performance
         for group in groups {
@@ -413,12 +413,12 @@ final class CleanupFlow {
         queuedIDs = []
     }
 
-    // MARK: Vaciar Papelera
+    // MARK: Empty Trash
 
     private func emptyTrash(model: AppModel, context: OperationContext) async {
         defer { isEmptyingTrash = false }
         let home = NSHomeDirectory()
-        // Lo que hay ahora (no lo que había al abrir la hoja), leído fuera del hilo principal.
+        // What is there now (not what was there when the sheet opened), read off the main thread.
         let probes = probes
         let expected = await Task.detached(priority: .userInitiated) { probes.trashSizeIfReadable() }.value
         let freeBefore = await Self.freeSpace(home: home)
@@ -428,7 +428,7 @@ final class CleanupFlow {
             var freeAfter = await Self.freeSpace(home: home)
             var snapshots: [String] = []
             if let expected, expected > 0, Double(freeAfter - freeBefore) < Double(expected) * TrashFollowUp.expectedRiseFraction {
-                // APFS puede tardar un momento en devolver el espacio: se mira otra vez antes de concluir.
+                // APFS may take a moment to give the space back: check again before concluding.
                 for _ in 0..<3 where Double(freeAfter - freeBefore) < Double(expected) * TrashFollowUp.expectedRiseFraction {
                     try? await Task.sleep(for: .seconds(1))
                     freeAfter = await Self.freeSpace(home: home)
@@ -443,32 +443,32 @@ final class CleanupFlow {
                     retained: TrashFollowUp.retainedBytes(expectedBytes: expected, freeBefore: freeBefore, freeAfter: freeAfter),
                     snapshotCount: snapshots.count))
             } else {
-                // Se celebra lo que de verdad subió el espacio libre, no lo que ocupaba la Papelera.
+                // Celebrate how much free space really went up, not what the Trash took.
                 let rose = freeAfter - freeBefore
                 if rose > 0 {
                     celebration = Celebration(bytes: rose)
                 } else {
                     var summary = CleanupRunSummary()
-                    summary.record(id: "empty-trash", title: "Vaciar Papelera", outcome: .freed(0))
+                    summary.record(id: "empty-trash", title: String(localized: "Empty Trash"), outcome: .freed(0))
                     withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
                 }
             }
         case .movedToTrash, .blocked, .failed:
             var summary = CleanupRunSummary()
-            summary.record(id: "empty-trash", title: "Vaciar Papelera", outcome: outcome)
+            summary.record(id: "empty-trash", title: String(localized: "Empty Trash"), outcome: outcome)
             withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
             model.section = .cleanup
         }
     }
 
-    /// Desde el aviso de instantáneas: la ficha `time-machine-snapshots` del catálogo, con confirmación.
+    /// From the snapshots notice: the catalog's `time-machine-snapshots` entry, with confirmation.
     func requestSnapshotCleanup(_ notice: SnapshotNotice, model: AppModel) {
         guard let catalog = model.catalog,
               let item = TrashFollowUp.snapshotItem(catalog: catalog, retainedBytes: notice.retained) else {
             sheet = nil
             var summary = CleanupRunSummary()
-            summary.record(id: TrashFollowUp.snapshotEntryID, title: "Instantáneas de Time Machine",
-                           outcome: .failed("No se encontró su ficha en el catálogo de limpiezas; Airy no puede reducirlas."))
+            summary.record(id: TrashFollowUp.snapshotEntryID, title: String(localized: "Time Machine snapshots"),
+                           outcome: .failed(String(localized: "Its entry wasn’t found in the cleanup catalog; Airy can’t thin them.")))
             withAnimation(Theme.sectionSpring) { lastResult = LastResult(summary: summary) }
             model.section = .cleanup
             return
@@ -480,16 +480,16 @@ final class CleanupFlow {
         await Task.detached(priority: .userInitiated) { SystemProbes.availableCapacity(home: home) }.value
     }
 
-    // MARK: Cerrar apps
+    // MARK: Quitting apps
 
-    /// Nombre de la app abierta (el del sistema) o uno conocido por su bundle ID.
+    /// Name of the open app (the system's) or one known by its bundle ID.
     static func appName(_ bundleID: String) -> String {
         NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
             ?? CleanupBoard.appName(forBundleID: bundleID)
     }
 
-    /// "Cerrar Spotify": `terminate()` (la app puede pedir guardar), espera hasta 10 s y vuelve a detectar.
-    /// Si la app no se cierra, se dice.
+    /// "Quit Spotify": `terminate()` (the app may ask to save), waits up to 10 s and detects again.
+    /// If the app doesn't quit, it says so.
     func closeApp(_ bundleID: String, model: AppModel) {
         guard !closingApps.contains(bundleID) else { return }
         let apps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
@@ -504,13 +504,13 @@ final class CleanupFlow {
         poll(apps, bundleID: bundleID, name: name, deadline: Date().addingTimeInterval(10), model: model)
     }
 
-    /// Comprueba cada 250 ms en la cola principal (sin el *pool* cooperativo, que va lento durante un análisis).
+    /// Checks every 250 ms on the main queue (without the cooperative *pool*, which is slow during a scan).
     private func poll(_ apps: [NSRunningApplication], bundleID: String, name: String, deadline: Date, model: AppModel) {
         let stillOpen = apps.contains { !$0.isTerminated }
         guard stillOpen, Date() < deadline else {
             closingApps.remove(bundleID)
             if stillOpen {
-                appRefusals[bundleID] = "\(name) no se ha cerrado. Puede que tenga algo sin guardar: ciérrala tú y vuelve a intentarlo."
+                appRefusals[bundleID] = String(localized: "\(name) didn’t quit. It may have unsaved work: quit it yourself and try again.")
             }
             model.refreshCleanup()
             return
@@ -522,10 +522,10 @@ final class CleanupFlow {
         }
     }
 
-    // MARK: Depuración
+    // MARK: Debugging
 
     #if DEBUG
-    /// Solo para capturas: sustituye bloqueos detectados (p. ej. Spotify abierta sin abrirla).
+    /// Captures only: replaces detected blockers (e.g. Spotify open without opening it).
     var debugBlocked: [String: [String]] = [:]
     var debugScrollTarget: String?
     #endif

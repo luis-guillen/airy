@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Aviso cuando falta el Acceso total al disco: la app funciona, pero no ve todo.
+/// Notice when Full Disk Access is missing: the app works, but it doesn't see everything.
 struct FullDiskAccessBanner: View {
     @Environment(AppModel.self) private var model
     var onDismiss: () -> Void
@@ -19,7 +19,7 @@ struct FullDiskAccessBanner: View {
                 .frame(width: 38, height: 38)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Airy no puede ver todo el disco")
+                    Text("Airy can’t see the whole disk")
                         .font(.headline)
                     Text(detail)
                         .font(.callout)
@@ -28,7 +28,7 @@ struct FullDiskAccessBanner: View {
 
                 Spacer(minLength: 12)
 
-                PrimaryButton("Dar acceso", systemImage: "gearshape") {
+                PrimaryButton("Grant Access", systemImage: "gearshape") {
                     model.openFullDiskAccessSettings()
                 }
                 .fixedSize()
@@ -41,16 +41,16 @@ struct FullDiskAccessBanner: View {
                         .background(.primary.opacity(0.06), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .help("Ocultar hasta la próxima vez")
+                .help("Hide until next time")
             }
         }
     }
 
     private var detail: String {
-        let base = "Activa Airy en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco para incluir Mail, Safari y los datos protegidos de las apps."
+        let base = String(localized: "Turn on Airy in System Settings › Privacy & Security › Full Disk Access to include Mail, Safari and apps’ protected data.")
         let count = model.inaccessibleCount
         guard count > 0 else { return base }
-        let folders = count == 1 ? "1 carpeta" : "\(Theme.count(count)) carpetas"
-        return "\(base) Ahora se omiten \(folders)."
+        return count == 1 ? String(localized: "\(base) 1 folder is skipped right now.")
+                          : String(localized: "\(base) \(Theme.count(count)) folders are skipped right now.")
     }
 }

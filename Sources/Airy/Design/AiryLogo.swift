@@ -1,11 +1,11 @@
 import SwiftUI
 import DiskMapCore
 
-/// Logo vectorial de Airy: squircle con degradado, arcos de viento y hojas (geometría de
-/// `AiryLogoGeometry`, la misma que dibuja `scripts/make-icon.swift`). Sustituye al antiguo logotipo de bloques.
-/// Con `animated`, el remolino (arcos y sus hojas) gira despacio, una vuelta cada 20 s, mientras
-/// hay movimiento ambiente; en pausa se congela en su ángulo y luego sigue desde ahí; con
-/// «Reducir movimiento» se dibuja una vista estática.
+/// Airy's vector logo: a gradient squircle, wind arcs and leaves (geometry from
+/// `AiryLogoGeometry`, the same that `scripts/make-icon.swift` draws). Replaces the old block logo.
+/// With `animated`, the swirl (arcs and their leaves) turns slowly, one turn every 20 s, while
+/// there is ambient motion; when paused it freezes at its angle and then continues from there; with
+/// "Reduce motion" a static view is drawn.
 struct AiryLogo: View {
     let size: CGFloat
     var animated = false
@@ -23,7 +23,7 @@ struct AiryLogo: View {
         ZStack {
             RoundedRectangle(cornerRadius: size * CGFloat(AiryLogoGeometry.squircleRadius / 824), style: .continuous)
                 .fill(Theme.Airy.logoGradient)
-                // La sombra va en el squircle: la capa del giro (una `NSView`) queda fuera de la de SwiftUI.
+                // The shadow goes on the squircle: the spin layer (an `NSView`) sits outside SwiftUI's.
                 .shadow(color: .black.opacity(0.2), radius: size * 0.08, y: size * 0.04)
             if animated, motion != .reduced {
                 SpinningSwirl(swirl: swirl, scale: displayScale, paused: motion != .running)
@@ -36,8 +36,8 @@ struct AiryLogo: View {
     }
 }
 
-/// Giro infinito del remolino que interpola el servidor de render (`RenderServerLayer`): el
-/// remolino se rasteriza una vez y la app no trabaja por fotograma.
+/// Endless swirl spin interpolated by the render server (`RenderServerLayer`): the
+/// swirl is rasterized once and the app doesn't work per frame.
 private struct SpinningSwirl: View {
     let swirl: LogoSwirl
     let scale: CGFloat
@@ -55,12 +55,12 @@ private struct SpinningSwirl: View {
             layer.contentsGravity = .resizeAspect
             let spin = CABasicAnimation(keyPath: "transform.rotation.z")
             spin.fromValue = 0
-            // Con y hacia abajo, un ángulo positivo gira en sentido horario, como los arcos.
+            // With y pointing down, a positive angle turns clockwise, like the arcs.
             spin.toValue = 2 * Double.pi
             spin.duration = Self.period
-            // Sigue en su ángulo si la capa se reconstruye (escala de pantalla, tamaño).
+            // Keeps its angle if the layer is rebuilt (screen scale, size).
             spin.timeOffset = CAAnimation.continuousOffset(in: container, period: Self.period)
-            // Una vuelta cada 20 s: 30 fps le sobran.
+            // One turn every 20 s: 30 fps is more than enough.
             spin.preferredFrameRateRange = CAAnimation.ambientFrameRate
             spin.repeatCount = .infinity
             spin.isRemovedOnCompletion = false
@@ -70,7 +70,7 @@ private struct SpinningSwirl: View {
     }
 }
 
-/// Arcos de viento y hojas sobre el squircle.
+/// Wind arcs and leaves on the squircle.
 private struct LogoSwirl: View {
     let size: CGFloat
     let variant: AiryLogoGeometry.Variant

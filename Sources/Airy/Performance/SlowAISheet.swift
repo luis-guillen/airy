@@ -1,8 +1,8 @@
 import SwiftUI
 import DiskMapCore
 
-/// «¿Por qué va lento?»: enseña exactamente lo que se envía a Claude (solo números y nombres de apps) y la
-/// respuesta en streaming. «Cerrar» cancela el stream.
+/// "Why Is It Slow?": shows exactly what is sent to Claude (only numbers and app names) and the
+/// streamed answer. "Close" cancels the stream.
 struct SlowAISheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -14,8 +14,8 @@ struct SlowAISheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("¿Por qué va lento?").font(.system(.title2, design: .rounded, weight: .bold))
-            DisclosureGroup("Se envía a Claude solo esto:", isExpanded: $showsContext) {
+            Text("Why Is It Slow?").font(.system(.title2, design: .rounded, weight: .bold))
+            DisclosureGroup("Only this is sent to Claude:", isExpanded: $showsContext) {
                 ScrollView {
                     Text(context).font(.caption.monospaced()).textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -27,7 +27,7 @@ struct SlowAISheet: View {
                     if let error {
                         Text(error).foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
                     } else if answer.isEmpty {
-                        HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Preguntando a Claude…") }
+                        HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Asking Claude…") }
                     } else {
                         Text(answer).textSelection(.enabled)
                     }
@@ -38,14 +38,14 @@ struct SlowAISheet: View {
             .frame(minHeight: 160, maxHeight: 320)
             HStack {
                 Spacer()
-                Button("Cerrar") { dismiss() }
+                Button("Close") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
             }
         }
         .padding(24)
         .frame(width: 560)
-        // La tarea se cancela al cerrar la hoja: el stream se corta y Claude se detiene.
+        // The task is cancelled when the sheet closes: the stream is cut and Claude stops.
         .task { await ask() }
     }
 
@@ -53,7 +53,7 @@ struct SlowAISheet: View {
         let session = model.performance
         guard let snapshot = session.snapshot, let verdict = session.verdict,
               case .ready(let path) = model.assistant.claude else {
-            error = "No hay datos o no se encontró Claude Code."
+            error = String(localized: "There’s no data, or Claude Code wasn’t found.")
             return
         }
         context = PerformanceAIContext.build(snapshot, verdict: verdict)
@@ -63,7 +63,7 @@ struct SlowAISheet: View {
             finished = true
         } catch is CancellationError {
         } catch {
-            self.error = "No se pudo preguntar a Claude: \(error.localizedDescription)"
+            self.error = String(localized: "Couldn’t ask Claude: \(error.localizedDescription)")
         }
     }
 }

@@ -1,0 +1,5296 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ %@ folders are skipped right now." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ Ahora se omiten %2$@ carpetas."
+          }
+        }
+      }
+    },
+    "%@ (simulated)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (simulada)"
+          }
+        }
+      }
+    },
+    "%@ 1 folder is skipped right now." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Ahora se omite 1 carpeta."
+          }
+        }
+      }
+    },
+    "%@ and %lld more" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ y %2$lld más"
+          }
+        }
+      }
+    },
+    "%@ didn’t quit. It may have unsaved work: quit it yourself and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no se ha cerrado. Puede que tenga algo sin guardar: ciérrala tú y vuelve a intentarlo."
+          }
+        }
+      }
+    },
+    "%@ files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ archivos"
+          }
+        }
+      }
+    },
+    "%@ groups" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ grupos"
+          }
+        }
+      }
+    },
+    "%@ in %lld kinds" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ en %2$lld tipos"
+          }
+        }
+      }
+    },
+    "%@ in 1 kind" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ en 1 tipo"
+          }
+        }
+      }
+    },
+    "%@ items found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ elementos detectados"
+          }
+        }
+      }
+    },
+    "%@ items · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ elementos · %2$@"
+          }
+        }
+      }
+    },
+    "%@ local Time Machine snapshots" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ instantáneas locales de Time Machine"
+          }
+        }
+      }
+    },
+    "%@ of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ de %2$@"
+          }
+        }
+      }
+    },
+    "%@ scanned on %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ analizados en %2$@"
+          }
+        }
+      }
+    },
+    "%@ selected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ seleccionados"
+          }
+        }
+      }
+    },
+    "%@ selected · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ seleccionados · %2$@"
+          }
+        }
+      }
+    },
+    "%@ will be permanently deleted." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se borrarán definitivamente %@."
+          }
+        }
+      }
+    },
+    "%@ will go to the Trash. The space is freed when you empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ irán a la Papelera. Se liberan al vaciarla."
+          }
+        }
+      }
+    },
+    "%@ · %@ files compared · %@ duplicated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ archivos comparados · %3$@ repetidos"
+          }
+        }
+      }
+    },
+    "%@ · %@ waiting for you to quit an app" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ esperan a que cierres una app"
+          }
+        }
+      }
+    },
+    "%@ · %lld processes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$lld procesos"
+          }
+        }
+      }
+    },
+    "%@ · 1 process" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 1 proceso"
+          }
+        }
+      }
+    },
+    "%@ · Last scan: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · Último análisis: %2$@"
+          }
+        }
+      }
+    },
+    "%@ · Memory used %@ of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · Memoria usada %2$@ de %3$@"
+          }
+        }
+      }
+    },
+    "%@ · sizes marked “+” may be larger" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · los tamaños con «+» pueden ser mayores"
+          }
+        }
+      }
+    },
+    "%lld copies of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld copias de %2$@"
+          }
+        }
+      }
+    },
+    "%lld files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld archivos"
+          }
+        }
+      }
+    },
+    "%lld fps" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld fps"
+          }
+        }
+      }
+    },
+    "%lld kinds" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld tipos"
+          }
+        }
+      }
+    },
+    "%lld processes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld procesos"
+          }
+        }
+      }
+    },
+    "%lld%%" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld %%"
+          }
+        }
+      }
+    },
+    "%lld%% · %@ cycles · health %@%%" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld %% · %2$@ ciclos · salud %3$@ %%"
+          }
+        }
+      }
+    },
+    "1 file" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 archivo"
+          }
+        }
+      }
+    },
+    "1 group" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 grupo"
+          }
+        }
+      }
+    },
+    "1 item found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 elemento detectado"
+          }
+        }
+      }
+    },
+    "1 item · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 elemento · %@"
+          }
+        }
+      }
+    },
+    "1 local Time Machine snapshot" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 instantánea local de Time Machine"
+          }
+        }
+      }
+    },
+    "1 process" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 proceso"
+          }
+        }
+      }
+    },
+    "1 selected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 seleccionado"
+          }
+        }
+      }
+    },
+    "1 selected · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 seleccionado · %@"
+          }
+        }
+      }
+    },
+    "A link proposed moving “%@” to the Trash, but Airy can’t: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llegó por enlace una propuesta de mover «%1$@» a la Papelera, pero Airy no puede: %2$@"
+          }
+        }
+      }
+    },
+    "A link proposed “%@”, but it no longer appears in Cleanup." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llegó por enlace una propuesta de «%@», pero ya no aparece en Limpieza."
+          }
+        }
+      }
+    },
+    "A link proposed “%@”, but it’s “Don't delete”: Airy doesn’t offer it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llegó por enlace una propuesta de «%@», pero es «No tocar»: Airy no lo ofrece."
+          }
+        }
+      }
+    },
+    "AI Assistant" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asistente IA"
+          }
+        }
+      }
+    },
+    "APFS copy: takes no extra space" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia APFS: no ocupa espacio extra"
+          }
+        }
+      }
+    },
+    "About %@ in total. What goes to the Trash is freed when you empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unos %@ en total. Lo que va a la Papelera se libera al vaciarla."
+          }
+        }
+      }
+    },
+    "About %@ will be freed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se liberarán unos %@."
+          }
+        }
+      }
+    },
+    "About Airy" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acerca de Airy"
+          }
+        }
+      }
+    },
+    "Add Folder…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir carpeta…"
+          }
+        }
+      }
+    },
+    "Add it to opencode.json." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añádelo a opencode.json."
+          }
+        }
+      }
+    },
+    "Add it to ~/.codex/config.toml." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añádelo a ~/.codex/config.toml."
+          }
+        }
+      }
+    },
+    "Add to Claude Code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a Claude Code"
+          }
+        }
+      }
+    },
+    "Added to Claude Code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadido a Claude Code"
+          }
+        }
+      }
+    },
+    "Agent Activity" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actividad de los agentes"
+          }
+        }
+      }
+    },
+    "Agents" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agentes"
+          }
+        }
+      }
+    },
+    "Airy" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy"
+          }
+        }
+      }
+    },
+    "Airy and agents won’t touch anything you choose." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy y los agentes no tocarán nada de lo que elijas."
+          }
+        }
+      }
+    },
+    "Airy can’t read the Trash, so it doesn’t know how much it takes up." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no puede leer la Papelera, así que no sabe cuánto ocupa."
+          }
+        }
+      }
+    },
+    "Airy can’t see the whole disk" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no puede ver todo el disco"
+          }
+        }
+      }
+    },
+    "Airy completed the operation, but %@. The exportable log may be incomplete." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy hizo la operación, pero %@. El registro exportable puede estar incompleto."
+          }
+        }
+      }
+    },
+    "Airy couldn’t read everything inside: it may take up more." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no pudo leer todo lo que hay dentro: puede ocupar más."
+          }
+        }
+      }
+    },
+    "Airy didn’t understand that link, so it did nothing." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no entendió ese enlace, así que no hizo nada."
+          }
+        }
+      }
+    },
+    "Airy doesn’t show degrees: reading them requires private Apple interfaces that can break." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no muestra grados: leerlos exige interfaces privadas de Apple que pueden romperse."
+          }
+        }
+      }
+    },
+    "Airy has no “free up RAM” button: macOS already manages memory and those buttons don’t help. What really helps is quitting what uses the most." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no tiene botón de «liberar RAM»: macOS ya gestiona la memoria y esos botones no ayudan. Lo que alivia de verdad es cerrar lo que más consume."
+          }
+        }
+      }
+    },
+    "Airy is busy; ask again in a moment." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy está ocupada; vuelve a pedirlo en un momento."
+          }
+        }
+      }
+    },
+    "Airy only lets you know; remove them yourself in System Settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy solo avisa; quítalos tú en Ajustes del Sistema."
+          }
+        }
+      }
+    },
+    "Airy tells you what it is and how to do it yourself; there’s no delete button here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy te dice qué es y cómo hacerlo tú; aquí no hay botón de borrar."
+          }
+        }
+      }
+    },
+    "All Kinds" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los tipos"
+          }
+        }
+      }
+    },
+    "Allow agents to run safe cleanups" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir que los agentes ejecuten limpiezas seguras"
+          }
+        }
+      }
+    },
+    "Also deletes what gets downloaded again or rebuilt by itself." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borra también lo que se vuelve a descargar o reconstruir solo."
+          }
+        }
+      }
+    },
+    "An agent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un agente"
+          }
+        }
+      }
+    },
+    "An agent proposed quitting “%@”, but Airy never quits it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un agente propuso cerrar «%@», pero Airy nunca la cierra."
+          }
+        }
+      }
+    },
+    "An agent proposed quitting “%@”, but it isn’t open." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un agente propuso cerrar «%@», pero no está abierta."
+          }
+        }
+      }
+    },
+    "An agent proposed uninstalling “%@”, but %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un agente propuso desinstalar «%1$@», pero %2$@"
+          }
+        }
+      }
+    },
+    "An agent proposed uninstalling “%@”, but it isn’t installed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un agente propuso desinstalar «%@», pero no está instalada."
+          }
+        }
+      }
+    },
+    "An agent proposes quitting this" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un agente propone cerrar esto"
+          }
+        }
+      }
+    },
+    "Analyze Again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizar de nuevo"
+          }
+        }
+      }
+    },
+    "Analyze with AI" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizar con IA"
+          }
+        }
+      }
+    },
+    "Analyzing…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizando…"
+          }
+        }
+      }
+    },
+    "Another copy is installed at %@: its data stays." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay otra copia instalada en %@: sus datos se quedan."
+          }
+        }
+      }
+    },
+    "Any Date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cualquier fecha"
+          }
+        }
+      }
+    },
+    "App %@ + leftovers %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App %1$@ + restos %2$@"
+          }
+        }
+      }
+    },
+    "App %@ + leftovers %@ (at least)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App %1$@ + restos %2$@ (al menos)"
+          }
+        }
+      }
+    },
+    "App + leftovers" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App + restos"
+          }
+        }
+      }
+    },
+    "App Store" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Store"
+          }
+        }
+      }
+    },
+    "Apply" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplicar"
+          }
+        }
+      }
+    },
+    "Apply…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplicar…"
+          }
+        }
+      }
+    },
+    "Apps" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apps"
+          }
+        }
+      }
+    },
+    "Ask Anything About Your Disk" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pregunta lo que quieras sobre tu disco"
+          }
+        }
+      }
+    },
+    "Ask anything about your disk…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pregunta lo que quieras sobre tu disco…"
+          }
+        }
+      }
+    },
+    "Ask the assistant" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pregúntale al asistente"
+          }
+        }
+      }
+    },
+    "Asking Claude…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preguntando a Claude…"
+          }
+        }
+      }
+    },
+    "Attention" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atención"
+          }
+        }
+      }
+    },
+    "Back to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a %@"
+          }
+        }
+      }
+    },
+    "Battery: —" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batería: —"
+          }
+        }
+      }
+    },
+    "Before moving anything, Airy compares each copy again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes de mover nada, Airy vuelve a comparar cada copia."
+          }
+        }
+      }
+    },
+    "Blocked" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueado"
+          }
+        }
+      }
+    },
+    "Broken Links" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlaces rotos"
+          }
+        }
+      }
+    },
+    "Broken Login Items" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elementos de inicio rotos"
+          }
+        }
+      }
+    },
+    "Broken links" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlaces rotos"
+          }
+        }
+      }
+    },
+    "Broken links are deleted: they point to nothing and don’t go to the Trash." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los enlaces rotos se borran: no apuntan a nada y no van a la Papelera."
+          }
+        }
+      }
+    },
+    "CPU %lld%%" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU %lld %%"
+          }
+        }
+      }
+    },
+    "Caches and leftovers that regenerate by themselves. Cleaned with one click." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cachés y restos que se regeneran solos. Se limpian con un toque."
+          }
+        }
+      }
+    },
+    "Calculating…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculando…"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        }
+      }
+    },
+    "Can’t be cleaned right now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede limpiar ahora"
+          }
+        }
+      }
+    },
+    "Catalog cleanup" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpieza del catálogo"
+          }
+        }
+      }
+    },
+    "Chat" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat"
+          }
+        }
+      }
+    },
+    "Check %@ before continuing. If you move it to the Trash, you can recover it as long as you don’t empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa %@ antes de seguir. Si lo mueves a la Papelera podrás recuperarlo mientras no la vacíes."
+          }
+        }
+      }
+    },
+    "Check Spotlight" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobar Spotlight"
+          }
+        }
+      }
+    },
+    "Check: this doesn’t regenerate by itself" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa: esto no se regenera solo"
+          }
+        }
+      }
+    },
+    "Check: you may be using it" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa: puede que estés usándolo"
+          }
+        }
+      }
+    },
+    "Checking in Cleanup…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando en Limpieza…"
+          }
+        }
+      }
+    },
+    "Checking what Homebrew would do with “%@”…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando qué haría Homebrew con «%@»…"
+          }
+        }
+      }
+    },
+    "Checking what will be done with each item…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando qué se hará con cada elemento…"
+          }
+        }
+      }
+    },
+    "Checks the green items; review before deleting" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marca lo verde; revisa antes de borrar"
+          }
+        }
+      }
+    },
+    "Choose" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir"
+          }
+        }
+      }
+    },
+    "Choose Claude Code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir Claude Code"
+          }
+        }
+      }
+    },
+    "Choose Executable…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir ejecutable…"
+          }
+        }
+      }
+    },
+    "Choose Folder…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir carpeta…"
+          }
+        }
+      }
+    },
+    "Choose the disk to scan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir el disco que se analiza"
+          }
+        }
+      }
+    },
+    "Choose the “claude” executable (for example, ~/.local/bin/claude)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige el ejecutable «claude» (por ejemplo, ~/.local/bin/claude)."
+          }
+        }
+      }
+    },
+    "Choose where to look and click “Find Duplicates”." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige dónde buscar y pulsa «Buscar duplicados»."
+          }
+        }
+      }
+    },
+    "Claude Code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code"
+          }
+        }
+      }
+    },
+    "Claude Code Is Missing" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta Claude Code"
+          }
+        }
+      }
+    },
+    "Claude Code hasn’t been located." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code no está localizado."
+          }
+        }
+      }
+    },
+    "Claude is reviewing your disk…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude está revisando tu disco…"
+          }
+        }
+      }
+    },
+    "Claude is typing" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude está escribiendo"
+          }
+        }
+      }
+    },
+    "Claude knows the scan (paths, sizes, dates and Airy’s catalog), never the contents of your files." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude conoce el análisis (rutas, tamaños, fechas y el catálogo de Airy), nunca el contenido de tus archivos."
+          }
+        }
+      }
+    },
+    "Claude only sees paths, sizes and dates · Uses your Claude Code · may take up to a minute" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude solo ve rutas, tamaños y fechas · Usa tu Claude Code · puede tardar hasta un minuto"
+          }
+        }
+      }
+    },
+    "Claude reviews your scan: paths, sizes and dates, never the contents" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude revisa tu análisis: rutas, tamaños y fechas, nunca el contenido"
+          }
+        }
+      }
+    },
+    "Claude’s Opinion" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opinión de Claude"
+          }
+        }
+      }
+    },
+    "Clean" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpiar"
+          }
+        }
+      }
+    },
+    "Cleaning…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpiando…"
+          }
+        }
+      }
+    },
+    "Cleanup" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpieza"
+          }
+        }
+      }
+    },
+    "Cleanup Mode" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo de limpieza"
+          }
+        }
+      }
+    },
+    "Clear Selection" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar selección"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        }
+      }
+    },
+    "Codex" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        }
+      }
+    },
+    "Comparing %@ files…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparando %@ archivos…"
+          }
+        }
+      }
+    },
+    "Connect Agent" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar agente"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar"
+          }
+        }
+      }
+    },
+    "Couldn’t Complete" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo"
+          }
+        }
+      }
+    },
+    "Couldn’t Prepare the Report" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo preparar el informe"
+          }
+        }
+      }
+    },
+    "Couldn’t add it: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo añadir: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t ask Claude: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo preguntar a Claude: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t clean" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo limpiar"
+          }
+        }
+      }
+    },
+    "Couldn’t copy the data from %@ (%@). It’s still in its folder; Airy will try again next time it opens." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron copiar los datos de %1$@ (%2$@). Siguen en su carpeta; Airy lo intentará otra vez al abrirse."
+          }
+        }
+      }
+    },
+    "Couldn’t export the log: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo exportar el registro: %@"
+          }
+        }
+      }
+    },
+    "Couldn’t load Airy’s catalog, so the assistant can’t validate what Claude proposes." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar el catálogo de Airy, así que el asistente no puede validar lo que proponga Claude."
+          }
+        }
+      }
+    },
+    "Couldn’t load the cleanup catalog (%@). The Cleanup section isn’t available." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar el catálogo de limpiezas (%@). La sección Limpieza no está disponible."
+          }
+        }
+      }
+    },
+    "Couldn’t load the cleanup catalog." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar el catálogo de limpiezas."
+          }
+        }
+      }
+    },
+    "Couldn’t measure Spotlight." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo medir Spotlight."
+          }
+        }
+      }
+    },
+    "Couldn’t read the cleanup history" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el historial de limpiezas"
+          }
+        }
+      }
+    },
+    "Couldn’t read the cleanup history (%@). The total freed may be out of date." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el historial de limpiezas (%@). El total liberado puede no estar al día."
+          }
+        }
+      }
+    },
+    "Couldn’t reset the settings (%@)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron restablecer los ajustes (%@)."
+          }
+        }
+      }
+    },
+    "Couldn’t save the Duplicates result (%@)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar el resultado de Duplicados (%@)."
+          }
+        }
+      }
+    },
+    "Couldn’t save the scan (%@). It looks fine now, but you’ll need to scan again next time you open Airy." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar el análisis (%@). Se ve bien ahora, pero al volver a abrir Airy habrá que analizar de nuevo."
+          }
+        }
+      }
+    },
+    "Couldn’t save the settings (%@)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron guardar los ajustes (%@)."
+          }
+        }
+      }
+    },
+    "Couldn’t scan “%@”: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo analizar «%1$@»: %2$@"
+          }
+        }
+      }
+    },
+    "Created by: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo crea: %@"
+          }
+        }
+      }
+    },
+    "Critical" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crítica"
+          }
+        }
+      }
+    },
+    "Data you shouldn’t touch, like Docker volumes." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos que no conviene tocar, como los volúmenes de Docker."
+          }
+        }
+      }
+    },
+    "Date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fecha"
+          }
+        }
+      }
+    },
+    "Delete %@ items?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Borrar %@ elementos?"
+          }
+        }
+      }
+    },
+    "Delete %@ · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borrar %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Delete 1 item?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Borrar 1 elemento?"
+          }
+        }
+      }
+    },
+    "Disk map, not scanned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mapa del disco sin análisis"
+          }
+        }
+      }
+    },
+    "Disk: %@ used of %@; %@ scanned, %@ purgeable" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disco: %1$@ usados de %2$@; %3$@ analizados, %4$@ purgables"
+          }
+        }
+      }
+    },
+    "Disk: read %@/s · write %@/s" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disco: lee %1$@/s · escribe %2$@/s"
+          }
+        }
+      }
+    },
+    "Doesn’t regenerate" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se regenera"
+          }
+        }
+      }
+    },
+    "Doing Well" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Va bien"
+          }
+        }
+      }
+    },
+    "Don't delete" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tocar"
+          }
+        }
+      }
+    },
+    "Don't delete this" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No borrar esto"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hecho"
+          }
+        }
+      }
+    },
+    "Done: it’s in the Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hecho: está en la Papelera"
+          }
+        }
+      }
+    },
+    "Duplicates" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplicados"
+          }
+        }
+      }
+    },
+    "Each app is asked to quit first; if it has unsaved work, it will ask you." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primero se pide a cada app que se cierre; si tiene algo sin guardar, te lo preguntará."
+          }
+        }
+      }
+    },
+    "Empty Folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpeta vacía"
+          }
+        }
+      }
+    },
+    "Empty Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaciar Papelera"
+          }
+        }
+      }
+    },
+    "Empty Trash…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaciar Papelera…"
+          }
+        }
+      }
+    },
+    "Empty the Trash?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Vaciar la Papelera?"
+          }
+        }
+      }
+    },
+    "Empty with Finder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaciar con Finder"
+          }
+        }
+      }
+    },
+    "Explain with AI" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explicar con IA"
+          }
+        }
+      }
+    },
+    "Export Log…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar registro…"
+          }
+        }
+      }
+    },
+    "Failed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falló"
+          }
+        }
+      }
+    },
+    "File Types" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipos de archivo"
+          }
+        }
+      }
+    },
+    "File cache" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caché de archivos"
+          }
+        }
+      }
+    },
+    "Files macOS keeps in memory to open them faster; it releases that memory as soon as another app needs it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivos que macOS guarda en memoria para abrirlos antes; la suelta en cuanto otra app la necesita."
+          }
+        }
+      }
+    },
+    "Find Automatically" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar automáticamente"
+          }
+        }
+      }
+    },
+    "Find Duplicates" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar duplicados"
+          }
+        }
+      }
+    },
+    "Finder does it, on every disk" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo hace Finder, en todos los discos"
+          }
+        }
+      }
+    },
+    "Finds identical files in your folders." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca archivos idénticos en tus carpetas."
+          }
+        }
+      }
+    },
+    "Force Quit" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forzar cierre"
+          }
+        }
+      }
+    },
+    "Force Quit…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forzar cierre…"
+          }
+        }
+      }
+    },
+    "Force quit %@?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Forzar el cierre de %@?"
+          }
+        }
+      }
+    },
+    "Force quit %lld apps?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Forzar el cierre de %lld apps?"
+          }
+        }
+      }
+    },
+    "Free" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Libre"
+          }
+        }
+      }
+    },
+    "Freed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liberado"
+          }
+        }
+      }
+    },
+    "Freed %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liberados %@"
+          }
+        }
+      }
+    },
+    "Freed %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liberados %@."
+          }
+        }
+      }
+    },
+    "Frees %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Libera %@"
+          }
+        }
+      }
+    },
+    "Grant Access" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dar acceso"
+          }
+        }
+      }
+    },
+    "Heaviest Right Now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo que más pesa"
+          }
+        }
+      }
+    },
+    "Hide" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar"
+          }
+        }
+      }
+    },
+    "Hide Notice" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar aviso"
+          }
+        }
+      }
+    },
+    "Hide until next time" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar hasta la próxima vez"
+          }
+        }
+      }
+    },
+    "High" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alta"
+          }
+        }
+      }
+    },
+    "Homebrew" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Homebrew"
+          }
+        }
+      }
+    },
+    "Homebrew deletes the app directly with `brew uninstall --cask %@`: it doesn’t go to the Trash and can’t be recovered from it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app la borra Homebrew directamente con `brew uninstall --cask %@`: no va a la Papelera y no se puede recuperar desde ella."
+          }
+        }
+      }
+    },
+    "Homebrew may run the app’s own uninstall steps; Airy has reviewed them first." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Homebrew puede ejecutar los pasos de desinstalación de la propia app; Airy los ha revisado antes."
+          }
+        }
+      }
+    },
+    "If a file won’t delete, Finder will be asked to do it, and it also empties the Trash on external disks." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si algún archivo no se deja borrar, se le pedirá a Finder, que vacía también la Papelera de los discos externos."
+          }
+        }
+      }
+    },
+    "If it has unsaved work, the app will ask you." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si tiene algo sin guardar, la app te lo preguntará."
+          }
+        }
+      }
+    },
+    "In the Trash (%@). The space is freed when you empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la Papelera (%@). Se libera al vaciarla."
+          }
+        }
+      }
+    },
+    "In the Trash:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la Papelera:"
+          }
+        }
+      }
+    },
+    "In the Trash: can’t be read without Full Disk Access" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la Papelera: no se puede leer sin Acceso total al disco"
+          }
+        }
+      }
+    },
+    "Incomplete search: it was cancelled or not everything could be read." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Búsqueda incompleta: se canceló o no se pudo leer todo."
+          }
+        }
+      }
+    },
+    "Informational only" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo informativo"
+          }
+        }
+      }
+    },
+    "Informational only: Airy doesn’t delete it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo informativo: Airy no lo borra."
+          }
+        }
+      }
+    },
+    "Install Airy in Applications so this path doesn’t change." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instala Airy en Aplicaciones para que esta ruta no cambie."
+          }
+        }
+      }
+    },
+    "Install receipt %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registro de instalación %@"
+          }
+        }
+      }
+    },
+    "It can be deleted, but you lose something: read what." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se puede borrar, pero pierdes algo: lee qué."
+          }
+        }
+      }
+    },
+    "It didn’t respond to the normal quit. Anything unsaved will be lost." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No respondió al cierre normal. Se perderá lo que no esté guardado."
+          }
+        }
+      }
+    },
+    "It isn’t deleted: Airy tells you why." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se borra: Airy te dice por qué."
+          }
+        }
+      }
+    },
+    "It isn’t safe to delete without looking." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No es seguro borrarlo sin mirar."
+          }
+        }
+      }
+    },
+    "It no longer exists." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya no existe."
+          }
+        }
+      }
+    },
+    "It recreates itself: delete it without worry." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se vuelve a crear solo: bórralo sin miedo."
+          }
+        }
+      }
+    },
+    "It was already added" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya estaba añadido"
+          }
+        }
+      }
+    },
+    "It will go to the Trash. The space is freed when you empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Irá a la Papelera. Se libera al vaciarla."
+          }
+        }
+      }
+    },
+    "Its entry wasn’t found in the cleanup catalog; Airy can’t thin them." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró su ficha en el catálogo de limpiezas; Airy no puede reducirlas."
+          }
+        }
+      }
+    },
+    "It’s a link to an app stored somewhere else: Airy doesn’t uninstall it so the original isn’t touched. Delete it by hand if you want." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es un enlace a una app que está en otro sitio: Airy no la desinstala para no tocar el original. Bórrala a mano si quieres."
+          }
+        }
+      }
+    },
+    "It’s empty." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Está vacía."
+          }
+        }
+      }
+    },
+    "Keep" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conservar"
+          }
+        }
+      }
+    },
+    "Kept: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se conserva: %@"
+          }
+        }
+      }
+    },
+    "Large & Old" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grandes y viejos"
+          }
+        }
+      }
+    },
+    "Largest items: %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo que más ocupa: %@."
+          }
+        }
+      }
+    },
+    "Last Used" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Último uso"
+          }
+        }
+      }
+    },
+    "Links in /usr/local/bin that no longer point to anything." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlaces de /usr/local/bin que ya no apuntan a nada."
+          }
+        }
+      }
+    },
+    "Looking at caches, logs and known leftovers." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mirando cachés, registros y restos conocidos."
+          }
+        }
+      }
+    },
+    "Looking for Claude Code…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando Claude Code…"
+          }
+        }
+      }
+    },
+    "Looking for apps…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando apps…"
+          }
+        }
+      }
+    },
+    "Looking for leftovers of uninstalled apps…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando restos de apps desinstaladas…"
+          }
+        }
+      }
+    },
+    "MCP Server Ready" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidor MCP listo"
+          }
+        }
+      }
+    },
+    "Maintenance" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantenimiento"
+          }
+        }
+      }
+    },
+    "Map" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mapa"
+          }
+        }
+      }
+    },
+    "Map of %@, %@. %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mapa de %1$@, %2$@. %3$@"
+          }
+        }
+      }
+    },
+    "Measuring didn’t finish: it’s at least this much" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se terminó de medir: es al menos esto"
+          }
+        }
+      }
+    },
+    "Measuring your Mac…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midiendo tu Mac…"
+          }
+        }
+      }
+    },
+    "Measuring…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midiendo…"
+          }
+        }
+      }
+    },
+    "Memory" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memoria"
+          }
+        }
+      }
+    },
+    "Memory Pressure" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión de memoria"
+          }
+        }
+      }
+    },
+    "Memory pressure tells you whether macOS is struggling to find free memory. Green means plenty; amber means it’s starting to compress and use the disk; red means apps will be slow." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La presión de memoria dice si a macOS le cuesta encontrar memoria libre. En verde va sobrado; en ámbar empieza a comprimir y a usar el disco; en rojo, las apps irán lentas."
+          }
+        }
+      }
+    },
+    "Minimum Size" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamaño mínimo"
+          }
+        }
+      }
+    },
+    "Missing: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta: %@"
+          }
+        }
+      }
+    },
+    "Mode" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo"
+          }
+        }
+      }
+    },
+    "Modified %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modificado %@"
+          }
+        }
+      }
+    },
+    "More Data" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más datos"
+          }
+        }
+      }
+    },
+    "Most Energy" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más energía"
+          }
+        }
+      }
+    },
+    "Most Processor" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más procesador"
+          }
+        }
+      }
+    },
+    "Move %@ copies to the Trash?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Mover %@ copias a la Papelera?"
+          }
+        }
+      }
+    },
+    "Move %@ items to the Trash?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Mover %@ elementos a la Papelera?"
+          }
+        }
+      }
+    },
+    "Move %@ orphaned leftovers to the Trash?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Mover %@ restos huérfanos a la Papelera?"
+          }
+        }
+      }
+    },
+    "Move 1 copy to the Trash?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Mover 1 copia a la Papelera?"
+          }
+        }
+      }
+    },
+    "Move Copies to Trash · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover copias a la Papelera · %@"
+          }
+        }
+      }
+    },
+    "Move the leftovers of “%@” to the Trash?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Mover los restos de «%@» a la Papelera?"
+          }
+        }
+      }
+    },
+    "Move to Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover a la Papelera"
+          }
+        }
+      }
+    },
+    "Move to Trash · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover a la Papelera · %@"
+          }
+        }
+      }
+    },
+    "Move to Trash…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover a la Papelera…"
+          }
+        }
+      }
+    },
+    "Move “%@” to the Trash?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Mover «%@» a la Papelera?"
+          }
+        }
+      }
+    },
+    "Moved to the Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Movido a la Papelera"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre"
+          }
+        }
+      }
+    },
+    "Network: down %@/s · up %@/s" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Red: baja %1$@/s · sube %2$@/s"
+          }
+        }
+      }
+    },
+    "No agent has used Airy yet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún agente ha usado Airy todavía."
+          }
+        }
+      }
+    },
+    "No apps match." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguna app coincide."
+          }
+        }
+      }
+    },
+    "No battery" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin batería"
+          }
+        }
+      }
+    },
+    "No broken login items." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún elemento de inicio roto."
+          }
+        }
+      }
+    },
+    "No copy passed the check; nothing is moved." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguna copia pasó la comprobación; no se mueve nada."
+          }
+        }
+      }
+    },
+    "No date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin fecha"
+          }
+        }
+      }
+    },
+    "No known cache or leftover taking up space was found." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha encontrado ninguna caché ni resto conocido que ocupe espacio."
+          }
+        }
+      }
+    },
+    "No leftovers were found for this app." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se han encontrado restos de esta app."
+          }
+        }
+      }
+    },
+    "No scan yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin análisis todavía"
+          }
+        }
+      }
+    },
+    "No slowdown." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin reducción de velocidad."
+          }
+        }
+      }
+    },
+    "No usage data" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin datos de uso"
+          }
+        }
+      }
+    },
+    "Normal" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora no"
+          }
+        }
+      }
+    },
+    "Not Responding" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No responde"
+          }
+        }
+      }
+    },
+    "Not done: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha hecho: %@"
+          }
+        }
+      }
+    },
+    "Not moved" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se movió"
+          }
+        }
+      }
+    },
+    "Not moved: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha movido: %@"
+          }
+        }
+      }
+    },
+    "Not opened since %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin abrir desde %@"
+          }
+        }
+      }
+    },
+    "Not scanned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin analizar"
+          }
+        }
+      }
+    },
+    "Not selected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No seleccionado"
+          }
+        }
+      }
+    },
+    "Nothing" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada"
+          }
+        }
+      }
+    },
+    "Nothing green is ready to clean" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay nada verde listo para limpiar"
+          }
+        }
+      }
+    },
+    "Nothing here takes up space." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí no hay nada que ocupe espacio."
+          }
+        }
+      }
+    },
+    "Nothing marked “Safe to remove” right now." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada marcado como «Sin problema» ahora mismo."
+          }
+        }
+      }
+    },
+    "Nothing matches these filters." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada con estos filtros."
+          }
+        }
+      }
+    },
+    "Nothing notable is open." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada destacable abierto."
+          }
+        }
+      }
+    },
+    "Nothing quits until you confirm it here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada se cierra hasta que lo confirmes aquí."
+          }
+        }
+      }
+    },
+    "Nothing safe to delete" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada seguro que borrar"
+          }
+        }
+      }
+    },
+    "Nothing sensitive" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada delicado"
+          }
+        }
+      }
+    },
+    "Nothing to Clean" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada que limpiar"
+          }
+        }
+      }
+    },
+    "Nothing to adjust." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada que ajustar."
+          }
+        }
+      }
+    },
+    "Nothing to decide" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada que decidir"
+          }
+        }
+      }
+    },
+    "Nothing to list for this kind." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada que listar de este tipo."
+          }
+        }
+      }
+    },
+    "Nothing yet. Use “Protect This” in Map or Cleanup." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada todavía. Usa «Proteger esto» en el Mapa o en Limpieza."
+          }
+        }
+      }
+    },
+    "Official command" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comando oficial"
+          }
+        }
+      }
+    },
+    "Official command:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comando oficial:"
+          }
+        }
+      }
+    },
+    "Official commands free the space at once and can’t be undone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los comandos oficiales liberan el espacio al momento y no se pueden deshacer."
+          }
+        }
+      }
+    },
+    "Oldest" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más antiguos"
+          }
+        }
+      }
+    },
+    "Only items marked “Safe to remove”. Everything else is always proposed to you here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo lo marcado «Borrar sin riesgo». Lo demás siempre te lo proponen aquí."
+          }
+        }
+      }
+    },
+    "Only the most obvious items, with nothing marked “Your call” preselected." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo lo más evidente, sin nada «Depende de ti» preseleccionado."
+          }
+        }
+      }
+    },
+    "Only this is sent to Claude:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se envía a Claude solo esto:"
+          }
+        }
+      }
+    },
+    "Open" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abierta"
+          }
+        }
+      }
+    },
+    "Open %@ on the Map" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir %@ en el mapa"
+          }
+        }
+      }
+    },
+    "Open Login Items Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes de elementos de inicio"
+          }
+        }
+      }
+    },
+    "Open source under the GPL-3.0 license · github.com/luis-guillen/airy\nAiry adapts ideas and path lists from Mole (github.com/tw93/Mole, GPL-3.0). It contains no Mole code." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Software libre bajo GPL-3.0 · github.com/luis-guillen/airy\nAiry adapta ideas y listas de rutas de Mole (github.com/tw93/Mole, GPL-3.0). No incluye código de Mole."
+          }
+        }
+      }
+    },
+    "Opened %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abierto %@"
+          }
+        }
+      }
+    },
+    "Orphaned Leftovers" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restos huérfanos"
+          }
+        }
+      }
+    },
+    "Orphaned leftovers" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restos huérfanos"
+          }
+        }
+      }
+    },
+    "Other" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros"
+          }
+        }
+      }
+    },
+    "Other (%@ items)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros (%@ elementos)"
+          }
+        }
+      }
+    },
+    "Other Agents (mcpServers)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros agentes (mcpServers)"
+          }
+        }
+      }
+    },
+    "Partial" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parcial"
+          }
+        }
+      }
+    },
+    "Paste the command into a terminal, or add it from here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pega el comando en una terminal, o añádelo desde aquí."
+          }
+        }
+      }
+    },
+    "Performance" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rendimiento"
+          }
+        }
+      }
+    },
+    "Performance cores %@ · efficiency cores %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Núcleos de rendimiento %1$@ · de eficiencia %2$@"
+          }
+        }
+      }
+    },
+    "Permanent deletion" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borrado definitivo"
+          }
+        }
+      }
+    },
+    "Problem" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Problema"
+          }
+        }
+      }
+    },
+    "Processes that have finished but haven’t been reaped by their program; they use no resources, but many of them point to a buggy program." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesos ya terminados que su programa no ha recogido; no gastan recursos, pero muchos indican un programa con fallos."
+          }
+        }
+      }
+    },
+    "Processor at %lld%%" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesador al %lld %%"
+          }
+        }
+      }
+    },
+    "Processor: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesador: %@"
+          }
+        }
+      }
+    },
+    "Processor: —" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesador: —"
+          }
+        }
+      }
+    },
+    "Proposal" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Propuesta"
+          }
+        }
+      }
+    },
+    "Protect" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proteger"
+          }
+        }
+      }
+    },
+    "Protect This" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proteger esto"
+          }
+        }
+      }
+    },
+    "Protected by You" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protegido por ti"
+          }
+        }
+      }
+    },
+    "Purgeable" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purgable"
+          }
+        }
+      }
+    },
+    "Queued" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cola"
+          }
+        }
+      }
+    },
+    "Quit" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        }
+      }
+    },
+    "Quit %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar %@"
+          }
+        }
+      }
+    },
+    "Quit %@?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cerrar %@?"
+          }
+        }
+      }
+    },
+    "Quit %lld apps?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cerrar %lld apps?"
+          }
+        }
+      }
+    },
+    "Quit Selected (%lld)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar seleccionadas (%lld)"
+          }
+        }
+      }
+    },
+    "Quitting…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrando…"
+          }
+        }
+      }
+    },
+    "Real Size" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamaño real"
+          }
+        }
+      }
+    },
+    "Reclaimable" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuperable"
+          }
+        }
+      }
+    },
+    "Refresh" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizar"
+          }
+        }
+      }
+    },
+    "Regenerates" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se regenera"
+          }
+        }
+      }
+    },
+    "Reindexing Spotlight can’t be undone, but it deletes nothing: it rebuilds the index and, meanwhile, searches may be incomplete and the Mac will be somewhat busier." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reindexar Spotlight no se deshace, pero no borra nada: rehace el índice y, mientras tanto, las búsquedas pueden salir incompletas y el Mac irá algo más cargado."
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar"
+          }
+        }
+      }
+    },
+    "Remove %@ broken links?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar %@ enlaces rotos?"
+          }
+        }
+      }
+    },
+    "Remove 1 broken link?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar 1 enlace roto?"
+          }
+        }
+      }
+    },
+    "Remove All Amber" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar todo lo ámbar"
+          }
+        }
+      }
+    },
+    "Remove Broken Links" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar enlaces rotos"
+          }
+        }
+      }
+    },
+    "Remove from Selection" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar de la selección"
+          }
+        }
+      }
+    },
+    "Removes apps along with their leftovers. Everything goes to the Trash unless noted." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quita apps con sus restos. Todo va a la Papelera salvo lo que se indica."
+          }
+        }
+      }
+    },
+    "Report" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Informe"
+          }
+        }
+      }
+    },
+    "Requested" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitado"
+          }
+        }
+      }
+    },
+    "Rescan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reanálisis"
+          }
+        }
+      }
+    },
+    "Reset" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer"
+          }
+        }
+      }
+    },
+    "Reset Airy’s settings?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Restablecer los ajustes de Airy?"
+          }
+        }
+      }
+    },
+    "Reset Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer ajustes"
+          }
+        }
+      }
+    },
+    "Review Only" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo revisar"
+          }
+        }
+      }
+    },
+    "Right before moving them, Airy checks again that their app still isn’t installed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Justo antes de moverlos, Airy vuelve a comprobar que su app sigue sin estar instalada."
+          }
+        }
+      }
+    },
+    "Safe to remove, in %@ items" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin problema, en %@ elementos"
+          }
+        }
+      }
+    },
+    "Safe to remove, in 1 item" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin problema, en 1 elemento"
+          }
+        }
+      }
+    },
+    "Scan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Análisis"
+          }
+        }
+      }
+    },
+    "Scan Again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizar de nuevo"
+          }
+        }
+      }
+    },
+    "Scan the disk to look for duplicates." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analiza el disco para buscar duplicados."
+          }
+        }
+      }
+    },
+    "Scan the disk to see large files." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analiza el disco para ver los archivos grandes."
+          }
+        }
+      }
+    },
+    "Scan the disk to see which kinds take up the most space." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analiza el disco para ver qué tipos ocupan más."
+          }
+        }
+      }
+    },
+    "Scanned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizado"
+          }
+        }
+      }
+    },
+    "Scanned %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizado %@"
+          }
+        }
+      }
+    },
+    "Scanning %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizando %@"
+          }
+        }
+      }
+    },
+    "Scanning…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analizando…"
+          }
+        }
+      }
+    },
+    "Search Again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar de nuevo"
+          }
+        }
+      }
+    },
+    "Search Apps" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar apps"
+          }
+        }
+      }
+    },
+    "Searching for caches and leftovers…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando cachés y restos…"
+          }
+        }
+      }
+    },
+    "Searching for caches, logs and leftovers…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando cachés, registros y restos…"
+          }
+        }
+      }
+    },
+    "Searching…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando…"
+          }
+        }
+      }
+    },
+    "See Its Leftovers" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver sus restos"
+          }
+        }
+      }
+    },
+    "See What Gets Uninstalled…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver qué se desinstala…"
+          }
+        }
+      }
+    },
+    "Select" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar"
+          }
+        }
+      }
+    },
+    "Select %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcar %@"
+          }
+        }
+      }
+    },
+    "Select All" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar todo"
+          }
+        }
+      }
+    },
+    "Select All Copies" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar todas las copias"
+          }
+        }
+      }
+    },
+    "Select All Green" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar todo lo verde"
+          }
+        }
+      }
+    },
+    "Select This Group" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar este grupo"
+          }
+        }
+      }
+    },
+    "Selected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionado"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar"
+          }
+        }
+      }
+    },
+    "Settings can be undone: the explanation says how." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los ajustes se pueden deshacer: la explicación dice cómo."
+          }
+        }
+      }
+    },
+    "Show in Airy" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en Airy"
+          }
+        }
+      }
+    },
+    "Show in Finder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en Finder"
+          }
+        }
+      }
+    },
+    "Show on Map" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver en el mapa"
+          }
+        }
+      }
+    },
+    "Size" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamaño"
+          }
+        }
+      }
+    },
+    "Small files and folders grouped together" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivos y carpetas pequeños agrupados"
+          }
+        }
+      }
+    },
+    "Snapshots keep a copy of what was on the disk, so what you just deleted keeps taking up space until they expire." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las instantáneas guardan una copia de lo que había en el disco, así que lo que acabas de borrar sigue ocupando sitio hasta que caduquen."
+          }
+        }
+      }
+    },
+    "Sort" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orden"
+          }
+        }
+      }
+    },
+    "Sort By" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ordenar por"
+          }
+        }
+      }
+    },
+    "Sorts what takes up space into “Safe to remove”, “Your call” and “Don't delete”, with the reason for each. Everything it proposes is checked against Airy’s catalog first." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Separa lo que ocupa espacio en «Borrar sin riesgo», «Depende de ti» y «No tocar», con el porqué de cada cosa. Todo lo que proponga se comprueba antes con el catálogo de Airy."
+          }
+        }
+      }
+    },
+    "Space by kind: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espacio por tipo: %@"
+          }
+        }
+      }
+    },
+    "Space macOS frees by itself only when needed (local snapshots, purgeable caches)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espacio que macOS libera solo cuando hace falta (instantáneas locales, cachés purgables)."
+          }
+        }
+      }
+    },
+    "Spotlight is turned off on this disk." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight está desactivado en este disco."
+          }
+        }
+      }
+    },
+    "Spotlight responds well (%@ s)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight responde bien (%@ s)."
+          }
+        }
+      }
+    },
+    "Spotlight takes %@ s to search." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight tarda %@ s en buscar."
+          }
+        }
+      }
+    },
+    "Spotlight takes %@ s to search. Plug in the charger to be able to reindex." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight tarda %@ s en buscar. Conecta el cargador para poder reindexar."
+          }
+        }
+      }
+    },
+    "Stays" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se quedan"
+          }
+        }
+      }
+    },
+    "Stop Protecting" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de proteger"
+          }
+        }
+      }
+    },
+    "Stop Scan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener análisis"
+          }
+        }
+      }
+    },
+    "Stop the Answer (⌘.)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener la respuesta (⌘.)"
+          }
+        }
+      }
+    },
+    "Stop the scan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener el análisis"
+          }
+        }
+      }
+    },
+    "Stopped" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detenido"
+          }
+        }
+      }
+    },
+    "Stopped containers: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contenedores parados: %@"
+          }
+        }
+      }
+    },
+    "Swap is memory macOS temporarily stores on the disk when everything doesn’t fit in RAM. It grows when you open many things at once and doesn’t go down by itself until you quit apps or restart; a little is normal, a lot makes everything slower." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La swap es memoria que macOS guarda temporalmente en el disco cuando no cabe todo en la RAM. Crece cuando abres muchas cosas a la vez y no baja sola hasta que cierras apps o reinicias; un poco es normal, mucha hace que todo vaya más lento."
+          }
+        }
+      }
+    },
+    "Swap: %@ of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap: %1$@ de %2$@"
+          }
+        }
+      }
+    },
+    "Swap: —" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap: —"
+          }
+        }
+      }
+    },
+    "System & Other" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistema y otros"
+          }
+        }
+      }
+    },
+    "Temperature: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura: %@"
+          }
+        }
+      }
+    },
+    "That space is now free on your disk." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese espacio ya está libre en tu disco."
+          }
+        }
+      }
+    },
+    "The Space Hasn’t Shown Up Yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El espacio aún no ha aparecido"
+          }
+        }
+      }
+    },
+    "The app will go to the Trash." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app irá a la Papelera."
+          }
+        }
+      }
+    },
+    "The assistant uses the Claude Code installed on this Mac and I can’t find it; if you have it somewhere else, choose it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El asistente usa Claude Code instalado en este Mac y no lo encuentro; si lo tienes en otro sitio, elígelo."
+          }
+        }
+      }
+    },
+    "The chosen executable (%@) doesn’t respond like Claude Code; choose another one or let Airy look for it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El ejecutable elegido (%@) no responde como Claude Code; elige otro o deja que Airy lo busque."
+          }
+        }
+      }
+    },
+    "The green and amber items that can be deleted now; never the red ones" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo verde y lo ámbar que se puede borrar ahora; nunca lo rojo"
+          }
+        }
+      }
+    },
+    "The leftovers you choose go to the Trash (Airy checks them before moving them)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los restos que eliges van a la Papelera (Airy los comprueba antes de moverlos)."
+          }
+        }
+      }
+    },
+    "The scan already covers all used space: there’s no remainder left to measure." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El análisis ya cubre todo lo ocupado: no queda un resto que se pueda medir."
+          }
+        }
+      }
+    },
+    "The sum of items marked “Safe to remove” that have an action, without counting a folder inside another twice. Airy computes it, not Claude’s text." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suma de lo marcado «Borrar sin riesgo» con acción, sin contar dos veces una carpeta dentro de otra. Lo calcula Airy, no el texto de Claude."
+          }
+        }
+      }
+    },
+    "There are no apps to uninstall." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay apps que desinstalar."
+          }
+        }
+      }
+    },
+    "There are no broken links in /usr/local/bin." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay enlaces rotos en /usr/local/bin."
+          }
+        }
+      }
+    },
+    "There are no duplicate files." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay archivos repetidos."
+          }
+        }
+      }
+    },
+    "There are no leftovers of uninstalled apps." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay restos de apps desinstaladas."
+          }
+        }
+      }
+    },
+    "There’s no data, or Claude Code wasn’t found." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay datos o no se encontró Claude Code."
+          }
+        }
+      }
+    },
+    "There’s nothing left to delete." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No queda nada que borrar."
+          }
+        }
+      }
+    },
+    "They no longer look like orphaned leftovers (or it couldn’t be checked); nothing is moved." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya no parecen restos huérfanos (o no se pudo comprobar); no se mueve nada."
+          }
+        }
+      }
+    },
+    "They run one at a time; before each one Airy checks again that it’s still safe." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se hacen de uno en uno; antes de cada uno se vuelve a comprobar que sigue siendo seguro."
+          }
+        }
+      }
+    },
+    "They’re uninstalled one at a time; before each one Airy checks again that it’s still safe." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se desinstalan de una en una; antes de cada una se vuelve a comprobar que sigue siendo seguro."
+          }
+        }
+      }
+    },
+    "Thin Snapshots…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reducir instantáneas…"
+          }
+        }
+      }
+    },
+    "Things you may want to keep. It’s your call, with a double confirmation." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cosas que quizá quieras conservar. Tú decides, con doble confirmación."
+          }
+        }
+      }
+    },
+    "This can’t be undone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer."
+          }
+        }
+      }
+    },
+    "This is what will be done:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto es lo que se va a hacer:"
+          }
+        }
+      }
+    },
+    "This is your call" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto depende de ti"
+          }
+        }
+      }
+    },
+    "Time Machine snapshots" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instantáneas de Time Machine"
+          }
+        }
+      }
+    },
+    "To the Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A la Papelera"
+          }
+        }
+      }
+    },
+    "To the Trash: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A la Papelera: %@"
+          }
+        }
+      }
+    },
+    "Total" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        }
+      }
+    },
+    "Total freed:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liberado en total:"
+          }
+        }
+      }
+    },
+    "Total: %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total: %@."
+          }
+        }
+      }
+    },
+    "Total: %@. The space is freed when you empty the Trash." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total: %@. Se liberan al vaciar la Papelera."
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar"
+          }
+        }
+      }
+    },
+    "Turn on Airy in System Settings › Privacy & Security › Full Disk Access to include Mail, Safari and apps’ protected data." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Airy en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco para incluir Mail, Safari y los datos protegidos de las apps."
+          }
+        }
+      }
+    },
+    "Unavailable: couldn’t load the catalog" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No disponible: no se pudo cargar el catálogo"
+          }
+        }
+      }
+    },
+    "Uninstall" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desinstalar"
+          }
+        }
+      }
+    },
+    "Uninstall %@ Apps" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desinstalar %@ apps"
+          }
+        }
+      }
+    },
+    "Uninstall %@ Apps · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desinstalar %1$@ apps · %2$@"
+          }
+        }
+      }
+    },
+    "Uninstall %@ apps?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Desinstalar %@ apps?"
+          }
+        }
+      }
+    },
+    "Uninstall · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desinstalar · %@"
+          }
+        }
+      }
+    },
+    "Uninstall “%@”?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Desinstalar «%@»?"
+          }
+        }
+      }
+    },
+    "Uninstaller" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desinstalador"
+          }
+        }
+      }
+    },
+    "Unknown size" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamaño desconocido"
+          }
+        }
+      }
+    },
+    "Unopened for %lld months" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin abrir %lld meses"
+          }
+        }
+      }
+    },
+    "Unopened for 1 year" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin abrir 1 año"
+          }
+        }
+      }
+    },
+    "Unused since %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin usar desde %@"
+          }
+        }
+      }
+    },
+    "Up One Level" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subir un nivel"
+          }
+        }
+      }
+    },
+    "Up One Level (Esc or ⌘[)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subir un nivel (Esc o ⌘[)"
+          }
+        }
+      }
+    },
+    "Up for %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encendido desde hace %@"
+          }
+        }
+      }
+    },
+    "Up to %@ in total. What goes to the Trash is freed when you empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hasta %@ en total. Lo que va a la Papelera se libera al vaciarla."
+          }
+        }
+      }
+    },
+    "Up to %@ will be freed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se liberarán hasta %@."
+          }
+        }
+      }
+    },
+    "Updating Scan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizando análisis"
+          }
+        }
+      }
+    },
+    "Use This" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar este"
+          }
+        }
+      }
+    },
+    "Used" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usada"
+          }
+        }
+      }
+    },
+    "Used space the scan doesn’t see: parts of the system, other users and whatever couldn’t be read." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo ocupado que el análisis no ve: partes del sistema, otros usuarios y lo que no se pudo leer."
+          }
+        }
+      }
+    },
+    "Uses your Claude Code · may take up to a minute" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa tu Claude Code · puede tardar hasta un minuto"
+          }
+        }
+      }
+    },
+    "Waiting for you" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pendiente de ti"
+          }
+        }
+      }
+    },
+    "What can I safely delete?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué puedo borrar sin riesgo?"
+          }
+        }
+      }
+    },
+    "What goes to the Trash can be recovered until you empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo que va a la Papelera se puede recuperar hasta que la vacíes."
+          }
+        }
+      }
+    },
+    "What is %@ and can I delete it?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué es %@ y puedo borrarlo?"
+          }
+        }
+      }
+    },
+    "What is ~/Library/Containers?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué es ~/Library/Containers?"
+          }
+        }
+      }
+    },
+    "What takes up the most space?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué ocupa más?"
+          }
+        }
+      }
+    },
+    "What this disk’s scan adds up to (for the startup disk it includes macOS and the apps)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo que suma el análisis de este disco (al analizar el disco de arranque incluye macOS y las apps)."
+          }
+        }
+      }
+    },
+    "What’s struck through won’t be done: Airy can’t do it right now." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo tachado no se hará: Airy no puede hacerlo ahora."
+          }
+        }
+      }
+    },
+    "Where" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dónde"
+          }
+        }
+      }
+    },
+    "Whole Disk" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todo el disco"
+          }
+        }
+      }
+    },
+    "Why Is It Slow?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Por qué va lento?"
+          }
+        }
+      }
+    },
+    "Will go to the Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Irá a la Papelera"
+          }
+        }
+      }
+    },
+    "Will run" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ejecutará"
+          }
+        }
+      }
+    },
+    "Without Full Disk Access, Finder will be asked to do it, and it permanently empties the Trash on every disk, external ones included." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin Acceso total al disco se la pedirá a Finder, que vacía definitivamente la Papelera de todos los discos, también los externos."
+          }
+        }
+      }
+    },
+    "Won’t be done: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se hará: %@"
+          }
+        }
+      }
+    },
+    "Works with any MCP client that uses an mcpServers block." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vale para cualquier cliente MCP que use un bloque mcpServers."
+          }
+        }
+      }
+    },
+    "Would go to the Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iría a la Papelera"
+          }
+        }
+      }
+    },
+    "Would run" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ejecutaría"
+          }
+        }
+      }
+    },
+    "Yes, Move It…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sí, quiero moverlo…"
+          }
+        }
+      }
+    },
+    "You can free" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes liberar"
+          }
+        }
+      }
+    },
+    "You can free up to" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes liberar hasta"
+          }
+        }
+      }
+    },
+    "You emptied %@, but free space only went up by %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has vaciado %1$@, pero el espacio libre solo ha subido %2$@."
+          }
+        }
+      }
+    },
+    "Your Disk Report" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Informe de tu disco"
+          }
+        }
+      }
+    },
+    "Your Folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu carpeta"
+          }
+        }
+      }
+    },
+    "You’ll be asked for your administrator password (once for each app with install receipts)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedirá tu contraseña de administrador (una vez por cada app con registros de instalación)."
+          }
+        }
+      }
+    },
+    "You’ll be asked for your administrator password." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedirá tu contraseña de administrador."
+          }
+        }
+      }
+    },
+    "You’ve removed everything: there’s nothing left to delete." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has quitado todo: no queda nada que borrar."
+          }
+        }
+      }
+    },
+    "Zombie processes: %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesos zombi: %lld"
+          }
+        }
+      }
+    },
+    "Zombie processes: %lld (from %@)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesos zombi: %1$lld (de %2$@)"
+          }
+        }
+      }
+    },
+    "Zombie processes: —" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesos zombi: —"
+          }
+        }
+      }
+    },
+    "airy-log-%@.json" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "airy-registro-%@.json"
+          }
+        }
+      }
+    },
+    "airy-mcp wasn’t found next to Airy. Package it again with scripts/build-app.sh." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encuentra airy-mcp junto a Airy. Vuelve a empaquetar con scripts/build-app.sh."
+          }
+        }
+      }
+    },
+    "and %@ in small files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "y %@ en archivos pequeños"
+          }
+        }
+      }
+    },
+    "estimated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "estimado"
+          }
+        }
+      }
+    },
+    "files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "archivos"
+          }
+        }
+      }
+    },
+    "free of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "libres de %@"
+          }
+        }
+      }
+    },
+    "freed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "liberados"
+          }
+        }
+      }
+    },
+    "just now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ahora mismo"
+          }
+        }
+      }
+    },
+    "macOS has slowed it down to cool it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS ha bajado la velocidad para enfriarlo."
+          }
+        }
+      }
+    },
+    "no open date; by modification" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sin datos de apertura; según modificación"
+          }
+        }
+      }
+    },
+    "no reason given" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sin motivo"
+          }
+        }
+      }
+    },
+    "opencode" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "opencode"
+          }
+        }
+      }
+    },
+    "scanned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "analizados"
+          }
+        }
+      }
+    },
+    "the cleanup catalog isn’t available." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "el catálogo de limpiezas no está disponible."
+          }
+        }
+      }
+    },
+    "the folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "la carpeta"
+          }
+        }
+      }
+    },
+    "to the Trash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a la Papelera"
+          }
+        }
+      }
+    },
+    "used" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "usado"
+          }
+        }
+      }
+    },
+    "what was scanned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lo analizado"
+          }
+        }
+      }
+    },
+    "· %@ files · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %1$@ archivos · %2$@"
+          }
+        }
+      }
+    },
+    "“%@”" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@»"
+          }
+        }
+      }
+    },
+    "“%@” is in the Trash (%@). The space is freed when you empty it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» está en la Papelera (%2$@). Se libera al vaciarla."
+          }
+        }
+      }
+    },
+    "“%@” will quit if it’s open (it may ask you to save)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se cerrará «%@» si está abierta (podrá pedirte guardar)."
+          }
+        }
+      }
+    },
+    "“Up to”: that command only removes what’s no longer used, so it may free less." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Hasta»: ese comando solo quita lo que ya no se usa, así que puede liberar menos."
+          }
+        }
+      }
+    },
+    "≈ %@ held" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "≈ %@ retenidos"
+          }
+        }
+      }
+    },
+    "✓ All Kinds" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Todos los tipos"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

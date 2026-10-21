@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Batería, disco, red, tiempo encendido y procesos zombi; «—» para lo que no se sabe.
+/// Battery, disk, network, uptime and zombie processes; "—" for what isn't known.
 struct ExtrasCard: View {
     @Environment(AppModel.self) private var model
 
@@ -9,14 +9,14 @@ struct ExtrasCard: View {
         let snapshot = model.performance.snapshot
         GlassCard {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Más datos").font(.headline)
+                Text("More Data").font(.headline)
                 line("battery.75percent", battery(snapshot))
-                line("internaldrive", "Disco: lee \(rate(snapshot?.disk?.readPerSecond))/s · escribe \(rate(snapshot?.disk?.writePerSecond))/s")
-                line("network", "Red: baja \(rate(snapshot?.network?.readPerSecond))/s · sube \(rate(snapshot?.network?.writePerSecond))/s")
-                line("clock", "Encendido desde hace \(snapshot?.uptime.map(Self.duration) ?? "—")")
+                line("internaldrive", String(localized: "Disk: read \(rate(snapshot?.disk?.readPerSecond))/s · write \(rate(snapshot?.disk?.writePerSecond))/s"))
+                line("network", String(localized: "Network: down \(rate(snapshot?.network?.readPerSecond))/s · up \(rate(snapshot?.network?.writePerSecond))/s"))
+                line("clock", String(localized: "Up for \(snapshot?.uptime.map(Self.duration) ?? "—")"))
                 HStack(spacing: 6) {
                     line("exclamationmark.bubble", zombies(snapshot))
-                    HelpDot(text: "Procesos ya terminados que su programa no ha recogido; no gastan recursos, pero muchos indican un programa con fallos.")
+                    HelpDot(text: "Processes that have finished but haven’t been reaped by their program; they use no resources, but many of them point to a buggy program.")
                 }
             }
         }
@@ -27,19 +27,20 @@ struct ExtrasCard: View {
     }
 
     private func battery(_ snapshot: PerformanceSnapshot?) -> String {
-        guard let snapshot else { return "Batería: —" }
-        guard let b = snapshot.battery else { return "Sin batería" }
+        guard let snapshot else { return String(localized: "Battery: —") }
+        guard let b = snapshot.battery else { return String(localized: "No battery") }
         let cycles = b.cycleCount.map(String.init) ?? "—"
         let health = b.healthPercent.map(String.init) ?? "—"
-        return "\(b.percent) % · \(cycles) ciclos · salud \(health) %"
+        return String(localized: "\(b.percent)% · \(cycles) cycles · health \(health)%")
     }
 
     private func rate(_ value: Double?) -> String { value.map { Format.bytes(Int64($0)) } ?? "—" }
 
     private func zombies(_ snapshot: PerformanceSnapshot?) -> String {
-        guard let zombies = snapshot?.zombies else { return "Procesos zombi: —" }
+        guard let zombies = snapshot?.zombies else { return String(localized: "Zombie processes: —") }
         let parents = Array(Set(zombies.compactMap(\.parentName))).sorted().prefix(3)
-        return "Procesos zombi: \(zombies.count)" + (parents.isEmpty ? "" : " (de \(parents.joined(separator: ", ")))")
+        return parents.isEmpty ? String(localized: "Zombie processes: \(zombies.count)")
+            : String(localized: "Zombie processes: \(zombies.count) (from \(parents.joined(separator: ", ")))")
     }
 
     static func duration(_ seconds: TimeInterval) -> String {

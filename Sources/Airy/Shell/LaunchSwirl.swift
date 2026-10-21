@@ -1,15 +1,15 @@
 import SwiftUI
 import DiskMapCore
 
-/// Arranque: sobre una capa opaca a pantalla completa, las hojas llegan en espiral y forman el
-/// logo (`WindLeaves(.launch)`, en un lienzo que llena la capa); el logo aparece con fundido en el
-/// último 35 % de `gather`, se sostiene `hold` y la capa entera se funde en `fade`. Un clic la
-/// cierra al momento. Con «Reducir movimiento», solo el logo con fundido de entrada y salida.
+/// Launch: over an opaque full-screen layer, the leaves spiral in and form the logo
+/// (`WindLeaves(.launch)`, on a canvas that fills the layer); the logo fades in during the
+/// last 35% of `gather`, holds for `hold` and the whole layer fades out over `fade`. A click
+/// dismisses it at once. With "Reduce motion", only the logo, fading in and out.
 ///
-/// El modo transitorio se lee al empezar. El portero arranca en `.paused` hasta que la ventana dice
-/// que se ve: la capa espera quieta como mucho `visibilityGrace`; si sigue en pausa (ventana tapada
-/// u oculta) o se pausa ya empezada, termina al momento.
-/// Los plazos van con `DispatchQueue.main.asyncAfter`, no con `Task.sleep` (ver `MapScene.scheduleStop`).
+/// The transient mode is read at the start. The gatekeeper starts at `.paused` until the window says
+/// it is visible: the layer waits still for at most `visibilityGrace`; if it stays paused (window covered
+/// or hidden) or is paused once started, it finishes at once.
+/// Delays use `DispatchQueue.main.asyncAfter`, not `Task.sleep` (see `MapScene.scheduleStop`).
 struct LaunchSwirl: View {
     var onDone: () -> Void
 
@@ -41,7 +41,7 @@ struct LaunchSwirl: View {
         }
         .onChange(of: motion, initial: true) { _, mode in
             #if DEBUG
-            if FPSMeter.isEnabled { FPSMeter.log("[motion] arranque: \(mode)") }
+            if FPSMeter.isEnabled { FPSMeter.log("[motion] launch: \(mode)") }
             #endif
             if start == nil {
                 if mode != .paused { begin(mode) }
@@ -57,7 +57,7 @@ struct LaunchSwirl: View {
         playing = mode
         if mode == .running {
             #if DEBUG
-            FPSMeter.shared.begin("arranque")
+            FPSMeter.shared.begin("launch")
             #endif
             after(0.65 * timeline.gather) {
                 withAnimation(.easeOut(duration: 0.35 * timeline.gather)) { logoOpacity = 1 }

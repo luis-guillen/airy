@@ -1,7 +1,7 @@
 import SwiftUI
 import DiskMapCore
 
-/// Pestaña «Restos huérfanos»: carpetas de apps que ya no están instaladas (solo verdes).
+/// "Orphaned Leftovers" tab: folders of apps that are no longer installed (green only).
 struct OrphansView: View {
     @Environment(CleanupFlow.self) private var flow
     let store: UninstallerStore
@@ -10,13 +10,13 @@ struct OrphansView: View {
         Group {
             switch store.orphans {
             case nil:
-                ProgressView("Buscando restos de apps desinstaladas…").frame(maxWidth: .infinity, minHeight: 160)
+                ProgressView("Looking for leftovers of uninstalled apps…").frame(maxWidth: .infinity, minHeight: 160)
             case .undecided(let reason):
                 Label(reason, systemImage: "questionmark.circle")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
             case .found(let groups) where groups.isEmpty:
-                Text("No hay restos de apps desinstaladas.")
+                Text("There are no leftovers of uninstalled apps.")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
             case .found(let groups):
@@ -39,12 +39,12 @@ struct OrphansView: View {
                 UninstallerSelectionBar(
                     count: selected.count,
                     detail: Format.bytes(selected.reduce(0) { $0 + $1.bytes }),
-                    actionTitle: "Mover a la Papelera · \(Format.bytes(selected.reduce(0) { $0 + $1.bytes }))",
+                    actionTitle: String(localized: "Move to Trash · \(Format.bytes(selected.reduce(0) { $0 + $1.bytes }))"),
                     onClear: { store.orphanSelection = [] }
                 ) {
                     flow.requestTrashOrphans(selected) { outcome in
-                        // Solo desaparecen los grupos que ya no están en disco (los que dejaron de ser huérfanos
-                        // al comprobarlos otra vez siguen ahí).
+                        // Only the groups no longer on disk disappear (the ones that stopped being orphans
+                        // when checked again are still there).
                         if case .movedToTrash = outcome {
                             let gone = selected.filter { group in
                                 group.paths.allSatisfy { !FileManager.default.fileExists(atPath: $0) }
@@ -72,7 +72,7 @@ struct OrphansView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(4)
                     .textSelection(.enabled)
-                Text("Sin usar desde \(group.lastModified.formatted(.dateTime.day().month(.wide).year().locale(Theme.locale)))")
+                Text("Unused since \(group.lastModified.formatted(.dateTime.day().month(.wide).year().locale(Theme.locale)))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -85,7 +85,7 @@ struct OrphansView: View {
     }
 }
 
-/// Pestaña «Enlaces rotos» de /usr/local/bin.
+/// "Broken Links" tab for /usr/local/bin.
 struct BrokenLinksView: View {
     @Environment(CleanupFlow.self) private var flow
     let store: UninstallerStore
@@ -95,7 +95,7 @@ struct BrokenLinksView: View {
             if !store.linksLoaded {
                 ProgressView().frame(maxWidth: .infinity, minHeight: 120)
             } else if store.links.isEmpty {
-                Text("No hay enlaces rotos en /usr/local/bin.")
+                Text("There are no broken links in /usr/local/bin.")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
             } else {
@@ -126,7 +126,7 @@ struct BrokenLinksView: View {
                     }
                     HStack {
                         Spacer()
-                        PrimaryButton("Quitar enlaces rotos", systemImage: "link.badge.plus") {
+                        PrimaryButton("Remove Broken Links", systemImage: "link.badge.plus") {
                             let links = store.selectedLinks.isEmpty ? store.links : store.selectedLinks
                             flow.requestRemoveBrokenLinks(links) { outcome in
                                 if case .freed = outcome {
@@ -145,7 +145,7 @@ struct BrokenLinksView: View {
     }
 }
 
-/// Barra de selección del Desinstalador (cuántos, cuánto y la acción, que abre la confirmación).
+/// The Uninstaller's selection bar (how many, how much and the action, which opens the confirmation).
 struct UninstallerSelectionBar: View {
     @Environment(CleanupFlow.self) private var flow
     let count: Int
@@ -157,11 +157,11 @@ struct UninstallerSelectionBar: View {
     var body: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(count == 1 ? "1 seleccionado" : "\(Theme.count(count)) seleccionados")
+                Text(count == 1 ? "1 selected" : "\(Theme.count(count)) selected")
                     .font(.callout.weight(.semibold))
                 Text(detail).font(.caption).monospacedDigit().foregroundStyle(.secondary)
             }
-            Button("Quitar selección", action: onClear)
+            Button("Clear Selection", action: onClear)
                 .buttonStyle(.plain)
                 .font(.callout)
                 .foregroundStyle(.secondary)

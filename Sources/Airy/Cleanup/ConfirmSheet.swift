@@ -1,19 +1,19 @@
 import SwiftUI
 import DiskMapCore
 
-/// Hoja de confirmación antes de cualquier borrado: qué se hace, cuánto ocupa y con qué método.
-/// Es la única de la app (Limpieza, barra lateral, mapa y asistente). Si la petición trae un aviso
-/// ("Esto depende de ti"), lo enseña primero y la confirmación real llega tras "Sí, quiero moverlo…".
+/// Confirmation sheet before any deletion: what is done, how much it takes and with which method.
+/// It is the app's only one (Cleanup, sidebar, map and assistant). If the request carries a warning
+/// ("This is your call"), it shows it first and the real confirmation comes after "Yes, Move It…".
 struct ConfirmSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
     let request: CleanupFlow.ConfirmRequest
     @ViewState private var warningAccepted = false
-    /// Vista previa del ejecutor (mismo plan que al confirmar), por fila. `nil` mientras se calcula.
+    /// The executor's preview (same plan as on confirmation), per row. `nil` while it is computed.
     @ViewState private var previews: [String: CleanupPreview]?
-    /// Filas que no se harán (id de elemento, ruta suelta o "trash") con su motivo.
+    /// Rows that won't be done (item id, individual path or "trash") with their reason.
     @ViewState private var blockReasons: [String: String]?
-    /// Filas quitadas con un clic («Quitar»): no se borran y salen del total.
+    /// Rows removed with a click ("Remove"): they aren't deleted and leave the total.
     @ViewState private var removed: Set<String> = []
 
     var body: some View {
@@ -34,8 +34,8 @@ struct ConfirmSheet: View {
         .padding(24)
         .frame(width: 540)
         .animation(Theme.sectionSpring, value: warningAccepted)
-        // Con aviso previo («Esto depende de ti», propuesta por enlace), la vista previa espera a que el
-        // usuario lo acepte: abrir la hoja no consulta nada al ejecutor.
+        // With a prior warning ("This is your call", a proposal by link), the preview waits for the
+        // user to accept it: opening the sheet doesn't query the executor.
         .task(id: warningAccepted) {
             guard !isQuit, request.warning == nil || warningAccepted, blockReasons == nil else { return }
             await loadPreview()
@@ -51,7 +51,7 @@ struct ConfirmSheet: View {
         #endif
     }
 
-    // MARK: Primer paso ("Depende de ti")
+    // MARK: First step ("Your call")
 
     private func warningStep(_ warning: CleanupFlow.ConfirmRequest.Warning) -> some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -71,7 +71,7 @@ struct ConfirmSheet: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Text("«\(warning.reason)»")
+            Text("“\(warning.reason)”")
                 .font(.callout)
                 .foregroundStyle(.primary.opacity(0.85))
                 .lineLimit(nil)
@@ -84,7 +84,7 @@ struct ConfirmSheet: View {
                 .lineLimit(nil)
             HStack(spacing: 10) {
                 Spacer()
-                Button("Cancelar") { flow.cancelSheet() }
+                Button("Cancel") { flow.cancelSheet() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
                 PrimaryButton(warning.continueTitle, systemImage: "arrow.right", style: .secondary) {
@@ -95,14 +95,14 @@ struct ConfirmSheet: View {
         }
     }
 
-    // MARK: Confirmación
+    // MARK: Confirmation
 
     private var confirmation: some View {
         VStack(alignment: .leading, spacing: 18) {
             header
 
             if isItems {
-                // Hasta cuatro filas caben sin desplazamiento; con más, alto fijo.
+                // Up to four rows fit without scrolling; with more, a fixed height.
                 if rows.count + reviewRows.count <= 4 {
                     itemBlocks
                 } else {
@@ -137,11 +137,11 @@ struct ConfirmSheet: View {
 
             HStack(spacing: 10) {
                 Spacer()
-                Button("Cancelar") { flow.cancelSheet() }
+                Button("Cancel") { flow.cancelSheet() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
-                // Intro solo confirma lo que se puede deshacer (todo a la Papelera). Vaciar la Papelera o
-                // ejecutar un comando oficial es irreversible: hay que pulsar el botón.
+                // Return only confirms what can be undone (everything to the Trash). Emptying the Trash or
+                // running an official command is irreversible: the button has to be clicked.
                 if returnConfirms {
                     confirmButton.keyboardShortcut(.defaultAction)
                 } else {
@@ -156,14 +156,14 @@ struct ConfirmSheet: View {
             flow.confirm(request, model: model, blocked: Set((blockReasons ?? [:]).keys), excluding: excluded)
         }
         .fixedSize()
-        // Hasta tener la vista previa no se confirma; si todo está bloqueado o quitado, no hay nada que hacer.
+        // No confirming until the preview is there; if everything is blocked or removed, there is nothing to do.
         .disabled(blockReasons == nil || (rows + reviewRows).allSatisfy { blockReasons?[$0.id] != nil })
     }
 
-    // MARK: Vista previa
+    // MARK: Preview
 
-    /// Pregunta al ejecutor qué haría cada fila ahora, con el `runID` de la tanda. Lo bloqueado sale
-    /// tachado con su motivo y no se ejecuta.
+    /// Asks the executor what each row would do now, with the batch's `runID`. What is blocked shows
+    /// struck through with its reason and doesn't run.
     private func loadPreview() async {
         var reasons: [String: String] = [:]
         switch request.kind {
@@ -179,13 +179,13 @@ struct ConfirmSheet: View {
         case .emptyTrash:
             if let refusal = model.destructiveRefusal { reasons["trash"] = refusal }
         case .uninstall, .orphans, .brokenLinks, .duplicates:
-            break  // `UninstallConfirmContent` decide lo bloqueado.
+            break  // `UninstallConfirmContent` decides what is blocked.
         case .quitApps, .forceQuitApps: break
         }
         blockReasons = reasons
     }
 
-    /// `true` solo si todo va a la Papelera (recuperable): ni vaciarla ni comandos oficiales.
+    /// `true` only if everything goes to the Trash (recoverable): neither emptying it nor official commands.
     private var returnConfirms: Bool {
         switch request.kind {
         case .emptyTrash, .uninstall, .brokenLinks, .quitApps, .forceQuitApps: return false
@@ -195,7 +195,7 @@ struct ConfirmSheet: View {
         }
     }
 
-    // MARK: Contenido
+    // MARK: Content
 
     private var rowList: some View {
         VStack(spacing: 0) {
@@ -206,7 +206,7 @@ struct ConfirmSheet: View {
         }
     }
 
-    /// Lista verde y, aparte, el bloque ámbar resaltado (cada fila con su «por qué»).
+    /// The green list and, separately, the highlighted amber block (each row with its "why").
     private var itemBlocks: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !rows.isEmpty { rowList.modifier(RowBox()) }
@@ -220,7 +220,7 @@ struct ConfirmSheet: View {
                             .font(.callout.weight(.semibold))
                             .lineLimit(nil)
                         Spacer(minLength: 8)
-                        Button("Quitar todo lo ámbar") { remove(reviewRows.map(\.id)) }
+                        Button("Remove All Amber") { remove(reviewRows.map(\.id)) }
                             .buttonStyle(.plain)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.Airy.riskInk(.yourCall))
@@ -240,7 +240,7 @@ struct ConfirmSheet: View {
                 }
             }
             if rows.isEmpty && reviewRows.isEmpty {
-                Text("Has quitado todo: no queda nada que borrar.")
+                Text("You’ve removed everything: there’s nothing left to delete.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(12)
@@ -254,17 +254,17 @@ struct ConfirmSheet: View {
 
     private var isItems: Bool { if case .items = request.kind { true } else { false } }
 
-    /// Verde y ámbar que siguen en la hoja (lo quitado y lo que no se puede marcar no entran).
+    /// Green and amber items still in the sheet (removed ones and those that can't be checked don't count).
     private var sections: (regular: [CleanupItem], review: [CleanupItem]) {
         CleanupBoard.confirmSections(items, excluding: removed)
     }
 
     private var keptItems: [CleanupItem] { let s = sections; return s.regular + s.review }
 
-    /// Lo que de verdad se ejecutará: sin lo que la vista previa dejó bloqueado (sale tachado).
+    /// What will really run: without what the preview left blocked (shown struck through).
     private var runnableItems: [CleanupItem] { keptItems.filter { blockReasons?[$0.id] == nil } }
 
-    /// Lo que no se ejecuta: lo quitado y lo que la hoja no enseña (rojo, protegido o bloqueado).
+    /// What doesn't run: what was removed and what the sheet doesn't show (red, protected or blocked).
     private var excluded: Set<String> {
         let kept = Set(keptItems.map(\.id))
         return Set(items.map(\.id).filter { !kept.contains($0) })
@@ -320,12 +320,13 @@ struct ConfirmSheet: View {
 
     private var title: String {
         switch request.kind {
-        case .emptyTrash: return "¿Vaciar la Papelera?"
+        case .emptyTrash: return String(localized: "Empty the Trash?")
         case .trashPaths(let paths, let title):
-            return paths.count == 1 ? "¿Mover «\(title)» a la Papelera?" : "¿Mover \(Theme.count(paths.count)) elementos a la Papelera?"
+            return paths.count == 1 ? String(localized: "Move “\(title)” to the Trash?")
+                                     : String(localized: "Move \(Theme.count(paths.count)) items to the Trash?")
         case .items:
             let count = runnableItems.count
-            return count == 1 ? "¿Borrar 1 elemento?" : "¿Borrar \(Theme.count(count)) elementos?"
+            return count == 1 ? String(localized: "Delete 1 item?") : String(localized: "Delete \(Theme.count(count)) items?")
         case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         case .quitApps, .forceQuitApps: return ""
         }
@@ -334,27 +335,28 @@ struct ConfirmSheet: View {
     private var subtitle: String {
         switch request.kind {
         case .emptyTrash(let bytes):
-            return bytes.map { "Se borrarán definitivamente \(Format.bytes($0))." }
-                ?? "Airy no puede leer la Papelera, así que no sabe cuánto ocupa."
+            return bytes.map { String(localized: "\(Format.bytes($0)) will be permanently deleted.") }
+                ?? String(localized: "Airy can’t read the Trash, so it doesn’t know how much it takes up.")
         case .quitApps, .forceQuitApps: return ""
         case .trashPaths(let paths, _):
             let total = paths.compactMap { model.node(atPath: $0)?.allocatedSize }.reduce(0, +)
-            return total > 0 ? "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla."
-                             : "Irá a la Papelera. Se libera al vaciarla."
+            return total > 0 ? String(localized: "\(Format.bytes(total)) will go to the Trash. The space is freed when you empty it.")
+                             : String(localized: "It will go to the Trash. The space is freed when you empty it.")
         case .items:
             let items = keptItems
-            guard !items.isEmpty else { return "No queda nada que borrar." }
-            // Con limpiezas parciales (p. ej. `pnpm store prune`) la cifra es solo un máximo: "hasta X".
+            guard !items.isEmpty else { return String(localized: "There’s nothing left to delete.") }
+            // With partial cleanups (e.g. `pnpm store prune`) the figure is only a maximum: "up to X".
             let (total, upperBound) = CleanupBoard.total(items)
             let trash = items.filter { if case .trash = liveMethod($0) { true } else { false } }
-            if trash.count == items.count { return "\(Format.bytes(total)) irán a la Papelera. Se liberan al vaciarla." }
+            if trash.count == items.count { return String(localized: "\(Format.bytes(total)) will go to the Trash. The space is freed when you empty it.") }
             if trash.isEmpty {
-                guard total > 0 else { return "Esto es lo que se va a hacer:" }
-                return upperBound ? "Se liberarán hasta \(Format.bytes(total))." : "Se liberarán unos \(Format.bytes(total))."
+                guard total > 0 else { return String(localized: "This is what will be done:") }
+                return upperBound ? String(localized: "Up to \(Format.bytes(total)) will be freed.")
+                                  : String(localized: "About \(Format.bytes(total)) will be freed.")
             }
             return upperBound
-                ? "Hasta \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
-                : "Unos \(Format.bytes(total)) en total. Lo que va a la Papelera se libera al vaciarla."
+                ? String(localized: "Up to \(Format.bytes(total)) in total. What goes to the Trash is freed when you empty it.")
+                : String(localized: "About \(Format.bytes(total)) in total. What goes to the Trash is freed when you empty it.")
         case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         }
     }
@@ -363,15 +365,18 @@ struct ConfirmSheet: View {
         switch request.kind {
         case .quitApps, .forceQuitApps: return []
         case .emptyTrash(let bytes):
-            return [ConfirmRow(id: "trash", title: "Vaciar Papelera", symbol: "trash.fill", tint: Theme.Airy.riskInk(.doNotTouch),
-                               size: bytes.map(Format.bytes) ?? "Tamaño desconocido",
-                               method: .text(bytes == nil ? "Lo hace Finder, en todos los discos" : "Borrado definitivo"),
+            return [ConfirmRow(id: "trash", title: String(localized: "Empty Trash"), symbol: "trash.fill",
+                               tint: Theme.Airy.riskInk(.doNotTouch),
+                               size: bytes.map(Format.bytes) ?? String(localized: "Unknown size"),
+                               method: .text(bytes == nil ? String(localized: "Finder does it, on every disk")
+                                                          : String(localized: "Permanent deletion")),
                                location: "~/.Trash", blockedReason: blockReasons?["trash"])]
         case .trashPaths(let paths, _):
             return paths.map { path in
                 ConfirmRow(id: path, title: (path as NSString).lastPathComponent, symbol: "doc", tint: Theme.Airy.accent,
                            size: model.node(atPath: path).map { Format.bytes($0.allocatedSize) } ?? "—",
-                           method: .text(blockReasons == nil ? "A la Papelera" : "Irá a la Papelera"),
+                           method: .text(blockReasons == nil ? String(localized: "To the Trash")
+                                                              : String(localized: "Will go to the Trash")),
                            location: Format.tildePath(path), blockedReason: blockReasons?[path])
             }
         case .items:
@@ -380,7 +385,7 @@ struct ConfirmSheet: View {
         }
     }
 
-    /// El bloque ámbar de la hoja (vacío para el resto de peticiones).
+    /// The sheet's amber block (empty for every other request).
     private var reviewRows: [ConfirmRow] {
         isItems ? sections.review.map(itemRow) : []
     }
@@ -388,10 +393,10 @@ struct ConfirmSheet: View {
     private func itemRow(_ item: CleanupItem) -> ConfirmRow {
                 let method = liveMethod(item)
                 let size = item.id == TrashFollowUp.snapshotEntryID
-                    ? (item.bytes > 0 ? "≈ \(Format.bytes(item.bytes))" : "Tamaño desconocido")
+                    ? (item.bytes > 0 ? "≈ \(Format.bytes(item.bytes))" : String(localized: "Unknown size"))
                     : CleanupBoard.sizeText(item)
                 let planned: ConfirmRow.Method? = switch previews?[item.id] {
-                case .wouldTrash: .text("Irá a la Papelera")
+                case .wouldTrash: .text(String(localized: "Will go to the Trash"))
                 case .wouldRun(let command, _, _): .willRun(CleanupBoard.commandLine(command))
                 case .blocked, nil: nil
                 }
@@ -399,23 +404,22 @@ struct ConfirmSheet: View {
                                   tint: Theme.ink(for: item.entry.kind), size: size,
                                   method: planned ?? CleanupBoard.commandLine(method).map(ConfirmRow.Method.command)
                                       ?? .text(CleanupBoard.methodDescription(method)),
-                                  // Dónde: imprescindible cuando una ficha abarca muchas carpetas (p. ej. ~/Library/Logs/*).
+                                  // Where: essential when an entry spans many folders (e.g. ~/Library/Logs/*).
                                   location: CleanupBoard.locationSummary(item),
                                   blockedReason: blockReasons?[item.id],
-                                  // Ámbar: siempre; verde con comando: su motivo corto (p. ej. que hay que volver a
-                                  // descargar las imágenes de Docker).
+                                  // Amber: always; green with a command: its short reason (e.g. that the Docker
+                                  // images have to be downloaded again).
                                   why: item.risk == .yourCall || (item.risk == .safe && item.entry.shortReason != nil)
                                       ? RiskExplanation.why(item) : nil,
                                   whyIsWarning: item.risk == .yourCall,
                                   detail: Self.detailLine(item))
     }
 
-    /// «Contenedores parados: a, b y c» (Docker); para el resto, nada.
+    /// "Stopped containers: a, b and c" (Docker); for the rest, nothing.
     static func detailLine(_ item: CleanupItem) -> String? {
         guard item.entry.id == "docker-containers", !item.details.isEmpty else { return nil }
-        let names = item.details
-        let list = names.count > 1 ? names.dropLast().joined(separator: ", ") + " y " + names.last! : names[0]
-        return "Contenedores parados: \(list)"
+        let list = item.details.formatted(.list(type: .and).locale(Theme.locale))
+        return String(localized: "Stopped containers: \(list)")
     }
 
     private struct Note { let symbol: String; let tint: Color; let text: String }
@@ -426,11 +430,11 @@ struct ConfirmSheet: View {
 
     private var previewNotes: [Note] {
         guard let blockReasons else {
-            return [Note(symbol: "hourglass", tint: .secondary, text: "Comprobando qué se hará con cada elemento…")]
+            return [Note(symbol: "hourglass", tint: .secondary, text: String(localized: "Checking what will be done with each item…"))]
         }
         guard !blockReasons.isEmpty else { return [] }
         return [Note(symbol: "nosign", tint: Theme.Airy.riskInk(.doNotTouch),
-                     text: "Lo tachado no se hará: Airy no puede hacerlo ahora.")]
+                     text: String(localized: "What’s struck through won’t be done: Airy can’t do it right now."))]
     }
 
     private var kindNotes: [Note] {
@@ -440,48 +444,48 @@ struct ConfirmSheet: View {
             let red = Theme.Airy.riskInk(.doNotTouch)
             if bytes == nil {
                 return [Note(symbol: "exclamationmark.triangle.fill", tint: red,
-                             text: "Sin Acceso total al disco se la pedirá a Finder, que vacía definitivamente la Papelera de todos los discos, también los externos."),
-                        Note(symbol: "arrow.uturn.backward.circle", tint: red, text: "No se puede deshacer.")]
+                             text: String(localized: "Without Full Disk Access, Finder will be asked to do it, and it permanently empties the Trash on every disk, external ones included.")),
+                        Note(symbol: "arrow.uturn.backward.circle", tint: red, text: String(localized: "This can’t be undone."))]
             }
-            return [Note(symbol: "arrow.uturn.backward.circle", tint: red, text: "No se puede deshacer."),
+            return [Note(symbol: "arrow.uturn.backward.circle", tint: red, text: String(localized: "This can’t be undone.")),
                     Note(symbol: "externaldrive", tint: .secondary,
-                         text: "Si algún archivo no se deja borrar, se le pedirá a Finder, que vacía también la Papelera de los discos externos.")]
+                         text: String(localized: "If a file won’t delete, Finder will be asked to do it, and it also empties the Trash on external disks."))]
         case .trashPaths:
             return [Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
-                         text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes.")]
+                         text: String(localized: "What goes to the Trash can be recovered until you empty it."))]
         case .items:
             let items = keptItems
             var notes: [Note] = []
             let methods = items.map(liveMethod)
             if methods.contains(where: { if case .trash = $0 { true } else { false } }) {
                 notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
-                                  text: "Lo que va a la Papelera se puede recuperar hasta que la vacíes."))
+                                  text: String(localized: "What goes to the Trash can be recovered until you empty it.")))
             }
             if items.allSatisfy({ $0.entry.section == .maintenance }) {
-                // M4: solo los ajustes (`defaults`) y los archivos a la Papelera se deshacen; reindexar Spotlight
-                // (un comando) no se deshace, pero tampoco borra nada.
+                // M4: only settings (`defaults`) and files sent to the Trash can be undone; reindexing Spotlight
+                // (a command) can't be undone, but it doesn't delete anything either.
                 let isCommand = { (item: CleanupItem) in
                     if case .command = liveMethod(item) { true } else { false }
                 }
                 if items.contains(where: { !isCommand($0) }) {
                     notes.append(Note(symbol: "arrow.uturn.backward.circle", tint: Theme.Airy.riskInk(.safe),
-                                      text: "Los ajustes se pueden deshacer: la explicación dice cómo."))
+                                      text: String(localized: "Settings can be undone: the explanation says how.")))
                 }
                 if items.contains(where: isCommand) {
                     notes.append(Note(symbol: "magnifyingglass", tint: Theme.Airy.accent,
-                                      text: "Reindexar Spotlight no se deshace, pero no borra nada: rehace el índice y, mientras tanto, las búsquedas pueden salir incompletas y el Mac irá algo más cargado."))
+                                      text: String(localized: "Reindexing Spotlight can’t be undone, but it deletes nothing: it rebuilds the index and, meanwhile, searches may be incomplete and the Mac will be somewhat busier.")))
                 }
             } else if methods.contains(where: { if case .command = $0 { true } else { false } }) {
                 notes.append(Note(symbol: "terminal", tint: Theme.Airy.accent,
-                                  text: "Los comandos oficiales liberan el espacio al momento y no se pueden deshacer."))
+                                  text: String(localized: "Official commands free the space at once and can’t be undone.")))
             }
             if items.contains(where: CleanupBoard.isPartial) {
                 notes.append(Note(symbol: "chart.bar.xaxis", tint: .secondary,
-                                  text: "«Hasta»: ese comando solo quita lo que ya no se usa, así que puede liberar menos."))
+                                  text: String(localized: "“Up to”: that command only removes what’s no longer used, so it may free less.")))
             }
             if items.count > 1 {
                 notes.append(Note(symbol: "list.number", tint: .secondary,
-                                  text: "Se hacen de uno en uno; antes de cada uno se vuelve a comprobar que sigue siendo seguro."))
+                                  text: String(localized: "They run one at a time; before each one Airy checks again that it’s still safe.")))
             }
             return notes
         case .uninstall, .orphans, .brokenLinks, .duplicates: return []
@@ -490,12 +494,12 @@ struct ConfirmSheet: View {
 
     private var confirmTitle: String {
         switch request.kind {
-        case .emptyTrash(let bytes): return bytes == nil ? "Vaciar con Finder" : "Vaciar Papelera"
-        case .trashPaths: return "Mover a la Papelera"
+        case .emptyTrash(let bytes): return bytes == nil ? String(localized: "Empty with Finder") : String(localized: "Empty Trash")
+        case .trashPaths: return String(localized: "Move to Trash")
         case .items:
-            if keptItems.allSatisfy({ $0.entry.section == .maintenance }) { return "Aplicar" }
+            if keptItems.allSatisfy({ $0.entry.section == .maintenance }) { return String(localized: "Apply") }
             let (bytes, upperBound) = CleanupBoard.total(runnableItems)
-            return "Borrar \(Theme.count(runnableItems.count)) · " + CleanupBoard.amountText(bytes, upperBound: upperBound)
+            return String(localized: "Delete \(Theme.count(runnableItems.count)) · \(CleanupBoard.amountText(bytes, upperBound: upperBound))")
         case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         case .quitApps, .forceQuitApps: return ""
         }
@@ -505,7 +509,7 @@ struct ConfirmSheet: View {
 }
 
 struct ConfirmRow: Identifiable {
-    /// `command`: la orden del catálogo; `willRun`: la que el ejecutor confirmó en la vista previa.
+    /// `command`: the catalog's command; `willRun`: the one the executor confirmed in the preview.
     enum Method { case text(String), command(String), willRun(String) }
     let id: String
     let title: String
@@ -513,19 +517,19 @@ struct ConfirmRow: Identifiable {
     let tint: Color
     let size: String
     let method: Method
-    /// Dónde está lo que se toca ("~/Library/Logs/A", "Todo lo que hay en ~/Library/Logs (17 elementos)").
+    /// Where what is touched lives ("~/Library/Logs/A", "Everything in ~/Library/Logs (17 items)").
     var location: String?
-    /// La vista previa dice que no se hará (y por qué): la fila sale tachada.
+    /// The preview says it won't be done (and why): the row shows struck through.
     var blockedReason: String?
-    /// Por qué es ámbar, o el motivo corto de una fila verde que lo tiene.
+    /// Why it is amber, or the short reason of a green row that has one.
     var why: String?
-    /// Ámbar: en su color; verde: en secundario.
+    /// Amber: in its color; green: in secondary.
     var whyIsWarning = true
-    /// Línea extra, p. ej. «Contenedores parados: a, b y c».
+    /// Extra line, e.g. "Stopped containers: a, b and c".
     var detail: String?
 }
 
-/// Caja de la lista de filas de la hoja.
+/// Box around the sheet's row list.
 private struct RowBox: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -539,7 +543,7 @@ private struct RowBox: ViewModifier {
 
 private struct ConfirmRowView: View {
     let row: ConfirmRow
-    /// «Quitar» (un clic): la fila sale de la hoja y del total.
+    /// "Remove" (one click): the row leaves the sheet and the total.
     var onRemove: (() -> Void)? = nil
 
     private func isWillRun(_ method: ConfirmRow.Method) -> Bool {
@@ -569,11 +573,11 @@ private struct ConfirmRowView: View {
                         .strikethrough(row.blockedReason != nil)
                         .monospacedDigit()
                     if let onRemove {
-                        Button("Quitar", action: onRemove)
+                        Button("Remove", action: onRemove)
                             .buttonStyle(.plain)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.Airy.accent)
-                            .help("No borrar esto")
+                            .help("Don't delete this")
                     }
                 }
                 .foregroundStyle(row.blockedReason == nil ? .primary : .secondary)
@@ -598,13 +602,15 @@ private struct ConfirmRowView: View {
                 }
                 switch row.method {
                 case .text(let text):
-                    Label(text, systemImage: text.lowercased().hasSuffix("a la papelera") ? "trash" : "info.circle")
+                    // The trash icon for "To the Trash" / "Will go to the Trash", in whichever language the text is in.
+                    Label(text, systemImage: text.lowercased().hasSuffix(String(localized: "to the Trash").lowercased())
+                          ? "trash" : "info.circle")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .strikethrough(row.blockedReason != nil)
                 case .command(let line), .willRun(let line):
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(isWillRun(row.method) ? "Se ejecutará" : "Comando oficial:")
+                        Text(isWillRun(row.method) ? "Will run" : "Official command:")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(line)
@@ -630,10 +636,10 @@ private struct ConfirmRowView: View {
     }
 }
 
-// MARK: - Instantáneas de Time Machine
+// MARK: - Time Machine snapshots
 
-/// Tras vaciar la Papelera, si el espacio no ha aparecido y hay instantáneas locales, lo explica
-/// y ofrece reducirlas con la ficha `time-machine-snapshots` del catálogo (con su confirmación).
+/// After emptying the Trash, if the space hasn't shown up and there are local snapshots, it explains it
+/// and offers to thin them with the catalog's `time-machine-snapshots` entry (with its confirmation).
 struct SnapshotsSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
@@ -651,9 +657,9 @@ struct SnapshotsSheet: View {
                 }
                 .frame(width: 44, height: 44)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("El espacio aún no ha aparecido")
+                    Text("The Space Hasn’t Shown Up Yet")
                         .font(.system(.title2, design: .rounded, weight: .bold))
-                    Text("Has vaciado \(Format.bytes(notice.emptied)), pero el espacio libre solo ha subido \(Format.bytes(notice.rose)).")
+                    Text("You emptied \(Format.bytes(notice.emptied)), but free space only went up by \(Format.bytes(notice.rose)).")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -662,16 +668,16 @@ struct SnapshotsSheet: View {
             GlassCard(padding: 16, radius: 14, material: .thinMaterial) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Label(notice.snapshotCount == 1 ? "1 instantánea local de Time Machine"
-                                  : "\(Theme.count(notice.snapshotCount)) instantáneas locales de Time Machine",
+                        Label(notice.snapshotCount == 1 ? "1 local Time Machine snapshot"
+                                  : "\(Theme.count(notice.snapshotCount)) local Time Machine snapshots",
                               systemImage: "camera.metering.matrix")
                             .font(.callout.weight(.semibold))
                         Spacer()
-                        Text("≈ \(Format.bytes(notice.retained)) retenidos")
+                        Text("≈ \(Format.bytes(notice.retained)) held")
                             .font(.callout.weight(.semibold))
                             .monospacedDigit()
                     }
-                    Text("Las instantáneas guardan una copia de lo que había en el disco, así que lo que acabas de borrar sigue ocupando sitio hasta que caduquen.")
+                    Text("Snapshots keep a copy of what was on the disk, so what you just deleted keeps taking up space until they expire.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     if let entry {
@@ -679,7 +685,7 @@ struct SnapshotsSheet: View {
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         HStack(spacing: 6) {
-                            Text("Comando oficial:").font(.caption).foregroundStyle(.secondary)
+                            Text("Official command:").font(.caption).foregroundStyle(.secondary)
                             Text(CleanupBoard.commandLine(entry.cleanup) ?? "")
                                 .font(.caption.monospaced())
                                 .padding(.horizontal, 6)
@@ -693,10 +699,10 @@ struct SnapshotsSheet: View {
             HStack(spacing: 10) {
                 RiskBadge(risk: entry?.risk ?? .yourCall)
                 Spacer()
-                Button("Ahora no") { flow.cancelSheet() }
+                Button("Not Now") { flow.cancelSheet() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
-                PrimaryButton("Reducir instantáneas…", systemImage: "clock.arrow.circlepath") {
+                PrimaryButton("Thin Snapshots…", systemImage: "clock.arrow.circlepath") {
                     flow.requestSnapshotCleanup(notice, model: model)
                 }
                 .keyboardShortcut(.defaultAction)
@@ -709,10 +715,10 @@ struct SnapshotsSheet: View {
     }
 }
 
-// MARK: - Cerrar apps (Rendimiento)
+// MARK: - Quit apps (Performance)
 
-/// Las dos variantes de cierre: normal («¿Cerrar…?») y forzado («¿Forzar el cierre de…?»). Una propuesta de
-/// agente enseña su aviso arriba; nada se cierra hasta pulsar el botón.
+/// The two quit variants: normal ("Quit…?") and forced ("Force quit…?"). An agent's proposal
+/// shows its warning at the top; nothing quits until the button is clicked.
 struct QuitConfirmation: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
@@ -729,9 +735,10 @@ struct QuitConfirmation: View {
 
     private var title: String {
         if isForce {
-            return groups.count == 1 ? "¿Forzar el cierre de \(groups[0].name)?" : "¿Forzar el cierre de \(groups.count) apps?"
+            return groups.count == 1 ? String(localized: "Force quit \(groups[0].name)?")
+                                     : String(localized: "Force quit \(groups.count) apps?")
         }
-        return groups.count == 1 ? "¿Cerrar \(groups[0].name)?" : "¿Cerrar \(groups.count) apps?"
+        return groups.count == 1 ? String(localized: "Quit \(groups[0].name)?") : String(localized: "Quit \(groups.count) apps?")
     }
 
     var body: some View {
@@ -767,7 +774,7 @@ struct QuitConfirmation: View {
             if !apps.isEmpty { rowBlock(apps) }
             if !loose.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Revisa: puede que estés usándolo", systemImage: Theme.symbol(for: .yourCall))
+                    Label("Check: you may be using it", systemImage: Theme.symbol(for: .yourCall))
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                     Text(QuitPolicy.looseWarning).font(.caption).foregroundStyle(.secondary).lineLimit(nil)
@@ -777,8 +784,8 @@ struct QuitConfirmation: View {
                 .background(Theme.Airy.riskFill(.yourCall).opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
-            Label(isForce ? "No respondió al cierre normal. Se perderá lo que no esté guardado."
-                          : "Primero se pide a cada app que se cierre; si tiene algo sin guardar, te lo preguntará.",
+            Label(isForce ? "It didn’t respond to the normal quit. Anything unsaved will be lost."
+                          : "Each app is asked to quit first; if it has unsaved work, it will ask you.",
                   systemImage: isForce ? "exclamationmark.triangle.fill" : "info.circle")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -786,11 +793,11 @@ struct QuitConfirmation: View {
 
             HStack(spacing: 10) {
                 Spacer()
-                Button("Cancelar") { flow.cancelSheet() }
+                Button("Cancel") { flow.cancelSheet() }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.large)
-                // Forzar: rol destructivo y sin Intro.
-                PrimaryButton(isForce ? "Forzar cierre" : "Cerrar", systemImage: isForce ? "xmark.octagon" : "power",
+                // Force quit: destructive role and no Return.
+                PrimaryButton(isForce ? "Force Quit" : "Quit", systemImage: isForce ? "xmark.octagon" : "power",
                               style: isForce ? .destructive : .primary) {
                     flow.confirm(request, model: model)
                 }
@@ -807,7 +814,8 @@ struct QuitConfirmation: View {
                         .font(.callout.weight(.semibold))
                         .lineLimit(1)
                     Spacer()
-                    Text("\(Format.bytes(group.memory)) · \(group.pids.count == 1 ? "1 proceso" : "\(group.pids.count) procesos")")
+                    Text(group.pids.count == 1 ? "\(Format.bytes(group.memory)) · 1 process"
+                                               : "\(Format.bytes(group.memory)) · \(group.pids.count) processes")
                         .font(.callout)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)

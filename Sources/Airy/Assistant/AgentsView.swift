@@ -2,9 +2,9 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// «Conectar agente»: cómo añadir el servidor MCP `airy-mcp` a Claude Code, Codex, opencode u otros
-/// agentes, el interruptor de limpiezas seguras (el mismo ajuste que Ajustes › Agentes) y la actividad
-/// que han dejado los agentes en el registro de operaciones.
+/// "Connect Agent": how to add the `airy-mcp` MCP server to Claude Code, Codex, opencode or other
+/// agents, the safe cleanups switch (the same setting as Settings › Agents) and the activity
+/// agents have left in the operation log.
 struct AgentsView: View {
     @Environment(AppModel.self) private var model
 
@@ -15,7 +15,7 @@ struct AgentsView: View {
 
     private var session: AssistantSession { model.assistant }
 
-    /// `airy-mcp` va junto al ejecutable de la app (`Airy.app/Contents/MacOS/`).
+    /// `airy-mcp` sits next to the app's executable (`Airy.app/Contents/MacOS/`).
     private var serverPath: String {
         let folder = Bundle.main.executableURL?.deletingLastPathComponent()
             ?? URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
@@ -36,10 +36,10 @@ struct AgentsView: View {
                 statusCard
                 togglesCard
                 claudeCodeCard
-                SnippetCard(title: "Codex", detail: "Añádelo a ~/.codex/config.toml.", text: snippets.codexTOML)
-                SnippetCard(title: "opencode", detail: "Añádelo a opencode.json.", text: snippets.opencodeJSON)
-                SnippetCard(title: "Otros agentes (mcpServers)",
-                            detail: "Vale para cualquier cliente MCP que use un bloque mcpServers.",
+                SnippetCard(title: "Codex", detail: "Add it to ~/.codex/config.toml.", text: snippets.codexTOML)
+                SnippetCard(title: "opencode", detail: "Add it to opencode.json.", text: snippets.opencodeJSON)
+                SnippetCard(title: "Other Agents (mcpServers)",
+                            detail: "Works with any MCP client that uses an mcpServers block.",
                             text: snippets.genericJSON)
                 activityCard
             }
@@ -52,13 +52,13 @@ struct AgentsView: View {
         }
     }
 
-    // MARK: Estado
+    // MARK: Status
 
     private var statusCard: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: 8) {
                 if serverExists {
-                    Label("Servidor MCP listo", systemImage: "checkmark.circle.fill")
+                    Label("MCP Server Ready", systemImage: "checkmark.circle.fill")
                         .font(.headline)
                         .foregroundStyle(Theme.Airy.riskInk(.safe))
                     HStack(spacing: 10) {
@@ -71,12 +71,12 @@ struct AgentsView: View {
                         CopyButton(text: serverPath)
                     }
                     if !serverPath.hasPrefix("/Applications/") {
-                        Text("Instala Airy en Aplicaciones para que esta ruta no cambie.")
+                        Text("Install Airy in Applications so this path doesn’t change.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Label("No se encuentra airy-mcp junto a Airy. Vuelve a empaquetar con scripts/build-app.sh.",
+                    Label("airy-mcp wasn’t found next to Airy. Package it again with scripts/build-app.sh.",
                           systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Theme.Airy.riskInk(.yourCall))
                 }
@@ -87,9 +87,9 @@ struct AgentsView: View {
     private var togglesCard: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: 6) {
-                Toggle("Permitir que los agentes ejecuten limpiezas seguras", isOn: agentsBinding)
+                Toggle("Allow agents to run safe cleanups", isOn: agentsBinding)
                     .disabled(model.settingsLoad.isUnreadable)
-                Text("Solo lo marcado «Borrar sin riesgo». Lo demás siempre te lo proponen aquí.")
+                Text("Only items marked “Safe to remove”. Everything else is always proposed to you here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -101,13 +101,13 @@ struct AgentsView: View {
                 set: { enabled in model.updateSettings { $0.agentsEnabled = enabled } })
     }
 
-    // MARK: Tarjetas
+    // MARK: Cards
 
     private var claudeCodeCard: some View {
-        SnippetCard(title: "Claude Code", detail: "Pega el comando en una terminal, o añádelo desde aquí.",
+        SnippetCard(title: "Claude Code", detail: "Paste the command into a terminal, or add it from here.",
                     text: snippets.claudeCode) {
             HStack(spacing: 10) {
-                PrimaryButton("Añadir a Claude Code", systemImage: "plus", isBusy: isRegistering) { register() }
+                PrimaryButton("Add to Claude Code", systemImage: "plus", isBusy: isRegistering) { register() }
                     .fixedSize()
                     .disabled(claudePath == nil || !serverExists || isRegistering)
                 if let registration {
@@ -116,7 +116,7 @@ struct AgentsView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 } else if claudePath == nil {
-                    Text("Claude Code no está localizado.")
+                    Text("Claude Code hasn’t been located.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
@@ -126,9 +126,9 @@ struct AgentsView: View {
 
     private func message(for result: ClaudeRegistration) -> String {
         switch result {
-        case .added: "Añadido a Claude Code"
-        case .alreadyPresent: "Ya estaba añadido"
-        case .failed(let reason): "No se pudo añadir: \(reason)"
+        case .added: String(localized: "Added to Claude Code")
+        case .alreadyPresent: String(localized: "It was already added")
+        case .failed(let reason): String(localized: "Couldn’t add it: \(reason)")
         }
     }
 
@@ -144,22 +144,22 @@ struct AgentsView: View {
         }
     }
 
-    // MARK: Actividad
+    // MARK: Activity
 
     private var activityCard: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Actividad de los agentes").font(.headline)
+                    Text("Agent Activity").font(.headline)
                     Spacer()
-                    Button("Actualizar", systemImage: "arrow.clockwise") { refresh() }
-                    Button("Exportar registro…", systemImage: "square.and.arrow.up") { export() }
+                    Button("Refresh", systemImage: "arrow.clockwise") { refresh() }
+                    Button("Export Log…", systemImage: "square.and.arrow.up") { export() }
                 }
                 if let exportError {
                     Text(exportError).font(.caption).foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
                 }
                 if records.isEmpty {
-                    Text("Ningún agente ha usado Airy todavía.")
+                    Text("No agent has used Airy yet.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 6)
@@ -181,7 +181,7 @@ struct AgentsView: View {
         }
     }
 
-    /// Lo hecho o propuesto por agentes, lo más reciente primero, hasta 200.
+    /// What agents did or proposed, most recent first, up to 200.
     static func agentActivity(_ all: [OperationRecord]) -> [OperationRecord] {
         let mine = all.filter(URLProposalPolicy.isAgentActivity)
         return Array(mine.suffix(200).reversed())
@@ -191,26 +191,26 @@ struct AgentsView: View {
         exportError = nil
         let panel = NSSavePanel()
         let day = Date.now.formatted(.iso8601.year().month().day())
-        panel.nameFieldStringValue = "airy-registro-\(day).json"
+        panel.nameFieldStringValue = String(localized: "airy-log-\(day).json")
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try model.operationLog.exportJSON().write(to: url, options: .atomic)
         } catch {
-            exportError = "No se pudo exportar el registro: \(error.localizedDescription)"
+            exportError = String(localized: "Couldn’t export the log: \(error.localizedDescription)")
         }
     }
 }
 
-// MARK: - Piezas
+// MARK: - Pieces
 
 private struct CopyButton: View {
     let text: String
     @ViewState private var copied = false
 
     var body: some View {
-        Button(copied ? "Copiado" : "Copiar", systemImage: copied ? "checkmark" : "doc.on.doc") {
+        Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
             copied = true
@@ -224,12 +224,12 @@ private struct CopyButton: View {
 }
 
 private struct SnippetCard<Extra: View>: View {
-    let title: String
-    let detail: String
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
     let text: String
     @ViewBuilder var extra: Extra
 
-    init(title: String, detail: String, text: String, @ViewBuilder extra: () -> Extra) {
+    init(title: LocalizedStringKey, detail: LocalizedStringKey, text: String, @ViewBuilder extra: () -> Extra) {
         self.title = title; self.detail = detail; self.text = text; self.extra = extra()
     }
 
@@ -255,7 +255,7 @@ private struct SnippetCard<Extra: View>: View {
 }
 
 extension SnippetCard where Extra == EmptyView {
-    init(title: String, detail: String, text: String) {
+    init(title: LocalizedStringKey, detail: LocalizedStringKey, text: String) {
         self.init(title: title, detail: detail, text: text) { EmptyView() }
     }
 }
@@ -263,33 +263,33 @@ extension SnippetCard where Extra == EmptyView {
 private struct ActivityRow: View {
     let record: OperationRecord
 
-    /// El nombre que trae un enlace `airy://` no está verificado: se enseña como «dice ser».
+    /// The name an `airy://` link carries isn't verified: it is shown as "claims to be".
     private var agent: String { URLProposalPolicy.activityAuthor(record) }
 
     private var action: String {
         let base: String = switch record.action {
-        case "clean": "Limpieza"
-        case "trash_paths": "A la Papelera"
-        case "empty_trash": "Vaciar Papelera"
-        case "propose": "Propuesta"
-        case "show": "Mostrar en Airy"
-        case "rescan": "Reanálisis"
+        case "clean": String(localized: "Cleanup")
+        case "trash_paths": String(localized: "To the Trash")
+        case "empty_trash": String(localized: "Empty Trash")
+        case "propose": String(localized: "Proposal")
+        case "show": String(localized: "Show in Airy")
+        case "rescan": String(localized: "Rescan")
         default: record.action
         }
-        return record.dryRun ? base + " (simulada)" : base
+        return record.dryRun ? String(localized: "\(base) (simulated)") : base
     }
 
     private var outcome: String {
         switch record.outcome {
-        case "freed": "Liberado"
-        case "moved_to_trash": "Movido a la Papelera"
-        case "partial": "Parcial"
-        case "blocked": "Bloqueado"
-        case "failed": "Falló"
-        case "would_trash": "Iría a la Papelera"
-        case "would_run": "Se ejecutaría"
-        case "pending_user": "Pendiente de ti"
-        case "requested": "Solicitado"
+        case "freed": String(localized: "Freed")
+        case "moved_to_trash": String(localized: "Moved to the Trash")
+        case "partial": String(localized: "Partial")
+        case "blocked": String(localized: "Blocked")
+        case "failed": String(localized: "Failed")
+        case "would_trash": String(localized: "Would go to the Trash")
+        case "would_run": String(localized: "Would run")
+        case "pending_user": String(localized: "Waiting for you")
+        case "requested": String(localized: "Requested")
         default: record.outcome
         }
     }

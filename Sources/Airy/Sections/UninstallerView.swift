@@ -2,22 +2,22 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Sección Desinstalador: apps con su tamaño real, restos huérfanos y enlaces rotos. Todo lo que borra
-/// pasa por `CleanupFlow` (hoja de confirmación) → `AppModel` → `CleanupExecutor`.
+/// Uninstaller section: apps with their real size, orphaned leftovers and broken links. Everything that deletes
+/// goes through `CleanupFlow` (confirmation sheet) → `AppModel` → `CleanupExecutor`.
 struct UninstallerView: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
-    /// Vive en `AppModel.sections`: la selección y los resultados sobreviven a los cambios de sección.
+    /// Lives in `AppModel.sections`: the selection and results survive section changes.
     private var store: UninstallerStore { model.sections.uninstaller }
 
     var body: some View {
         @Bindable var store = store
         VStack(alignment: .leading, spacing: Theme.spacing) {
-            SectionHeader(title: "Desinstalador",
-                          subtitle: "Quita apps con sus restos. Todo va a la Papelera salvo lo que se indica.") {
+            SectionHeader(title: Section.uninstaller.title,
+                          subtitle: String(localized: "Removes apps along with their leftovers. Everything goes to the Trash unless noted.")) {
                 HStack(spacing: 10) {
                     if store.isLoading { ProgressView().controlSize(.small) }
-                    Button("Actualizar", systemImage: "arrow.clockwise") { store.refresh(model: model) }
+                    Button("Refresh", systemImage: "arrow.clockwise") { store.refresh(model: model) }
                         .disabled(flow.isBusy)
                 }
             }
@@ -61,19 +61,19 @@ struct UninstallerView: View {
         let checked = store.checkedRequests(hiding: flow.uninstalledPaths)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                TextField("Buscar apps", text: $store.searchText)
+                TextField("Search Apps", text: $store.searchText)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 260)
-                Picker("Ordenar por", selection: $store.sort) {
+                Picker("Sort By", selection: $store.sort) {
                     ForEach(UninstallerStore.Sort.allCases) { Text($0.title).tag($0) }
                 }
                 .fixedSize()
                 Spacer()
             }
             if store.inventory == nil {
-                ProgressView("Buscando apps…").frame(maxWidth: .infinity, minHeight: 160)
+                ProgressView("Looking for apps…").frame(maxWidth: .infinity, minHeight: 160)
             } else if apps.isEmpty {
-                Text(store.searchText.isEmpty ? "No hay apps que desinstalar." : "Ninguna app coincide.")
+                Text(store.searchText.isEmpty ? "There are no apps to uninstall." : "No apps match.")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
             } else {
@@ -102,8 +102,8 @@ struct UninstallerView: View {
         .overlay(alignment: .bottom) {
             if !checked.isEmpty {
                 let total = checked.reduce(Int64(0)) { $0 + $1.plan.bytes(selected: $1.selected) }
-                PrimaryButton(checked.count == 1 ? "Desinstalar · \(Format.bytes(total))"
-                                                 : "Desinstalar \(Theme.count(checked.count)) apps · \(Format.bytes(total))",
+                PrimaryButton(checked.count == 1 ? "Uninstall · \(Format.bytes(total))"
+                                                 : "Uninstall \(Theme.count(checked.count)) Apps · \(Format.bytes(total))",
                               systemImage: "trash") {
                     flow.requestUninstall(checked)
                 }
@@ -117,7 +117,7 @@ struct UninstallerView: View {
     }
 }
 
-// MARK: - Fila de app
+// MARK: - App row
 
 private struct AppRow: View {
     let store: UninstallerStore
@@ -135,7 +135,7 @@ private struct AppRow: View {
                         set: { on in if on { store.checkedApps.insert(app.path) } else { store.checkedApps.remove(app.path) } }))
                         .toggleStyle(.airyCheckbox)
                         .labelsHidden()
-                        .accessibilityLabel("Marcar \(plan.app.name)")
+                        .accessibilityLabel("Select \(plan.app.name)")
                 } else {
                     Color.clear
                 }
@@ -148,7 +148,7 @@ private struct AppRow: View {
                 HStack(spacing: 6) {
                     Text(app.name).font(.callout.weight(.semibold)).lineLimit(1)
                     if let version = app.version { Text(version).font(.caption).foregroundStyle(.secondary) }
-                    if store.runningIDs.contains(app.bundleID) { UninstallerBadge("Abierta") }
+                    if store.runningIDs.contains(app.bundleID) { UninstallerBadge("Open") }
                     if app.caskToken != nil { UninstallerBadge("Homebrew") }
                     if app.isAppStore { UninstallerBadge("App Store") }
                 }
@@ -165,13 +165,13 @@ private struct AppRow: View {
         .padding(.vertical, 9)
         .contentShape(Rectangle())
         .onTapGesture { if plan != nil { store.openedApp = app.path } }
-        .help(plan == nil ? "Midiendo…" : "Ver sus restos")
+        .help(plan == nil ? "Measuring…" : "See Its Leftovers")
     }
 
     private var usageText: String {
-        guard let date = app.lastUsed else { return "Sin datos de uso" }
+        guard let date = app.lastUsed else { return String(localized: "No usage data") }
         let rel = Format.relativeDate(date)
-        return "Sin abrir desde \(rel)"
+        return String(localized: "Not opened since \(rel)")
     }
 
     @ViewBuilder
@@ -180,16 +180,16 @@ private struct AppRow: View {
             Text(Format.bytes(plan.realBytes) + (plan.sizeComplete ? "" : "+"))
                 .font(.callout.weight(.semibold))
                 .monospacedDigit()
-                .help(plan.sizeComplete ? "App + restos" : "No se terminó de medir: es al menos esto")
+                .help(plan.sizeComplete ? "App + leftovers" : "Measuring didn’t finish: it’s at least this much")
         } else {
-            Text("Midiendo…").font(.caption).foregroundStyle(.secondary)
+            Text("Measuring…").font(.caption).foregroundStyle(.secondary)
         }
     }
 }
 
 struct UninstallerBadge: View {
-    let text: String
-    init(_ text: String) { self.text = text }
+    let text: LocalizedStringKey
+    init(_ text: LocalizedStringKey) { self.text = text }
     var body: some View {
         Text(text)
             .font(.caption2.weight(.semibold))
@@ -200,7 +200,7 @@ struct UninstallerBadge: View {
     }
 }
 
-/// Resumen de la última tanda del Desinstalador.
+/// Summary of the Uninstaller's last batch.
 struct UninstallerResultBanner: View {
     let summary: CleanupRunSummary
 

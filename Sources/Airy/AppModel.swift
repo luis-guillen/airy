@@ -3,7 +3,7 @@ import Foundation
 import Observation
 import DiskMapCore
 
-/// Secciones de la barra lateral.
+/// Sidebar sections.
 enum Section: String, CaseIterable, Identifiable, Hashable {
     case map, cleanup, performance, assistant
     case uninstaller, largeOld, duplicates, types
@@ -12,14 +12,14 @@ enum Section: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
-        case .map: "Mapa"
-        case .cleanup: "Limpieza"
-        case .performance: "Rendimiento"
-        case .assistant: "Asistente IA"
-        case .uninstaller: "Desinstalador"
-        case .largeOld: "Grandes y viejos"
-        case .duplicates: "Duplicados"
-        case .types: "Tipos de archivo"
+        case .map: String(localized: "Map")
+        case .cleanup: String(localized: "Cleanup")
+        case .performance: String(localized: "Performance")
+        case .assistant: String(localized: "AI Assistant")
+        case .uninstaller: String(localized: "Uninstaller")
+        case .largeOld: String(localized: "Large & Old")
+        case .duplicates: String(localized: "Duplicates")
+        case .types: String(localized: "File Types")
         }
     }
 
@@ -41,15 +41,15 @@ enum Section: String, CaseIterable, Identifiable, Hashable {
     static let available: [Section] = allCases.filter(\.isAvailable)
 }
 
-/// Volumen analizable: el de arranque y los externos montados con escritura.
+/// A scannable volume: the startup disk and mounted writable external ones.
 struct Volume: Identifiable, Hashable, Sendable {
     let url: URL
     let name: String
     let isStartup: Bool
     let totalBytes: Int64
-    /// Libre de verdad (`volumeAvailableCapacityKey`, lo que da `df`).
+    /// Truly free (`volumeAvailableCapacityKey`, what `df` reports).
     let availableBytes: Int64
-    /// Libre contando lo purgable (`volumeAvailableCapacityForImportantUsageKey`, lo que da Finder).
+    /// Free including purgeable space (`volumeAvailableCapacityForImportantUsageKey`, what Finder reports).
     let importantAvailableBytes: Int64
 
     var id: String { url.path }
@@ -59,7 +59,7 @@ struct Volume: Identifiable, Hashable, Sendable {
                                         isStartup: true, totalBytes: 0, availableBytes: 0,
                                         importantAvailableBytes: 0)
 
-    /// Lee los volúmenes montados (`skipHiddenVolumes`) y descarta los de solo lectura y los del sistema.
+    /// Reads mounted volumes (`skipHiddenVolumes`) and drops read-only and system ones.
     static func mounted() -> [Volume] {
         let keys: [URLResourceKey] = [
             .volumeLocalizedNameKey, .volumeIsReadOnlyKey, .volumeIsRootFileSystemKey,
@@ -87,7 +87,7 @@ struct Volume: Identifiable, Hashable, Sendable {
     }
 }
 
-/// Aviso no bloqueante que la interfaz muestra como banner descartable.
+/// Non-blocking notice the UI shows as a dismissible banner.
 struct Notice: Identifiable, Equatable {
     enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit, performance }
     let kind: Kind
@@ -95,59 +95,59 @@ struct Notice: Identifiable, Equatable {
     var id: String { kind.rawValue }
 }
 
-/// Orden de URL con identidad propia: dos `airy://rescan` seguidos son dos peticiones distintas.
+/// A URL command with its own identity: two `airy://rescan` in a row are two distinct requests.
 struct PendingURLCommand: Identifiable, Equatable {
     let id = UUID()
     let command: AiryURLCommand
 }
 
-/// Estado global de la app. Todo lo pesado (análisis, lectura del índice, sondas, comandos)
-/// corre fuera del hilo principal; aquí solo se publican los resultados.
+/// Global app state. Everything heavy (scanning, index reading, probes, commands)
+/// runs off the main thread; only the results are published here.
 @MainActor @Observable
 final class AppModel {
-    // MARK: Estado publicado
+    // MARK: Published state
 
     var section: Section = .map
     var scan: ScanResult? {
         didSet { partialIndex = PartialScanIndex(inaccessible: scan?.inaccessible ?? []) }
     }
-    /// Qué rutas del último análisis tienen algo ilegible dentro (su tamaño lleva «+»). Se ordena una vez por análisis.
+    /// Which paths in the last scan contain something unreadable (their size carries a "+"). Sorted once per scan.
     @ObservationIgnored private(set) var partialIndex = PartialScanIndex(inaccessible: [])
-    /// Lo que dicen el Mapa y su pie: completo, parcial (N carpetas ilegibles) o sin análisis.
+    /// What the Map and its footer say: complete, partial (N unreadable folders) or no scan.
     var scanCompleteness: ScanCompleteness { .of(scan) }
     var progress: ScanProgress?
     var isScanning = false
     var cleanupItems: [CleanupItem] = []
     var isRefreshingCleanup = false
-    /// `nil` si `~/.Trash` no se puede leer (sin Acceso total al disco): "no se sabe", no "vacía".
+    /// `nil` if `~/.Trash` can't be read (no Full Disk Access): "unknown", not "empty".
     var trashBytes: Int64? = 0
     var totalFreed: Int64 = 0
-    /// `false` si el historial no se pudo leer: `totalFreed` es el último valor conocido.
+    /// `false` if the history couldn't be read: `totalFreed` is the last known value.
     var totalFreedKnown = true
     var hasFullDiskAccess = true
     var navigation = MapNavigation()
-    /// Fecha del análisis mostrado (la del índice guardado hasta que termina el nuevo).
+    /// Date of the scan shown (the saved index's until the new one finishes).
     var lastScanDate: Date?
-    /// Error del último análisis. Sin análisis que mostrar ocupa la pantalla; si no, va en `notices`.
+    /// Error from the last scan. With no scan to show it fills the screen; otherwise it goes in `notices`.
     var scanError: String?
-    /// Problemas que no impiden usar la app pero cambian lo que significan los números.
+    /// Problems that don't stop the app from working but change what the numbers mean.
     var notices: [Notice] = []
-    /// Pregunta que el mapa ("Explicar con IA") deja para el asistente; la consume `AssistantView`.
+    /// Question the map ("Explain with AI") leaves for the assistant; `AssistantView` consumes it.
     var pendingAssistantQuestion: String?
-    /// Informe, chat y Claude localizado: sobreviven a los cambios de sección.
+    /// Report, chat and the located Claude: they survive section changes.
     let assistant = AssistantSession()
-    /// Estado de las secciones de la fase 2 (filtros, resultados y selección): sobrevive a los cambios de sección.
+    /// State of the phase 2 sections (filters, results and selection): survives section changes.
     let sections = SectionStores()
-    /// Rendimiento: muestrea solo mientras la sección se ve.
+    /// Performance: samples only while the section is visible.
     let performance: PerformanceSession
-    /// Embudo de cierre de apps (ConfirmSheet → AppModel → QuitExecutor).
+    /// App quit funnel (ConfirmSheet → AppModel → QuitExecutor).
     let quitExecutor: QuitExecutor
-    /// Orden de un enlace `airy://` pendiente de procesar: `RootView` la consume con su `CleanupFlow`.
-    /// Nunca ejecuta nada: como mucho abre la hoja de confirmación.
+    /// Pending `airy://` link command: `RootView` consumes it with its `CleanupFlow`.
+    /// It never runs anything: at most it opens the confirmation sheet.
     var pendingURLCommand: PendingURLCommand?
-    /// Cualquier app o web puede abrir `airy://`: una ráfaga de enlaces se descarta.
+    /// Any app or website can open `airy://`: a burst of links is dropped.
     private var urlLimiter = URLCommandRateLimiter()
-    /// Sube cada vez que el árbol mostrado cambia en sitio (p. ej. algo enviado a la Papelera).
+    /// Bumps every time the shown tree changes in place (e.g. something moved to the Trash).
     private(set) var treeRevision = 0
 
     var volumes: [Volume] = [.startupFallback]
@@ -158,36 +158,36 @@ final class AppModel {
         }
     }
 
-    // MARK: Dependencias
+    // MARK: Dependencies
 
     let catalog: Catalog?
     let catalogError: String?
     let paths: AppPaths
-    /// Registro de operaciones compartido con `airy-mcp`.
+    /// Operation log shared with `airy-mcp`.
     let operationLog: OperationLog
-    /// `settings.json`: se vuelve a leer al volver a la app y antes de cada acción destructiva.
+    /// `settings.json`: re-read when returning to the app and before every destructive action.
     private var settingsSession: SettingsSession
     private let runner = ProcessRunner()
     private let probes = SystemProbes()
     private let appDirectory: URL
-    /// Índice del disco de arranque e historial de limpiezas.
+    /// Startup disk index and cleanup history.
     private let store: IndexStore
     private var scanTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
     private var scanGeneration = 0
     private var cleanupGeneration = 0
-    /// Cuándo puede correr la detección automática (tras el índice guardado o tras el análisis nuevo).
+    /// When automatic detection may run (after the saved index or after the new scan).
     private var detectionGate = DetectionGate()
     private var observers: [NSObjectProtocol] = []
-    /// Turno de acceso al árbol vivo: lectores en segundo plano frente a cambios (Papelera).
+    /// Access turns on the live tree: background readers versus changes (Trash).
     let treeGate = TreeGate()
-    /// Almacén del índice que se está mostrando (para volver a guardarlo tras un cambio) y su clave.
+    /// Store of the index being shown (to save it again after a change) and its key.
     private var shownStore: IndexStore?
     private var shownStoreKey = "/"
     private let saveSequencer = SaveSequencer()
     private var lastSave: [String: Task<SaveResult, Never>] = [:]
-    /// Rutas que una acción (Papelera o limpieza) quitó o cambió, con su hora. Un análisis que
-    /// empezó antes pudo verlas como eran: al publicarlo se vuelven a medir solo esas.
+    /// Paths an action (Trash or cleanup) removed or changed, with their time. A scan that
+    /// started earlier may have seen them as they were: when it is published, only those are re-measured.
     private var touchedPaths: [String: Date] = [:]
 
     init() {
@@ -202,18 +202,18 @@ final class AppModel {
         var migrationFailure: String?
         if case .failed(let reason) = DataMigration.migrateIfNeeded(paths) { migrationFailure = reason }
         store = IndexStore(directory: appDirectory)
-        // Tras la migración: puede haber traído el `settings.json` del legado.
+        // After the migration: it may have brought over the legacy `settings.json`.
         settingsSession = SettingsSession(store: SettingsStore(file: paths.settingsFile))
         do {
             catalog = try Catalog.bundled()
             catalogError = nil
         } catch {
             catalog = nil
-            catalogError = "No se pudo cargar el catálogo de limpiezas (\(error)). La sección Limpieza no está disponible."
+            catalogError = String(localized: "Couldn’t load the cleanup catalog (\(String(describing: error))). The Cleanup section isn’t available.")
         }
         if let catalogError { notices.append(Notice(kind: .catalog, message: catalogError)) }
         if let migrationFailure {
-            notices.append(Notice(kind: .migration, message: "No se pudieron copiar los datos de \(AppPaths.legacyFolderName) (\(migrationFailure)). Siguen en su carpeta; Airy lo intentará otra vez al abrirse."))
+            notices.append(Notice(kind: .migration, message: String(localized: "Couldn’t copy the data from \(AppPaths.legacyFolderName) (\(migrationFailure)). It’s still in its folder; Airy will try again next time it opens.")))
         }
         syncSettingsNotice()
         observeSystem()
@@ -221,13 +221,13 @@ final class AppModel {
         performance.model = self
     }
 
-    // MARK: Ajustes
+    // MARK: Settings
 
     var settingsLoad: SettingsLoad { settingsSession.load }
     var settings: AirySettings { settingsLoad.effective }
 
-    /// Aplica un cambio y lo guarda; si cambia el modo o la lista protegida, se vuelve a detectar.
-    /// Con `settings.json` ilegible no guarda nada: antes hay que restablecerlo.
+    /// Applies a change and saves it; if the mode or the protected list changes, detection runs again.
+    /// With an unreadable `settings.json` nothing is saved: it has to be reset first.
     func updateSettings(_ change: (inout AirySettings) -> Void) {
         do {
             if try settingsSession.update(change) { refreshCleanup() }
@@ -235,13 +235,13 @@ final class AppModel {
         } catch is SettingsSession.Unreadable {
             syncSettingsNotice()
         } catch {
-            report(.settings, "No se pudieron guardar los ajustes (\(error.localizedDescription)).")
+            report(.settings, String(localized: "Couldn’t save the settings (\(error.localizedDescription))."))
         }
     }
 
-    /// «Restablecer ajustes»: vuelve a leer `settings.json`; si sigue ilegible, pide confirmación (diciendo
-    /// qué se conserva y qué se pierde), lo aparta y escribe ajustes nuevos con lo rescatado. Avisa de
-    /// lo que pasó (p. ej. que la lista «Proteger esto» no se pudo recuperar).
+    /// "Reset Settings": re-reads `settings.json`; if it is still unreadable, asks for confirmation (saying
+    /// what is kept and what is lost), moves it aside and writes new settings with what was recovered. Reports
+    /// what happened (e.g. that the "Protect This" list couldn't be recovered).
     func resetSettings() {
         guard let explanation = settingsSession.resetConfirmation() else {
             syncSettingsNotice()
@@ -250,10 +250,10 @@ final class AppModel {
         }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "¿Restablecer los ajustes de Airy?"
+        alert.messageText = String(localized: "Reset Airy’s settings?")
         alert.informativeText = explanation
-        alert.addButton(withTitle: "Restablecer")
-        alert.addButton(withTitle: "Cancelar")
+        alert.addButton(withTitle: String(localized: "Reset"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
             guard let result = try settingsSession.reset() else {
@@ -264,11 +264,11 @@ final class AppModel {
             report(.settings, result.message)
             refreshCleanup()
         } catch {
-            report(.settings, "No se pudieron restablecer los ajustes (\(error.localizedDescription)).")
+            report(.settings, String(localized: "Couldn’t reset the settings (\(error.localizedDescription))."))
         }
     }
 
-    /// «Proteger esto» (no destructivo: sin confirmación).
+    /// "Protect This" (non-destructive: no confirmation).
     func protect(path: String) { protect(paths: [path]) }
 
     func protect(paths: [String]) {
@@ -280,37 +280,37 @@ final class AppModel {
         updateSettings { $0.unprotect(pattern) }
     }
 
-    /// Aviso mientras `settings.json` no se puede leer, o `nil`.
+    /// Notice while `settings.json` can't be read, or `nil`.
     var unreadableSettingsNotice: String? { settingsSession.unreadableNotice }
 
-    /// Motivo para no borrar nada ahora mismo (ajustes ilegibles), o `nil`.
+    /// Reason not to delete anything right now (unreadable settings), or `nil`.
     var destructiveRefusal: String? { settingsSession.destructiveRefusal }
 
-    /// Clasificador con los ajustes cargados: el mismo para Limpieza, el mapa y el asistente.
+    /// Classifier with the loaded settings: the same one for Cleanup, the map and the assistant.
     var classifier: RiskClassifier {
         RiskClassifier(catalog: catalog ?? Catalog(entries: []), settings: settings, home: NSHomeDirectory())
     }
 
     func classify(path: String) -> Classification { classifier.classify(path: path) }
 
-    /// Portero de rutas con los ajustes cargados (lista «Proteger esto» incluida).
+    /// Path gate with the loaded settings ("Protect This" list included).
     func gate() -> PathGate {
         let home = NSHomeDirectory()
         return PathGate(home: home, catalog: catalog,
                         userProtected: ProtectList(patterns: settings.protectedPaths, home: home))
     }
 
-    /// Buscador de Grandes y viejos con los ajustes cargados.
+    /// Large & Old finder with the loaded settings.
     func largeOldFinder() -> LargeOldFinder {
         LargeOldFinder(classifier: classifier, catalog: catalog, gate: gate(), home: NSHomeDirectory())
     }
 
-    /// Buscador de Duplicados con los ajustes cargados.
+    /// Duplicates finder with the loaded settings.
     func duplicateFinder() -> DuplicateFinder {
         DuplicateFinder(home: NSHomeDirectory(), classifier: classifier, gate: gate())
     }
 
-    /// Guarda el último resultado de Duplicados (solo rutas, tamaños y fechas); si falla, avisa y sigue.
+    /// Saves the last Duplicates result (paths, sizes and dates only); on failure, reports it and carries on.
     func saveDuplicates(_ result: DuplicateResult) {
         let url = paths.duplicatesFile
         Task { [weak self] in
@@ -324,11 +324,11 @@ final class AppModel {
                     return error.localizedDescription
                 }
             }.value
-            if let failure { self?.report(.save, "No se pudo guardar el resultado de Duplicados (\(failure)).") }
+            if let failure { self?.report(.save, String(localized: "Couldn’t save the Duplicates result (\(failure)).")) }
         }
     }
 
-    /// Vuelve a leer `settings.json`; si cambió, avisa y vuelve a detectar.
+    /// Re-reads `settings.json`; if it changed, reports it and detects again.
     func reloadSettings() {
         guard settingsSession.reload() else { return }
         syncSettingsNotice()
@@ -339,13 +339,13 @@ final class AppModel {
         if let notice = settingsSession.unreadableNotice { report(.settings, notice) } else { dismiss(.settings) }
     }
 
-    /// Fallo cerrado: con los ajustes ilegibles no se borra nada (ni la Papelera).
+    /// Fail closed: with unreadable settings nothing is deleted (not even the Trash).
     private func settingsRefusal() -> CleanupOutcome? {
         reloadSettings()
         return settingsSession.destructiveRefusal.map { .blocked(reason: $0) }
     }
 
-    // MARK: Avisos
+    // MARK: Notices
 
     func report(_ kind: Notice.Kind, _ message: String) {
         notices.removeAll { $0.kind == kind }
@@ -357,22 +357,22 @@ final class AppModel {
         if kind == .scan { scanError = nil }
     }
 
-    // MARK: Enlaces airy://
+    // MARK: airy:// links
 
-    /// Entrada de `.onOpenURL`: valida y deja la orden pendiente. Una URL inválida solo avisa.
+    /// `.onOpenURL` entry point: validates and leaves the command pending. An invalid URL only shows a notice.
     func handle(url: URL) {
         guard urlLimiter.allow() else {
             report(.url, URLProposalPolicy.rateLimited)
             return
         }
         guard let command = AiryURLCommand(url: url) else {
-            report(.url, "Airy no entendió ese enlace, así que no hizo nada.")
+            report(.url, String(localized: "Airy didn’t understand that link, so it did nothing."))
             return
         }
         pendingURLCommand = PendingURLCommand(command: command)
     }
 
-    /// Desminiaturiza y trae al frente la ventana principal de Airy (nunca otra app).
+    /// Deminiaturizes and brings Airy's main window to the front (never another app).
     static func bringMainWindowForward() {
         if NSApp.isHidden { NSApp.unhide(nil) }
         guard let window = NSApp.windows.first(where: {
@@ -383,8 +383,8 @@ final class AppModel {
         NSApp.activate()
     }
 
-    /// Procesa la orden pendiente (la llama `RootView`). Nunca ejecuta una limpieza por sí misma:
-    /// una propuesta solo abre la hoja de confirmación, y el usuario es quien confirma.
+    /// Processes the pending command (called by `RootView`). It never runs a cleanup by itself:
+    /// a proposal only opens the confirmation sheet, and the user is the one who confirms.
     func run(_ pending: PendingURLCommand, flow: CleanupFlow) async {
         defer { if pendingURLCommand?.id == pending.id { pendingURLCommand = nil } }
         switch pending.command {
@@ -396,38 +396,38 @@ final class AppModel {
             guard await waitUntil({ $0.scan != nil }) else { return }
             navigation.reveal(path: path)
         case .proposeQuit(let app, let reason, let agent):
-            // Nunca cierra nada: como mucho abre la confirmación, y el usuario decide.
-            // M8: con otra hoja abierta o algo en marcha, ni se cambia de sección.
+            // It never quits anything: at most it opens the confirmation, and the user decides.
+            // M8: with another sheet open or something running, it doesn't even switch sections.
             if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
                 report(.performance, refusal)
                 return
             }
-            // I3: la confirmación va en la ventana, así que primero se trae al frente (si estaba minimizada u
-            // oculta). Si no llega a verse, Rendimiento no mide: lo decide la visibilidad real de la ventana.
+            // I3: the confirmation lives in the window, so it is brought to the front first (if it was minimized or
+            // hidden). If it never becomes visible, Performance doesn't measure: the window's real visibility decides.
             Self.bringMainWindowForward()
             section = .performance
             let snapshot = await performance.freshSnapshot()
             guard let row = PerformanceBoard(snapshot: snapshot, policy: QuitPolicy()).row(matching: app) else {
-                report(.performance, "Un agente propuso cerrar «\(app)», pero no está abierta.")
+                report(.performance, String(localized: "An agent proposed quitting “\(app)”, but it isn’t open."))
                 return
             }
             guard PerformanceBoard.canSelect(row) else {
-                report(.performance, "Un agente propuso cerrar «\(row.group.name)», pero Airy nunca la cierra.")
+                report(.performance, String(localized: "An agent proposed quitting “\(row.group.name)”, but Airy never quits it."))
                 return
             }
             guard !flow.isBusy, flow.sheet == nil else {
-                report(.performance, "Airy está ocupada; vuelve a pedirlo en un momento.")
+                report(.performance, String(localized: "Airy is busy; ask again in a moment."))
                 return
             }
             let warning = CleanupFlow.ConfirmRequest.Warning(
-                title: "Un agente propone cerrar esto",
-                subtitle: "\(agent ?? "Un agente") · \(reason.isEmpty ? "sin motivo" : reason)",
-                reason: "Nada se cierra hasta que lo confirmes aquí.",
-                note: "Si tiene algo sin guardar, la app te lo preguntará.")
+                title: String(localized: "An agent proposes quitting this"),
+                subtitle: "\(agent ?? String(localized: "An agent")) · \(reason.isEmpty ? String(localized: "no reason given") : reason)",
+                reason: String(localized: "Nothing quits until you confirm it here."),
+                note: String(localized: "If it has unsaved work, the app will ask you."))
             flow.requestQuit([row.group], warning: warning, proposedBy: agent,
                              proposedVia: OperationContext.viaUnverifiedURL)
         case .uninstall(let bundleID, let reason, let agent):
-            // Solo prepara la confirmación: el usuario decide (y lo que se ejecuta queda como `.user(…, proposedBy:)`).
+            // It only prepares the confirmation: the user decides (and what runs is logged as `.user(…, proposedBy:)`).
             if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
                 report(.url, refusal)
                 return
@@ -437,12 +437,12 @@ final class AppModel {
             guard !Task.isCancelled else { return }
             guard let app = inventory.apps.filter({ $0.bundleID.caseInsensitiveCompare(bundleID) == .orderedSame })
                 .sorted(by: { $0.path < $1.path }).first else {
-                report(.url, "Un agente propuso desinstalar «\(bundleID)», pero no está instalada.")
+                report(.url, String(localized: "An agent proposed uninstalling “\(bundleID)”, but it isn’t installed."))
                 return
             }
             let plan = await uninstallPlan(for: app, inventory: inventory)
             if let refusal = plan.refusal {
-                report(.url, "Un agente propuso desinstalar «\(app.name)», pero \(refusal.prefix(1).lowercased() + refusal.dropFirst())")
+                report(.url, String(localized: "An agent proposed uninstalling “\(app.name)”, but \(refusal.prefix(1).lowercased() + refusal.dropFirst())"))
                 return
             }
             if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
@@ -454,17 +454,17 @@ final class AppModel {
                 subtitle: URLProposalPolicy.warningSubtitle(agent: agent, reason: reason),
                 reason: URLProposalPolicy.warningReason,
                 note: URLProposalPolicy.warningNote,
-                continueTitle: "Ver qué se desinstala…")
+                continueTitle: String(localized: "See What Gets Uninstalled…"))
             flow.requestUninstall([UninstallRequest(plan: plan, selected: plan.defaultSelection)], warning: warning,
                                   proposedBy: URLProposalPolicy.claimedAgent(agent),
                                   proposedVia: OperationContext.viaUnverifiedURL)
         case .propose(let target, let reason, let agent):
-            // Nunca sustituye una hoja ya abierta (el usuario confirmaría otra cosa) ni una limpieza en curso.
+            // It never replaces a sheet already open (the user would confirm something else) or a cleanup in progress.
             if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
                 report(.url, refusal)
                 return
             }
-            // El nombre lo pone quien abre el enlace: se enseña y se anota como algo que «dice ser».
+            // The name is set by whoever opens the link: it is shown and logged as something it "claims to be".
             let claimed = URLProposalPolicy.claimedAgent(agent)
             let warning = CleanupFlow.ConfirmRequest.Warning(
                 title: URLProposalPolicy.warningTitle(),
@@ -475,17 +475,17 @@ final class AppModel {
             switch target {
             case .item(let id):
                 section = .cleanup
-                // La detección ya terminada (o la que está en curso) decide si el id sigue existiendo.
+                // The finished detection (or the one in progress) decides whether the id still exists.
                 guard await waitUntil({ !$0.isRefreshingCleanup && ($0.scan != nil || !$0.isScanning) }) else { return }
                 guard let item = cleanupItems.first(where: { $0.id == id }) else {
-                    report(.url, "Llegó por enlace una propuesta de «\(URLProposalPolicy.shortPath(id))», pero ya no aparece en Limpieza.")
+                    report(.url, String(localized: "A link proposed “\(URLProposalPolicy.shortPath(id))”, but it no longer appears in Cleanup."))
                     return
                 }
                 guard item.protection == nil else {
-                    report(.url, "Llegó por enlace una propuesta de «\(item.title)», pero es «No tocar»: Airy no lo ofrece.")
+                    report(.url, String(localized: "A link proposed “\(item.title)”, but it’s “Don't delete”: Airy doesn’t offer it."))
                     return
                 }
-                // Mientras se esperaba la detección pudo abrirse otra hoja o empezar una limpieza.
+                // While waiting for detection, another sheet may have opened or a cleanup may have started.
                 if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
                     report(.url, refusal)
                     return
@@ -493,7 +493,7 @@ final class AppModel {
                 flow.requestClean([item], warning: warning, proposedBy: claimed, proposedVia: via)
             case .path(let path):
                 if let refusal = trashRefusal(path: path) {
-                    report(.url, "Llegó por enlace una propuesta de mover «\(URLProposalPolicy.shortPath(path))» a la Papelera, pero Airy no puede: \(refusal)")
+                    report(.url, String(localized: "A link proposed moving “\(URLProposalPolicy.shortPath(path))” to the Trash, but Airy can’t: \(refusal)"))
                     return
                 }
                 let title = path.split(separator: "/").last.map(String.init) ?? path
@@ -502,7 +502,7 @@ final class AppModel {
         }
     }
 
-    /// Espera (hasta 2 minutos, cancelable) a que se cumpla `condition` en el hilo principal.
+    /// Waits (up to 2 minutes, cancellable) for `condition` to hold on the main thread.
     private func waitUntil(_ condition: (AppModel) -> Bool) async -> Bool {
         let deadline = Date().addingTimeInterval(120)
         while !condition(self) {
@@ -512,16 +512,16 @@ final class AppModel {
         return !Task.isCancelled
     }
 
-    // MARK: Derivados
+    // MARK: Derived
 
     var currentVolume: Volume {
         volumes.first { $0.url == selectedVolume } ?? volumes.first ?? .startupFallback
     }
 
-    /// Bytes que ocupa lo analizado ("Analizado"); en el primer análisis, lo que lleva recorrido.
+    /// Bytes taken by what was scanned ("Scanned"); during the first scan, what has been walked so far.
     var analyzedBytes: Int64 { scan?.root.allocatedSize ?? progress?.bytesScanned ?? 0 }
 
-    /// Reparto del disco: analizado, sistema y otros, purgable y libre (véase `DiskUsageBreakdown`).
+    /// Disk breakdown: scanned, system and other, purgeable and free (see `DiskUsageBreakdown`).
     var diskUsage: DiskUsageBreakdown {
         let volume = currentVolume
         return DiskUsageBreakdown(totalBytes: volume.totalBytes, availableBytes: volume.availableBytes,
@@ -531,12 +531,12 @@ final class AppModel {
 
     var inaccessibleCount: Int { scan?.inaccessible.count ?? 0 }
 
-    // MARK: Análisis
+    // MARK: Scanning
 
-    /// Muestra al instante el índice guardado del volumen elegido, lo reanaliza en segundo
-    /// plano con progreso, lo guarda y actualiza la limpieza. Cancela cualquier análisis anterior.
-    /// Al abrir (`.automatic`) un índice de menos de 6 h no se reanaliza; los automáticos y los
-    /// de un agente van con intensidad `background` (ver `ScanSchedule` y `ScanBudget`).
+    /// Instantly shows the saved index of the chosen volume, rescans it in the background
+    /// with progress, saves it and refreshes the cleanup. Cancels any previous scan.
+    /// On launch (`.automatic`) an index younger than 6 h isn't rescanned; automatic scans and
+    /// agent scans run at `background` intensity (see `ScanSchedule` and `ScanBudget`).
     func startScan(_ trigger: ScanTrigger = .user) {
         scanTask?.cancel()
         scanGeneration += 1
@@ -546,18 +546,18 @@ final class AppModel {
         isScanning = true
         #if DEBUG
         if DebugSnapshot.previewsScan {
-            // Solo la pantalla: nada se lee ni se analiza ni se guarda.
+            // Screen only: nothing is read, scanned or saved.
             scan = nil
             progress = ScanProgress(filesScanned: 184_302, bytesScanned: 61_000_000_000,
-                                    currentPath: "/Users/Shared/Ejemplo/Biblioteca/Fotos")
+                                    currentPath: "/Users/Shared/Example/Library/Photos")
             return
         }
         #endif
-        // La detección automática espera al índice o al análisis nuevo; mientras, Limpieza dice «Buscando…».
+        // Automatic detection waits for the index or the new scan; meanwhile, Cleanup says "Searching…".
         detectionGate.scanStarted()
         isRefreshingCleanup = true
 
-        // Llega como mucho cada 100 ms desde los hilos del escáner.
+        // Arrives at most every 100 ms from the scanner threads.
         let onProgress: @Sendable (ScanProgress) -> Void = { [weak self] snapshot in
             Task { @MainActor [weak self] in
                 guard let self, generation == self.scanGeneration else { return }
@@ -566,17 +566,17 @@ final class AppModel {
         }
 
         scanTask = Task { [weak self] in
-            // 0. Volúmenes al día (capacidades y nombre), leídos fuera del hilo principal.
+            // 0. Up-to-date volumes (capacities and name), read off the main thread.
             await self?.refreshVolumes()
             guard let self, generation == self.scanGeneration else { return }
             let volume = self.currentVolume
             let store = self.store(for: volume)
 
-            // 1. Índice guardado, leído fuera del hilo principal.
+            // 1. Saved index, read off the main thread.
             let expectedRoot = Self.expectedRootName(for: volume)
             let stored = await Task.detached(priority: .userInitiated) { () -> (ScanResult, Date?)? in
                 guard let result = try? store.loadScan(), result.root.name == expectedRoot else { return nil }
-                // La fecha del análisis va en el índice (no la del archivo: cada limpieza lo regraba).
+                // The scan date lives in the index (not the file's: every cleanup rewrites it).
                 return (result, result.scannedAt)
             }.value
             guard generation == self.scanGeneration else { return }
@@ -588,9 +588,9 @@ final class AppModel {
                 self.navigation = MapNavigation(rootTitle: volume.name)
             }
 
-            // 2. ¿Hace falta? Un índice reciente se queda (el mapa dice «Último análisis: hace…»).
-            // La detección automática corre ya sobre un índice que se queda; si viene un análisis, lo espera
-            // (detectar sobre un árbol que se va a sustituir es trabajo tirado, y competiría con el análisis).
+            // 2. Is it needed? A recent index stays (the map says "Last scan: … ago").
+            // Automatic detection runs right away on an index that stays; if a scan is coming, it waits for it
+            // (detecting on a tree about to be replaced is wasted work, and it would compete with the scan).
             let plan = ScanSchedule.plan(trigger, hasIndex: stored != nil, indexDate: stored?.1, now: Date())
             if let detection = self.detectionGate.indexRead(hasIndex: stored != nil, plan: plan) {
                 self.refreshCleanup(detection)
@@ -604,7 +604,7 @@ final class AppModel {
                 intensity = level
             }
 
-            // 3. Nuevo análisis con hilos y QoS limitados por la intensidad, cancelable.
+            // 3. New scan with threads and QoS limited by the intensity, cancellable.
             let scanStarted = Date()
             let scanner = DiskScanner(options: ScanOptions(roots: Self.scanRoots(for: volume)), intensity: intensity)
             let job = Task.detached(priority: intensity == .background ? .background : .utility) {
@@ -622,7 +622,7 @@ final class AppModel {
                     self.isScanning = false
                     self.detectionAfterStoppedScan()
                     if !(error is CancellationError) {
-                        let message = "No se pudo analizar «\(volume.name)»: \(error.localizedDescription)"
+                        let message = String(localized: "Couldn’t scan “\(volume.name)”: \(error.localizedDescription)")
                         self.scanError = message
                         self.report(.scan, message)
                     }
@@ -631,19 +631,19 @@ final class AppModel {
             }
             guard generation == self.scanGeneration else { return }
 
-            // 4. Lo que se limpió o se envió a la Papelera mientras se analizaba no vuelve a salir.
+            // 4. What was cleaned or moved to the Trash during the scan doesn't come back.
             let touched = self.touchedPaths.filter { $0.value >= scanStarted }.map(\.key)
             if !touched.isEmpty {
                 let measured = await Task.detached(priority: .userInitiated) {
                     ScanTreeRefresh.measure(touched)
                 }.value
                 guard generation == self.scanGeneration else { return }
-                // El árbol nuevo aún no se ha publicado: nadie más lo recorre.
+                // The new tree isn't published yet: nobody else walks it.
                 ScanTreeRefresh.apply(measured, to: result.root)
             }
             self.touchedPaths = self.touchedPaths.filter { $0.value >= scanStarted }
 
-            // 5. Publicar, guardar y refrescar la limpieza.
+            // 5. Publish, save and refresh the cleanup.
             self.show(result, date: result.scannedAt ?? Date(), volume: volume)
             self.isScanning = false
             self.progress = nil
@@ -653,8 +653,8 @@ final class AppModel {
         }
     }
 
-    /// Raíces del análisis: el volumen entero. En DEBUG, `AIRY_SCAN_ROOTS` las sustituye
-    /// (comprobaciones de la app sobre una carpeta pequeña en vez del disco).
+    /// Scan roots: the whole volume. In DEBUG, `AIRY_SCAN_ROOTS` replaces them
+    /// (app checks on a small folder instead of the disk).
     private static func scanRoots(for volume: Volume) -> [URL] {
         #if DEBUG
         if let roots = ScanRootsOverride.roots(from: ProcessInfo.processInfo.environment) { return roots }
@@ -662,20 +662,20 @@ final class AppModel {
         return [volume.url]
     }
 
-    /// Nombre de la raíz de un índice válido para este volumen (con varias raíces, el nodo sin nombre).
+    /// Root name of a valid index for this volume (with several roots, the unnamed node).
     private static func expectedRootName(for volume: Volume) -> String {
         let roots = scanRoots(for: volume)
         return roots.count == 1 ? roots[0].path : ""
     }
 
-    /// Guarda el índice fuera del hilo principal. Recorre el árbol vivo, así que entra como
-    /// lector de `treeGate` (no cancelable: un cambio espera a que termine de escribir).
-    /// Los guardados de un mismo índice van de uno en uno (cada uno espera al anterior) y, justo
-    /// antes de escribir, uno que ya no es el último pedido se salta: nunca queda en disco el
-    /// árbol más antiguo.
+    /// Saves the index off the main thread. It walks the live tree, so it enters as a
+    /// `treeGate` reader (not cancellable: a change waits for the write to finish).
+    /// Saves of the same index go one at a time (each waits for the previous one) and, right
+    /// before writing, one that is no longer the latest request is skipped: the older tree
+    /// never ends up on disk.
     private func saveIndex(_ result: ScanResult, to store: IndexStore, key: String) async {
         #if DEBUG
-        // Con AIRY_SCAN_ROOTS y sin AIRY_SUPPORT_DIR, el árbol parcial nunca pisa el índice real.
+        // With AIRY_SCAN_ROOTS and without AIRY_SUPPORT_DIR, the partial tree never overwrites the real index.
         guard ScanRootsOverride.allowsSaving(environment: ProcessInfo.processInfo.environment) else { return }
         #endif
         let sequencer = saveSequencer
@@ -693,7 +693,7 @@ final class AppModel {
         case .skipped: return
         case .saved: dismiss(.save)
         case .failed(let saveError):
-            report(.save, "No se pudo guardar el análisis (\(saveError)). Se ve bien ahora, pero al volver a abrir Airy habrá que analizar de nuevo.")
+            report(.save, String(localized: "Couldn’t save the scan (\(saveError)). It looks fine now, but you’ll need to scan again next time you open Airy."))
         }
     }
 
@@ -707,19 +707,19 @@ final class AppModel {
         detectionAfterStoppedScan()
     }
 
-    /// Un análisis cancelado o fallido ya no traerá árbol: la detección automática corre sobre lo que se ve.
+    /// A cancelled or failed scan won't bring a tree: automatic detection runs on what is shown.
     private func detectionAfterStoppedScan() {
         let wasWaiting = !detectionGate.allowsAutomatic
         if let detection = detectionGate.scanStopped(hasTree: scan != nil) {
             refreshCleanup(detection)
         } else if wasWaiting {
-            // Sin árbol no hay nada que detectar: Limpieza deja de decir «Buscando…».
+            // Without a tree there is nothing to detect: Cleanup stops saying "Searching…".
             isRefreshingCleanup = false
         }
     }
 
-    /// Publica un árbol. Si es del mismo volumen que el que se ve, se conserva el nivel del mapa
-    /// (tan hondo como siga existiendo) en vez de volver a la raíz.
+    /// Publishes a tree. If it is from the same volume as the one shown, the map level is kept
+    /// (as deep as it still exists) instead of going back to the root.
     private func show(_ result: ScanResult, date: Date?, volume: Volume) {
         let sameRoot = navigation.root?.name == result.root.name && navigation.rootTitle == volume.name
         scan = result
@@ -730,19 +730,19 @@ final class AppModel {
                               : MapNavigation(root: result.root, rootTitle: volume.name)
     }
 
-    /// El disco de arranque usa el almacén principal; cada externo, su propia carpeta.
+    /// The startup disk uses the main store; each external one, its own folder.
     private func store(for volume: Volume) -> IndexStore {
         guard !volume.isStartup else { return store }
         let safeName = volume.url.path.replacingOccurrences(of: "/", with: "_")
         return IndexStore(directory: appDirectory.appendingPathComponent("Volumes/\(safeName)", isDirectory: true))
     }
 
-    // MARK: Limpieza
+    // MARK: Cleanup
 
-    /// Vuelve a detectar las limpiezas sobre el último análisis y actualiza Papelera y total liberado.
-    /// `.user` (por defecto): lo pidió el usuario, en QoS `.utility`. `.automatic`: al abrir o tras un
-    /// análisis automático, en QoS `.background`; solo con el árbol definitivo (`detectionGate`).
-    /// La detección reutiliza el índice (tamaños y rutas) y solo lee el disco para lo que el índice no tiene.
+    /// Detects cleanups again on the last scan and refreshes the Trash and the total freed.
+    /// `.user` (default): requested by the user, at QoS `.utility`. `.automatic`: on launch or after an
+    /// automatic scan, at QoS `.background`; only with the final tree (`detectionGate`).
+    /// Detection reuses the index (sizes and paths) and only reads the disk for what the index lacks.
     func refreshCleanup(_ trigger: DetectionTrigger = .user) {
         let previous = cleanupTask
         previous?.cancel()
@@ -756,31 +756,31 @@ final class AppModel {
             CleanupScanner(catalog: $0, runner: runner, probes: probes, references: ReferenceChecker(),
                            classifier: classifier, scope: Self.detectionScope)
         }
-        // La misma prioridad para la tarea que espera: si la esperara una tarea del hilo principal
-        // (`.userInitiated`), la detección subiría a esa prioridad.
+        // The same priority for the waiting task: if a main-thread task (`.userInitiated`) waited
+        // for it, detection would be raised to that priority.
         let priority = DetectionSchedule.priority(for: DetectionSchedule.current(trigger))
         cleanupTask = Task(priority: priority) { [weak self] in
-            // Una pasada a la vez: la cancelada deja de leer el disco antes de que empiece esta.
+            // One pass at a time: the cancelled one stops reading the disk before this one starts.
             await previous?.value
             guard !Task.isCancelled else { return }
             await self?.refreshCounters()
-            // Lee el árbol vivo: lector cancelable de `treeGate` (un cambio la cancela y la espera).
+            // Reads the live tree: a cancellable `treeGate` reader (a change cancels it and waits for it).
             guard let gate = self?.treeGate else { return }
             let job = gate.read(cancellable: true, priority: priority) {
                 await scanner?.findItems(scan: root, inaccessible: inaccessible) ?? []
             }
-            // La tarea suelta no hereda la cancelación: se le pasa a mano.
+            // The detached task doesn't inherit cancellation: it is passed on by hand.
             let items = await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
-            // Solo publica la última detección completa: una cancelada (resultado parcial: p. ej.
-            // sin comprobar referencias) o ya sustituida no se publica nunca.
+            // Only the latest complete detection is published: a cancelled one (partial result: e.g.
+            // references not checked) or an already replaced one is never published.
             guard let self, !Task.isCancelled, !job.isCancelled, generation == self.cleanupGeneration else { return }
             self.cleanupItems = items
             self.isRefreshingCleanup = false
         }
     }
 
-    /// Ámbito de disco de la detección: en DEBUG con `AIRY_SCAN_ROOTS`, solo esas raíces (ni proyectos ni
-    /// carpetas del catálogo del home real). Si no, todo.
+    /// Disk scope of detection: in DEBUG with `AIRY_SCAN_ROOTS`, only those roots (no projects and no
+    /// catalog folders from the real home). Otherwise, everything.
     private static var detectionScope: DiskScope? {
         #if DEBUG
         if let roots = ScanRootsOverride.roots(from: ProcessInfo.processInfo.environment) {
@@ -790,23 +790,23 @@ final class AppModel {
         return nil
     }
 
-    /// Al abrir Limpieza mientras la detección automática espera a un análisis: se detecta ya (QoS del
-    /// usuario) sobre el índice que se ve. Con la detección automática ya hecha o en marcha, nada.
+    /// When Cleanup opens while automatic detection is waiting for a scan: detect now (user QoS)
+    /// on the index shown. With automatic detection already done or running, nothing.
     func cleanupOpened() {
         guard let trigger = detectionGate.cleanupOpened(hasTree: scan != nil) else { return }
         refreshCleanup(trigger)
     }
 
-    /// Lo que haría cada elemento ahora (mismo plan que `perform`), sin hacerlo: la hoja de confirmación
-    /// lo enseña fila a fila y no ejecuta lo bloqueado.
+    /// What each item would do now (same plan as `perform`), without doing it: the confirmation sheet
+    /// shows it row by row and doesn't run what is blocked.
     func preview(_ items: [CleanupItem], context: OperationContext = .user()) async -> [String: CleanupPreview] {
         guard let executor else {
-            return Dictionary(items.map { ($0.id, .blocked(reason: "No se pudo cargar el catálogo de limpiezas.")) },
+            return Dictionary(items.map { ($0.id, .blocked(reason: String(localized: "Couldn’t load the cleanup catalog."))) },
                               uniquingKeysWith: { a, _ in a })
         }
         var previews: [String: CleanupPreview] = [:]
-        // La vista previa de la hoja no es una operación: no se anota en el registro.
-        // Una tanda: la detección cara (versiones, proyectos, `brew uses`) se hace una vez para todas las filas.
+        // The sheet's preview isn't an operation: it isn't written to the log.
+        // One batch: the expensive detection (versions, projects, `brew uses`) is done once for all rows.
         let pass = RevalidationPass()
         for item in items {
             previews[item.id] = await executor.preview(item, context: context, logged: false, pass: pass)
@@ -814,14 +814,14 @@ final class AppModel {
         return previews
     }
 
-    /// Ejecuta una limpieza del catálogo (con revalidación completa) y refresca los contadores.
-    /// La interfaz es la que confirma antes de llamar aquí.
-    /// `refreshesCleanup: false` para tandas: quien llama refresca la detección una sola vez al final.
-    /// `pass`: la tanda de ejecución (una por confirmación), compartida por todas sus filas.
+    /// Runs a catalog cleanup (with full revalidation) and refreshes the counters.
+    /// The UI is what confirms before calling this.
+    /// `refreshesCleanup: false` for batches: the caller refreshes detection just once at the end.
+    /// `pass`: the execution batch (one per confirmation), shared by all its rows.
     func perform(_ item: CleanupItem, context: OperationContext = .user(),
                  refreshesCleanup: Bool = true, pass: RevalidationPass? = nil) async -> CleanupOutcome {
         if let refusal = settingsRefusal() { return refusal }
-        guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
+        guard let executor else { return .failed(String(localized: "Couldn’t load the cleanup catalog.")) }
         let outcome = await executor.execute(item, context: context, pass: pass)
         switch outcome {
         case .freed, .movedToTrash: await updateTree(afterTouching: item.paths)
@@ -834,40 +834,40 @@ final class AppModel {
         return outcome
     }
 
-    // MARK: Cerrar apps
+    // MARK: Quitting apps
 
-    /// Cierre normal (la app puede pedir guardar). La interfaz confirma antes de llamar aquí.
+    /// Normal quit (the app may ask to save). The UI confirms before calling this.
     func quit(_ group: AppGroup, context: OperationContext) async -> QuitOutcome {
         let outcome = await quitExecutor.quit(group, context: context)
         reportAuditFailure()
         return outcome
     }
 
-    /// Forzar: solo lo que no respondió al cierre normal; siempre tras una segunda confirmación.
+    /// Force: only what didn't respond to the normal quit; always after a second confirmation.
     func forceQuit(_ group: AppGroup, context: OperationContext) async -> QuitOutcome {
         let outcome = await quitExecutor.forceQuit(group, context: context)
         reportAuditFailure()
         return outcome
     }
 
-    /// Si no se pudo anotar algo en el registro de operaciones o en el historial, se dice (no se calla).
+    /// If something couldn't be written to the operation log or the history, say so (don't hide it).
     private func reportAuditFailure() {
         guard let failure = operationLog.takeWriteFailure() else { return }
-        report(.audit, "Airy hizo la operación, pero \(failure). El registro exportable puede estar incompleto.")
+        report(.audit, String(localized: "Airy completed the operation, but \(failure). The exportable log may be incomplete."))
     }
 
-    /// Envía rutas elegidas en el mapa a la Papelera con todas las comprobaciones de
-    /// `CleanupExecutor.trashPaths`, las quita del árbol mostrado y refresca como `perform`.
-    /// La interfaz es la que confirma antes de llamar aquí.
+    /// Moves paths chosen on the map to the Trash with all the checks of
+    /// `CleanupExecutor.trashPaths`, removes them from the shown tree and refreshes like `perform`.
+    /// The UI is what confirms before calling this.
     func trash(paths: [String], title: String, context: OperationContext = .user()) async -> CleanupOutcome {
         if let refusal = settingsRefusal() { return refusal }
-        guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
+        guard let executor else { return .failed(String(localized: "Couldn’t load the cleanup catalog.")) }
         let outcome = await executor.trashPaths(paths, title: title, context: context)
-        // Lo que ya no está en su sitio sale del mapa (también si se movió solo una parte).
-        // Orden: (1) se buscan los nodos aquí (hilo principal, dueño del árbol); (2) `treeGate`
-        // cancela la detección de limpiezas en curso y ESPERA a todos los lectores (también a
-        // que termine de guardarse el índice); (3) se cambia el árbol; (4) se vuelve a guardar
-        // el índice ya sin lo borrado y se detectan de nuevo las limpiezas.
+        // What is no longer in place leaves the map (also if only part of it was moved).
+        // Order: (1) the nodes are looked up here (main thread, owner of the tree); (2) `treeGate`
+        // cancels the cleanup detection in progress and WAITS for all readers (including the
+        // index save to finish); (3) the tree is changed; (4) the index is saved again
+        // without what was deleted and cleanups are detected again.
         let now = Date()
         let gone = paths.compactMap { path -> FileNode? in
             var info = stat()
@@ -876,7 +876,7 @@ final class AppModel {
             return node(atPath: path)
         }
         if !gone.isEmpty, let scan {
-            // La detección en curso queda invalidada (no publicará nada) y se repite al final.
+            // The detection in progress is invalidated (it won't publish anything) and is repeated at the end.
             cleanupTask?.cancel()
             cleanupGeneration += 1
             isRefreshingCleanup = true
@@ -884,8 +884,8 @@ final class AppModel {
                 for node in gone { node.removeFromParent() }
                 self?.treeRevision += 1
             }
-            // El índice se vuelve a guardar sin esperar (por el turno del árbol): el resultado
-            // de la Papelera vuelve enseguida aunque guardar todo el árbol tarde unos segundos.
+            // The index is saved again without waiting (through the tree's turn): the Trash result
+            // comes back right away even if saving the whole tree takes a few seconds.
             if let shownStore, self.scan?.root === scan.root {
                 let key = shownStoreKey
                 Task { [weak self] in await self?.saveIndex(scan, to: shownStore, key: key) }
@@ -898,11 +898,11 @@ final class AppModel {
         return outcome
     }
 
-    /// Tras una limpieza, vuelve a medir sus rutas (fuera del hilo principal) y pone al día el árbol
-    /// mostrado: lo que ya no existe sale; lo que sigue (p. ej. una caché limpiada con su comando,
-    /// que deja la carpeta) queda con su tamaño nuevo. Así ni el mapa ni la detección de limpiezas
-    /// (que prefiere el tamaño del árbol) lo enseñan con el tamaño de antes. Luego se vuelve a
-    /// guardar el índice por el turno de guardado.
+    /// After a cleanup, re-measures its paths (off the main thread) and updates the shown tree:
+    /// what no longer exists leaves; what remains (e.g. a cache cleaned with its command, which
+    /// keeps the folder) stays with its new size. That way neither the map nor cleanup detection
+    /// (which prefers the tree's size) shows it with the old size. Then the index is saved
+    /// again through the save turn.
     private func updateTree(afterTouching paths: [String]) async {
         guard !paths.isEmpty else { return }
         let now = Date()
@@ -910,7 +910,7 @@ final class AppModel {
         guard let scan else { return }
         let measured = await Task.detached(priority: .userInitiated) { ScanTreeRefresh.measure(paths) }.value
         guard self.scan?.root === scan.root else { return }
-        // La detección en curso queda invalidada (no publicará nada); `perform` la repite al final.
+        // The detection in progress is invalidated (it won't publish anything); `perform` repeats it at the end.
         cleanupTask?.cancel()
         cleanupGeneration += 1
         var changed = false
@@ -925,20 +925,20 @@ final class AppModel {
         }
     }
 
-    /// `true` si "Mover a la Papelera…" tiene sentido para esta ruta: la misma regla que aplicará
-    /// `CleanupExecutor.trashPaths` (protegidas, "No tocar", cachés con comando oficial…).
+    /// `true` if "Move to Trash…" makes sense for this path: the same rule
+    /// `CleanupExecutor.trashPaths` will apply (protected, "Don't delete", caches with an official command…).
     func canOfferTrash(path: String) -> Bool {
         guard let executor else { return false }
         return !executor.wouldRefuseTrash(path: path)
     }
 
-    /// Motivo por el que `trashPaths` rechazaría esta ruta, o `nil` si podría ofrecerse.
+    /// Reason `trashPaths` would refuse this path, or `nil` if it could be offered.
     func trashRefusal(path: String) -> String? {
-        guard let executor else { return "el catálogo de limpiezas no está disponible." }
+        guard let executor else { return String(localized: "the cleanup catalog isn’t available.") }
         return executor.unsafeTrashReason(path)
     }
 
-    /// Nodo del análisis mostrado para una ruta absoluta, bajando por nombre desde la raíz.
+    /// Node of the shown scan for an absolute path, walking down by name from the root.
     func node(atPath path: String) -> FileNode? {
         guard let root = scan?.root else { return nil }
         let rootPath = root.path
@@ -960,9 +960,9 @@ final class AppModel {
         return cursor === root ? nil : cursor
     }
 
-    /// Vacía la Papelera sin preguntar: la interfaz debe confirmarlo antes.
-    /// Ojo: si `~/.Trash` no se puede leer, se recurre a Finder, que vacía la Papelera de
-    /// **todos** los volúmenes, no solo la del disco de arranque; la confirmación debe avisarlo.
+    /// Empties the Trash without asking: the UI must confirm it first.
+    /// Careful: if `~/.Trash` can't be read, it falls back to Finder, which empties the Trash of
+    /// **all** volumes, not just the startup disk's; the confirmation must warn about it.
     @discardableResult
     func emptyTrash(context: OperationContext = .user()) async -> CleanupOutcome {
         let outcome: CleanupOutcome
@@ -971,7 +971,7 @@ final class AppModel {
         } else if let executor {
             outcome = await executor.emptyTrash(context: context)
         } else {
-            outcome = .failed("No se pudo cargar el catálogo de limpiezas.")
+            outcome = .failed(String(localized: "Couldn’t load the cleanup catalog."))
         }
         await refreshVolumes()
         await refreshCounters()
@@ -980,7 +980,7 @@ final class AppModel {
         return outcome
     }
 
-    /// Ajustes leídos de disco en cada operación (nunca cacheados) y registro de operaciones compartido con `airy-mcp`.
+    /// Settings read from disk on every operation (never cached) and the operation log shared with `airy-mcp`.
     private var executor: CleanupExecutor? {
         let settings = settingsSession.store
         let log = operationLog
@@ -990,10 +990,10 @@ final class AppModel {
         }
     }
 
-    // MARK: Desinstalador
+    // MARK: Uninstaller
 
-    /// Raíces donde un `.app` se puede desinstalar: exactamente `productionAppRoots(home:)`; solo en DEBUG,
-    /// `AIRY_APP_ROOTS` (rutas separadas por `:`) las sustituye, y también las del inventario.
+    /// Roots where an `.app` can be uninstalled: exactly `productionAppRoots(home:)`; only in DEBUG,
+    /// `AIRY_APP_ROOTS` (paths separated by `:`) replaces them, and the inventory's too.
     static var uninstallAppRoots: [String] {
         #if DEBUG
         if let roots = debugAppRoots { return roots }
@@ -1016,8 +1016,8 @@ final class AppModel {
         return AppInventory.standardRoots(home: NSHomeDirectory())
     }
 
-    /// Lecturas del inventario y de los restos (`brew info`, `pkgutil`, `mdfind`). Con `AIRY_APP_ROOTS`
-    /// (DEBUG) no se ejecuta ninguna orden real.
+    /// Inventory and leftover reads (`brew info`, `pkgutil`, `mdfind`). With `AIRY_APP_ROOTS`
+    /// (DEBUG) no real command runs.
     private var appsRunner: any CommandRunning {
         #if DEBUG
         if Self.debugAppRoots != nil { return OfflineRunner() }
@@ -1031,7 +1031,7 @@ final class AppModel {
                         userProtected: ProtectList(patterns: settings.protectedPaths, home: home))
     }
 
-    /// Casks de Homebrew instalados y apps de las raíces del inventario, fuera del hilo principal.
+    /// Installed Homebrew casks and apps in the inventory roots, off the main thread.
     func inventorySnapshot() async -> AppInventorySnapshot {
         let runner = appsRunner, roots = inventoryRoots
         return await Task.detached(priority: .utility) {
@@ -1059,18 +1059,18 @@ final class AppModel {
         await Task.detached(priority: .utility) { BrokenLinks.find() }.value
     }
 
-    /// Para la hoja: qué hará Airy con una app de Homebrew (`brew info`, solo lectura); `nil` si no viene de
-    /// Homebrew. El ejecutor lo vuelve a decidir al desinstalar.
+    /// For the sheet: what Airy will do with a Homebrew app (`brew info`, read-only); `nil` if it doesn't come from
+    /// Homebrew. The executor decides again when uninstalling.
     func caskVerdict(for app: AppRecord) async -> CaskVerdict? {
         guard app.caskToken?.isEmpty == false else { return nil }
         guard let executor else { return .fallback(reason: CaskReview.unreadableReason) }
         return await Task.detached(priority: .utility) { await executor.caskVerdict(for: app) }.value
     }
 
-    /// Desinstala una app por el embudo del ejecutor. La interfaz es la que confirma antes de llamar aquí.
+    /// Uninstalls an app through the executor's funnel. The UI is what confirms before calling this.
     func uninstall(_ request: UninstallRequest, context: OperationContext = .user()) async -> UninstallReport {
         if let refusal = settingsRefusal() { return UninstallReport(outcome: refusal) }
-        guard let executor else { return UninstallReport(outcome: .failed("No se pudo cargar el catálogo de limpiezas.")) }
+        guard let executor else { return UninstallReport(outcome: .failed(String(localized: "Couldn’t load the cleanup catalog."))) }
         let report = await executor.uninstall(request, context: context)
         let moved = [request.plan.app.path] + request.plan.leftovers
             .filter { request.selected.contains($0.id) && $0.kind != .receipt && $0.kind != .systemLocation }
@@ -1086,7 +1086,7 @@ final class AppModel {
         return report
     }
 
-    /// Con un inventario nuevo, solo los grupos que siguen siendo huérfanos van a la Papelera.
+    /// With a fresh inventory, only the groups that are still orphaned go to the Trash.
     func trashOrphans(_ groups: [OrphanGroup], context: OperationContext = .user()) async -> CleanupOutcome {
         if let refusal = settingsRefusal() { return refusal }
         let inventory = await inventorySnapshot()
@@ -1095,13 +1095,13 @@ final class AppModel {
             await finder.confirmable(groups, inventory: inventory)
         }.value
         guard !confirmable.isEmpty else {
-            return .blocked(reason: "Ya no parecen restos huérfanos (o no se pudo comprobar); no se mueve nada.")
+            return .blocked(reason: String(localized: "They no longer look like orphaned leftovers (or it couldn’t be checked); nothing is moved."))
         }
-        return await trash(paths: confirmable.flatMap(\.paths), title: "Restos huérfanos", context: context)
+        return await trash(paths: confirmable.flatMap(\.paths), title: String(localized: "Orphaned leftovers"), context: context)
     }
 
-    /// Por cada removal: `DuplicateFinder.confirmable` relee keep y copias; las rechazadas no se mueven y su
-    /// motivo vuelve en `notes`; el resto, a la Papelera en una sola llamada.
+    /// For each removal: `DuplicateFinder.confirmable` re-reads the kept file and the copies; rejected ones aren't moved and
+    /// their reason comes back in `notes`; the rest go to the Trash in a single call.
     func trashDuplicates(_ removals: [DuplicateRemoval],
                          context: OperationContext = .user()) async -> (outcome: CleanupOutcome, notes: [String]) {
         if let refusal = settingsRefusal() { return (refusal, []) }
@@ -1110,20 +1110,20 @@ final class AppModel {
             await finder.confirmable(removals)
         }.value
         guard !paths.isEmpty else {
-            return (.blocked(reason: "Ninguna copia pasó la comprobación; no se mueve nada."), notes)
+            return (.blocked(reason: String(localized: "No copy passed the check; nothing is moved.")), notes)
         }
-        return (await trash(paths: paths, title: "Duplicados", context: context), notes)
+        return (await trash(paths: paths, title: String(localized: "Duplicates"), context: context), notes)
     }
 
     func removeBrokenLinks(_ links: [BrokenLink], context: OperationContext = .user()) async -> CleanupOutcome {
         if let refusal = settingsRefusal() { return refusal }
-        guard let executor else { return .failed("No se pudo cargar el catálogo de limpiezas.") }
+        guard let executor else { return .failed(String(localized: "Couldn’t load the cleanup catalog.")) }
         let outcome = await executor.removeBrokenLinks(links, context: context)
         reportAuditFailure()
         return outcome
     }
 
-    /// Papelera y total liberado, leídos fuera del hilo principal.
+    /// Trash and total freed, read off the main thread.
     private func refreshCounters() async {
         let probes = probes
         let store = store
@@ -1137,21 +1137,21 @@ final class AppModel {
             totalFreedKnown = true
             dismiss(.history)
         case .failure(let error):
-            // Se conserva el último valor conocido y se avisa: nunca un 0 que parezca real.
+            // The last known value is kept and a notice is shown: never a 0 that looks real.
             totalFreedKnown = false
-            report(.history, "No se pudo leer el historial de limpiezas (\(error.localizedDescription)). El total liberado puede no estar al día.")
+            report(.history, String(localized: "Couldn’t read the cleanup history (\(error.localizedDescription)). The total freed may be out of date."))
         }
     }
 
-    // MARK: Sistema
+    // MARK: System
 
     func openFullDiskAccessSettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") else { return }
         NSWorkspace.shared.open(url)
     }
 
-    /// Lee los volúmenes montados (E/S de disco) fuera del hilo principal y publica el resultado.
-    /// Si el volumen elegido ya no está montado, vuelve al de arranque.
+    /// Reads the mounted volumes (disk I/O) off the main thread and publishes the result.
+    /// If the chosen volume is no longer mounted, falls back to the startup disk.
     func refreshVolumes() async {
         let mounted = await Task.detached(priority: .userInitiated) { Volume.mounted() }.value
         volumes = mounted
@@ -1160,7 +1160,7 @@ final class AppModel {
         }
     }
 
-    /// Permiso de Acceso total al disco y volúmenes, ambos leídos fuera del hilo principal.
+    /// Full Disk Access permission and volumes, both read off the main thread.
     func refreshSystemState() {
         let probes = probes
         Task { [weak self] in
@@ -1170,7 +1170,7 @@ final class AppModel {
         }
     }
 
-    /// Al volver a la app se comprueba de nuevo el permiso; al montar o expulsar discos, la lista.
+    /// On returning to the app the permission is checked again; on mounting or ejecting disks, the list.
     private func observeSystem() {
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification,
@@ -1193,10 +1193,10 @@ final class AppModel {
 }
 
 #if DEBUG
-/// Con `AIRY_APP_ROOTS`: ninguna orden real para leer apps (ni `brew`, ni `pkgutil`, ni `mdfind`).
+/// With `AIRY_APP_ROOTS`: no real command to read apps (no `brew`, `pkgutil` or `mdfind`).
 private struct OfflineRunner: CommandRunning {
     func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) async throws -> CommandOutput {
-        throw CommandError.launchFailed(executable: executable, message: "desactivado con AIRY_APP_ROOTS")
+        throw CommandError.launchFailed(executable: executable, message: "disabled with AIRY_APP_ROOTS")
     }
     func resolve(_ executable: String) async -> String? { nil }
 }
