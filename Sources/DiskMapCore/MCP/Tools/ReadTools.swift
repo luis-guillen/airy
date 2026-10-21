@@ -264,6 +264,8 @@ public struct ListCleanupItemsTool: MCPTool {
         }
         let loaded = MCPFormat.loadIndex(env).scan
         let board = CleanupBoard(items: await scanner.findItems(scan: loaded?.root, inaccessible: loaded?.inaccessible ?? []))
+        // Con el interruptor apagado o los ajustes ilegibles, ningún agente puede ejecutar nada.
+        let agentsEnabled = AgentGate.refusal(env) == nil
         let rows: [JSONValue] = board.displayItems.map { item in
             var verdict = classifier.classify(entry: item.entry, paths: item.paths)
             verdict.risk = .strictest(verdict.risk, item.risk)
@@ -287,7 +289,7 @@ public struct ListCleanupItemsTool: MCPTool {
                 "used_by": .array(item.usedBy.map { .string($0) }),
                 "blocked_reason": MCPFormat.optional(item.blockedReason),
                 "preselected": .bool(item.preselected), "highlighted": .bool(item.highlighted),
-                "actionable_by_agent": .bool(verdict.risk == .safe && CleanupBoard.canSelect(item)),
+                "actionable_by_agent": .bool(agentsEnabled && verdict.risk == .safe && CleanupBoard.canSelect(item)),
                 "review_only": .bool(CleanupBoard.isReviewOnly(item)),
                 "details": .array(item.details.map { .string($0) }),
                 "size_note": MCPFormat.optional(item.sizeNote),
@@ -303,7 +305,8 @@ public struct ListCleanupItemsTool: MCPTool {
             return .object(row)
         }
         let value: JSONValue = .object([
-            "mode": .string(env.settings.load().effective.mode.rawValue), "items": .array(rows),
+            "mode": .string(env.settings.load().effective.mode.rawValue), "agents_enabled": .bool(agentsEnabled),
+            "items": .array(rows),
         ])
         return .ok(value, summary: "\(rows.count) limpiezas detectadas.")
     }

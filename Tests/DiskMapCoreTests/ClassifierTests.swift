@@ -290,7 +290,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
         #expect(dropped == expectedDroppedAfterHardProtections, "Con rutas quitadas: \(dropped.sorted())")
     }
 
-    @Test func highlightedItemsComeFirstWithinGroup() {
+    @Test func retiredProfileNoLongerReordersGroups() {
         func item(_ id: String, bytes: Int64, highlighted: Bool = false, risk: Risk = .safe) -> CleanupItem {
             CleanupItem(id: id, entry: entry(id, risk: risk), paths: [cache], bytes: bytes, risk: risk,
                         blockedByOpenApps: [], usedBy: [], highlighted: highlighted)
@@ -299,7 +299,7 @@ private func writeFile(_ path: String, bytes: Int = 10_000) {
             item("big", bytes: 1_000), item("small-hi", bytes: 10, highlighted: true),
             item("mid-hi", bytes: 100, highlighted: true), item("amber", bytes: 5, risk: .yourCall),
         ])
-        #expect(board.groups.map { $0.items.map(\.id) } == [["mid-hi", "small-hi", "big"], ["amber"]])
+        #expect(board.groups.map { $0.items.map(\.id) } == [["big", "mid-hi", "small-hi"], ["amber"]])
     }
 
     @Test func protectedOrBlockedItemsCannotBeSelected() {

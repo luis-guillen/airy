@@ -272,6 +272,12 @@ public enum ToolchainUsage {
                 }
             }
         }
+        // nvm sin alias por defecto y con varias versiones: la que elige la shell (`nvm use` en .zshrc) no se ve
+        // (y el PATH de la app nunca lleva el node de nvm). Va después del PATH para no tapar su motivo.
+        if read(home + "/.nvm/alias/default") == nil, of(.nvm).count > 1 { unresolved(.nvm) }
+        // Java: el ejecutable del PATH es el stub de /usr/bin y `JAVA_HOME` no se ve desde la app; la que se usa
+        // puede no detectarse, así que Java nunca se preselecciona.
+        if offered.contains(where: { $0.language == .java }) { report.noPreselect.insert(.java) }
 
         // Pins de los proyectos.
         if !projects.complete { report.noPreselect.formUnion(ToolchainLanguage.allCases) }

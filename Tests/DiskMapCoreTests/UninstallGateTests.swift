@@ -367,6 +367,19 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(gate.validate(h + "/Library/Caches/Google/Chrome", waiver: nil).failure == nil)
     }
 
+    /// M5: con el catálogo incluido, los datos de perfil nunca pasan aunque haya fichas con comodín al lado.
+    @Test func bundledCatalogNeverOpensProfileData() throws {
+        let gate = gate()
+        let paths = [support + "/Google/Chrome/Default", support + "/Google/Chrome/Default/Service Worker",
+                     support + "/Google/Chrome/Default/History", support + "/Google/Chrome/Profile 1/Cookies",
+                     support + "/BraveSoftware/Brave-Browser/Profile 1/Cookies",
+                     support + "/BraveSoftware/Brave-Browser/Default/Login Data"]
+        for path in paths {
+            touch(path + "/x")
+            #expect(gate.validate(path, waiver: nil).failure != nil, "\(path)")
+        }
+    }
+
     @Test func sealedHomeNeverWaived() throws {
         let gate = gate()
         let docker = h + "/Library/Containers/com.docker.docker"
