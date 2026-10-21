@@ -87,6 +87,11 @@ struct TileDetails: Equatable {
 /// Glass card with the details of the tile under the pointer.
 struct HoverCard: View {
     let details: TileDetails
+    /// Optional so the card still draws without a model (previews): AI is then assumed on.
+    @Environment(AppModel.self) private var model: AppModel?
+
+    /// "Ask the assistant" only while AI features are on in Settings.
+    private var showsExplanation: Bool { !details.asksAssistant || model?.settings.aiEnabled != false }
 
     /// Glyph with AA contrast on both ends of the kind's gradient.
     private var glyphInk: Color {
@@ -169,6 +174,7 @@ struct HoverCard: View {
                     .lineLimit(2)
             }
 
+            if showsExplanation {
             Divider().opacity(0.6)
 
             HStack(alignment: .top, spacing: 7) {
@@ -179,6 +185,7 @@ struct HoverCard: View {
                     .font(.callout)
                     .foregroundStyle(details.asksAssistant ? .secondary : .primary)
                     .lineLimit(4)
+            }
             }
         }
         .padding(14)

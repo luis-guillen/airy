@@ -21,6 +21,83 @@ import Testing
         #expect(s.mode == .aggressive && s.agentsEnabled && s.profiles.isEmpty && s.protectedPaths.isEmpty)
     }
 
+    @Test func newPreferencesDefaultToTodaysBehaviour() {
+        let s = AirySettings.defaults
+        #expect(s.language == .system && s.motion == .system)
+        #expect(s.autoRescanOnLaunch && s.rescanAge == .sixHours && s.rescanAge.interval == ScanSchedule.freshness)
+        #expect(s.defaultVolume == nil && s.excludedPaths.isEmpty && s.aiEnabled)
+    }
+
+    @Test func decodesASettingsFileFromBeforeThePreferences() throws {
+        let file = tempFile()
+        // What Airy 0.2 wrote: no language, motion, scanning or AI keys.
+        try write(#"{"agentsEnabled":false,"mode":"prudent","profiles":["developer"],"protectedPaths":["~/Work"],"version":1}"#, to: file)
+        guard case .loaded(let s) = SettingsStore(file: file).load() else { Issue.record("expected loaded"); return }
+        var expected = AirySettings.defaults
+        expected.mode = .prudent
+        expected.agentsEnabled = false
+        expected.profiles = [.developer]
+        expected.protectedPaths = ["~/Work"]
+        #expect(s == expected)
+        #expect(s.language == .system && s.autoRescanOnLaunch && s.rescanAge == .sixHours && s.aiEnabled)
+    }
+
+    @Test func roundTripsTheNewPreferences() throws {
+        let file = tempFile()
+        let store = SettingsStore(file: file)
+        var s = AirySettings.defaults
+        s.language = .es
+        s.motion = .reduced
+        s.autoRescanOnLaunch = false
+        s.rescanAge = .oneDay
+        s.defaultVolume = "/Volumes/Work"
+        s.excludedPaths = ["/Users/test/Movies"]
+        s.aiEnabled = false
+        try store.save(s)
+        #expect(store.load() == .loaded(s))
+        let text = try String(contentsOf: file, encoding: .utf8)
+        #expect(text.contains(#""rescanAge" : "24h""#) && text.contains(#""language" : "es""#))
+        // No default volume: the key is left out, and reading it back gives the startup disk again.
+        s.defaultVolume = nil
+        try store.save(s)
+        #expect(try !String(contentsOf: file, encoding: .utf8).contains("defaultVolume"))
+        #expect(store.load() == .loaded(s))
+    }
+
+    @Test func unknownPreferenceValuesFallBackButWrongTypesAreUnreadable() throws {
+        let file = tempFile()
+        let store = SettingsStore(file: file)
+        try write(#"{"version":1,"language":"tlh","motion":"warp","rescanAge":"5m","defaultVolume":""}"#, to: file)
+        #expect(store.load() == .loaded(.defaults))
+        // A wrong type is a damaged file, like any other key: fail closed.
+        try write(#"{"version":1,"aiEnabled":"yes"}"#, to: file)
+        guard case .unreadable = store.load() else { Issue.record("expected unreadable"); return }
+        try write(#"{"version":1,"excludedPaths":"/Users/test"}"#, to: file)
+        guard case .unreadable = store.load() else { Issue.record("expected unreadable"); return }
+        #expect(!store.load().allowsAgentActions && store.load().effective.agentsEnabled == false)
+    }
+
+    @Test func resettingPreferencesKeepsTheProtectList() {
+        var s = AirySettings.defaults
+        s.mode = .prudent
+        s.agentsEnabled = false
+        s.language = .es
+        s.aiEnabled = false
+        s.excludedPaths = ["/Users/test/Movies"]
+        s.protectedPaths = ["~/Work"]
+        var expected = AirySettings.defaults
+        expected.protectedPaths = ["~/Work"]
+        #expect(s.resettingPreferences() == expected)
+    }
+
+    @Test func motionPreferenceDecidesReduceMotion() {
+        #expect(MotionPreference.system.reducesMotion(systemReduceMotion: true))
+        #expect(!MotionPreference.system.reducesMotion(systemReduceMotion: false))
+        #expect(MotionPreference.reduced.reducesMotion(systemReduceMotion: false))
+        #expect(!MotionPreference.full.reducesMotion(systemReduceMotion: true))
+        #expect(AppLanguage.system.code == nil && AppLanguage.es.code == "es")
+    }
+
     @Test func missingFileAllowsAgentsWithDefaults() {
         let load = SettingsStore(file: tempFile()).load()
         #expect(load == .missing)

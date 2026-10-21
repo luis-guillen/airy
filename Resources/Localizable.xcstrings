@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ (not connected)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (no conectado)"
+          }
+        }
+      }
+    },
     "%@ (simulated)" : {
       "localizations" : {
         "es" : {
@@ -341,6 +351,16 @@
         }
       }
     },
+    "1 hour" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 hora"
+          }
+        }
+      }
+    },
     "1 item found" : {
       "localizations" : {
         "es" : {
@@ -401,6 +421,26 @@
         }
       }
     },
+    "24 hours" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 horas"
+          }
+        }
+      }
+    },
+    "6 hours" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 horas"
+          }
+        }
+      }
+    },
     "A link proposed moving “%@” to the Trash, but Airy can’t: %@" : {
       "localizations" : {
         "es" : {
@@ -431,6 +471,26 @@
         }
       }
     },
+    "A newer scan is shown as it is." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un escaneo más reciente se muestra tal cual."
+          }
+        }
+      }
+    },
+    "AI" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IA"
+          }
+        }
+      }
+    },
     "AI Assistant" : {
       "localizations" : {
         "es" : {
@@ -441,12 +501,32 @@
         }
       }
     },
+    "AI features are off" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las funciones de IA están desactivadas"
+          }
+        }
+      }
+    },
     "APFS copy: takes no extra space" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copia APFS: no ocupa espacio extra"
+          }
+        }
+      }
+    },
+    "About" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acerca de"
           }
         }
       }
@@ -531,6 +611,16 @@
         }
       }
     },
+    "After you turn it on in System Settings › Privacy & Security › Full Disk Access, come back to Airy and the status updates." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando lo actives en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco, vuelve a Airy y el estado se actualizará."
+          }
+        }
+      }
+    },
     "Agent Activity" : {
       "localizations" : {
         "es" : {
@@ -541,12 +631,12 @@
         }
       }
     },
-    "Agents" : {
+    "Agents & MCP" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Agentes"
+            "value" : "Agentes y MCP"
           }
         }
       }
@@ -561,12 +651,42 @@
         }
       }
     },
+    "Airy adapts ideas and path lists from Mole (GPL-3.0). It contains no Mole code." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy adapta ideas y listas de rutas de Mole (GPL-3.0). No contiene código de Mole."
+          }
+        }
+      }
+    },
+    "Airy and agents never select, clean or move these to the Trash." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy y los agentes nunca los seleccionan, limpian ni mueven a la Papelera."
+          }
+        }
+      }
+    },
     "Airy and agents won’t touch anything you choose." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Airy y los agentes no tocarán nada de lo que elijas."
+          }
+        }
+      }
+    },
+    "Airy can measure everything, including Mail, Messages and the Trash." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy puede medirlo todo, incluidos Mail, Mensajes y la Papelera."
           }
         }
       }
@@ -611,6 +731,16 @@
         }
       }
     },
+    "Airy deletes the record of what it and your agents cleaned. This can’t be undone. Your files and the Trash aren’t touched." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy borra el registro de lo que limpiaron Airy y tus agentes. No se puede deshacer. Tus archivos y la Papelera no se tocan."
+          }
+        }
+      }
+    },
     "Airy didn’t understand that link, so it did nothing." : {
       "localizations" : {
         "es" : {
@@ -627,6 +757,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Airy no muestra grados: leerlos exige interfaces privadas de Apple que pueden romperse."
+          }
+        }
+      }
+    },
+    "Airy forgets its saved scans of every disk and scans again the next time it opens. Your files aren’t touched, and the cleanup history stays." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy olvida los escaneos guardados de todos los discos y vuelve a escanear la próxima vez que se abra. Tus archivos no se tocan y el historial de limpieza se conserva."
           }
         }
       }
@@ -651,6 +791,26 @@
         }
       }
     },
+    "Airy is busy; restart it when the current task has finished." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy está ocupado; reinícialo cuando termine la tarea en curso."
+          }
+        }
+      }
+    },
+    "Airy never opens these folders when it scans, so their contents don’t appear in the map. Changes apply from the next scan." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy nunca abre estas carpetas al escanear, así que su contenido no aparece en el mapa. Los cambios se aplican desde el próximo escaneo."
+          }
+        }
+      }
+    },
     "Airy only lets you know; remove them yourself in System Settings." : {
       "localizations" : {
         "es" : {
@@ -661,12 +821,42 @@
         }
       }
     },
+    "Airy scans every disk again the next time it opens." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy vuelve a escanear todos los discos la próxima vez que se abra."
+          }
+        }
+      }
+    },
     "Airy tells you what it is and how to do it yourself; there’s no delete button here." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Airy te dice qué es y cómo hacerlo tú; aquí no hay botón de borrar."
+          }
+        }
+      }
+    },
+    "Airy won’t scan the folders you choose." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airy no escaneará las carpetas que elijas."
+          }
+        }
+      }
+    },
+    "Airy’s menus, buttons and messages." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los menús, botones y mensajes de Airy."
           }
         }
       }
@@ -787,6 +977,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Analizando…"
+          }
+        }
+      }
+    },
+    "Animations" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Animaciones"
           }
         }
       }
@@ -1251,12 +1451,32 @@
         }
       }
     },
+    "Claude Code found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code encontrado"
+          }
+        }
+      }
+    },
     "Claude Code hasn’t been located." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude Code no está localizado."
+          }
+        }
+      }
+    },
+    "Claude Code not found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró Claude Code"
           }
         }
       }
@@ -1351,12 +1571,32 @@
         }
       }
     },
-    "Cleanup Mode" : {
+    "Cleanup mode" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Modo de limpieza"
+          }
+        }
+      }
+    },
+    "Clear Log" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaciar registro"
+          }
+        }
+      }
+    },
+    "Clear Log…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaciar registro…"
           }
         }
       }
@@ -1367,6 +1607,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quitar selección"
+          }
+        }
+      }
+    },
+    "Clear operation log" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaciar el registro de operaciones"
+          }
+        }
+      }
+    },
+    "Clear the operation log?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Vaciar el registro de operaciones?"
           }
         }
       }
@@ -1481,12 +1741,32 @@
         }
       }
     },
+    "Couldn’t clear the operation log (%@)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo vaciar el registro de operaciones (%@)."
+          }
+        }
+      }
+    },
     "Couldn’t copy the data from %@ (%@). It’s still in its folder; Airy will try again next time it opens." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudieron copiar los datos de %1$@ (%2$@). Siguen en su carpeta; Airy lo intentará otra vez al abrirse."
+          }
+        }
+      }
+    },
+    "Couldn’t delete the scan index (%@)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo borrar el índice de escaneo (%@)."
           }
         }
       }
@@ -1571,6 +1851,26 @@
         }
       }
     },
+    "Couldn’t reset the settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron restablecer los ajustes."
+          }
+        }
+      }
+    },
+    "Couldn’t restart Airy (%@). Quit and open it again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo reiniciar Airy (%@). Ciérralo y vuelve a abrirlo."
+          }
+        }
+      }
+    },
     "Couldn’t save the Duplicates result (%@)." : {
       "localizations" : {
         "es" : {
@@ -1631,6 +1931,26 @@
         }
       }
     },
+    "Data" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos"
+          }
+        }
+      }
+    },
+    "Data folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpeta de datos"
+          }
+        }
+      }
+    },
     "Data you shouldn’t touch, like Docker volumes." : {
       "localizations" : {
         "es" : {
@@ -1647,6 +1967,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fecha"
+          }
+        }
+      }
+    },
+    "Default disk" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disco predeterminado"
           }
         }
       }
@@ -1677,6 +2007,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "¿Borrar 1 elemento?"
+          }
+        }
+      }
+    },
+    "Delete Index" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borrar índice"
+          }
+        }
+      }
+    },
+    "Delete Index…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borrar índice…"
+          }
+        }
+      }
+    },
+    "Delete scan index" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borrar el índice de escaneo"
+          }
+        }
+      }
+    },
+    "Delete the scan index?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Borrar el índice de escaneo?"
+          }
+        }
+      }
+    },
+    "Deletes the record of what Airy and your agents cleaned." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borra el registro de lo que limpiaron Airy y tus agentes."
+          }
+        }
+      }
+    },
+    "Development build" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión de desarrollo"
           }
         }
       }
@@ -1841,6 +2231,46 @@
         }
       }
     },
+    "Enable AI features" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar funciones de IA"
+          }
+        }
+      }
+    },
+    "Every setting goes back to its default. Your “Protected by you” list is kept." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los ajustes vuelven a su valor predeterminado. Tu lista «Protegido por ti» se conserva."
+          }
+        }
+      }
+    },
+    "Exclude" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluir"
+          }
+        }
+      }
+    },
+    "Excluded folders" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpetas excluidas"
+          }
+        }
+      }
+    },
     "Explain with AI" : {
       "localizations" : {
         "es" : {
@@ -1941,6 +2371,26 @@
         }
       }
     },
+    "Follow System" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Como el sistema"
+          }
+        }
+      }
+    },
+    "Follows Reduce Motion in System Settings › Accessibility." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sigue «Reducir movimiento» de Ajustes del Sistema › Accesibilidad."
+          }
+        }
+      }
+    },
     "Force Quit" : {
       "localizations" : {
         "es" : {
@@ -1991,6 +2441,16 @@
         }
       }
     },
+    "Free and open-source software." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Software libre y de código abierto."
+          }
+        }
+      }
+    },
     "Freed" : {
       "localizations" : {
         "es" : {
@@ -2027,6 +2487,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Libera %@"
+          }
+        }
+      }
+    },
+    "Full" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completas"
+          }
+        }
+      }
+    },
+    "Full Disk Access is off" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El acceso total al disco está desactivado"
+          }
+        }
+      }
+    },
+    "Full Disk Access is on" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El acceso total al disco está activado"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
           }
         }
       }
@@ -2211,6 +2711,16 @@
         }
       }
     },
+    "Install Claude Code to use the AI features." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instala Claude Code para usar las funciones de IA."
+          }
+        }
+      }
+    },
     "Install receipt %@" : {
       "localizations" : {
         "es" : {
@@ -2351,6 +2861,26 @@
         }
       }
     },
+    "Language" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma"
+          }
+        }
+      }
+    },
+    "Language, animations, scanning, cleanup mode, agents and AI go back to their defaults. Agents will be allowed to run safe cleanups. Your “Protected by you” list is kept." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El idioma, las animaciones, el escaneo, el modo de limpieza, los agentes y la IA vuelven a sus valores predeterminados. Los agentes podrán hacer limpiezas seguras. Tu lista «Protegido por ti» se conserva."
+          }
+        }
+      }
+    },
     "Large & Old" : {
       "localizations" : {
         "es" : {
@@ -2381,12 +2911,32 @@
         }
       }
     },
+    "License" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Licencia"
+          }
+        }
+      }
+    },
     "Links in /usr/local/bin that no longer point to anything." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enlaces de /usr/local/bin que ya no apuntan a nada."
+          }
+        }
+      }
+    },
+    "Look Again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar de nuevo"
           }
         }
       }
@@ -2437,6 +2987,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Servidor MCP listo"
+          }
+        }
+      }
+    },
+    "MCP server (airy-mcp)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidor MCP (airy-mcp)"
           }
         }
       }
@@ -2731,6 +3291,16 @@
         }
       }
     },
+    "Never" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nunca"
+          }
+        }
+      }
+    },
     "No agent has used Airy yet." : {
       "localizations" : {
         "es" : {
@@ -2787,6 +3357,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sin fecha"
+          }
+        }
+      }
+    },
+    "No excluded folders." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay carpetas excluidas."
           }
         }
       }
@@ -3071,6 +3651,16 @@
         }
       }
     },
+    "Off, Airy shows the last scan until you scan again (⌘R)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado, Airy muestra el último escaneo hasta que vuelvas a escanear (⌘R)."
+          }
+        }
+      }
+    },
     "Official command" : {
       "localizations" : {
         "es" : {
@@ -3111,12 +3701,42 @@
         }
       }
     },
+    "Only gentle fades, whatever the system says." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo fundidos suaves, diga lo que diga el sistema."
+          }
+        }
+      }
+    },
+    "Only if the last scan is older than" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo si el último escaneo tiene más de"
+          }
+        }
+      }
+    },
     "Only items marked “Safe to remove”. Everything else is always proposed to you here." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Solo lo marcado «Borrar sin riesgo». Lo demás siempre te lo proponen aquí."
+          }
+        }
+      }
+    },
+    "Only items marked “Safe to remove”. Everything else is always proposed to you." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo lo marcado como «Se puede borrar». Todo lo demás siempre se te propone a ti."
           }
         }
       }
@@ -3171,6 +3791,36 @@
         }
       }
     },
+    "Open Operation Log" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir registro de operaciones"
+          }
+        }
+      }
+    },
+    "Open Privacy Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir ajustes de privacidad"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes"
+          }
+        }
+      }
+    },
     "Open source under the GPL-3.0 license · github.com/luis-guillen/airy\nAiry adapts ideas and path lists from Mole (github.com/tw93/Mole, GPL-3.0). It contains no Mole code." : {
       "localizations" : {
         "es" : {
@@ -3187,6 +3837,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abierto %@"
+          }
+        }
+      }
+    },
+    "Operation log cleared." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registro de operaciones vaciado."
           }
         }
       }
@@ -3291,6 +3951,16 @@
         }
       }
     },
+    "Permissions" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permisos"
+          }
+        }
+      }
+    },
     "Problem" : {
       "localizations" : {
         "es" : {
@@ -3371,7 +4041,7 @@
         }
       }
     },
-    "Protected by You" : {
+    "Protected by you" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -3477,6 +4147,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recuperable"
+          }
+        }
+      }
+    },
+    "Reduced" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reducidas"
           }
         }
       }
@@ -3591,6 +4271,16 @@
         }
       }
     },
+    "Report an Issue" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Informar de un problema"
+          }
+        }
+      }
+    },
     "Requested" : {
       "localizations" : {
         "es" : {
@@ -3607,6 +4297,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reanálisis"
+          }
+        }
+      }
+    },
+    "Rescan automatically on launch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a escanear al abrir"
           }
         }
       }
@@ -3637,6 +4337,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restablecer ajustes"
+          }
+        }
+      }
+    },
+    "Reset all settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer todos los ajustes"
+          }
+        }
+      }
+    },
+    "Reset all settings?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Restablecer todos los ajustes?"
+          }
+        }
+      }
+    },
+    "Reset…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer…"
+          }
+        }
+      }
+    },
+    "Restart Airy to apply the new language." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reinicia Airy para aplicar el nuevo idioma."
+          }
+        }
+      }
+    },
+    "Restart Now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar ahora"
           }
         }
       }
@@ -3681,6 +4431,16 @@
         }
       }
     },
+    "Saved as you change them. Agents connected over MCP read the same settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se guardan al cambiarlos. Los agentes conectados por MCP leen los mismos ajustes."
+          }
+        }
+      }
+    },
     "Scan" : {
       "localizations" : {
         "es" : {
@@ -3697,6 +4457,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Analizar de nuevo"
+          }
+        }
+      }
+    },
+    "Scan This Folder Again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a escanear esta carpeta"
+          }
+        }
+      }
+    },
+    "Scan index deleted. The map shown stays until you scan again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Índice de escaneo borrado. El mapa que ves se mantiene hasta que vuelvas a escanear."
           }
         }
       }
@@ -3747,6 +4527,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Analizado %@"
+          }
+        }
+      }
+    },
+    "Scanning" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escaneo"
           }
         }
       }
@@ -3921,12 +4711,42 @@
         }
       }
     },
+    "Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        }
+      }
+    },
     "Settings can be undone: the explanation says how." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Los ajustes se pueden deshacer: la explicación dice cómo."
+          }
+        }
+      }
+    },
+    "Settings reset to their defaults." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes restablecidos a sus valores predeterminados."
+          }
+        }
+      }
+    },
+    "Show Connection Instructions" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver instrucciones de conexión"
           }
         }
       }
@@ -4081,6 +4901,16 @@
         }
       }
     },
+    "Startup Disk" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disco de arranque"
+          }
+        }
+      }
+    },
     "Stays" : {
       "localizations" : {
         "es" : {
@@ -4181,6 +5011,16 @@
         }
       }
     },
+    "System" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistema"
+          }
+        }
+      }
+    },
     "System & Other" : {
       "localizations" : {
         "es" : {
@@ -4241,12 +5081,52 @@
         }
       }
     },
+    "The assistant’s report and chat, “Explain with AI” and “Why is it slow?”. They use Claude Code on this Mac and only send paths, sizes and dates." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El informe y el chat del asistente, «Explicar con IA» y «¿Por qué va lento?». Usan Claude Code en este Mac y solo envían rutas, tamaños y fechas."
+          }
+        }
+      }
+    },
+    "The breeze and wind effects even with Reduce Motion on." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La brisa y los efectos de viento aunque «Reducir movimiento» esté activado."
+          }
+        }
+      }
+    },
     "The chosen executable (%@) doesn’t respond like Claude Code; choose another one or let Airy look for it." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "El ejecutable elegido (%@) no responde como Claude Code; elige otro o deja que Airy lo busque."
+          }
+        }
+      }
+    },
+    "The chosen executable doesn’t respond: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El ejecutable elegido no responde: %@"
+          }
+        }
+      }
+    },
+    "The disk Airy opens with." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El disco con el que se abre Airy."
           }
         }
       }
@@ -4347,6 +5227,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No queda nada que borrar."
+          }
+        }
+      }
+    },
+    "These actions only touch Airy’s own files in this folder, never yours. Each one asks first." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estas acciones solo tocan los archivos de Airy en esta carpeta, nunca los tuyos. Cada una pregunta antes."
           }
         }
       }
@@ -4517,6 +5407,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activa Airy en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco para incluir Mail, Safari y los datos protegidos de las apps."
+          }
+        }
+      }
+    },
+    "Turn them on in Settings › AI to get a report or chat about your scan. Connect Agent still works." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actívalas en Ajustes › IA para obtener un informe o chatear sobre tu escaneo. «Conectar agente» sigue funcionando."
           }
         }
       }
@@ -4741,6 +5641,16 @@
         }
       }
     },
+    "Version %@ (%@)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "Waiting for you" : {
       "localizations" : {
         "es" : {
@@ -4877,6 +5787,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sin Acceso total al disco se la pedirá a Finder, que vacía definitivamente la Papelera de todos los discos, también los externos."
+          }
+        }
+      }
+    },
+    "Without it some folders can’t be read, so their sizes are marked with “+”." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin él algunas carpetas no se pueden leer, así que sus tamaños llevan «+»."
           }
         }
       }

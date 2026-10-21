@@ -11,15 +11,22 @@ public struct ScanOptions: Sendable {
     public var excludedPrefixes: [String]
     /// Children smaller than this are merged into an "Other" node when each folder is closed.
     public var pruneThreshold: Int64
+    /// Folders the user excluded in Settings › Scanning. Unlike `excludedPrefixes` they always apply, even to a
+    /// root inside them, and they are never opened: each one shows up as an empty folder, the way an unreadable
+    /// one does (only its own size), but it is not reported as unreadable. Matched case-insensitively, also
+    /// through the root's real path (`/var` ⇄ `/private/var`).
+    public var userExcluded: [String]
 
     public init(
         roots: [URL],
         excludedPrefixes: [String] = ScanOptions.defaultExcludedPrefixes,
-        pruneThreshold: Int64 = 1_048_576
+        pruneThreshold: Int64 = 1_048_576,
+        userExcluded: [String] = []
     ) {
         self.roots = roots
         self.excludedPrefixes = excludedPrefixes
         self.pruneThreshold = pruneThreshold
+        self.userExcluded = userExcluded
     }
 }
 
@@ -82,6 +89,13 @@ public final class DiskScanner: Sendable {
 
         var nodes: [FileNode] = []
         for rootPath in rootPaths {
+            let userExcluded = Self.userExcludedKeys(options.userExcluded, root: rootPath)
+            // A root the user excluded (or one inside an excluded folder) is never opened.
+            let rootForms = Set([rootPath, Self.realPath(rootPath) ?? rootPath].map { $0.lowercased() })
+            if userExcluded.contains(where: { key in rootForms.contains { Self.path($0, isInside: key) } }) {
+                nodes.append(FileNode(name: rootPath, isDirectory: true))
+                continue
+            }
             var info = stat()
             guard stat(rootPath, &info) == 0 else {
                 shared.markInaccessible(rootPath)
@@ -96,6 +110,7 @@ public final class DiskScanner: Sendable {
                 device: info.st_dev,
                 excluded: excluded.filter { !Self.path(rootPath, isInside: $0) },
                 otherRoots: Set(rootPaths).subtracting([rootPath]),
+                userExcluded: userExcluded,
                 shared: shared
             )
             let entry = DirectoryEntry(
@@ -192,9 +207,15 @@ public final class DiskScanner: Sendable {
 
             if (info.st_mode & S_IFMT) == S_IFDIR {
                 guard info.st_dev == context.device else { continue }
-                subdirectories.append(DirectoryEntry(
+                let entry = DirectoryEntry(
                     path: childPath, name: name,
-                    ownSize: Int64(info.st_blocks) * 512, modified: Self.date(info.st_mtimespec)))
+                    ownSize: Int64(info.st_blocks) * 512, modified: Self.date(info.st_mtimespec))
+                // Excluded by the user: closed empty without opening it, like an unreadable folder.
+                if !context.userExcluded.isEmpty, context.userExcluded.contains(childPath.lowercased()) {
+                    children.append(close(entry, children: []))
+                    continue
+                }
+                subdirectories.append(entry)
             } else {
                 let file = makeFile(name: name, directory: directory.path, info: info, shared: context.shared)
                 fileBytes += file.allocatedSize
@@ -299,6 +320,32 @@ public final class DiskScanner: Sendable {
         return "/" + components.joined(separator: "/")
     }
 
+    /// Lowercased keys of the user's excluded folders for one root: each normalized path, its real path and,
+    /// when the root reaches the disk through a link (`/var/…` ⇄ `/private/var/…`), the same folder spelled from
+    /// the root, so that the per-entry check stays a set lookup. `/` and relative paths are ignored.
+    static func userExcludedKeys(_ paths: [String], root: String) -> Set<String> {
+        guard !paths.isEmpty else { return [] }
+        let rootReal = realPath(root) ?? root
+        var keys: Set<String> = []
+        for raw in paths where raw.hasPrefix("/") {
+            let normal = normalize(raw)
+            guard normal != "/" else { continue }
+            for form in Set([normal, realPath(normal) ?? normal]) where form != "/" {
+                keys.insert(form.lowercased())
+                if rootReal != root, path(form, isInside: rootReal), form != rootReal {
+                    keys.insert((root + form.dropFirst(rootReal.count)).lowercased())
+                }
+            }
+        }
+        return keys
+    }
+
+    private static func realPath(_ path: String) -> String? {
+        guard let resolved = realpath(path, nil) else { return nil }
+        defer { free(resolved) }
+        return String(cString: resolved)
+    }
+
     private static func uniqueNormalized(_ paths: [String]) -> [String] {
         var seen: Set<String> = []
         return paths.map(normalize).filter { seen.insert($0).inserted }
@@ -325,6 +372,8 @@ private struct ScanContext: Sendable {
     let device: dev_t
     let excluded: Set<String>
     let otherRoots: Set<String>
+    /// Lowercased paths of the folders the user excluded (`DiskScanner.userExcludedKeys`).
+    let userExcluded: Set<String>
     let shared: SharedScanState
 }
 

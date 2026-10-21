@@ -7,6 +7,7 @@ import DiskMapCore
 enum Section: String, CaseIterable, Identifiable, Hashable {
     case map, cleanup, performance, assistant
     case uninstaller, largeOld, duplicates, types
+    case settings
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum Section: String, CaseIterable, Identifiable, Hashable {
         case .largeOld: String(localized: "Large & Old")
         case .duplicates: String(localized: "Duplicates")
         case .types: String(localized: "File Types")
+        case .settings: String(localized: "Settings")
         }
     }
 
@@ -33,6 +35,7 @@ enum Section: String, CaseIterable, Identifiable, Hashable {
         case .largeOld: "calendar.badge.clock"
         case .duplicates: "doc.on.doc"
         case .types: "chart.pie"
+        case .settings: "gearshape"
         }
     }
 
@@ -216,6 +219,9 @@ final class AppModel {
             notices.append(Notice(kind: .migration, message: String(localized: "Couldn’t copy the data from \(AppPaths.legacyFolderName) (\(migrationFailure)). It’s still in its folder; Airy will try again next time it opens.")))
         }
         syncSettingsNotice()
+        // Core text (catalog, notices) in the language chosen in Settings; `nil` follows the app's UI.
+        AiryLanguage.override = settingsSession.effective.language.code
+        launchLanguageChoice = settingsSession.effective.language
         observeSystem()
         refreshSystemState()
         performance.model = self
@@ -278,6 +284,160 @@ final class AppModel {
 
     func unprotect(_ pattern: String) {
         updateSettings { $0.unprotect(pattern) }
+    }
+
+    /// Settings › Scanning › Excluded folders (applies from the next scan).
+    func exclude(paths: [String]) {
+        let home = NSHomeDirectory()
+        updateSettings { settings in for path in paths { _ = settings.exclude(path, home: home) } }
+    }
+
+    func unexclude(_ path: String) {
+        updateSettings { $0.unexclude(path) }
+    }
+
+    // MARK: Settings › General
+
+    /// Language choice the process started with: a different one needs a relaunch.
+    @ObservationIgnored private(set) var launchLanguageChoice: AppLanguage = .system
+
+    /// `true` when the language chosen in Settings differs from the one this process started with.
+    var languageNeedsRestart: Bool { settings.language != launchLanguageChoice }
+
+    /// Saves the language and writes the app's own `AppleLanguages` (never the global one), which macOS reads on
+    /// the next launch. In DEBUG with `AIRY_SUPPORT_DIR` the real user defaults aren't touched: the relaunch
+    /// passes the language as an argument instead.
+    func setLanguage(_ language: AppLanguage) {
+        updateSettings { $0.language = language }
+        guard settings.language == language, Self.touchesUserDefaults else { return }
+        Self.writeAppleLanguages(language)
+    }
+
+    private static func writeAppleLanguages(_ language: AppLanguage) {
+        if let code = language.code {
+            UserDefaults.standard.set([code], forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        }
+    }
+
+    private static var touchesUserDefaults: Bool { AppPaths.standard().legacySupport != nil }
+
+    /// "Restart now": opens a new instance of Airy and quits this one once it has launched. Refused while a
+    /// cleanup, uninstall or quit is running (`busy`).
+    /// Returns why it couldn't, or `nil` once the new instance has been asked to open.
+    @discardableResult
+    func relaunch(busy: Bool) -> String? {
+        guard !busy else { return String(localized: "Airy is busy; restart it when the current task has finished.") }
+        var arguments: [String] = []
+        if let code = settings.language.code { arguments += ["-AppleLanguages", "(\(code))"] }
+        let bundle = Bundle.main.bundleURL
+        if bundle.pathExtension == "app" {
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.createsNewApplicationInstance = true
+            configuration.arguments = arguments
+            configuration.environment = ProcessInfo.processInfo.environment
+            NSWorkspace.shared.openApplication(at: bundle, configuration: configuration) { [weak self] _, error in
+                Task { @MainActor in
+                    if let error {
+                        self?.report(.settings, String(localized: "Couldn’t restart Airy (\(error.localizedDescription)). Quit and open it again."))
+                    } else {
+                        NSApp.terminate(nil)
+                    }
+                }
+            }
+            return nil
+        } else if let executable = Bundle.main.executableURL {
+            // A bare executable (`swift run`, DEBUG checks): same binary, same environment.
+            let process = Process()
+            process.executableURL = executable
+            process.arguments = arguments
+            process.environment = ProcessInfo.processInfo.environment
+            do {
+                try process.run()
+                NSApp.terminate(nil)
+            } catch {
+                return String(localized: "Couldn’t restart Airy (\(error.localizedDescription)). Quit and open it again.")
+            }
+        }
+        return nil
+    }
+
+    // MARK: Settings › Data
+
+    /// Airy's own support folder (index, history, settings, operation log).
+    var dataFolder: URL { paths.support }
+
+    /// Shows the support folder (or the operation log inside it) in Finder, creating the folder if needed.
+    func revealDataFolder(selecting file: URL? = nil) {
+        try? FileManager.default.createDirectory(at: paths.support, withIntermediateDirectories: true)
+        if let file, FileManager.default.fileExists(atPath: file.path) {
+            NSWorkspace.shared.activateFileViewerSelecting([file])
+        } else {
+            NSWorkspace.shared.open(paths.support)
+        }
+    }
+
+    /// Asks before an action on Airy's own files. `true` if the user confirmed.
+    private func confirm(_ title: String, _ message: String, button: String) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: button)
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// "Delete scan index": removes the saved indexes (startup disk and external ones) after confirming. Only
+    /// Airy's own `scan.plist` files: the cleanup history and every user file stay. Not while scanning.
+    /// Returns what happened for the Settings card, or `nil` if the user cancelled.
+    func deleteScanIndex() -> String? {
+        guard !isScanning else { return nil }
+        guard confirm(String(localized: "Delete the scan index?"),
+                      String(localized: "Airy forgets its saved scans of every disk and scans again the next time it opens. Your files aren’t touched, and the cleanup history stays."),
+                      button: String(localized: "Delete Index")) else { return nil }
+        var stores = [store]
+        let volumes = appDirectory.appendingPathComponent("Volumes", isDirectory: true)
+        let folders = (try? FileManager.default.contentsOfDirectory(at: volumes, includingPropertiesForKeys: nil)) ?? []
+        stores += folders.map { IndexStore(directory: $0) }
+        do {
+            for store in stores { try store.deleteScan() }
+            return String(localized: "Scan index deleted. The map shown stays until you scan again.")
+        } catch {
+            return String(localized: "Couldn’t delete the scan index (\(error.localizedDescription)).")
+        }
+    }
+
+    /// "Clear operation log": empties `operations.jsonl` after confirming.
+    func clearOperationLog() -> String? {
+        guard confirm(String(localized: "Clear the operation log?"),
+                      String(localized: "Airy deletes the record of what it and your agents cleaned. This can’t be undone. Your files and the Trash aren’t touched."),
+                      button: String(localized: "Clear Log")) else { return nil }
+        do {
+            try operationLog.clear()
+            return String(localized: "Operation log cleared.")
+        } catch {
+            return String(localized: "Couldn’t clear the operation log (\(error.localizedDescription)).")
+        }
+    }
+
+    /// "Reset all settings": every preference back to its default after confirming; the "Protect this" list is
+    /// kept. With an unreadable `settings.json` it is the existing recovery flow instead (`resetSettings`).
+    func resetAllSettings() -> String? {
+        guard !settingsLoad.isUnreadable else {
+            resetSettings()
+            return nil
+        }
+        guard confirm(String(localized: "Reset all settings?"),
+                      String(localized: "Language, animations, scanning, cleanup mode, agents and AI go back to their defaults. Agents will be allowed to run safe cleanups. Your “Protected by you” list is kept."),
+                      button: String(localized: "Reset")) else { return nil }
+        updateSettings { $0 = $0.resettingPreferences() }
+        guard settings == settings.resettingPreferences(), !settingsLoad.isUnreadable else {
+            return String(localized: "Couldn’t reset the settings.")
+        }
+        if Self.touchesUserDefaults { Self.writeAppleLanguages(.system) }
+        return String(localized: "Settings reset to their defaults.")
     }
 
     /// Notice while `settings.json` can't be read, or `nil`.
@@ -591,7 +751,10 @@ final class AppModel {
             // 2. Is it needed? A recent index stays (the map says "Last scan: … ago").
             // Automatic detection runs right away on an index that stays; if a scan is coming, it waits for it
             // (detecting on a tree about to be replaced is wasted work, and it would compete with the scan).
-            let plan = ScanSchedule.plan(trigger, hasIndex: stored != nil, indexDate: stored?.1, now: Date())
+            let preferences = self.settings
+            let plan = ScanSchedule.plan(trigger, hasIndex: stored != nil, indexDate: stored?.1, now: Date(),
+                                         autoRescan: preferences.autoRescanOnLaunch,
+                                         maxAge: preferences.rescanAge.interval)
             if let detection = self.detectionGate.indexRead(hasIndex: stored != nil, plan: plan) {
                 self.refreshCleanup(detection)
             }
@@ -606,7 +769,9 @@ final class AppModel {
 
             // 3. New scan with threads and QoS limited by the intensity, cancellable.
             let scanStarted = Date()
-            let scanner = DiskScanner(options: ScanOptions(roots: Self.scanRoots(for: volume)), intensity: intensity)
+            // Folders excluded in Settings › Scanning are never opened (read now, right before walking).
+            let options = ScanOptions(roots: Self.scanRoots(for: volume), userExcluded: self.settings.excludedPaths)
+            let scanner = DiskScanner(options: options, intensity: intensity)
             let job = Task.detached(priority: intensity == .background ? .background : .utility) {
                 try await scanner.scan(progress: onProgress)
             }
@@ -651,6 +816,19 @@ final class AppModel {
             if let detection = self.detectionGate.scanFinished(trigger) { self.refreshCleanup(detection) }
             await self.saveIndex(result, to: store, key: volume.url.path)
         }
+    }
+
+    /// Launch: selects the default disk from Settings (if it is mounted) and starts the automatic scan.
+    func startLaunchScan() async {
+        if let preferred = settings.defaultVolume {
+            await refreshVolumes()
+            if let volume = volumes.first(where: { $0.url.path == preferred }), volume.url != selectedVolume {
+                // `selectedVolume`'s `didSet` starts the automatic scan of that disk.
+                selectedVolume = volume.url
+                return
+            }
+        }
+        startScan(.automatic)
     }
 
     /// Scan roots: the whole volume. In DEBUG, `AIRY_SCAN_ROOTS` replaces them

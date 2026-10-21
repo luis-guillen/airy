@@ -58,6 +58,23 @@ import Foundation
         #expect(ScanSchedule.plan(.automatic, hasIndex: false, indexDate: nil, now: now) == .scan(.normal))
     }
 
+    @Test func settingsDecideTheAutomaticRescan() {
+        let twoHoursAgo = now.addingTimeInterval(-2 * 3600)
+        // 1 h: a two-hour-old index is rescanned; 24 h: it isn't.
+        #expect(ScanSchedule.plan(.automatic, hasIndex: true, indexDate: twoHoursAgo, now: now,
+                                  maxAge: RescanAge.oneHour.interval) == .scan(.background))
+        #expect(ScanSchedule.plan(.automatic, hasIndex: true, indexDate: twoHoursAgo, now: now,
+                                  maxAge: RescanAge.oneDay.interval) == .skip)
+        // "Never" and the switch off: a saved index is never rescanned by itself, not even an undated one.
+        let old = now.addingTimeInterval(-30 * 24 * 3600)
+        #expect(ScanSchedule.plan(.automatic, hasIndex: true, indexDate: old, now: now, maxAge: nil) == .skip)
+        #expect(ScanSchedule.plan(.automatic, hasIndex: true, indexDate: nil, now: now, autoRescan: false) == .skip)
+        // Without an index there is nothing to show: Airy still scans. User and agent scans are unaffected.
+        #expect(ScanSchedule.plan(.automatic, hasIndex: false, indexDate: nil, now: now, autoRescan: false) == .scan(.normal))
+        #expect(ScanSchedule.plan(.user, hasIndex: true, indexDate: now, now: now, autoRescan: false) == .scan(.normal))
+        #expect(ScanSchedule.plan(.agent, hasIndex: true, indexDate: now, now: now, maxAge: nil) == .scan(.background))
+    }
+
     @Test func userAndAgentAlwaysScan() {
         let fresh = now.addingTimeInterval(-60)
         #expect(ScanSchedule.plan(.user, hasIndex: true, indexDate: fresh, now: now) == .scan(.normal))

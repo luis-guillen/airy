@@ -30,7 +30,7 @@ struct AssistantView: View {
         .padding(.bottom, model.isScanning && model.scan != nil ? 76 : 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
-            session.locateIfNeeded()
+            if model.settings.aiEnabled { session.locateIfNeeded() }
             consumePendingQuestion()
         }
         .onChange(of: model.pendingAssistantQuestion) { _, _ in consumePendingQuestion() }
@@ -44,6 +44,10 @@ struct AssistantView: View {
             // "Connect Agent" doesn't depend on Claude Code: other agents can use Airy too.
             if session.mode == .agents {
                 AgentsView()
+                    .transition(.opacity)
+            } else if !model.settings.aiEnabled {
+                // Settings › AI off: neither the report nor the chat calls Claude.
+                AIOffView()
                     .transition(.opacity)
             } else {
             switch session.claude {
@@ -69,14 +73,41 @@ struct AssistantView: View {
         }
         .animation(Theme.sectionSpring, value: session.claude)
         .animation(Theme.sectionSpring, value: session.mode == .agents)
+        .animation(Theme.sectionSpring, value: model.settings.aiEnabled)
     }
 
     /// The map's "Explain with AI": switches to the chat and sends it only once.
     private func consumePendingQuestion() {
         guard let question = model.pendingAssistantQuestion else { return }
         model.pendingAssistantQuestion = nil
+        guard model.settings.aiEnabled else { return }
         session.mode = .chat
         session.ask(question, model: model)
+    }
+}
+
+/// Report and chat while AI features are off in Settings.
+private struct AIOffView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        VStack(spacing: 14) {
+            AssistantGlyph(symbol: "sparkles", size: 48)
+                .saturation(0)
+                .opacity(0.6)
+            Text("AI features are off")
+                .font(.title3.weight(.semibold))
+            Text("Turn them on in Settings › AI to get a report or chat about your scan. Connect Agent still works.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 380)
+            PrimaryButton("Open Settings", systemImage: "gearshape", style: .secondary) {
+                withAnimation(Theme.sectionSpring) { model.section = .settings }
+            }
+            .fixedSize()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

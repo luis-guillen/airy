@@ -7,6 +7,7 @@ All notable changes to Airy are documented here. The format follows
 
 ### Added
 - English localization. English is now the base language and Spanish a full translation; the app follows the macOS language.
+- **Settings** section (last in the sidebar, also ⌘,): language with restart, animations, Full Disk Access status, automatic rescan and its age, default disk, excluded folders (never scanned), cleanup mode, Protected by you, agents and MCP, an AI switch, Airy's data (delete scan index, clear operation log, reset all settings) and About.
 
 ### Changed
 - Airy is open source under the **GPL-3.0** license.

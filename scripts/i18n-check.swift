@@ -50,7 +50,12 @@ guard build.terminationStatus == 0 else {
 
 // 2. Keys used in Sources/Airy, with their first location.
 var used: [String: String] = [:]
-let files = (try? fileManager.contentsOfDirectory(at: stringsDir, includingPropertiesForKeys: nil)) ?? []
+var files = (try? fileManager.contentsOfDirectory(at: stringsDir, includingPropertiesForKeys: nil)) ?? []
+// The swiftbuild build system ignores `-emit-localized-strings-path` and leaves each `.stringsdata` next to its
+// object file, so the whole scratch folder is searched too (the `source` filter below keeps only Sources/Airy).
+if let enumerator = fileManager.enumerator(at: scratch.appendingPathComponent("out"), includingPropertiesForKeys: nil) {
+    for case let url as URL in enumerator where url.pathExtension == "stringsdata" { files.append(url) }
+}
 for file in files where file.pathExtension == "stringsdata" {
     guard let data = try? Data(contentsOf: file),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
