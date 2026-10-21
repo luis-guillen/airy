@@ -3,8 +3,9 @@ import DiskMapCore
 
 /// Logo vectorial de Airy: squircle con degradado, arcos de viento y hojas (geometría de
 /// `AiryLogoGeometry`, la misma que dibuja `scripts/make-icon.swift`). Sustituye al antiguo logotipo de bloques.
-/// Con `animated`, el remolino (arcos y sus hojas) gira despacio, una vuelta cada 20 s, solo
-/// mientras hay movimiento ambiente; si no, se dibuja una vista estática.
+/// Con `animated`, el remolino (arcos y sus hojas) gira despacio, una vuelta cada 20 s, mientras
+/// hay movimiento ambiente; en pausa se congela en su ángulo y luego sigue desde ahí; con
+/// «Reducir movimiento» se dibuja una vista estática.
 struct AiryLogo: View {
     let size: CGFloat
     var animated = false
@@ -24,8 +25,8 @@ struct AiryLogo: View {
                 .fill(Theme.Airy.logoGradient)
                 // La sombra va en el squircle: la capa del giro (una `NSView`) queda fuera de la de SwiftUI.
                 .shadow(color: .black.opacity(0.2), radius: size * 0.08, y: size * 0.04)
-            if animated, motion == .running {
-                SpinningSwirl(swirl: swirl, scale: displayScale)
+            if animated, motion != .reduced {
+                SpinningSwirl(swirl: swirl, scale: displayScale, paused: motion != .running)
             } else {
                 swirl
             }
@@ -40,11 +41,12 @@ struct AiryLogo: View {
 private struct SpinningSwirl: View {
     let swirl: LogoSwirl
     let scale: CGFloat
+    let paused: Bool
 
     static let period: Double = 20
 
     var body: some View {
-        RenderServerLayer(key: [swirl.size, scale]) { container, size in
+        RenderServerLayer(key: [swirl.size, scale], paused: paused) { container, size in
             let renderer = ImageRenderer(content: swirl)
             renderer.scale = scale
             let layer = CALayer()
@@ -56,6 +58,10 @@ private struct SpinningSwirl: View {
             // Con y hacia abajo, un ángulo positivo gira en sentido horario, como los arcos.
             spin.toValue = 2 * Double.pi
             spin.duration = Self.period
+            // Sigue en su ángulo si la capa se reconstruye (escala de pantalla, tamaño).
+            spin.timeOffset = CAAnimation.continuousOffset(in: container, period: Self.period)
+            // Una vuelta cada 20 s: 30 fps le sobran.
+            spin.preferredFrameRateRange = CAAnimation.ambientFrameRate
             spin.repeatCount = .infinity
             spin.isRemovedOnCompletion = false
             layer.add(spin, forKey: "spin")
