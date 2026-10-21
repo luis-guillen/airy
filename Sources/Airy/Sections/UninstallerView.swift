@@ -90,7 +90,7 @@ struct UninstallerView: View {
                                     AppRow(store: store, app: app, plan: store.plans[app.path],
                                            isRunning: flow.currentID == app.path)
                                 }
-                                .gustSway(index: flow.gust?.order.firstIndex(of: app.path), start: flow.gust?.start)
+                                .gustSway(index: flow.gust(for: .uninstall)?.order.firstIndex(of: app.path), start: flow.gust(for: .uninstall)?.start)
                                 .transition(.leafAway)
                             }
                         }
@@ -99,7 +99,7 @@ struct UninstallerView: View {
                     .padding(.bottom, 70)
                 }
                 .overlay {
-                    if let gust = flow.gust { GustSweep(start: gust.start).id(gust.id) }
+                    if let gust = flow.gust(for: .uninstall) { GustSweep(start: gust.start).id(gust.id) }
                 }
             }
         }

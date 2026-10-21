@@ -113,6 +113,15 @@ struct WindMotionTests {
         for row in 0..<5 { #expect(abs(WindMotion.gustRowOffset(row: row, rowCount: 5, elapsed: end)) < 1e-9) }
     }
 
+    @Test func gustLifetimeOutlastsTheBand() {
+        #expect(WindMotion.gustLifetime(rowCount: 0) == 0)
+        for rows in [2, 3, 7, 8, 30, 500] {
+            #expect(WindMotion.gustLifetime(rowCount: rows) > WindMotion.gustBandDuration)
+            #expect(WindMotion.gustLifetime(rowCount: rows) > WindMotion.gustDuration(rowCount: rows))
+        }
+        #expect(WindMotion.gustLifetime(rowCount: 500) <= WindMotion.gustMaxDuration + 0.1 + 1e-9)
+    }
+
     @Test func gustDurationIsCappedForHugeLists() {
         #expect(WindMotion.gustDuration(rowCount: 500) <= WindMotion.gustMaxDuration)
         #expect(abs(WindMotion.gustRowOffset(row: 499, rowCount: 500, elapsed: WindMotion.gustMaxDuration)) < 1e-9)
