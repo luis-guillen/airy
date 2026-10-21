@@ -129,10 +129,10 @@ struct RootView: View {
                         #if DEBUG
                         MotionGallery()
                         #endif
-                    } else if model.scan == nil, model.isScanning {
+                    } else if model.scan == nil, model.isScanning, !model.section.worksWithoutScan {
                         ScanProgressView(style: .hero)
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    } else if model.scan == nil, let error = model.scanError {
+                    } else if model.scan == nil, !model.section.worksWithoutScan, let error = model.scanError {
                         ScanErrorView(message: error)
                     } else {
                         SectionContent(section: model.section)
@@ -202,6 +202,8 @@ private struct SectionContent: View {
             MapView(subtitle: mapSubtitle(now: now))
         case .cleanup:
             CleanupView()
+        case .performance:
+            PerformanceView()
         case .assistant:
             AssistantView()
         case .largeOld:
@@ -279,4 +281,9 @@ private struct ScanErrorView: View {
         .padding(40)
         .frame(maxWidth: 520)
     }
+}
+
+extension Section {
+    /// Secciones que no dependen del análisis del disco (se ven aunque esté analizando o haya fallado).
+    var worksWithoutScan: Bool { self == .performance }
 }

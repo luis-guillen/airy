@@ -18,6 +18,44 @@ public enum AppGrouper {
         return systemPrefixes.contains { path.hasPrefix($0) }
     }
 
+    /// Carpetas que no dicen qué programa es (se saltan al buscar el nombre de un binario con versión).
+    static let genericFolders: Set<String> = [
+        "versions", "version", "bin", "sbin", "libexec", "lib", "current", "node_modules", ".bin", "contents", "macos",
+        "share", "local", "build", "release", "debug", "dist", "out",
+    ]
+
+    /// «2.1.304», «1.0», «v22.3.0»: un nombre que es solo una versión.
+    static func isVersionLike(_ name: String) -> Bool {
+        let core = name.hasPrefix("v") ? String(name.dropFirst()) : name
+        return !core.isEmpty && core.first!.isNumber && core.allSatisfy { $0.isNumber || $0 == "." || $0 == "-" || $0 == "_" }
+    }
+
+    /// Nombre legible de un proceso suelto o del sistema: si el nombre del kernel está truncado, el del
+    /// ejecutable (o su título del catálogo); si el ejecutable es una versión (`…/claude/versions/2.1.304`), la
+    /// primera carpeta superior con nombre de programa.
+    public static func friendlyName(_ p: OwnProcess, catalog: AppCatalog?) -> String {
+        var base = p.name
+        if let path = p.executablePath {
+            let parts = path.split(separator: "/").map(String.init)
+            if let file = parts.last {
+                if isVersionLike(file) {
+                    if let parent = parts.dropLast().reversed().first(where: {
+                        !isVersionLike($0) && !genericFolders.contains($0.lowercased())
+                    }) {
+                        base = parent.hasPrefix(".") ? String(parent.dropFirst()) : parent
+                    }
+                } else if file.count > p.name.count, file.hasPrefix(p.name) {
+                    base = file
+                }
+            }
+        }
+        // Solo cuando el nombre del kernel no servía: un `node` sigue llamándose `node`.
+        if base != p.name, let title = catalog?.entry(bundleID: nil, processName: base)?.title { return title }
+        return base
+    }
+
+    public static let dockerVMName = "Docker (máquina virtual)"
+
     public static func group(_ raw: RawSample, cpu: [Int32: Double], energy: [Int32: Double],
                              catalog: AppCatalog?) -> [AppGroup] {
         let live = raw.processes.filter { !$0.isZombie }
@@ -40,7 +78,8 @@ public enum AppGrouper {
                     detail = last.isEmpty ? nil : last
                 }
                 let entry = catalog?.entry(bundleID: nil, processName: p.name)
-                groups.append(make(id: "pid:\(p.pid):\(Int(p.startTime.timeIntervalSince1970))", name: p.name, detail: detail,
+                groups.append(make(id: "pid:\(p.pid):\(Int(p.startTime.timeIntervalSince1970))",
+                                   name: friendlyName(p, catalog: catalog), detail: detail,
                                    bundleID: nil, bundlePath: nil, kind: .looseProcess, members: [p], lead: p,
                                    cpu: cpu, energy: energy, explanation: entry?.explanation))
             }
@@ -49,7 +88,8 @@ public enum AppGrouper {
         for name in systemOrder {
             let members = systemProcs[name] ?? []
             let lead = members.max { $0.footprint < $1.footprint } ?? members[0]
-            groups.append(make(id: "system:" + name, name: name, detail: nil, bundleID: nil, bundlePath: nil,
+            groups.append(make(id: "system:" + name, name: friendlyName(lead, catalog: catalog), detail: nil,
+                               bundleID: nil, bundlePath: nil,
                                kind: .system, members: members, lead: lead, cpu: cpu, energy: energy,
                                explanation: catalog?.entry(bundleID: nil, processName: name)?.explanation))
         }
@@ -87,6 +127,16 @@ public enum AppGrouper {
                                bundleID: app?.bundleID, bundlePath: path, kind: kind, members: members, lead: lead,
                                cpu: cpu, energy: energy,
                                explanation: catalog?.entry(bundleID: app?.bundleID, processName: lead.name)?.explanation))
+        }
+
+        // R9: la VM de Virtualization.framework es de Docker si Docker está abierto y ninguna otra app de VM.
+        let openBundles = Set(raw.apps.compactMap(\.bundleID) + groups.compactMap(\.bundleID))
+        if openBundles.contains(PerformanceDiagnosis.dockerBundleID),
+           openBundles.isDisjoint(with: PerformanceDiagnosis.otherVirtualizationBundleIDs) {
+            for i in groups.indices where groups[i].kind == .system
+                && groups[i].processNames.contains(where: { PerformanceDiagnosis.virtualMachineProcess.hasPrefix($0) && $0.count >= 20 }) {
+                groups[i].name = dockerVMName
+            }
         }
 
         // El mismo bundle id desde dos rutas (una copia de la app) daría dos grupos con el mismo id:

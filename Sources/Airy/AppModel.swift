@@ -5,7 +5,7 @@ import DiskMapCore
 
 /// Secciones de la barra lateral.
 enum Section: String, CaseIterable, Identifiable, Hashable {
-    case map, cleanup, assistant
+    case map, cleanup, performance, assistant
     case uninstaller, largeOld, duplicates, types
 
     var id: String { rawValue }
@@ -14,6 +14,7 @@ enum Section: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .map: "Mapa"
         case .cleanup: "Limpieza"
+        case .performance: "Rendimiento"
         case .assistant: "Asistente IA"
         case .uninstaller: "Desinstalador"
         case .largeOld: "Grandes y viejos"
@@ -26,6 +27,7 @@ enum Section: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .map: "square.grid.3x3.square"
         case .cleanup: "sparkles"
+        case .performance: "gauge.with.dots.needle.67percent"
         case .assistant: "brain.head.profile"
         case .uninstaller: "xmark.app"
         case .largeOld: "calendar.badge.clock"
@@ -87,7 +89,7 @@ struct Volume: Identifiable, Hashable, Sendable {
 
 /// Aviso no bloqueante que la interfaz muestra como banner descartable.
 struct Notice: Identifiable, Equatable {
-    enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit }
+    enum Kind: String { case scan, save, history, catalog, migration, url, settings, audit, performance }
     let kind: Kind
     let message: String
     var id: String { kind.rawValue }
@@ -136,6 +138,10 @@ final class AppModel {
     let assistant = AssistantSession()
     /// Estado de las secciones de la fase 2 (filtros, resultados y selección): sobrevive a los cambios de sección.
     let sections = SectionStores()
+    /// Rendimiento: muestrea solo mientras la sección se ve.
+    let performance: PerformanceSession
+    /// Embudo de cierre de apps (ConfirmSheet → AppModel → QuitExecutor).
+    let quitExecutor: QuitExecutor
     /// Orden de un enlace `airy://` pendiente de procesar: `RootView` la consume con su `CleanupFlow`.
     /// Nunca ejecuta nada: como mucho abre la hoja de confirmación.
     var pendingURLCommand: PendingURLCommand?
@@ -187,6 +193,10 @@ final class AppModel {
         self.paths = paths
         appDirectory = paths.support
         operationLog = OperationLog(file: paths.operationsFile)
+        let performance = PerformanceSession()
+        self.performance = performance
+        let monitor = performance.monitor
+        quitExecutor = QuitExecutor(currentGroups: { await monitor.refresh().groups }, log: operationLog)
         var migrationFailure: String?
         if case .failed(let reason) = DataMigration.migrateIfNeeded(paths) { migrationFailure = reason }
         store = IndexStore(directory: appDirectory)
@@ -206,6 +216,7 @@ final class AppModel {
         syncSettingsNotice()
         observeSystem()
         refreshSystemState()
+        performance.model = self
     }
 
     // MARK: Ajustes
@@ -348,9 +359,29 @@ final class AppModel {
             section = .map
             guard await waitUntil({ $0.scan != nil }) else { return }
             navigation.reveal(path: path)
-        case .proposeQuit:
-            // Plan 4 Task 14 lo sustituye por la confirmación de cierre (ConfirmSheet → AppModel → QuitExecutor).
-            report(.url, "Un agente propuso cerrar una app; esta versión de Airy aún no lo admite.")
+        case .proposeQuit(let app, let reason, let agent):
+            // Nunca cierra nada: como mucho abre la confirmación, y el usuario decide.
+            section = .performance
+            let snapshot = await performance.firstSnapshot()
+            guard let row = PerformanceBoard(snapshot: snapshot, policy: QuitPolicy()).row(matching: app) else {
+                report(.performance, "Un agente propuso cerrar «\(app)», pero no está abierta.")
+                return
+            }
+            guard PerformanceBoard.canSelect(row) else {
+                report(.performance, "Un agente propuso cerrar «\(row.group.name)», pero Airy nunca la cierra.")
+                return
+            }
+            guard !flow.isBusy, flow.sheet == nil else {
+                report(.performance, "Airy está ocupada; vuelve a pedirlo en un momento.")
+                return
+            }
+            let warning = CleanupFlow.ConfirmRequest.Warning(
+                title: "Un agente propone cerrar esto",
+                subtitle: "\(agent ?? "Un agente") · \(reason.isEmpty ? "sin motivo" : reason)",
+                reason: "Nada se cierra hasta que lo confirmes aquí.",
+                note: "Si tiene algo sin guardar, la app te lo preguntará.")
+            flow.requestQuit([row.group], warning: warning, proposedBy: agent,
+                             proposedVia: OperationContext.viaUnverifiedURL)
         case .propose(let target, let reason, let agent):
             // Nunca sustituye una hoja ya abierta (el usuario confirmaría otra cosa) ni una limpieza en curso.
             if let refusal = URLProposalPolicy.refusal(sheetOpen: flow.sheet != nil, busy: flow.isBusy) {
@@ -672,6 +703,22 @@ final class AppModel {
         await refreshCounters()
         await refreshVolumes()
         if refreshesCleanup { refreshCleanup() }
+        reportAuditFailure()
+        return outcome
+    }
+
+    // MARK: Cerrar apps
+
+    /// Cierre normal (la app puede pedir guardar). La interfaz confirma antes de llamar aquí.
+    func quit(_ group: AppGroup, context: OperationContext) async -> QuitOutcome {
+        let outcome = await quitExecutor.quit(group, context: context)
+        reportAuditFailure()
+        return outcome
+    }
+
+    /// Forzar: solo lo que no respondió al cierre normal; siempre tras una segunda confirmación.
+    func forceQuit(_ group: AppGroup, context: OperationContext) async -> QuitOutcome {
+        let outcome = await quitExecutor.forceQuit(group, context: context)
         reportAuditFailure()
         return outcome
     }

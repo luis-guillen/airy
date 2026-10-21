@@ -197,7 +197,8 @@ private let support = "/Library/Application Support"
         #expect(try #require(all.entry(id: "adobe-media-cache")).processNames
             == ["Adobe Premiere Pro", "After Effects", "Adobe Media Encoder"])
         #expect(try #require(all.entry(id: "office-caches")).paths.count == 4)
-        #expect(all.entries.last?.id == "app-support-caches")
+        // La última de Limpieza (las de mantenimiento van detrás y el escáner de Limpieza las salta).
+        #expect(all.entries.last { $0.section == .cleanup }?.id == "app-support-caches")
     }
 
     @Test func davinciCacheInMoviesIsAmber() throws {

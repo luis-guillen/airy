@@ -113,7 +113,8 @@ public struct CleanupScanner: Sendable {
         // queda en «Tamaño desconocido».
         let clock = ContinuousClock()
         var reviewDeadline: ContinuousClock.Instant?
-        for entry in catalog.entries {
+        // El mantenimiento (Rendimiento) no es limpieza: lo detecta `MaintenanceScanner`.
+        for entry in catalog.entries where entry.section != .maintenance {
             for var target in await CleanupTargets.source(for: entry).discover(entry, context: context) {
                 let original = target.paths
                 if !original.isEmpty {
