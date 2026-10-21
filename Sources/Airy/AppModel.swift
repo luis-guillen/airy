@@ -292,6 +292,29 @@ final class AppModel {
         LargeOldFinder(classifier: classifier, catalog: catalog, gate: gate(), home: NSHomeDirectory())
     }
 
+    /// Buscador de Duplicados con los ajustes cargados.
+    func duplicateFinder() -> DuplicateFinder {
+        DuplicateFinder(home: NSHomeDirectory(), classifier: classifier, gate: gate())
+    }
+
+    /// Guarda el último resultado de Duplicados (solo rutas, tamaños y fechas); si falla, avisa y sigue.
+    func saveDuplicates(_ result: DuplicateResult) {
+        let url = paths.duplicatesFile
+        Task { [weak self] in
+            let failure = await Task.detached(priority: .utility) { () -> String? in
+                do {
+                    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                            withIntermediateDirectories: true)
+                    try DuplicateReport.save(result, to: url)
+                    return nil
+                } catch {
+                    return error.localizedDescription
+                }
+            }.value
+            if let failure { self?.report(.save, "No se pudo guardar el resultado de Duplicados (\(failure)).") }
+        }
+    }
+
     /// Vuelve a leer `settings.json`; si cambió, avisa y vuelve a detectar.
     func reloadSettings() {
         guard settingsSession.reload() else { return }
@@ -916,6 +939,21 @@ final class AppModel {
             return .blocked(reason: "Ya no parecen restos huérfanos (o no se pudo comprobar); no se mueve nada.")
         }
         return await trash(paths: confirmable.flatMap(\.paths), title: "Restos huérfanos", context: context)
+    }
+
+    /// Por cada removal: `DuplicateFinder.confirmable` relee keep y copias; las rechazadas no se mueven y su
+    /// motivo vuelve en `notes`; el resto, a la Papelera en una sola llamada.
+    func trashDuplicates(_ removals: [DuplicateRemoval],
+                         context: OperationContext = .user()) async -> (outcome: CleanupOutcome, notes: [String]) {
+        if let refusal = settingsRefusal() { return (refusal, []) }
+        let finder = duplicateFinder()
+        let (paths, notes) = await Task.detached(priority: .userInitiated) {
+            await finder.confirmable(removals)
+        }.value
+        guard !paths.isEmpty else {
+            return (.blocked(reason: "Ninguna copia pasó la comprobación; no se mueve nada."), notes)
+        }
+        return (await trash(paths: paths, title: "Duplicados", context: context), notes)
     }
 
     func removeBrokenLinks(_ links: [BrokenLink], context: OperationContext = .user()) async -> CleanupOutcome {
