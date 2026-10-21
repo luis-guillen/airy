@@ -17,7 +17,7 @@ struct PerformanceView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 SectionHeader(title: Section.performance.title, subtitle: subtitle) {
-                    if case .ready = model.assistant.claude, session.snapshot != nil {
+                    if model.settings.aiEnabled, case .ready = model.assistant.claude, session.snapshot != nil {
                         PrimaryButton("Why Is It Slow?", systemImage: "sparkles", style: .secondary) { showsAI = true }
                             .fixedSize()
                     }
@@ -42,7 +42,7 @@ struct PerformanceView: View {
         .background { VisibilityReader { windowVisible = $0 } }
         .onAppear {
             appeared = true
-            model.assistant.locateIfNeeded()
+            if model.settings.aiEnabled { model.assistant.locateIfNeeded() }
             updateSampling()
         }
         .onDisappear {

@@ -35,9 +35,14 @@ struct AiryApp: App {
             }
         }
 
+        // ⌘,: the same view as the sidebar's Settings section.
         Settings {
-            SettingsView()
+            SettingsView(standalone: true)
                 .environment(model)
+                .tint(Theme.Airy.accent)
+                .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
+                .frame(width: 680, height: 760)
+                .background(Theme.Airy.background)
         }
     }
 }

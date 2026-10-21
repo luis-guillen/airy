@@ -193,9 +193,12 @@ struct MapView: View {
             Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             }
-            Button("Explain with AI", systemImage: "sparkles") {
-                model.pendingAssistantQuestion = String(localized: "What is \(tildePath) and can I delete it?")
-                model.section = .assistant
+            // Settings › AI off: no AI actions.
+            if model.settings.aiEnabled {
+                Button("Explain with AI", systemImage: "sparkles") {
+                    model.pendingAssistantQuestion = String(localized: "What is \(tildePath) and can I delete it?")
+                    model.section = .assistant
+                }
             }
             // Non-destructive: no confirmation. Not offered for what is already protected.
             if details.protection == nil {

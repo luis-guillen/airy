@@ -15,8 +15,10 @@ struct AgentsView: View {
 
     private var session: AssistantSession { model.assistant }
 
+    private var serverPath: String { Self.serverPath }
+
     /// `airy-mcp` sits next to the app's executable (`Airy.app/Contents/MacOS/`).
-    private var serverPath: String {
+    static var serverPath: String {
         let folder = Bundle.main.executableURL?.deletingLastPathComponent()
             ?? URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
         return folder.appendingPathComponent("airy-mcp").path
@@ -205,7 +207,7 @@ struct AgentsView: View {
 
 // MARK: - Pieces
 
-private struct CopyButton: View {
+struct CopyButton: View {
     let text: String
     @ViewState private var copied = false
 

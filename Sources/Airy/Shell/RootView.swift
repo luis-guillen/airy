@@ -27,7 +27,8 @@ struct RootView: View {
         #if DEBUG
         if DebugSnapshot.forcesReduceMotion { return true }
         #endif
-        return systemReduceMotion
+        // Settings › General › Animations: follow the system, always reduced, or full even with Reduce Motion.
+        return model.settings.motion.reducesMotion(systemReduceMotion: systemReduceMotion)
     }
 
     private var ambientMotion: MotionMode {
@@ -78,7 +79,7 @@ struct RootView: View {
             #if DEBUG
             if DebugSnapshot.showsGallery { return }
             #endif
-            model.startScan(.automatic)
+            await model.startLaunchScan()
         }
         .task(id: model.pendingURLCommand?.id) {
             if let pending = model.pendingURLCommand { await model.run(pending, flow: cleanupFlow) }
@@ -214,6 +215,8 @@ private struct SectionContent: View {
             DuplicatesView()
         case .uninstaller:
             UninstallerView()
+        case .settings:
+            SettingsView()
         }
     }
 
@@ -286,5 +289,5 @@ private struct ScanErrorView: View {
 
 extension Section {
     /// Sections that don't depend on the disk scan (shown even while scanning or after a failure).
-    var worksWithoutScan: Bool { self == .performance }
+    var worksWithoutScan: Bool { self == .performance || self == .settings }
 }
