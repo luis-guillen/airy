@@ -1,9 +1,9 @@
 import SwiftUI
 import DiskMapCore
 
-/// Anillo de espacio por tipo. Al aparecer y al cambiar los datos cada porción crece desde 0 grados con
-/// `Theme.zoomSpring`, escalonada (`Theme.stagger`); sin movimiento transitorio solo hay un fundido.
-/// Animaciones de un solo disparo: en reposo no se redibuja nada.
+/// Ring of space by kind. When it appears and when the data changes, each slice grows from 0 degrees with
+/// `Theme.zoomSpring`, staggered (`Theme.stagger`); without transient motion there is only a fade.
+/// One-shot animations: at rest nothing is redrawn.
 struct TypeDonut: View {
     let slices: [FileTypeSlice]
     let total: Int64
@@ -17,7 +17,7 @@ struct TypeDonut: View {
 
     private static let lineWidth: CGFloat = 26
     private static let highlightExtra: CGFloat = 8
-    /// Separación entre porciones, en fracción de vuelta.
+    /// Gap between slices, as a fraction of a turn.
     private static let gap = 0.004
 
     var body: some View {
@@ -55,7 +55,7 @@ struct TypeDonut: View {
         .onAppear { play() }
         .onChange(of: slices) { _, _ in play() }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Espacio por tipo: \(slices.map { "\($0.kind.title), \(Format.bytes($0.bytes))" }.joined(separator: "; "))")
+        .accessibilityLabel("Space by kind: \(slices.map { "\($0.kind.title), \(Format.bytes($0.bytes))" }.joined(separator: "; "))")
     }
 
     @ViewBuilder private var center: some View {
@@ -84,7 +84,7 @@ struct TypeDonut: View {
         .allowsHitTesting(false)
     }
 
-    /// Crece desde 0 (o, sin movimiento, aparece con un fundido).
+    /// Grows from 0 (or, without motion, appears with a fade).
     private func play() {
         if motion == .running {
             visible = true
@@ -103,7 +103,7 @@ struct TypeDonut: View {
         let distance = (dx * dx + dy * dy).squareRoot()
         let outer = side / 2
         guard distance <= outer, distance >= outer - Self.lineWidth - Self.highlightExtra * 1.5 else { return nil }
-        // 0 arriba, en el sentido de las agujas del reloj.
+        // 0 at the top, clockwise.
         var turn = atan2(dy, dx) / (2 * .pi) + 0.25
         if turn < 0 { turn += 1 }
         for (index, slice) in slices.enumerated() where turn >= starts[index] && turn < starts[index] + slice.fraction {
@@ -125,7 +125,7 @@ struct TypeDonut: View {
     }
 }
 
-/// Un arco del anillo; anima su barrido y su grosor de resalte interpolando estos valores (sin reloj).
+/// One arc of the ring; it animates its sweep and highlight thickness by interpolating these values (no clock).
 private struct SliceArc: View, Animatable {
     var start: Double
     var sweep: Double

@@ -1,10 +1,10 @@
 import SwiftUI
 import DiskMapCore
 
-/// Celebración sobria al liberar espacio: un anillo que se llena, el `BytesCounter` contando y
-/// partículas suaves durante 1,2 s (todas en un único `Canvas`). Sigue el portero de movimiento
-/// (`airyTransientMotion`): con «Reducir movimiento» solo fundidos (anillo ya lleno, sin partículas);
-/// con la ventana oculta o tapada, nada se anima y las partículas se retiran. Se cierra sola o al hacer clic.
+/// A restrained celebration when space is freed: a ring that fills, the `BytesCounter` counting and
+/// soft particles for 1.2 s (all in a single `Canvas`). It follows the motion gatekeeper
+/// (`airyTransientMotion`): with "Reduce motion" only fades (ring already full, no particles);
+/// with the window hidden or covered, nothing animates and the particles are removed. It closes by itself or on click.
 struct FreedCelebration: View {
     let bytes: Int64
     var onDone: () -> Void
@@ -42,13 +42,13 @@ struct FreedCelebration: View {
                             .foregroundStyle(Theme.Airy.riskInk(.safe))
                         BytesCounter(bytes: bytes, font: .system(size: 30, weight: .bold, design: .rounded),
                                      countsUpOnAppear: motion == .running)
-                        Text("liberados")
+                        Text("freed")
                             .font(.callout.weight(.medium))
                             .foregroundStyle(.secondary)
                     }
                 }
                 .frame(width: ringSize, height: ringSize)
-                // Detrás y más grande que el anillo, sin cambiar su tamaño.
+                // Behind and larger than the ring, without changing its size.
                 .background {
                     if let particlesStart {
                         ParticleBurst(start: particlesStart, ringRadius: ringSize / 2)
@@ -57,13 +57,13 @@ struct FreedCelebration: View {
                     }
                 }
 
-                Text("Ese espacio ya está libre en tu disco.")
+                Text("That space is now free on your disk.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 36)
             .padding(.vertical, 30)
-            // Fondo opaco y sin sombras difusas: nada que volver a desenfocar en cada fotograma.
+            // Opaque background and no soft shadows: nothing to blur again every frame.
             .background {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(Color(nsColor: .windowBackgroundColor))
@@ -77,17 +77,17 @@ struct FreedCelebration: View {
             .onTapGesture(perform: onDone)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Liberados \(Format.bytes(bytes))")
+        .accessibilityLabel("Freed \(Format.bytes(bytes))")
         .accessibilityAddTraits(.isModal)
         .onAppear(perform: start)
-        // Si la ventana deja de verse (o se reduce el movimiento) a mitad, las partículas se van ya.
+        // If the window stops being visible (or motion is reduced) halfway, the particles go right away.
         .onChange(of: motion) { _, now in if now != .running { particlesStart = nil; fill = 1 } }
     }
 
     private func start() {
         switch motion {
         case .paused:
-            // Nada que animar con la ventana oculta: aparece ya completa.
+            // Nothing to animate with the window hidden: it appears already complete.
             fill = 1
             shown = true
         case .reduced:
@@ -97,15 +97,15 @@ struct FreedCelebration: View {
             withAnimation(Theme.zoomSpring) { shown = true }
             withAnimation(.spring(response: 1.0, dampingFraction: 0.92).delay(0.1)) { fill = 1 }
             particlesStart = Date()
-            // Cola principal (no el *pool* cooperativo): el final llega a su hora aunque haya un análisis.
+            // Main queue (not the cooperative *pool*): the end arrives on time even during a scan.
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.particleDuration) { particlesStart = nil }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.visibleDuration) { onDone() }
     }
 }
 
-/// Unas pocas decenas de partículas suaves que salen del anillo y se desvanecen en 1,2 s.
-/// Un único `Canvas` dentro de un `TimelineView` que solo existe mientras dura.
+/// A few dozen soft particles that leave the ring and fade out in 1.2 s.
+/// A single `Canvas` inside a `TimelineView` that only exists while it lasts.
 private struct ParticleBurst: View {
     let start: Date
     let ringRadius: CGFloat
@@ -118,7 +118,7 @@ private struct ParticleBurst: View {
     ]
 
     var body: some View {
-        // Se pausa con el portero; la vista además desaparece a los 1,2 s o si el movimiento se para.
+        // It pauses with the gatekeeper; the view also disappears at 1.2 s or if motion stops.
         TimelineView(.animation(minimumInterval: nil, paused: motion != .running)) { context in
             Canvas(rendersAsynchronously: true) { canvas, size in
                 let elapsed = context.date.timeIntervalSince(start)
@@ -130,7 +130,7 @@ private struct ParticleBurst: View {
                     let r = Self.random(index)
                     let angle = Double(index) / Double(Self.count) * 2 * .pi + (r.0 - 0.5) * 0.35
                     let distance = ringRadius + 8 + CGFloat(eased) * (36 + 70 * r.1)
-                    let drift = CGFloat(progress * progress) * 18 // cae un poco al final
+                    let drift = CGFloat(progress * progress) * 18 // drops a little at the end
                     let point = CGPoint(x: center.x + cos(angle) * distance,
                                         y: center.y + sin(angle) * distance + drift)
                     let radius = (2 + 2.6 * r.2) * (1 - 0.4 * progress)
@@ -143,7 +143,7 @@ private struct ParticleBurst: View {
         }
     }
 
-    /// Tres números deterministas en [0, 1) por partícula (sin estado ni generador).
+    /// Three deterministic numbers in [0, 1) per particle (no state or generator).
     private static func random(_ index: Int) -> (Double, Double, Double) {
         func hash(_ x: UInt64) -> Double {
             var z = x &+ 0x9E37_79B9_7F4A_7C15

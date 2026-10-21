@@ -2,14 +2,14 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Sección Limpieza: cuánto se puede liberar sin riesgo y cada elemento detectado, agrupado por
-/// riesgo, con su explicación. Todo borrado pasa por `CleanupFlow` (confirmación y tanda).
+/// Cleanup section: how much can be freed safely and every detected item, grouped by
+/// risk, with its explanation. Every deletion goes through `CleanupFlow` (confirmation and batch).
 struct CleanupView: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
 
     @ViewState private var selection: Set<String> = []
-    /// Preseleccionados que el usuario ya vio: no se vuelven a marcar si los desmarcó (`nextSelection`).
+    /// Preselected items the user has already seen: not checked again if they unchecked them (`nextSelection`).
     @ViewState private var seen: Set<String> = []
     @ViewState private var appeared = false
     private static let topID = "cleanup-top"
@@ -34,8 +34,8 @@ struct CleanupView: View {
         ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
-                SectionHeader(title: "Limpieza", subtitle: subtitle(board)) {
-                    PrimaryButton(model.isRefreshingCleanup ? "Buscando…" : "Buscar de nuevo",
+                SectionHeader(title: Section.cleanup.title, subtitle: subtitle(board)) {
+                    PrimaryButton(model.isRefreshingCleanup ? "Searching…" : "Search Again",
                                   systemImage: "arrow.clockwise", style: .secondary,
                                   isBusy: model.isRefreshingCleanup) {
                         model.refreshCleanup()
@@ -64,7 +64,7 @@ struct CleanupView: View {
 
                     ForEach(Array(board.groups.enumerated()), id: \.element.id) { index, group in
                         GroupSection(group: group, selection: $selection)
-                            // La última fila de un grupo se va con el grupo entero: también en hojas.
+                            // A group's last row leaves with the whole group: also in leaves.
                             .transition(.leafAway)
                             .opacity(appeared ? 1 : 0)
                             .offset(y: appeared ? 0 : 10)
@@ -81,14 +81,14 @@ struct CleanupView: View {
             }
             .padding(.horizontal, Theme.contentPadding)
             .padding(.top, 34)
-            // La barra de selección o la píldora de la tanda no tapan la última fila.
+            // The selection bar or the batch pill don't cover the last row.
             .padding(.bottom, selected.isEmpty && !showsBatchPill ? 28 : 96)
             .frame(maxWidth: 980, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .animation(Theme.sectionSpring, value: flow.lastResult?.id)
         }
         .scrollContentBackground(.hidden)
-        // El resultado de una tanda aparece arriba: se sube para verlo.
+        // A batch result appears at the top: scroll up to see it.
         .onChange(of: flow.lastResult?.id) { _, id in
             if id != nil { withAnimation(Theme.zoomSpring) { proxy.scrollTo(Self.topID, anchor: .top) } }
         }
@@ -99,14 +99,14 @@ struct CleanupView: View {
         #endif
         }
         .overlay {
-            // Ráfaga de la tanda: cruza la lista y desaparece; no recibe clics.
+            // Batch gust: it crosses the list and disappears; it doesn't receive clicks.
             if let gust = flow.gust(for: .items) {
                 GustSweep(start: gust.start)
                     .id(gust.id)
             }
         }
         .overlay(alignment: .bottom) {
-            // Las animaciones van aquí dentro: solo mueven la barra o la píldora, no toda la lista.
+            // The animations go in here: they only move the bar or the pill, not the whole list.
             Group {
                 if !selected.isEmpty {
                     CleanupSelectionBar(items: selected) { selection = [] }
@@ -133,7 +133,7 @@ struct CleanupView: View {
             }
         }
         .onAppear {
-            // Abrir Limpieza mientras la detección automática espera a un análisis la adelanta (QoS del usuario).
+            // Opening Cleanup while automatic detection waits for a scan brings it forward (user QoS).
             model.cleanupOpened()
             if !model.isRefreshingCleanup { applyNextSelection() }
         }
@@ -148,7 +148,7 @@ struct CleanupView: View {
         #endif
     }
 
-    /// Al acabar cada detección: quita lo que ya no vale y marca los preseleccionados aún no vistos.
+    /// When each detection ends: removes what no longer applies and checks preselected items not yet seen.
     private func applyNextSelection() {
         guard !flow.isBusy else { return }
         let next = CleanupBoard(items: model.cleanupItems).nextSelection(current: selection, seen: seen)
@@ -156,19 +156,19 @@ struct CleanupView: View {
         seen = next.seen
     }
 
-    /// La píldora sube con cada fila borrada mientras dura la tanda.
+    /// The pill goes up with each deleted row while the batch lasts.
     private var showsBatchPill: Bool { flow.isRunning && flow.batchFreed > 0 }
 
     private func subtitle(_ board: CleanupBoard) -> String {
-        if model.catalogError != nil { return "No disponible: no se pudo cargar el catálogo" }
-        if model.isRefreshingCleanup && model.cleanupItems.isEmpty { return "Buscando cachés y restos…" }
+        if model.catalogError != nil { return String(localized: "Unavailable: couldn’t load the catalog") }
+        if model.isRefreshingCleanup && model.cleanupItems.isEmpty { return String(localized: "Searching for caches and leftovers…") }
         let count = board.displayItems.count
-        return count == 1 ? "1 elemento detectado" : "\(Theme.count(count)) elementos detectados"
+        return count == 1 ? String(localized: "1 item found") : String(localized: "\(Theme.count(count)) items found")
     }
 
     private var unavailable: some View {
         GlassCard {
-            Label(model.catalogError ?? "No se pudo cargar el catálogo de limpiezas.",
+            Label(model.catalogError ?? String(localized: "Couldn’t load the cleanup catalog."),
                   systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(Theme.Airy.riskInk(.yourCall))
         }
@@ -179,7 +179,7 @@ struct CleanupView: View {
             GlassCard {
                 HStack(spacing: 12) {
                     ProgressView().controlSize(.small)
-                    Text("Buscando cachés, registros y restos…")
+                    Text("Searching for caches, logs and leftovers…")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -190,8 +190,8 @@ struct CleanupView: View {
                         .font(.system(size: 30))
                         .foregroundStyle(Theme.Airy.riskInk(.safe))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Nada que limpiar").font(.title3.weight(.semibold))
-                        Text("No se ha encontrado ninguna caché ni resto conocido que ocupe espacio.")
+                        Text("Nothing to Clean").font(.title3.weight(.semibold))
+                        Text("No known cache or leftover taking up space was found.")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -200,14 +200,14 @@ struct CleanupView: View {
     }
 }
 
-// MARK: - Cabecera "Puedes liberar"
+// MARK: - "You can free" header
 
 private struct HeroCard: View {
     @Environment(CleanupFlow.self) private var flow
     @Environment(\.airyQuietShadows) private var quietShadows
     let board: CleanupBoard
     @Binding var selection: Set<String>
-    /// Primera detección en curso: aún no se sabe cuánto hay (nunca un "0 kB" que parezca real).
+    /// First detection in progress: how much there is isn't known yet (never a "0 kB" that looks real).
     var isDetecting = false
 
     var body: some View {
@@ -226,19 +226,19 @@ private struct HeroCard: View {
                         y: quietShadows ? 0 : 5)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    // Con limpiezas parciales en la suma (p. ej. `pnpm store prune`) es solo un máximo.
-                    Text(board.safeBytesIsUpperBound && !isDetecting ? "Puedes liberar hasta" : "Puedes liberar")
+                    // With partial cleanups in the sum (e.g. `pnpm store prune`) it is only a maximum.
+                    Text(board.safeBytesIsUpperBound && !isDetecting ? "You can free up to" : "You can free")
                         .font(.callout.weight(.medium))
                         .foregroundStyle(.secondary)
                     if isDetecting {
-                        Text("Calculando…")
+                        Text("Calculating…")
                             .font(.system(size: 38, weight: .bold, design: .rounded))
                             .foregroundStyle(.secondary)
                     } else {
                         BytesCounter(bytes: board.safeBytes,
                                      font: .system(size: 38, weight: .bold, design: .rounded))
                     }
-                    Text(isDetecting ? "Mirando cachés, registros y restos conocidos." : detail(ready: ready))
+                    Text(isDetecting ? String(localized: "Looking at caches, logs and known leftovers.") : detail(ready: ready))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -248,18 +248,18 @@ private struct HeroCard: View {
                 VStack(alignment: .trailing, spacing: 8) {
                     let green = board.greenSelection
                     let full = board.fullSelection
-                    PrimaryButton("Seleccionar todo lo verde", systemImage: "checkmark.circle", isBusy: flow.isRunning) {
+                    PrimaryButton("Select All Green", systemImage: "checkmark.circle", isBusy: flow.isRunning) {
                         selection = green
                     }
                     .fixedSize()
                     .disabled(green.isEmpty || flow.isBusy)
-                    .help(green.isEmpty ? "No hay nada verde listo para limpiar" : "Marca lo verde; revisa antes de borrar")
-                    PrimaryButton("Seleccionar todo", systemImage: "checklist", style: .secondary) {
+                    .help(green.isEmpty ? "Nothing green is ready to clean" : "Checks the green items; review before deleting")
+                    PrimaryButton("Select All", systemImage: "checklist", style: .secondary) {
                         selection = full
                     }
                     .fixedSize()
                     .disabled(full.isEmpty || flow.isBusy)
-                    .help("Lo verde y lo ámbar que se puede borrar ahora; nunca lo rojo")
+                    .help("The green and amber items that can be deleted now; never the red ones")
                 }
             }
         }
@@ -267,16 +267,17 @@ private struct HeroCard: View {
 
     private func detail(ready: [CleanupItem]) -> String {
         let safeCount = board.groups.first { $0.risk == .safe }?.items.count ?? 0
-        guard safeCount > 0 else { return "Nada marcado como «Sin problema» ahora mismo." }
+        guard safeCount > 0 else { return String(localized: "Nothing marked “Safe to remove” right now.") }
         let waiting = board.items.filter { $0.risk == .safe && CleanupBoard.showsCheckbox($0) && !$0.blockedByOpenApps.isEmpty }
-        let base = "Sin problema, en \(Theme.count(safeCount)) \(safeCount == 1 ? "elemento" : "elementos")"
+        let base = safeCount == 1 ? String(localized: "Safe to remove, in 1 item")
+                                  : String(localized: "Safe to remove, in \(Theme.count(safeCount)) items")
         guard !waiting.isEmpty else { return base }
         let bytes = waiting.reduce(Int64(0)) { $0 + $1.bytes }
-        return base + " · \(Format.bytes(bytes)) esperan a que cierres una app"
+        return String(localized: "\(base) · \(Format.bytes(bytes)) waiting for you to quit an app")
     }
 }
 
-// MARK: - Grupo
+// MARK: - Group
 
 private struct GroupSection: View {
     @Environment(CleanupFlow.self) private var flow
@@ -297,7 +298,7 @@ private struct GroupSection: View {
                 Spacer(minLength: 8)
                 if group.risk != .doNotTouch {
                     let selectable = Set(group.items.filter(CleanupBoard.canSelect).map(\.id))
-                    Button("Seleccionar este grupo") { selection.formUnion(selectable) }
+                    Button("Select This Group") { selection.formUnion(selectable) }
                         .buttonStyle(.plain)
                         .font(.callout.weight(.medium))
                         .foregroundStyle(Theme.Airy.accent)
@@ -322,12 +323,12 @@ private struct GroupSection: View {
                         }
                         .gustSway(index: flow.gust(for: .items)?.order.firstIndex(of: item.id), start: flow.gust(for: .items)?.start)
                         .id(item.id)
-                        // Al borrarse, la fila se la lleva el viento (con el mismo muelle que la colapsa).
+                        // When deleted, the wind carries the row away (with the same spring that collapses it).
                         .transition(.leafAway)
                     }
                 }
-                // El muelle de las filas que llegan o se van con una nueva detección, solo en este grupo
-                // (los borrados de una tanda ya llegan dentro de `withAnimation`).
+                // The spring for rows that arrive or leave with a new detection, only in this group
+                // (a batch's deletions already arrive inside `withAnimation`).
                 .animation(Theme.zoomSpring, value: group.items.map(\.id))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
             }
@@ -336,16 +337,16 @@ private struct GroupSection: View {
 
     static func blurb(_ risk: Risk) -> String {
         switch risk {
-        case .safe: "Se vuelve a crear solo: bórralo sin miedo."
-        case .yourCall: "Se puede borrar, pero pierdes algo: lee qué."
-        case .doNotTouch: "No se borra: Airy te dice por qué."
+        case .safe: String(localized: "It recreates itself: delete it without worry.")
+        case .yourCall: String(localized: "It can be deleted, but you lose something: read what.")
+        case .doNotTouch: String(localized: "It isn’t deleted: Airy tells you why.")
         }
     }
 }
 
-// MARK: - Solo revisar
+// MARK: - Review only
 
-/// Lo informativo: qué es y cómo hacerlo tú. Sin casilla ni botón de borrar; solo «Mostrar en Finder».
+/// The informational items: what it is and how to do it yourself. No checkbox or delete button; only "Show in Finder".
 private struct ReviewSection: View {
     let items: [CleanupItem]
 
@@ -354,9 +355,9 @@ private struct ReviewSection: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: "eye")
                     .foregroundStyle(.secondary)
-                Text("Solo revisar")
+                Text("Review Only")
                     .font(.system(.title3, design: .rounded, weight: .bold))
-                Text("Airy te dice qué es y cómo hacerlo tú; aquí no hay botón de borrar.")
+                Text("Airy tells you what it is and how to do it yourself; there’s no delete button here.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -401,7 +402,7 @@ private struct ReviewRow: View {
                     .lineLimit(nil)
                     .frame(maxWidth: 640, alignment: .leading)
                 if !item.paths.isEmpty {
-                    Button("Mostrar en Finder", systemImage: "folder") {
+                    Button("Show in Finder", systemImage: "folder") {
                         NSWorkspace.shared.activateFileViewerSelecting(item.paths.prefix(20).map { URL(fileURLWithPath: $0) })
                     }
                     .buttonStyle(.plain)
@@ -415,7 +416,7 @@ private struct ReviewRow: View {
     }
 }
 
-// MARK: - Barra de selección
+// MARK: - Selection bar
 
 private struct CleanupSelectionBar: View {
     @Environment(CleanupFlow.self) private var flow
@@ -426,12 +427,13 @@ private struct CleanupSelectionBar: View {
         let (bytes, upperBound) = CleanupBoard.total(items)
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 1) {
-                Text((items.count == 1 ? "1 seleccionado" : "\(Theme.count(items.count)) seleccionados")
-                     + " · " + CleanupBoard.amountText(bytes, upperBound: upperBound))
+                let amount = CleanupBoard.amountText(bytes, upperBound: upperBound)
+                Text(items.count == 1 ? String(localized: "1 selected · \(amount)")
+                                      : String(localized: "\(Theme.count(items.count)) selected · \(amount)"))
                     .font(.callout.weight(.semibold))
                     .monospacedDigit()
             }
-            Button("Quitar selección", action: onClear)
+            Button("Clear Selection", action: onClear)
                 .buttonStyle(.plain)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -450,7 +452,7 @@ private struct CleanupSelectionBar: View {
     }
 }
 
-// MARK: - Resultado
+// MARK: - Result
 
 private struct ResultBanner: View {
     @Environment(AppModel.self) private var model
@@ -466,11 +468,11 @@ private struct ResultBanner: View {
                     Image(systemName: symbol(summary))
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(tint(summary))
-                    Text(summary.headline ?? "No se pudo limpiar")
+                    Text(summary.headline ?? String(localized: "Couldn’t clean"))
                         .font(.callout.weight(.semibold))
                     Spacer(minLength: 8)
                     if summary.movedToTrash > 0, (model.trashBytes ?? 1) > 0 {
-                        PrimaryButton("Vaciar Papelera…", systemImage: "trash.slash", style: .secondary) {
+                        PrimaryButton("Empty Trash…", systemImage: "trash.slash", style: .secondary) {
                             flow.requestEmptyTrash(model)
                         }
                         .fixedSize()
@@ -484,10 +486,10 @@ private struct ResultBanner: View {
                             .background(.primary.opacity(0.06), in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .help("Ocultar")
+                    .help("Hide")
                 }
                 if !summary.successes.isEmpty {
-                    Text("Hecho").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("Done").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     ForEach(summary.successes) { success in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
@@ -499,7 +501,7 @@ private struct ResultBanner: View {
                     }
                 }
                 if !summary.problems.isEmpty {
-                    Text("No se pudo").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("Couldn’t Complete").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     ForEach(summary.problems) { problem in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -524,23 +526,23 @@ private struct ResultBanner: View {
     }
 }
 
-// MARK: - Depuración
+// MARK: - Debugging
 
 #if DEBUG
-/// Solo Debug, para capturas: `AIRY_CLEANUP_SCRIPT="accion[:arg]@segundos,…"`.
-/// - `select:<id>`: marca o desmarca una fila.
-/// - `cleansafe` / `clean:<id>`: abren la confirmación (no ejecutan nada).
-/// - `selectgreen` / `selectall`: «Seleccionar todo lo verde» / «Seleccionar todo».
-/// - `deleteall`: abre la hoja de «Borrar todo» con lo seleccionado (no confirma).
-/// - `scrollto:<id>`: desplaza la lista hasta esa fila.
-/// - `cleantest`: abre la confirmación de `user-logs` reducida a `~/Library/Logs/AiryPrueba`.
-/// Ningún paso confirma nada: las hojas se abren para verlas y se cierran con `cancel`.
-/// - `emptytrash`: abre la confirmación de vaciar la Papelera (nunca la confirma).
-/// - `snapshots:<n>:<bytes>`: muestra el aviso de instantáneas con datos de ejemplo.
-/// - `celebrate:<bytes>`: muestra la celebración.
-/// - `fakeblock:<id>:<bundleID>`: pinta una fila como bloqueada por una app abierta.
-/// - `cancel`: cierra la hoja.
-/// - `section:<sección>`: vuelve a una sección (p. ej. si otra instancia recibe clics ajenos).
+/// Debug only, for captures: `AIRY_CLEANUP_SCRIPT="action[:arg]@seconds,…"`.
+/// - `select:<id>`: checks or unchecks a row.
+/// - `cleansafe` / `clean:<id>`: open the confirmation (they run nothing).
+/// - `selectgreen` / `selectall`: "Select All Green" / "Select All".
+/// - `deleteall`: opens the "Delete all" sheet with the selection (doesn't confirm).
+/// - `scrollto:<id>`: scrolls the list to that row.
+/// - `cleantest`: opens the `user-logs` confirmation narrowed to `~/Library/Logs/AiryPrueba`.
+/// No step confirms anything: sheets open to be looked at and close with `cancel`.
+/// - `emptytrash`: opens the Empty Trash confirmation (never confirms it).
+/// - `snapshots:<n>:<bytes>`: shows the snapshots notice with sample data.
+/// - `celebrate:<bytes>`: shows the celebration.
+/// - `fakeblock:<id>:<bundleID>`: paints a row as blocked by an open app.
+/// - `cancel`: closes the sheet.
+/// - `section:<section>`: goes back to a section (e.g. if another instance receives stray clicks).
 @MainActor
 enum CleanupDebugScript {
     private static var started = false
@@ -576,12 +578,12 @@ enum CleanupDebugScript {
         case "cleansafe": flow.requestClean(board.readySafeItems)
         case "selectgreen": replaceSelection(board.greenSelection)
         case "selectall": replaceSelection(board.fullSelection)
-        // Solo abre la hoja de «Borrar todo»; ningún paso confirma.
+        // Only opens the "Delete all" sheet; no step confirms.
         case "deleteall": flow.requestClean(board.selected(currentSelection()))
         case "clean": flow.requestClean(board.items.filter { $0.id == argument })
         case "scrollto": flow.debugScrollTarget = argument
         case "cleantest":
-            // Solo la carpeta de prueba: el elemento `user-logs` reducido a lo que hay en AiryPrueba.
+            // Only the test folder: the `user-logs` item narrowed to what is in AiryPrueba.
             let narrowed = board.items.compactMap { item -> CleanupItem? in
                 guard item.entry.id == "user-logs" else { return nil }
                 var copy = item

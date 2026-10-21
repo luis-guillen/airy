@@ -2,15 +2,15 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-// MARK: - Fila
+// MARK: - Row
 
-/// Fila de un fichero que se puede revisar: casilla (si se puede marcar), icono del tipo, nombre, carpeta,
-/// tamaño, fecha y riesgo. Rojo o protegido: sin casilla.
+/// Row for a file that can be reviewed: checkbox (if it can be checked), kind icon, name, folder,
+/// size, date and risk. Red or protected: no checkbox.
 struct SelectableFileRow: View {
     @Environment(AppModel.self) private var model
     let file: ActionableFile
     let isSelected: Bool
-    /// Grandes y viejos: avisa cuando la fecha es la de modificación porque Spotlight no sabe la de apertura.
+    /// Large & Old: notes when the date is the modification date because Spotlight doesn't know the open date.
     var notesMissingOpenDate = false
     var onToggle: () -> Void
 
@@ -23,7 +23,7 @@ struct SelectableFileRow: View {
                     Toggle("", isOn: Binding(get: { isSelected }, set: { _ in onToggle() }))
                         .toggleStyle(.airyCheckbox)
                         .labelsHidden()
-                        .accessibilityLabel("Marcar \(file.name)")
+                        .accessibilityLabel("Select \(file.name)")
                 } else {
                     Image(systemName: "lock.fill")
                         .font(.caption)
@@ -63,7 +63,7 @@ struct SelectableFileRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 if notesMissingOpenDate, file.lastOpened == nil {
-                    Text("sin datos de apertura; según modificación")
+                    Text("no open date; by modification")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
@@ -80,32 +80,32 @@ struct SelectableFileRow: View {
         .onHover { hovering = $0 }
         .help(file.reasons.isEmpty ? file.risk.label : file.reasons.joined(separator: "\n"))
         .contextMenu {
-            Button("Mostrar en Finder", systemImage: "folder") {
+            Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: file.path)])
             }
-            Button("Ver en el mapa", systemImage: "square.grid.3x3.square") {
+            Button("Show on Map", systemImage: "square.grid.3x3.square") {
                 model.section = .map
                 model.navigation.reveal(path: file.path)
             }
             if file.protection == nil {
                 Divider()
-                Button("Proteger esto", systemImage: "lock") { model.protect(path: file.path) }
+                Button("Protect This", systemImage: "lock") { model.protect(path: file.path) }
             }
         }
     }
 
-    /// «Abierto hace 8 meses» si Spotlight sabe la apertura; si no, «Modificado hace 8 meses».
+    /// "Opened 8 months ago" if Spotlight knows the open date; otherwise, "Modified 8 months ago".
     private var dateLine: String {
-        if let opened = file.lastOpened { return "Abierto \(Theme.relative(opened))" }
-        if let modified = file.lastModified { return "Modificado \(Theme.relative(modified))" }
-        return "Sin fecha"
+        if let opened = file.lastOpened { return String(localized: "Opened \(Theme.relative(opened))") }
+        if let modified = file.lastModified { return String(localized: "Modified \(Theme.relative(modified))") }
+        return String(localized: "No date")
     }
 }
 
-// MARK: - Lista por riesgo
+// MARK: - List by risk
 
-/// Verde, ámbar y rojo, cada grupo con su cabecera y su total. Las filas que se van, con el viento;
-/// si se van varias a la vez, la ráfaga las mece.
+/// Green, amber and red, each group with its header and total. Rows that leave go with the wind;
+/// if several leave at once, the gust sways them.
 struct RiskGroupedList: View {
     let files: [ActionableFile]
     @Binding var selection: FileSelection
@@ -118,7 +118,7 @@ struct RiskGroupedList: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 10) {
                         RiskBadge(risk: group.risk)
-                        Text(group.files.count == 1 ? "1 archivo" : "\(Theme.count(group.files.count)) archivos")
+                        Text(group.files.count == 1 ? "1 file" : "\(Theme.count(group.files.count)) files")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 8)
@@ -152,28 +152,28 @@ struct RiskGroupedList: View {
     }
 }
 
-// MARK: - Barra de selección
+// MARK: - Selection bar
 
-/// Atajos de selección y «Mover a la Papelera · tamaño». La confirmación la abre `CleanupFlow`.
+/// Selection shortcuts and "Move to Trash · size". `CleanupFlow` opens the confirmation.
 struct SelectionBar: View {
     @Environment(CleanupFlow.self) private var flow
     let files: [ActionableFile]
     @Binding var selection: FileSelection
-    /// Se pone al confirmar una tanda de varias filas (ráfaga); se retira sola.
+    /// Set when a batch of several rows is confirmed (gust); it removes itself.
     @Binding var gust: SectionGust?
 
     var body: some View {
         let selected = selection.selected(in: files)
         let bytes = selection.bytes(in: files)
         HStack(spacing: 14) {
-            Button("Seleccionar todo lo verde") { withAnimation(Theme.pressSpring) { selection.selectAllGreen(files) } }
+            Button("Select All Green") { withAnimation(Theme.pressSpring) { selection.selectAllGreen(files) } }
                 .disabled(!files.contains { $0.canSelect && $0.risk == .safe })
-            Button("Seleccionar todo") { withAnimation(Theme.pressSpring) { selection.selectAll(files) } }
+            Button("Select All") { withAnimation(Theme.pressSpring) { selection.selectAll(files) } }
                 .disabled(!files.contains(where: \.canSelect))
-            Button("Quitar selección") { withAnimation(Theme.pressSpring) { selection.clear() } }
+            Button("Clear Selection") { withAnimation(Theme.pressSpring) { selection.clear() } }
                 .disabled(selected.isEmpty)
             Spacer(minLength: 8)
-            PrimaryButton("Mover a la Papelera · \(Format.bytes(bytes))", systemImage: "trash") {
+            PrimaryButton("Move to Trash · \(Format.bytes(bytes))", systemImage: "trash") {
                 requestTrash(selected)
             }
             .fixedSize()
@@ -193,7 +193,7 @@ struct SelectionBar: View {
     private func requestTrash(_ selected: [ActionableFile]) {
         guard !selected.isEmpty else { return }
         let paths = selected.map(\.path)
-        let title = selected.count == 1 ? selected[0].name : "\(selected.count) archivos"
+        let title = selected.count == 1 ? selected[0].name : String(localized: "\(selected.count) files")
         let ids = selected.map(\.id)
         flow.requestTrash(paths: paths, title: title, onConfirm: {
             guard let order = BatchMotion.gustOrder(ids: ids) else { return }
@@ -205,7 +205,7 @@ struct SelectionBar: View {
                 if gust == next { gust = nil }
             }
         }, onOutcome: { _ in
-            // Lo que ya no está en su sitio sale de la selección (lo bloqueado sigue marcado).
+            // What is no longer in place leaves the selection (what is blocked stays checked).
             selection.prune(to: files.filter { FileManager.default.fileExists(atPath: $0.path) })
         })
     }

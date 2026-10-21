@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import DiskMapCore
 
-/// Detalle de una app: sus restos agrupados por riesgo (verde, ámbar, rojo) con casilla, ruta, tamaño y
-/// motivo. Lo rojo nunca tiene casilla.
+/// An app's detail: its leftovers grouped by risk (green, amber, red) with checkbox, path, size and
+/// reason. Red items never have a checkbox.
 struct UninstallDetail: View {
     @Environment(CleanupFlow.self) private var flow
     let store: UninstallerStore
@@ -22,8 +22,9 @@ struct UninstallDetail: View {
                     .frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(plan.app.name).font(.title3.weight(.semibold))
-                    Text("App \(Format.bytes(plan.appBytes)) + restos \(Format.bytes(plan.leftoverBytes))"
-                         + (plan.sizeComplete ? "" : " (al menos)"))
+                    Text(plan.sizeComplete
+                         ? "App \(Format.bytes(plan.appBytes)) + leftovers \(Format.bytes(plan.leftoverBytes))"
+                         : "App \(Format.bytes(plan.appBytes)) + leftovers \(Format.bytes(plan.leftoverBytes)) (at least)")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -36,7 +37,7 @@ struct UninstallDetail: View {
                     .foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
             }
             if let shared = plan.sharedWith {
-                Label("Hay otra copia instalada en \(Format.tildePath(shared)): sus datos se quedan.",
+                Label("Another copy is installed at \(Format.tildePath(shared)): its data stays.",
                       systemImage: "square.on.square")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -44,7 +45,7 @@ struct UninstallDetail: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if plan.leftovers.isEmpty {
-                        Text("No se han encontrado restos de esta app.").foregroundStyle(.secondary)
+                        Text("No leftovers were found for this app.").foregroundStyle(.secondary)
                     }
                     ForEach([Risk.safe, .yourCall, .doNotTouch], id: \.self) { risk in
                         let group = plan.leftovers.filter { $0.risk == risk }
@@ -56,7 +57,7 @@ struct UninstallDetail: View {
         }
         .overlay(alignment: .bottom) {
             if refusal == nil {
-                PrimaryButton("Desinstalar · \(Format.bytes(plan.bytes(selected: selected)))", systemImage: "trash") {
+                PrimaryButton("Uninstall · \(Format.bytes(plan.bytes(selected: selected)))", systemImage: "trash") {
                     flow.requestUninstall([store.request(for: plan)])
                 }
                 .fixedSize()
@@ -99,7 +100,7 @@ struct UninstallDetail: View {
             }
             .frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
-                Text(leftover.kind == .receipt ? "Registro de instalación \(leftover.path)" : Format.tildePath(leftover.path))
+                Text(leftover.kind == .receipt ? String(localized: "Install receipt \(leftover.path)") : Format.tildePath(leftover.path))
                     .font(.callout)
                     .lineLimit(1)
                     .truncationMode(.middle)

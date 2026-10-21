@@ -3,9 +3,9 @@ import Foundation
 import Observation
 import DiskMapCore
 
-/// Estado del Desinstalador: inventario, planes (uno a uno, poco a poco), restos huérfanos y enlaces rotos.
-/// Vive en `SectionStores`. Solo calcula al primer aparecer, con «Actualizar» o si lo calculado tiene más de
-/// 10 min; si se salió a medias, al volver termina lo que falta. Nunca en segundo plano.
+/// Uninstaller state: inventory, plans (one by one, little by little), orphaned leftovers and broken links.
+/// It lives in `SectionStores`. It only computes on first appearance, with "Refresh" or if what was computed is
+/// more than 10 min old; if you left halfway, it finishes what is missing when you return. Never in the background.
 @MainActor @Observable
 final class UninstallerStore {
     enum Tab: String, CaseIterable, Identifiable {
@@ -13,9 +13,9 @@ final class UninstallerStore {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .apps: "Apps"
-            case .orphans: "Restos huérfanos"
-            case .links: "Enlaces rotos"
+            case .apps: String(localized: "Apps")
+            case .orphans: String(localized: "Orphaned Leftovers")
+            case .links: String(localized: "Broken Links")
             }
         }
     }
@@ -25,9 +25,9 @@ final class UninstallerStore {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .realSize: "Tamaño real"
-            case .name: "Nombre"
-            case .lastUsed: "Último uso"
+            case .realSize: String(localized: "Real Size")
+            case .name: String(localized: "Name")
+            case .lastUsed: String(localized: "Last Used")
             }
         }
     }
@@ -36,33 +36,33 @@ final class UninstallerStore {
     var sort: Sort = .realSize
     var searchText = ""
     var inventory: AppInventorySnapshot?
-    /// Por `app.path`; se rellenan poco a poco.
+    /// By `app.path`; filled in little by little.
     var plans: [String: UninstallPlan] = [:]
     var checkedApps: Set<String> = []
-    /// Por `app.path`; por defecto `plan.defaultSelection`.
+    /// By `app.path`; `plan.defaultSelection` by default.
     var leftoverSelection: [String: Set<String>] = [:]
     var orphans: OrphanScan?
     var orphanSelection: Set<String> = []
     var links: [BrokenLink] = []
     var linksLoaded = false
     var linkSelection: Set<String> = []
-    /// App abierta en el detalle.
+    /// App open in the detail view.
     var openedApp: String?
-    /// Bundle ids abiertos al refrescar (insignia «Abierta»).
+    /// Bundle ids open at refresh time ("Open" badge).
     private(set) var runningIDs: Set<String> = []
     private(set) var isLoading = false
     private var tasks: [Task<Void, Never>] = []
     private var generation = 0
 
-    /// Cuándo empezó el último «Actualizar» (o el primer cálculo).
+    /// When the last "Refresh" (or the first computation) started.
     private(set) var loadedAt: Date?
-    /// Inventario, planes, huérfanos y enlaces terminados (no se cortó al salir de la sección).
+    /// Inventory, plans, orphans and links finished (it wasn't cut off by leaving the section).
     private var complete = false
-    /// Pasado este tiempo, al volver a la sección se recalcula todo.
+    /// After this time, everything is recomputed when returning to the section.
     static let staleAfter: TimeInterval = 600
 
-    /// Al aparecer la sección: vive en `SectionStores`, así que la selección y los resultados se conservan.
-    /// Solo recalcula si no hay nada, si es de hace más de `staleAfter`, o termina lo que quedó a medias.
+    /// When the section appears: it lives in `SectionStores`, so the selection and results are kept.
+    /// It only recomputes if there is nothing, if it is older than `staleAfter`, or finishes what was left halfway.
     func appear(model: AppModel, now: Date = Date()) {
         runningIDs = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         guard let loadedAt, now.timeIntervalSince(loadedAt) < Self.staleAfter else {
@@ -72,7 +72,7 @@ final class UninstallerStore {
         if !complete { load(model: model) }
     }
 
-    /// «Actualizar»: empieza de cero.
+    /// "Refresh": starts from scratch.
     func refresh(model: AppModel) {
         cancel()
         loadedAt = Date()
@@ -90,7 +90,7 @@ final class UninstallerStore {
         load(model: model)
     }
 
-    /// Calcula solo lo que falta (inventario, planes, huérfanos, enlaces), sin tocar la selección.
+    /// Computes only what is missing (inventory, plans, orphans, links), without touching the selection.
     private func load(model: AppModel) {
         cancel()
         generation += 1
@@ -114,7 +114,7 @@ final class UninstallerStore {
                 guard !Task.isCancelled, generation == self.generation else { return }
                 self.inventory = inventory
             }
-            // Restos huérfanos y planes: primero lo visible (apps), luego huérfanos.
+            // Orphaned leftovers and plans: the visible part first (apps), then orphans.
             for app in self.sorted(inventory.apps) where !app.isSystem && self.plans[app.path] == nil {
                 if Task.isCancelled || generation != self.generation { return }
                 let plan = await model.uninstallPlan(for: app, inventory: inventory)
@@ -132,16 +132,16 @@ final class UninstallerStore {
         })
     }
 
-    /// Al salir de la sección: nada sigue calculando.
+    /// On leaving the section: nothing keeps computing.
     func cancel() {
         for task in tasks { task.cancel() }
         tasks = []
         isLoading = false
     }
 
-    // MARK: Lista
+    // MARK: List
 
-    /// Apps de la lista (sin las del sistema, que nunca se desinstalan), filtradas y ordenadas.
+    /// Apps in the list (without system ones, which are never uninstalled), filtered and sorted.
     func visibleApps(hiding gone: Set<String>) -> [AppRecord] {
         let apps = (inventory?.apps ?? []).filter { !$0.isSystem && !gone.contains($0.path) }
         let query = searchText.trimmingCharacters(in: .whitespaces)
@@ -158,7 +158,7 @@ final class UninstallerStore {
         case .realSize:
             return apps.sorted { (plans[$0.path]?.realBytes ?? -1) > (plans[$1.path]?.realBytes ?? -1) }
         case .lastUsed:
-            // Las que llevan más tiempo sin abrirse primero; sin datos al final.
+            // The ones unopened the longest first; those without data last.
             return apps.sorted { ($0.lastUsed ?? .distantFuture) < ($1.lastUsed ?? .distantFuture) }
         }
     }
@@ -180,7 +180,7 @@ final class UninstallerStore {
         })
     }
 
-    /// Apps marcadas con plan y sin rechazo.
+    /// Checked apps with a plan and no refusal.
     func checkedRequests(hiding gone: Set<String>) -> [UninstallRequest] {
         checkedApps.subtracting(gone).sorted().compactMap { path in
             guard let plan = plans[path], plan.refusal == nil, !Self.isLinked(plan.app) else { return nil }
@@ -188,22 +188,22 @@ final class UninstallerStore {
         }
     }
 
-    /// Un `.app` que es un enlace: Airy no lo desinstala (no toca el original ni sabe si es el mismo).
+    /// An `.app` that is a link: Airy doesn't uninstall it (it won't touch the original or know if it is the same).
     static func isLinked(_ app: AppRecord) -> Bool {
         var info = stat()
         return lstat(app.path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFLNK
     }
 
     static let linkedRefusal =
-        "Es un enlace a una app que está en otro sitio: Airy no la desinstala para no tocar el original. Bórrala a mano si quieres."
+        String(localized: "It’s a link to an app stored somewhere else: Airy doesn’t uninstall it so the original isn’t touched. Delete it by hand if you want.")
 
-    /// Motivo para no ofrecer desinstalarla, o `nil`.
+    /// Reason not to offer uninstalling it, or `nil`.
     func refusal(for plan: UninstallPlan) -> String? {
         if Self.isLinked(plan.app) { return Self.linkedRefusal }
         return plan.refusal
     }
 
-    // MARK: Huérfanos
+    // MARK: Orphans
 
     var orphanGroups: [OrphanGroup] {
         if case .found(let groups) = orphans { return groups }

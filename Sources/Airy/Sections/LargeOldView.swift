@@ -1,12 +1,12 @@
 import SwiftUI
 import DiskMapCore
 
-/// Grandes y viejos: ficheros grandes y sin abrir del árbol ya analizado, agrupados por riesgo.
-/// Se recalcula al aparecer y cuando cambian los filtros, el análisis, el árbol o la lista protegida.
+/// Large & Old: large, unopened files from the already scanned tree, grouped by risk.
+/// Recomputed when it appears and when the filters, the scan, the tree or the protected list change.
 struct LargeOldView: View {
     @Environment(AppModel.self) private var model
 
-    /// Lo que obliga a recalcular.
+    /// What forces a recomputation.
     private struct RefreshKey: Equatable {
         let query: LargeOldQuery
         let root: ObjectIdentifier?
@@ -50,22 +50,22 @@ struct LargeOldView: View {
     }
 
     private func subtitle(_ store: LargeOldStore) -> String {
-        guard model.scan != nil else { return "Sin análisis todavía" }
-        if store.isLoading && store.files.isEmpty { return "Buscando…" }
+        guard model.scan != nil else { return String(localized: "No scan yet") }
+        if store.isLoading && store.files.isEmpty { return String(localized: "Searching…") }
         let total = store.files.reduce(Int64(0)) { $0 + $1.bytes }
-        let count = store.files.count == 1 ? "1 archivo" : "\(Theme.count(store.files.count)) archivos"
+        let count = store.files.count == 1 ? String(localized: "1 file") : String(localized: "\(Theme.count(store.files.count)) files")
         return "\(count) · \(Format.bytes(total))"
     }
 
     @ViewBuilder
     private func content(_ store: LargeOldStore, selection: Binding<FileSelection>) -> some View {
         if model.scan == nil {
-            EmptySectionCard(symbol: Section.largeOld.symbol, line: "Analiza el disco para ver los archivos grandes.")
+            EmptySectionCard(symbol: Section.largeOld.symbol, line: "Scan the disk to see large files.")
         } else if store.files.isEmpty {
             if store.isLoading {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity, alignment: .center).padding(.top, 30)
             } else {
-                EmptySectionCard(symbol: "line.3.horizontal.decrease.circle", line: "Nada con estos filtros.")
+                EmptySectionCard(symbol: "line.3.horizontal.decrease.circle", line: "Nothing matches these filters.")
             }
         } else {
             RiskGroupedList(files: store.files, selection: selection, gust: store.gust, notesMissingOpenDate: true)
@@ -73,25 +73,25 @@ struct LargeOldView: View {
     }
 }
 
-// MARK: - Filtros
+// MARK: - Filters
 
 private struct LargeOldFilters: View {
     @Binding var query: LargeOldQuery
 
     var body: some View {
         HStack(spacing: 12) {
-            Picker("Tamaño", selection: $query.minBytes) {
+            Picker("Size", selection: $query.minBytes) {
                 ForEach(LargeOldQuery.sizeSteps, id: \.self) { Text("≥ \(Format.bytes($0))").tag($0) }
             }
             .fixedSize()
 
-            Picker("Fecha", selection: $query.minMonthsIdle) {
+            Picker("Date", selection: $query.minMonthsIdle) {
                 ForEach(LargeOldQuery.idleSteps, id: \.self) { Text(Self.idleTitle($0)).tag($0) }
             }
             .fixedSize()
 
             Menu {
-                Button(query.kinds.isEmpty ? "✓ Todos los tipos" : "Todos los tipos") { query.kinds = [] }
+                Button(query.kinds.isEmpty ? "✓ All Kinds" : "All Kinds") { query.kinds = [] }
                 Divider()
                 ForEach(ContentKind.allCases, id: \.self) { kind in
                     Toggle(kind.title, isOn: Binding(
@@ -103,9 +103,9 @@ private struct LargeOldFilters: View {
             }
             .fixedSize()
 
-            Picker("Dónde", selection: $query.scope) {
-                Text("Tu carpeta").tag(LargeOldQuery.Scope.home)
-                Text("Todo el disco").tag(LargeOldQuery.Scope.everything)
+            Picker("Where", selection: $query.scope) {
+                Text("Your Folder").tag(LargeOldQuery.Scope.home)
+                Text("Whole Disk").tag(LargeOldQuery.Scope.everything)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -113,10 +113,10 @@ private struct LargeOldFilters: View {
 
             Spacer(minLength: 0)
 
-            Picker("Orden", selection: $query.sort) {
-                Text("Tamaño").tag(LargeOldQuery.Sort.size)
-                Text("Más antiguos").tag(LargeOldQuery.Sort.oldest)
-                Text("Nombre").tag(LargeOldQuery.Sort.name)
+            Picker("Sort", selection: $query.sort) {
+                Text("Size").tag(LargeOldQuery.Sort.size)
+                Text("Oldest").tag(LargeOldQuery.Sort.oldest)
+                Text("Name").tag(LargeOldQuery.Sort.name)
             }
             .fixedSize()
         }
@@ -126,27 +126,27 @@ private struct LargeOldFilters: View {
 
     private var kindsTitle: String {
         switch query.kinds.count {
-        case 0: "Todos los tipos"
+        case 0: String(localized: "All Kinds")
         case 1: query.kinds.first!.title
-        default: "\(query.kinds.count) tipos"
+        default: String(localized: "\(query.kinds.count) kinds")
         }
     }
 
     static func idleTitle(_ months: Int?) -> String {
         switch months {
-        case nil: "Cualquier fecha"
-        case 12?: "Sin abrir 1 año"
-        case let m?: "Sin abrir \(m) meses"
+        case nil: String(localized: "Any Date")
+        case 12?: String(localized: "Unopened for 1 year")
+        case let m?: String(localized: "Unopened for \(m) months")
         }
     }
 }
 
-// MARK: - Estado vacío
+// MARK: - Empty state
 
-/// Tarjeta de cristal para «sin análisis» o «sin resultados».
+/// Glass card for "no scan" or "no results".
 struct EmptySectionCard: View {
     let symbol: String
-    let line: String
+    let line: LocalizedStringKey
 
     var body: some View {
         GlassCard {
