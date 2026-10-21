@@ -12,7 +12,14 @@ struct CleanupView: View {
     /// Preselected items the user has already seen: not checked again if they unchecked them (`nextSelection`).
     @ViewState private var seen: Set<String> = []
     @ViewState private var appeared = false
+    /// Open groups (remembered across launches) and the open row of each group (one at a time).
+    @ViewState private var disclosure = CleanupDisclosureStore.current
+    @ViewState private var expandedRows: [CleanupDisclosure.Group: String] = [:]
+    @Environment(\.airyTransientMotion) private var motion
     private static let topID = "cleanup-top"
+
+    /// Opening and closing: the section spring, or no motion at all with Reduce Motion (or a hidden window).
+    private var disclosureAnimation: Animation? { motion == .running ? Theme.sectionSpring : nil }
 
     private var board: CleanupBoard {
         #if DEBUG
@@ -33,7 +40,9 @@ struct CleanupView: View {
         let selected = board.selected(selection)
         ScrollViewReader { proxy in
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 22) {
+            // Spacing 0: the blocks bring their own gaps, so a group header sits close to its rows.
+            // The group headers stay pinned at the top while their rows scroll under them.
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
                 SectionHeader(title: Section.cleanup.title, subtitle: subtitle(board)) {
                     PrimaryButton(model.isRefreshingCleanup ? "Searching…" : "Search Again",
                                   systemImage: "arrow.clockwise", style: .secondary,
@@ -43,6 +52,7 @@ struct CleanupView: View {
                     .fixedSize()
                     .disabled(flow.isBusy || model.catalog == nil)
                 }
+                .padding(.bottom, Self.blockGap)
                 .id(Self.topID)
 
                 if model.catalog == nil {
@@ -50,11 +60,13 @@ struct CleanupView: View {
                 } else {
                     HeroCard(board: board, selection: $selection,
                              isDetecting: model.isRefreshingCleanup && model.cleanupItems.isEmpty)
+                        .padding(.bottom, Self.blockGap)
 
                     if let result = flow.lastResult {
                         ResultBanner(result: result) {
                             withAnimation(Theme.sectionSpring) { flow.lastResult = nil }
                         }
+                        .padding(.bottom, Self.blockGap)
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
@@ -63,19 +75,11 @@ struct CleanupView: View {
                     }
 
                     ForEach(Array(board.groups.enumerated()), id: \.element.id) { index, group in
-                        GroupSection(group: group, selection: $selection)
-                            // A group's last row leaves with the whole group: also in leaves.
-                            .transition(.leafAway)
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 10)
-                            .animation(Theme.stagger(index: index * 4), value: appeared)
+                        groupSection(group, index: index, selected: selected)
                     }
 
                     if !board.reviewItems.isEmpty {
-                        ReviewSection(items: board.reviewItems)
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 10)
-                            .animation(Theme.stagger(index: board.groups.count * 4), value: appeared)
+                        reviewSection(board.reviewItems, index: board.groups.count)
                     }
                 }
             }
@@ -94,7 +98,12 @@ struct CleanupView: View {
         }
         #if DEBUG
         .onChange(of: flow.debugScrollTarget) { _, target in
-            if let target { withAnimation(Theme.zoomSpring) { proxy.scrollTo(target, anchor: .center) } }
+            guard let target else { return }
+            // A row in a closed group isn't drawn: open it first, then scroll once it has a place.
+            reveal(target)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(Theme.zoomSpring) { proxy.scrollTo(target, anchor: .center) }
+            }
         }
         #endif
         }
@@ -144,9 +153,94 @@ struct CleanupView: View {
         .task { CleanupDebugScript.run(model: model, flow: flow,
                                        select: { selection.formSymmetricDifference([$0]) },
                                        replaceSelection: { selection = $0 },
-                                       currentSelection: { selection }) }
+                                       currentSelection: { selection },
+                                       reveal: { reveal($0) },
+                                       setGroupOpen: { name, open in
+                                           if let key = CleanupDisclosure.Group(rawValue: name) {
+                                               withAnimation(disclosureAnimation) { disclosure.setOpen(open, for: key) }
+                                           }
+                                       }) }
         #endif
     }
+
+    /// A risk group: its header (pinned while scrolling) and, if open, its rows.
+    @ViewBuilder
+    private func groupSection(_ group: CleanupBoard.Group, index: Int, selected: [CleanupItem]) -> some View {
+        let key = CleanupDisclosure.Group(risk: group.risk)
+        let open = disclosure.isOpen(key, count: group.items.count)
+        SwiftUI.Section {
+            if open {
+                GroupCard(group: group, selection: $selection, expandedID: expandedRows[key]) { id in
+                    toggleRow(id, in: key)
+                }
+                .padding(.bottom, Self.groupGap)
+                .transition(.opacity)
+                .opacity(appeared ? 1 : 0)
+                .animation(Theme.stagger(index: index * 4 + 1), value: appeared)
+            }
+        } header: {
+            GroupHeader(group: group, selected: selected.filter { $0.risk == group.risk },
+                        isOpen: open, selection: $selection) { toggleGroup(key, count: group.items.count) }
+                // A group's last row leaves with the whole group: also in leaves.
+                .transition(.leafAway)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 10)
+                .animation(Theme.stagger(index: index * 4), value: appeared)
+        }
+    }
+
+    @ViewBuilder
+    private func reviewSection(_ items: [CleanupItem], index: Int) -> some View {
+        let open = disclosure.isOpen(.review, count: items.count)
+        SwiftUI.Section {
+            if open {
+                ReviewCard(items: items, expandedID: expandedRows[.review]) { id in
+                    toggleRow(id, in: .review)
+                }
+                .padding(.bottom, Self.groupGap)
+                .transition(.opacity)
+            }
+        } header: {
+            ReviewHeader(items: items, isOpen: open) { toggleGroup(.review, count: items.count) }
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 10)
+                .animation(Theme.stagger(index: index * 4), value: appeared)
+        }
+    }
+
+    private static let blockGap: CGFloat = 22
+    private static let groupGap: CGFloat = 16
+
+    private func toggleGroup(_ key: CleanupDisclosure.Group, count: Int) {
+        withAnimation(disclosureAnimation) { disclosure.toggle(key, count: count) }
+        CleanupDisclosureStore.save(disclosure)
+    }
+
+    /// One open row per group: opening another closes the previous one.
+    private func toggleRow(_ id: String, in key: CleanupDisclosure.Group) {
+        withAnimation(disclosureAnimation) {
+            expandedRows[key] = expandedRows[key] == id ? nil : id
+        }
+    }
+
+    #if DEBUG
+    /// Opens the group of an item and its details (captures and `scrollto`); it isn't saved.
+    private func reveal(_ id: String) {
+        let board = board
+        let key: CleanupDisclosure.Group
+        if let item = board.items.first(where: { $0.id == id }) {
+            key = CleanupDisclosure.Group(risk: item.risk)
+        } else if board.reviewItems.contains(where: { $0.id == id }) {
+            key = .review
+        } else {
+            return
+        }
+        withAnimation(disclosureAnimation) {
+            disclosure.setOpen(true, for: key)
+            expandedRows[key] = id
+        }
+    }
+    #endif
 
     /// When each detection ends: removes what no longer applies and checks preselected items not yet seen.
     private func applyNextSelection() {
@@ -279,60 +373,81 @@ private struct HeroCard: View {
 
 // MARK: - Group
 
-private struct GroupSection: View {
+/// Which groups are open survives relaunches (`UserDefaults`, small UI state). With `AIRY_SUPPORT_DIR` (DEBUG)
+/// the real defaults aren't touched: the choice lives in memory only.
+@MainActor
+enum CleanupDisclosureStore {
+    private static let key = "cleanupOpenGroups"
+    private static var touchesDefaults: Bool { AppPaths.standard().legacySupport != nil }
+
+    /// Read once per process; it keeps the last choice when the section is left and opened again.
+    private(set) static var current: CleanupDisclosure = {
+        guard touchesDefaults, let raw = UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] else {
+            return CleanupDisclosure()
+        }
+        return CleanupDisclosure(stored: raw)
+    }()
+
+    static func save(_ disclosure: CleanupDisclosure) {
+        current = disclosure
+        guard touchesDefaults else { return }
+        UserDefaults.standard.set(disclosure.stored, forKey: key)
+    }
+}
+
+/// A group's header bar: it stays pinned while its rows scroll. A click anywhere but its buttons opens or
+/// closes the group; it shows the items, the total and how much of it is selected even when closed.
+private struct GroupHeader: View {
     @Environment(CleanupFlow.self) private var flow
     let group: CleanupBoard.Group
+    /// The selected items of this group.
+    let selected: [CleanupItem]
+    let isOpen: Bool
     @Binding var selection: Set<String>
+    var onToggle: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Image(systemName: Theme.symbol(for: group.risk))
-                    .foregroundStyle(Theme.Airy.riskInk(group.risk))
-                Text(group.title)
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                Text(Self.blurb(group.risk))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                if group.risk != .doNotTouch {
-                    let selectable = Set(group.items.filter(CleanupBoard.canSelect).map(\.id))
-                    Button("Select This Group") { selection.formUnion(selectable) }
-                        .buttonStyle(.plain)
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(Theme.Airy.accent)
-                        .disabled(selectable.isEmpty || flow.isBusy)
-                }
-                Text(CleanupBoard.amountText(group.bytes, upperBound: group.items.contains(where: CleanupBoard.isPartial)))
-                    .font(.callout.weight(.semibold))
+        let upperBound = group.items.contains(where: CleanupBoard.isPartial)
+        DisclosureHeaderBar(isOpen: isOpen, symbol: Theme.symbol(for: group.risk),
+                            ink: Theme.Airy.riskInk(group.risk), fill: Theme.Airy.riskFill(group.risk),
+                            title: group.title, blurb: Self.blurb(group.risk), count: group.items.count,
+                            amount: CleanupBoard.amountText(group.bytes, upperBound: upperBound),
+                            bytes: group.bytes, onToggle: onToggle) {
+            if let note {
+                Text(note)
+                    .font(.caption.weight(.semibold))
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .contentTransition(.numericText(value: Double(group.bytes)))
+                    .foregroundStyle(Theme.Airy.accent)
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Theme.Airy.accentFill.opacity(0.14), in: Capsule())
+                    .fixedSize()
             }
-            .padding(.horizontal, 4)
-
-            GlassCard(padding: 0) {
-                VStack(spacing: 0) {
-                    ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
-                        VStack(spacing: 0) {
-                            if index > 0 { Divider().opacity(0.5).padding(.leading, 90) }
-                            CleanupRow(item: item, isSelected: selection.contains(item.id)) {
-                                withAnimation(Theme.pressSpring) { selection.formSymmetricDifference([item.id]) }
-                            }
-                        }
-                        .gustSway(index: flow.gust(for: .items)?.order.firstIndex(of: item.id), start: flow.gust(for: .items)?.start)
-                        .id(item.id)
-                        // When deleted, the wind carries the row away (with the same spring that collapses it).
-                        .transition(.leafAway)
-                    }
+            if group.risk != .doNotTouch {
+                let selectable = Set(group.items.filter(CleanupBoard.canSelect).map(\.id))
+                Button("Select This Group") {
+                    withAnimation(Theme.pressSpring) { selection.formUnion(selectable) }
                 }
-                // The spring for rows that arrive or leave with a new detection, only in this group
-                // (a batch's deletions already arrive inside `withAnimation`).
-                .animation(Theme.zoomSpring, value: group.items.map(\.id))
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+                .buttonStyle(.plain)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(Theme.Airy.accent)
+                .fixedSize()
+                .disabled(selectable.isEmpty || selectable.isSubset(of: selection) || flow.isBusy)
             }
         }
+    }
+
+    /// "Cleaning…" while a batch works on this group; otherwise "2 selected · 1.2 GB" if something is checked.
+    private var note: String? {
+        if let current = flow.currentID, group.items.contains(where: { $0.id == current }) {
+            return String(localized: "Cleaning…")
+        }
+        guard !selected.isEmpty else { return nil }
+        let (bytes, upperBound) = CleanupBoard.total(selected)
+        let amount = CleanupBoard.amountText(bytes, upperBound: upperBound)
+        return selected.count == 1 ? String(localized: "1 selected · \(amount)")
+                                   : String(localized: "\(Theme.count(selected.count)) selected · \(amount)")
     }
 
     static func blurb(_ risk: Risk) -> String {
@@ -344,75 +459,218 @@ private struct GroupSection: View {
     }
 }
 
+/// The shared bar of the group headers: chevron, risk icon, title, one-line description, items and total,
+/// and the group's own controls (`trailing`) at the end.
+private struct DisclosureHeaderBar<Trailing: View>: View {
+    let isOpen: Bool
+    let symbol: String
+    let ink: Color
+    let fill: Color
+    let title: String
+    let blurb: String
+    let count: Int
+    let amount: String
+    let bytes: Int64
+    var onToggle: () -> Void
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                DisclosureChevron(isExpanded: isOpen, size: 12)
+                ZStack {
+                    Circle().fill(fill.opacity(AiryPalette.badgeTintOpacity))
+                    Circle().strokeBorder(fill.opacity(0.35), lineWidth: 0.5)
+                    Image(systemName: symbol)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(ink)
+                }
+                .frame(width: 30, height: 30)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(title)
+                            .font(.system(.title3, design: .rounded, weight: .bold))
+                            .lineLimit(1)
+                            .fixedSize()
+                        Text(count == 1 ? String(localized: "1 item · \(amount)")
+                                        : String(localized: "\(Theme.count(count)) items · \(amount)"))
+                            .font(.callout.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .contentTransition(.numericText(value: Double(bytes)))
+                    }
+                    Text(blurb)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits([.isHeader, .isButton])
+            .accessibilityValue(isOpen ? String(localized: "Expanded") : String(localized: "Collapsed"))
+            .accessibilityAction(.default, onToggle)
+
+            Spacer(minLength: 8)
+            trailing
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 16)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .fill(.regularMaterial)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.04)],
+                                             startPoint: .top, endPoint: .bottom),
+                              lineWidth: 0.75)
+        }
+        .contentShape(Rectangle())
+        // The buttons inside win their own clicks; anywhere else toggles the group.
+        .onTapGesture(perform: onToggle)
+        .padding(.bottom, 10)
+    }
+}
+
+/// The rows of an open group, in one glass card.
+private struct GroupCard: View {
+    @Environment(CleanupFlow.self) private var flow
+    let group: CleanupBoard.Group
+    @Binding var selection: Set<String>
+    let expandedID: String?
+    var onExpand: (String) -> Void
+
+    var body: some View {
+        GlassCard(padding: 0) {
+            VStack(spacing: 0) {
+                ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
+                    VStack(spacing: 0) {
+                        if index > 0 { Divider().opacity(0.5).padding(.leading, CleanupRow.detailsInset) }
+                        CleanupRow(item: item, isSelected: selection.contains(item.id),
+                                   isExpanded: expandedID == item.id) {
+                            withAnimation(Theme.pressSpring) { selection.formSymmetricDifference([item.id]) }
+                        } onExpand: {
+                            onExpand(item.id)
+                        }
+                    }
+                    .gustSway(index: flow.gust(for: .items)?.order.firstIndex(of: item.id), start: flow.gust(for: .items)?.start)
+                    .id(item.id)
+                    // When deleted, the wind carries the row away (with the same spring that collapses it).
+                    .transition(.leafAway)
+                }
+            }
+            // The spring for rows that arrive or leave with a new detection, only in this group
+            // (a batch's deletions already arrive inside `withAnimation`).
+            .animation(Theme.zoomSpring, value: group.items.map(\.id))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+        }
+    }
+}
+
 // MARK: - Review only
 
 /// The informational items: what it is and how to do it yourself. No checkbox or delete button; only "Show in Finder".
-private struct ReviewSection: View {
+private struct ReviewHeader: View {
     let items: [CleanupItem]
+    let isOpen: Bool
+    var onToggle: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Image(systemName: "eye")
-                    .foregroundStyle(.secondary)
-                Text("Review Only")
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                Text("Airy tells you what it is and how to do it yourself; there’s no delete button here.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 4)
+        let bytes = items.reduce(Int64(0)) { $0 + $1.bytes }
+        DisclosureHeaderBar(isOpen: isOpen, symbol: "eye", ink: .secondary, fill: .secondary,
+                            title: String(localized: "Review Only"),
+                            blurb: String(localized: "Airy tells you what it is and how to do it yourself; there’s no delete button here."),
+                            count: items.count, amount: Format.bytes(bytes), bytes: bytes, onToggle: onToggle) {
+            EmptyView()
+        }
+    }
+}
 
-            GlassCard(padding: 0) {
-                VStack(spacing: 0) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { Divider().opacity(0.5).padding(.leading, 68) }
-                        ReviewRow(item: item).id(item.id)
-                    }
+private struct ReviewCard: View {
+    let items: [CleanupItem]
+    let expandedID: String?
+    var onExpand: (String) -> Void
+
+    var body: some View {
+        GlassCard(padding: 0) {
+            VStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { Divider().opacity(0.5).padding(.leading, CleanupRow.detailsInset) }
+                    ReviewRow(item: item, isExpanded: expandedID == item.id) { onExpand(item.id) }
+                        .id(item.id)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
             }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
         }
     }
 }
 
 private struct ReviewRow: View {
     let item: CleanupItem
+    let isExpanded: Bool
+    var onExpand: () -> Void
+    @ViewState private var hovering = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            CleanupIcon(entry: item.entry, dimmed: true)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(item.title)
-                        .font(.headline)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    RiskBadge(risk: item.risk, reason: RiskExplanation.why(item))
-                    Spacer(minLength: 8)
-                    Text(CleanupBoard.sizeText(item))
-                        .font(.system(.title3, design: .rounded, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-                Text(item.entry.reviewHint ?? RiskExplanation.why(item))
-                    .font(.callout)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 24, height: 24)
+                CleanupIcon(entry: item.entry, dimmed: true, size: 28)
+                Text(item.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+                Spacer(minLength: 8)
+                Text(CleanupBoard.sizeText(item))
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
-                    .lineLimit(nil)
-                    .frame(maxWidth: 640, alignment: .leading)
-                if !item.paths.isEmpty {
-                    Button("Show in Finder", systemImage: "folder") {
-                        NSWorkspace.shared.activateFileViewerSelecting(item.paths.prefix(20).map { URL(fileURLWithPath: $0) })
+                    .lineLimit(1)
+                    .fixedSize()
+                RiskBadge(risk: item.risk, compact: true, reason: RiskExplanation.why(item))
+                DisclosureChevron(isExpanded: isExpanded)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.primary.opacity(hovering ? 0.035 : 0))
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onExpand)
+            .onHover { hovering in withAnimation(Theme.pressSpring) { self.hovering = hovering } }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(isExpanded ? String(localized: "Expanded") : String(localized: "Collapsed"))
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item.entry.reviewHint ?? RiskExplanation.why(item))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(nil)
+                        .frame(maxWidth: 640, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !item.paths.isEmpty {
+                        Button("Show in Finder", systemImage: "folder") {
+                            NSWorkspace.shared.activateFileViewerSelecting(item.paths.prefix(20).map { URL(fileURLWithPath: $0) })
+                        }
+                        .buttonStyle(.plain)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(Theme.Airy.accent)
                     }
-                    .buttonStyle(.plain)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(Theme.Airy.accent)
                 }
+                .padding(.leading, CleanupRow.detailsInset)
+                .padding(.trailing, 18)
+                .padding(.bottom, 14)
+                .transition(.opacity)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 15)
     }
 }
 
@@ -534,7 +792,9 @@ private struct ResultBanner: View {
 /// - `cleansafe` / `clean:<id>`: open the confirmation (they run nothing).
 /// - `selectgreen` / `selectall`: "Select All Green" / "Select All".
 /// - `deleteall`: opens the "Delete all" sheet with the selection (doesn't confirm).
-/// - `scrollto:<id>`: scrolls the list to that row.
+/// - `scrollto:<id>`: opens that row (and its group) and scrolls the list to it.
+/// - `expand:<id>`: opens that row and its group without scrolling.
+/// - `open:<group>` / `close:<group>`: opens or closes a group (`safe`, `yourCall`, `doNotTouch`, `review`); not saved.
 /// - `cleantest`: opens the `user-logs` confirmation narrowed to `~/Library/Logs/AiryPrueba`.
 /// No step confirms anything: sheets open to be looked at and close with `cancel`.
 /// - `emptytrash`: opens the Empty Trash confirmation (never confirms it).
@@ -554,7 +814,9 @@ enum CleanupDebugScript {
 
     static func run(model: AppModel, flow: CleanupFlow, select: @escaping (String) -> Void,
                     replaceSelection: @escaping (Set<String>) -> Void,
-                    currentSelection: @escaping () -> Set<String>) {
+                    currentSelection: @escaping () -> Set<String>,
+                    reveal: @escaping (String) -> Void,
+                    setGroupOpen: @escaping (String, Bool) -> Void) {
         guard !started, let script = ProcessInfo.processInfo.environment["AIRY_CLEANUP_SCRIPT"] else { return }
         started = true
         for raw in script.split(separator: ",") {
@@ -564,14 +826,16 @@ enum CleanupDebugScript {
             DebugSnapshot.at(time) {
                 perform(action[0], action.count > 1 ? action[1] : nil, model: model, flow: flow,
                         board: CleanupBoard(items: model.cleanupItems, hidden: flow.hiddenIDs), select: select,
-                        replaceSelection: replaceSelection, currentSelection: currentSelection)
+                        replaceSelection: replaceSelection, currentSelection: currentSelection,
+                        reveal: reveal, setGroupOpen: setGroupOpen)
             }
         }
     }
 
     private static func perform(_ action: String, _ argument: String?, model: AppModel, flow: CleanupFlow,
                                 board: CleanupBoard, select: (String) -> Void,
-                                replaceSelection: (Set<String>) -> Void, currentSelection: () -> Set<String>) {
+                                replaceSelection: (Set<String>) -> Void, currentSelection: () -> Set<String>,
+                                reveal: (String) -> Void, setGroupOpen: (String, Bool) -> Void) {
         FileHandle.standardError.write(Data("[cleanup-script] \(action) \(argument ?? "")\n".utf8))
         switch action {
         case "select": if let argument { select(argument) }
@@ -582,6 +846,9 @@ enum CleanupDebugScript {
         case "deleteall": flow.requestClean(board.selected(currentSelection()))
         case "clean": flow.requestClean(board.items.filter { $0.id == argument })
         case "scrollto": flow.debugScrollTarget = argument
+        case "expand": if let argument { reveal(argument) }
+        case "open": if let argument { setGroupOpen(argument, true) }
+        case "close": if let argument { setGroupOpen(argument, false) }
         case "cleantest":
             // Only the test folder: the `user-logs` item narrowed to what is in AiryPrueba.
             let narrowed = board.items.compactMap { item -> CleanupItem? in
