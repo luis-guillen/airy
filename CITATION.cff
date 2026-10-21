@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use or reference Airy, please cite it as below."
+title: "Airy"
+abstract: "Native macOS app to understand and safely free disk space: disk map, safe cleanup, performance and an MCP server for AI agents."
+type: software
+authors:
+  - family-names: "Guillén"
+    given-names: "Luis"
+    alias: "luis-guillen"
+repository-code: "https://github.com/luis-guillen/airy"
+license: MIT
+version: 0.2.0
+date-released: 2026-10-21
+keywords: [macos, swiftui, disk-usage, disk-cleaner, mcp]

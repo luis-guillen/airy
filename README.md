@@ -12,19 +12,15 @@
 <p align="center">
   <a href="https://github.com/luis-guillen/airy/actions/workflows/ci.yml"><img src="https://github.com/luis-guillen/airy/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/luis-guillen/airy/releases/latest"><img src="https://img.shields.io/github/v/release/luis-guillen/airy?color=2f8bff" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-0b1b3f?logo=apple" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Swift-6.3%2B-F05138?logo=swift&logoColor=white" alt="Swift 6.3+">
-</p>
-
-<p align="center">
-  <a href="README.es.md">Leer en español</a>
 </p>
 
 ---
 
 > [!NOTE]
-> The app's interface is in **Spanish** for now. Translations are welcome; see [Contributing](CONTRIBUTING.md).
+> The app is available in **English** and **Spanish** and follows your macOS language. More translations are welcome; see [Contributing](CONTRIBUTING.md).
 
 ## Contents
 
@@ -39,6 +35,7 @@
 - [Releasing](#releasing)
 - [Privacy](#privacy)
 - [Contributing](#contributing)
+- [Author](#author)
 - [Credits](#credits)
 - [License](#license)
 
@@ -47,9 +44,9 @@
 Most cleaners either do too little or delete too much. Airy scans your disk and shows it as an
 interactive treemap. Every item it can remove gets one of three labels:
 
-- **Sin problema** (safe): regenerates on its own.
-- **Tú decides** (your call): it's yours to decide.
-- **No borrar** (never): Airy won't touch it.
+- **Safe to remove**: it regenerates on its own.
+- **Your call**: it's yours to decide.
+- **Don't delete**: Airy won't touch it.
 
 Every decision is made locally, from a closed catalog, behind hard protections. Nothing is deleted
 without your confirmation.
@@ -63,8 +60,8 @@ safe.
 | Section | What it does |
 |---|---|
 | **Map** | Zoomable disk treemap with color categories, real allocated sizes and an incremental saved index. |
-| **Cleanup** | Caches, logs and developer artifacts (`node_modules`, DerivedData, Docker…). Duplicate toolchain versions: pyenv, conda, rustup, Homebrew. Aggressive and Careful modes, multi-select and «Borrar todo» (delete all) with a single confirmation. |
-| **Performance** | Memory, CPU, thermal state and battery, plus the heaviest apps. Quit apps with confirmation, run reversible maintenance, and get an optional AI answer to «¿Por qué va lento?» (why is it slow?). |
+| **Cleanup** | Caches, logs and developer artifacts (`node_modules`, DerivedData, Docker…). Duplicate toolchain versions: pyenv, conda, rustup, Homebrew. Aggressive and Careful modes, multi-select and **Delete all** with a single confirmation. |
+| **Performance** | Memory, CPU, thermal state and battery, plus the heaviest apps. Quit apps with confirmation, run reversible maintenance, and get an optional AI answer to **Why is it slow?** |
 | **AI assistant** | Report and chat about your disk through Claude. Metadata only, never file contents. |
 | **Uninstaller** | Removes apps and their leftovers. Uses Homebrew only when its uninstall steps are verifiably safe, otherwise the Trash. Also finds orphaned leftovers and broken symlinks. |
 | **Large & old** | Big files you haven't opened in a while, with filters. |
@@ -125,8 +122,8 @@ source.
 
 ## Connect an AI agent (MCP)
 
-The server is bundled inside the app at `Airy.app/Contents/MacOS/airy-mcp`. **Asistente IA → Conectar
-agente** generates and exports the config. To set it up by hand:
+The server is bundled inside the app at `Airy.app/Contents/MacOS/airy-mcp`. **AI assistant → Connect
+agent** generates and exports the config. To set it up by hand:
 
 ```bash
 # Claude Code
@@ -193,7 +190,7 @@ Sources/
 ├── Airy/             SwiftUI app (sections, design system, wind animations)
 └── AiryMCP/          airy-mcp executable (stdio)
 Tests/DiskMapCoreTests/   Swift Testing
-docs/superpowers/         Design specs and implementation plans (Spanish)
+docs/superpowers/         Design specs and implementation plans
 ```
 
 ## Testing
@@ -228,8 +225,13 @@ The script:
 
 ## Contributing
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and our
-[Code of Conduct](CODE_OF_CONDUCT.md). Bug reports and ideas can be written in English or Spanish.
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Author
+
+Created and maintained by **[Luis Guillén](https://github.com/luis-guillen)**, software engineer.
+If Airy helps you, a ⭐ on the repo helps others find it.
 
 ## Credits
 
@@ -238,4 +240,6 @@ code. The credit also appears in **About Airy**.
 
 ## License
 
-[GPL-3.0-or-later](LICENSE) © 2026 Luis Guillén and Airy contributors.
+[MIT](LICENSE) © 2026 [Luis Guillén](https://github.com/luis-guillen).
+
+If you use Airy or its code in your own project, a link back to this repository is appreciated.

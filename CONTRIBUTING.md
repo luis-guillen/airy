@@ -1,6 +1,6 @@
 # Contributing to Airy
 
-Thanks for helping! Issues and PRs are welcome in **English or Spanish**.
+Thanks for helping! Issues and pull requests are welcome.
 
 ## Getting started
 
@@ -36,9 +36,10 @@ You need macOS 15+ and the Xcode Command Line Tools (Swift 6.3+).
 
 ## Translations
 
-The UI is currently Spanish-only. Help moving strings to String Catalogs (`.xcstrings`) and adding
-English is very welcome; open an issue first.
+The UI is localized with String Catalogs: English is the base language and Spanish is a translation.
+To add a language, add it to `Resources/Localizable.xcstrings` (app) and
+`Sources/DiskMapCore/Resources/Localizable.xcstrings` (core), plus the localized fields in `catalog.json`.
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the [GPL-3.0-or-later](LICENSE).
+By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

@@ -1,4 +1,4 @@
-name: Bug report / Fallo
+name: Bug report
 description: Something doesn't work as expected
 labels: [bug]
 body:
@@ -8,14 +8,14 @@ body:
   - type: textarea
     id: what
     attributes:
-      label: What happened / Qué pasa
+      label: What happened
       description: What you did, what you expected, what happened.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Steps to reproduce / Pasos
+      label: Steps to reproduce
   - type: input
     id: version
     attributes:
