@@ -2,7 +2,7 @@ import Foundation
 
 /// Assigns a `ContentKind` to files (by extension) and to well-known folders (by name or path).
 public enum FileKindClassifier {
-    private static let extensionKinds: [String: ContentKind] = {
+    fileprivate static let extensionKinds: [String: ContentKind] = {
         var map: [String: ContentKind] = [:]
         func add(_ kind: ContentKind, _ extensions: String) {
             for ext in extensions.split(separator: " ") { map[String(ext)] = kind }
@@ -25,7 +25,7 @@ public enum FileKindClassifier {
 
     private static let systemPaths: Set<String> = ["/System", "/usr", "/private", "/Library"]
 
-    private static let dockerDirectory = "com.docker.docker"
+    fileprivate static let dockerDirectory = "com.docker.docker"
 
     public static func kind(forFileNamed name: String) -> ContentKind {
         let ext = (name as NSString).pathExtension.lowercased()
@@ -46,5 +46,40 @@ public enum FileKindClassifier {
         let name = (path as NSString).lastPathComponent
         if name.hasSuffix(".app") { return .apps }
         return directoryNameKinds[name]
+    }
+}
+
+extension FileKindClassifier {
+    /// Longest extension in `extensionKinds` ("safetensors").
+    private static let longestExtension = 11
+
+    /// The same answer as `kind(forFileNamed:inDirectoryPath:)` for the raw UTF-8 bytes of a name, without
+    /// building a `String` or going through `NSString`: the usual case (a plain ASCII letters-and-digits extension
+    /// after a name that does not start with a dot) is resolved here; anything else asks `NSString`.
+    static func kind(forFileNameBytes name: UnsafeBufferPointer<UInt8>, inDirectoryPath directory: String) -> ContentKind {
+        let dot = UInt8(ascii: ".")
+        guard let last = name.lastIndex(of: dot) else { return .other }   // no extension
+        guard last > 0, name[0] != dot, last < name.count - 1 else {
+            return kind(forFileNamed: String(decoding: name, as: UTF8.self), inDirectoryPath: directory)
+        }
+        let tail = UnsafeBufferPointer(rebasing: name[(last + 1)...])
+        for byte in tail {
+            switch byte {
+            case UInt8(ascii: "a")...UInt8(ascii: "z"), UInt8(ascii: "A")...UInt8(ascii: "Z"),
+                 UInt8(ascii: "0")...UInt8(ascii: "9"): continue
+            default:
+                return kind(forFileNamed: String(decoding: name, as: UTF8.self), inDirectoryPath: directory)
+            }
+        }
+        guard tail.count <= longestExtension else { return .other }
+        // Short enough to be a small (inline) string: no allocation.
+        let ext = String(unsafeUninitializedCapacity: tail.count) { buffer in
+            for (index, byte) in tail.enumerated() {
+                buffer[index] = byte >= UInt8(ascii: "A") && byte <= UInt8(ascii: "Z") ? byte + 32 : byte
+            }
+            return tail.count
+        }
+        if ext == "raw", directory.split(separator: "/").contains(Substring(dockerDirectory)) { return .containers }
+        return extensionKinds[ext] ?? .other
     }
 }

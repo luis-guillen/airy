@@ -4,7 +4,24 @@ import Synchronization
 public enum ContentKind: String, Codable, CaseIterable, Sendable {
     case video, images, apps, code, caches, aiModels, containers, documents, system, other
 
-    var index: Int { ContentKind.allCases.firstIndex(of: self)! }
+    /// Position in `allCases` (the index into `kindBytes`), without searching `allCases`.
+    var index: Int {
+        switch self {
+        case .video: 0
+        case .images: 1
+        case .apps: 2
+        case .code: 3
+        case .caches: 4
+        case .aiModels: 5
+        case .containers: 6
+        case .documents: 7
+        case .system: 8
+        case .other: 9
+        }
+    }
+
+    /// `allCases.count`.
+    static let count = allCases.count
 
     public var title: String {
         switch self {
@@ -51,7 +68,8 @@ public enum Risk: Int, Codable, Comparable, Sendable {
 /// A node of the scanned file tree. It is built on a single thread and then published,
 /// effectively immutable from then on, hence `@unchecked Sendable`.
 public final class FileNode: @unchecked Sendable, Identifiable {
-    private static let nextID = Mutex(0)
+    /// Relaxed atomic: ids only need to be unique, and the scan threads create nodes at the same time.
+    private static let nextID = Atomic<Int>(0)
 
     public let id: Int
     public var name: String
@@ -78,10 +96,7 @@ public final class FileNode: @unchecked Sendable, Identifiable {
         descendantCount: Int = 0,
         aggregatedCount: Int = 0
     ) {
-        self.id = Self.nextID.withLock { value in
-            value += 1
-            return value
-        }
+        self.id = Self.nextID.wrappingAdd(1, ordering: .relaxed).newValue
         self.name = name
         self.isDirectory = isDirectory
         self.allocatedSize = allocatedSize
