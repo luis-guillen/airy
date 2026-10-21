@@ -9,7 +9,7 @@ import DiskMapCore
 final class SectionStores {
     let largeOld = LargeOldStore()
     let fileTypes = FileTypesStore()
-    // Duplicados (Task 11): `let duplicates = DuplicatesStore()`.
+    let duplicates = DuplicatesStore()
     // Desinstalador (Task 12): `let uninstaller = UninstallerStore()`, en `UninstallerStore.swift`.
 }
 
@@ -146,5 +146,101 @@ final class FileTypesStore {
             self.selection.prune(to: found)
             self.isLoading = false
         }
+    }
+}
+
+// MARK: - Duplicados
+
+/// Búsqueda de Duplicados: solo con «Buscar duplicados» (nunca sola), en una tarea aparte cancelable.
+/// Las huellas se quedan dentro del buscador; aquí solo hay rutas, tamaños y fechas.
+@MainActor @Observable
+final class DuplicatesStore {
+    enum Place: Equatable { case home, folder(String) }
+
+    var place: Place = .home { didSet { updateRoots() } }
+    var search = DuplicateSearch(roots: DuplicateSearch.defaultRoots(home: NSHomeDirectory()))
+    var result: DuplicateResult?
+    var board = DuplicateBoard(groups: [])
+    var examined = 0
+    var isSearching = false
+    /// Copias que ya se fueron a la Papelera: dejan de verse sin repetir la búsqueda.
+    var gone: Set<String> = []
+
+    @ObservationIgnored private var job: Task<DuplicateResult, Never>?
+    @ObservationIgnored private var generation = 0
+
+    private func updateRoots() {
+        switch place {
+        case .home: search.roots = DuplicateSearch.defaultRoots(home: NSHomeDirectory())
+        case .folder(let path): search.roots = [path]
+        }
+    }
+
+    /// Candidatos del índice (turno de lectura del árbol) y búsqueda en `Task.detached`. Al acabar, guarda
+    /// el resultado (sin huellas) en `duplicates.json`.
+    func start(model: AppModel) {
+        guard !isSearching else { return }
+        generation += 1
+        let current = generation
+        guard let root = model.scan?.root else { return }
+        let finder = model.duplicateFinder()
+        let search = search
+        let gate = model.treeGate
+        isSearching = true
+        examined = 0
+        result = nil
+        gone = []
+        board = DuplicateBoard(groups: [])
+        let progress: @Sendable (Int) -> Void = { count in
+            Task { @MainActor in if self.generation == current { self.examined = count } }
+        }
+        let job = Task.detached(priority: .utility) { () -> DuplicateResult in
+            let candidates = await gate.read(cancellable: true) {
+                DuplicateFinder.candidates(in: root, search: search)
+            }.value
+            guard !Task.isCancelled else {
+                return DuplicateResult(groups: [], complete: false, filesExamined: 0, date: Date())
+            }
+            return await finder.find(search, candidates: candidates, progress: progress)
+        }
+        self.job = job
+        Task {
+            let found = await job.value
+            guard current == self.generation else { return }
+            self.job = nil
+            self.result = found
+            self.board = DuplicateBoard(groups: found.groups)
+            self.examined = found.filesExamined
+            self.isSearching = false
+            model.saveDuplicates(found)
+        }
+    }
+
+    /// Para la búsqueda: lo hallado hasta ahora se muestra como incompleto.
+    func cancel() {
+        job?.cancel()
+    }
+
+    /// Todas las copias salvo la conservada (nunca rojo ni protegido; lo ya movido, tampoco).
+    func selectAllCopies() {
+        board.selectAllCopies()
+        for group in board.groups {
+            for copy in group.copies where gone.contains(copy.path) && board.selected.contains(copy.path) {
+                board.toggle(copy.path, in: group)
+            }
+        }
+    }
+
+    /// Tras la Papelera: lo que ya no está deja de verse y la selección se vacía.
+    func pruneMissing() {
+        for group in board.groups {
+            for copy in group.copies where !FileManager.default.fileExists(atPath: copy.path) { gone.insert(copy.path) }
+        }
+        board.clear()
+    }
+
+    /// Copias que siguen a la vista en un grupo (con menos de dos, el grupo ya no se enseña).
+    func visibleCopies(_ group: DuplicateGroup) -> [DuplicateCopy] {
+        group.copies.filter { !gone.contains($0.path) }
     }
 }
