@@ -6,19 +6,20 @@ struct Sidebar: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 2) {
-                brand
-                    .padding(.horizontal, -10)
-                    .padding(.top, 34)
-                    .padding(.bottom, 6)
-                ForEach(Section.available) { section in
-                    SidebarRow(section: section, selected: model.section == section) { select(section) }
-                }
-
+        // Sin ScrollView: con ella el área que recibe clics se quedaba más corta que las filas dibujadas
+        // (las de debajo de Limpieza no respondían). Ocho filas caben siempre en la altura mínima.
+        VStack(alignment: .leading, spacing: 2) {
+            brand
+                .padding(.horizontal, -10)
+                .padding(.top, 34)
+                .padding(.bottom, 6)
+            ForEach(Section.available) { section in
+                SidebarRow(section: section, selected: model.section == section) { select(section) }
             }
-            .padding(.horizontal, 10)
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .ignoresSafeArea(.container, edges: .top)
         .focusable()
         .focusEffectDisabled()

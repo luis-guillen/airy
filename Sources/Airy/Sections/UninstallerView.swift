@@ -133,7 +133,7 @@ private struct AppRow: View {
                     Toggle("", isOn: Binding(
                         get: { store.checkedApps.contains(app.path) },
                         set: { on in if on { store.checkedApps.insert(app.path) } else { store.checkedApps.remove(app.path) } }))
-                        .toggleStyle(.checkbox)
+                        .toggleStyle(.airyCheckbox)
                         .labelsHidden()
                         .accessibilityLabel("Marcar \(plan.app.name)")
                 } else {

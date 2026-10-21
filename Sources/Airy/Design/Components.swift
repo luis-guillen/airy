@@ -228,3 +228,38 @@ extension SectionHeader where Accessory == EmptyView {
         self.init(title: title, subtitle: subtitle) { EmptyView() }
     }
 }
+
+// MARK: - Casilla
+
+/// Casilla dibujada en SwiftUI. La `.checkbox` del sistema es un `NSButton` y, en listas que se
+/// reordenan con animación (Rendimiento cada 1,5 s), entraba en un bucle de restricciones que cerraba la app.
+struct AiryCheckboxStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        AiryCheckbox(configuration: configuration)
+    }
+}
+
+private struct AiryCheckbox: View {
+    let configuration: ToggleStyleConfiguration
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button { configuration.isOn.toggle() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(configuration.isOn ? AnyShapeStyle(Theme.Airy.accent) : AnyShapeStyle(.secondary))
+                    .frame(width: 18, height: 18)
+                configuration.label
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.45)
+        .accessibilityAddTraits(configuration.isOn ? .isSelected : [])
+    }
+}
+
+extension ToggleStyle where Self == AiryCheckboxStyle {
+    static var airyCheckbox: AiryCheckboxStyle { AiryCheckboxStyle() }
+}

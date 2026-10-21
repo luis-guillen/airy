@@ -188,7 +188,7 @@ struct DuplicatesView: View {
             if copy.canSelect {
                 Toggle("", isOn: Binding(get: { store.board.selected.contains(copy.path) },
                                          set: { _ in store.board.toggle(copy.path, in: group) }))
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(.airyCheckbox)
                     .labelsHidden()
                     .disabled(isKeeper)
                     .frame(width: 18)
