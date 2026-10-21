@@ -1,15 +1,18 @@
 import SwiftUI
 import DiskMapCore
 
-/// A cleanup row: what it is, who creates it, whether it regenerates, how much it takes, its risk and,
-/// if needed, why it can't be cleaned right now.
+/// A cleanup row. Collapsed, one line: checkbox, icon, title, size, risk and a small marker if something
+/// blocks it. Expanded (click on the line), what it is, who creates it, whether it regenerates, where it is and,
+/// if needed, why it can't be cleaned right now. The details are only built while the row is open.
 struct CleanupRow: View {
     @Environment(AppModel.self) private var model
     @Environment(CleanupFlow.self) private var flow
 
     let item: CleanupItem
     let isSelected: Bool
+    var isExpanded = false
     var onToggle: () -> Void
+    var onExpand: () -> Void = {}
 
     @ViewState private var hovering = false
 
@@ -21,75 +24,138 @@ struct CleanupRow: View {
     /// The method comes from the live catalog entry (the one the executor will use).
     private var liveMethod: CleanupMethod { model.catalog?.entry(id: item.entry.id)?.cleanup ?? item.entry.cleanup }
 
+    /// Where the details start: under the title (padding, checkbox, icon and their gaps).
+    static let detailsInset: CGFloat = 16 + 24 + 12 + 28 + 12
+
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            leading
-                .frame(width: 22, height: 36)
-
-            CleanupIcon(entry: item.entry, dimmed: item.risk == .doNotTouch)
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(item.title)
-                        .font(.headline)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer(minLength: 8)
-                    Text(CleanupBoard.sizeText(item))
-                        .font(.system(.title3, design: .rounded, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(item.risk == .doNotTouch ? .secondary : .primary)
-                }
-
-                // Why it has this label: in the risk color if it needs thought (amber or red).
-                Text(why)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(item.risk == .safe ? AnyShapeStyle(.secondary)
-                                                        : AnyShapeStyle(Theme.Airy.riskInk(item.risk)))
-                    .lineLimit(nil)
-                    .frame(maxWidth: 640, alignment: .leading)
-
-                Text(item.entry.explanation)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: 640, alignment: .leading)
-
-                if !item.details.isEmpty {
-                    Text(detailsText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                }
-
-                metadata
-
-                if let location {
-                    Text(location)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-
-                notices
+        VStack(alignment: .leading, spacing: 0) {
+            line
+            if isExpanded {
+                details
+                    .padding(.leading, Self.detailsInset)
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 14)
+                    .transition(.opacity)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 15)
-        .background(.primary.opacity(hovering && canSelect ? 0.035 : 0))
-        .contentShape(Rectangle())
-        .onTapGesture { if canSelect { onToggle() } }
         .contextMenu {
             // Non-destructive: no confirmation. Not offered for what is already protected (or has no paths, like Docker).
             if item.protection == nil, !item.paths.isEmpty {
                 Button("Protect This", systemImage: "lock") { model.protect(paths: item.paths) }
             }
         }
+    }
+
+    /// The one line that is always there. A click opens or closes the details; the checkbox only selects.
+    private var line: some View {
+        HStack(spacing: 12) {
+            leading
+                .frame(width: 24, height: 24)
+
+            CleanupIcon(entry: item.entry, dimmed: item.risk == .doNotTouch, size: 28)
+
+            Text(item.title)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .layoutPriority(1)
+
+            blockedMarker
+
+            Spacer(minLength: 8)
+
+            Text(CleanupBoard.sizeText(item))
+                .font(.system(.body, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(item.risk == .doNotTouch ? .secondary : .primary)
+                .lineLimit(1)
+                .fixedSize()
+
+            if protectsOnlyTheFolder {
+                ProtectedFolderBadge(compact: true, reason: why)
+            } else {
+                RiskBadge(risk: item.risk, compact: true, reason: why)
+            }
+
+            DisclosureChevron(isExpanded: isExpanded)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.primary.opacity(hovering ? 0.035 : 0))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onExpand)
         .onHover { hovering in withAnimation(Theme.pressSpring) { self.hovering = hovering } }
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(showsCheckbox ? .isButton : [])
-        .accessibilityValue(showsCheckbox ? (isSelected ? "Selected" : "Not selected") : "")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityAction(named: Text(isSelected ? "Remove from Selection" : "Select")) {
+            if canSelect { onToggle() }
+        }
+    }
+
+    private var accessibilityValue: String {
+        let expansion = isExpanded ? String(localized: "Expanded") : String(localized: "Collapsed")
+        guard showsCheckbox else { return expansion }
+        return (isSelected ? String(localized: "Selected") : String(localized: "Not selected")) + ", " + expansion
+    }
+
+    /// Something keeps it from being cleaned now: an open app, a project using it or another block.
+    @ViewBuilder private var blockedMarker: some View {
+        let blocked = item.risk == .doNotTouch ? [] : blockedApps
+        if !blocked.isEmpty {
+            Image(systemName: "lock.app.dashed")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                .help(CleanupBoard.blockedMessage(appNames: blocked.map(CleanupFlow.appName)) ?? "")
+        } else if let reason = CleanupBoard.blockedReasonText(item) {
+            Image(systemName: "hand.raised.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                .help(reason)
+        } else if let used = CleanupBoard.usedByMessage(item.usedBy) {
+            Image(systemName: "link")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.Airy.riskInk(.doNotTouch))
+                .help(used)
+        }
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Why it has this label: in the risk color if it needs thought (amber or red).
+            Text(why)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(item.risk == .safe ? AnyShapeStyle(.secondary)
+                                                    : AnyShapeStyle(Theme.Airy.riskInk(item.risk)))
+                .lineLimit(nil)
+                .frame(maxWidth: 640, alignment: .leading)
+
+            Text(item.entry.explanation)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: 640, alignment: .leading)
+
+            if !item.details.isEmpty {
+                Text(detailsText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+            }
+
+            metadata
+
+            if let location {
+                Text(location)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            notices
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: Parts
@@ -103,6 +169,8 @@ struct CleanupRow: View {
                 .help("Queued")
         } else if showsCheckbox {
             CheckCircle(isOn: isSelected, enabled: canSelect)
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
                 .onTapGesture { if canSelect { onToggle() } }
                 .help(canSelect ? (isSelected ? String(localized: "Remove from Selection") : String(localized: "Select"))
                       : CleanupBoard.blockedReasonText(item) ?? String(localized: "Can’t be cleaned right now"))
@@ -122,11 +190,8 @@ struct CleanupRow: View {
             MetaChip(symbol: item.entry.regenerates ? "arrow.triangle.2.circlepath" : "exclamationmark.arrow.circlepath",
                      text: item.entry.regenerates ? "Regenerates" : "Doesn’t regenerate")
             MethodChip(method: liveMethod)
-            Spacer(minLength: 6)
             if protectsOnlyTheFolder {
                 ProtectedFolderBadge(reason: why)
-            } else {
-                RiskBadge(risk: item.risk, reason: why)
             }
         }
     }
@@ -223,6 +288,21 @@ struct CleanupRow: View {
 }
 
 // MARK: - Pieces
+
+/// The chevron at the end of a row or a group header: it points down when open.
+struct DisclosureChevron: View {
+    let isExpanded: Bool
+    var size: CGFloat = 11
+
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: size, weight: .bold))
+            .foregroundStyle(.tertiary)
+            .rotationEffect(.degrees(isExpanded ? 90 : 0))
+            .frame(width: 16, height: 16)
+            .accessibilityHidden(true)
+    }
+}
 
 /// Round checkbox with the checkmark and a small spring when checked.
 private struct CheckCircle: View {
