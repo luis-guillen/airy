@@ -1,0 +1,25 @@
+name: Fallo
+description: Algo no funciona como debería
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Qué pasa
+      description: Qué hiciste, qué esperabas y qué ocurrió.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducirlo
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Airy y de macOS
+      placeholder: "Airy 0.2.0 · macOS 15.x"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Registro o informe de cierre
+      render: text
