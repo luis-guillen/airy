@@ -28,5 +28,6 @@ public struct AppPaths: Sendable, Equatable {
 
     public var settingsFile: URL { support.appendingPathComponent("settings.json") }
     public var operationsFile: URL { support.appendingPathComponent("operations.jsonl") }
+    public var duplicatesFile: URL { support.appendingPathComponent("duplicates.json") }
     public var migrationMarker: URL { support.appendingPathComponent(".migrated-from-diskmap") }
 }

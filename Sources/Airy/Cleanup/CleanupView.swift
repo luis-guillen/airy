@@ -109,7 +109,7 @@ struct CleanupView: View {
             // Las animaciones van aquí dentro: solo mueven la barra o la píldora, no toda la lista.
             Group {
                 if !selected.isEmpty {
-                    SelectionBar(items: selected) { selection = [] }
+                    CleanupSelectionBar(items: selected) { selection = [] }
                         .padding(.bottom, 18)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else if showsBatchPill {
@@ -413,7 +413,7 @@ private struct ReviewRow: View {
 
 // MARK: - Barra de selección
 
-private struct SelectionBar: View {
+private struct CleanupSelectionBar: View {
     @Environment(CleanupFlow.self) private var flow
     let items: [CleanupItem]
     var onClear: () -> Void

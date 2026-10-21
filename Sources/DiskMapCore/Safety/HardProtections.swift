@@ -3,13 +3,16 @@ import Foundation
 /// Por qué una ruta está protegida y quién la protege.
 public struct ProtectionMatch: Sendable, Equatable {
     public enum Source: String, Sendable { case airy, user }
+    /// Qué regla de la lista dura coincidió (`.other` fuera de ella, p. ej. la lista del usuario).
+    public enum Rule: String, Sendable { case critical, sealedSystem, sealedHome, upward, fragment, sensitiveAppData, other }
     public let source: Source
     public let pattern: String
     /// Motivo visible, en español.
     public let reason: String
+    public let rule: Rule
 
-    public init(source: Source, pattern: String, reason: String) {
-        self.source = source; self.pattern = pattern; self.reason = reason
+    public init(source: Source, pattern: String, reason: String, rule: Rule = .other) {
+        self.source = source; self.pattern = pattern; self.reason = reason; self.rule = rule
     }
 }
 
@@ -20,10 +23,18 @@ public struct HardProtections: Sendable {
 
     /// Rutas cuyo inodo nunca se borra (raíces críticas; `PathGate` añade el home y las resuelve con `stat`).
     public let criticalRoots: [String]
+    /// Selladas del sistema: ni ella, ni nada de dentro, ni sus carpetas superiores.
+    let sealedSystemLocations: [String]
 
     /// Solo para pruebas: otras raíces críticas (el resto de la lista dura no cambia).
     init(criticalRoots: [String]) {
+        self.init(criticalRoots: criticalRoots, sealedSystemLocations: Self.defaultSealedSystemLocations)
+    }
+
+    /// Solo para pruebas: otras raíces críticas y otras ubicaciones selladas del sistema.
+    init(criticalRoots: [String], sealedSystemLocations: [String]) {
         self.criticalRoots = criticalRoots
+        self.sealedSystemLocations = sealedSystemLocations
         canonicalCriticalRoots = Set(criticalRoots.map(RiskPolicy.canonical))
     }
 
@@ -40,8 +51,7 @@ public struct HardProtections: Sendable {
         "/Network", "/cores", "/home", "/net", "/tmp",
     ]
 
-    /// Selladas del sistema: ni ella, ni nada de dentro, ni sus carpetas superiores.
-    static let sealedSystemLocations = [
+    static let defaultSealedSystemLocations = [
         "/System", "/Applications", "/Library", "/usr", "/bin", "/sbin", "/private", "/opt/homebrew",
         "/private/var/db/powerlog",
     ]
@@ -91,7 +101,8 @@ public struct HardProtections: Sendable {
         githubdesktop gitkraken sublimemerge iterm2 kitty alacritty wezterm docker orbstack vmware parallels \
         virtualbox vagrant alfred raycast karabiner rectangle bartender obsidian notion logseq evernote dayone \
         goodnotes adobe figma sketch affinity pixelmator maxon autodesk nativeinstruments izotope fabfilter slack \
-        discord teams telegram whatsapp wechat dropbox onedrive googledrive backblaze teamviewer anydesk
+        discord teams telegram whatsapp wechat dropbox onedrive googledrive backblaze teamviewer anydesk \
+        signal firefox mozilla vivaldi microsoftedge bravesoftware bravebrowser google
         """.split(separator: " ").map(String.init)
     /// El último componente DNS de la carpeta **es** uno de estos.
     static let sensitiveShortAppNames = ["jan", "box", "paw", "code", "bear", "zoom", "warp", "nova", "fork", "utm", "tower"]
@@ -120,25 +131,31 @@ public struct HardProtections: Sendable {
     // MARK: - Comprobación
 
     /// `canonicalPath` en minúsculas (RiskPolicy.canonical). `nil` si no está protegida.
-    public func match(canonicalPath rawPath: String, home rawHome: String, catalog: Catalog?) -> ProtectionMatch? {
+    public func match(canonicalPath: String, home: String, catalog: Catalog?) -> ProtectionMatch? {
+        matches(canonicalPath: canonicalPath, home: home, catalog: catalog).first
+    }
+
+    /// Todas las coincidencias, en el orden en que `match` las comprueba; `match(...) == matches(...).first`.
+    public func matches(canonicalPath rawPath: String, home rawHome: String, catalog: Catalog?) -> [ProtectionMatch] {
         let path = RiskPolicy.canonical(rawPath)
         let home = RiskPolicy.canonical(rawHome)
         let prefix = home == "/" ? "" : home
         let parts = Self.components(path)
+        var found: [ProtectionMatch] = []
 
         // Raíces críticas: la ruta es una de ellas, un `/Users/<nombre>` o el home.
         if canonicalCriticalRoots.contains(path) || path == home || (parts.count == 2 && parts[0] == "users") {
-            return airy(path, "Carpeta crítica del sistema.")
+            found.append(airy(path, "Carpeta crítica del sistema.", .critical))
         }
 
-        for location in Self.sealedSystemLocations {
+        for location in sealedSystemLocations {
             let root = RiskPolicy.canonical(location)
             guard RiskPolicy.isInside(path, root: root) || RiskPolicy.isInside(root, root: path) else { continue }
             if root == "/private", RiskPolicy.isInside(path, root: Self.userTemporaryDirectory),
                path != Self.userTemporaryDirectory {
                 continue
             }
-            return airy(location, "Ubicación protegida por Airy: \(location).")
+            found.append(airy(location, "Ubicación protegida por Airy: \(location).", .sealedSystem))
         }
 
         for location in Self.sealedHomeLocations {
@@ -146,25 +163,26 @@ public struct HardProtections: Sendable {
             // Igual, dentro (la ruta es más larga) o superior (más corta): todos los componentes comunes encajan.
             guard zip(pattern, parts).allSatisfy({ Self.componentMatches($0, $1) }) else { continue }
             let name = Self.friendlyNames[location] ?? "~/" + location
-            return airy("~/" + location, "Ubicación protegida por Airy: \(name).")
+            found.append(airy("~/" + location, "Ubicación protegida por Airy: \(name).", .sealedHome))
         }
 
         for location in Self.upwardHomeLocations {
             let root = RiskPolicy.canonical(prefix + "/" + location)
             if RiskPolicy.isInside(root, root: path) {
-                return airy(location.isEmpty ? "~" : "~/" + location, "Carpeta protegida por Airy: no se borra entera.")
+                found.append(airy(location.isEmpty ? "~" : "~/" + location,
+                                  "Carpeta protegida por Airy: no se borra entera.", .upward))
             }
         }
 
         // Capa C antes que los fragmentos (motivo más claro); sus excepciones no saltan los fragmentos.
-        if let match = sensitiveAppData(path: path, parts: parts, home: home, catalog: catalog) { return match }
+        if let match = sensitiveAppData(path: path, parts: parts, home: home, catalog: catalog) { found.append(match) }
 
         for part in parts {
-            if let fragment = Self.fragments.first(where: { part.contains($0) }) {
-                return airy("*\(fragment)*", "Componente protegido por Airy (\(fragment)).")
+            for fragment in Self.fragments where part.contains(fragment) {
+                found.append(airy("*\(fragment)*", "Componente protegido por Airy (\(fragment)).", .fragment))
             }
         }
-        return nil
+        return found
     }
 
     /// Capa C: datos de apps sensibles, salvo sus cachés y lo que el catálogo declara dentro.
@@ -182,7 +200,7 @@ public struct HardProtections: Sendable {
                 return nil
             }
             if let catalog, Self.catalogDeclares(path, inside: folder, catalog: catalog, home: home) { return nil }
-            return airy("~/\(root)/\(folderLower)", "Datos de una app sensible (\(appName)).")
+            return airy("~/\(root)/\(folderLower)", "Datos de una app sensible (\(appName)).", .sensitiveAppData)
         }
         return nil
     }
@@ -197,8 +215,12 @@ public struct HardProtections: Sendable {
         return nil
     }
 
+    private static let displayNames = [
+        "1password": "1Password", "microsoftedge": "Microsoft Edge", "bravesoftware": "Brave", "bravebrowser": "Brave",
+    ]
+
     private static func displayName(_ name: String) -> String {
-        name == "1password" ? "1Password" : name.prefix(1).uppercased() + name.dropFirst()
+        displayNames[name] ?? name.prefix(1).uppercased() + name.dropFirst()
     }
 
     /// `true` si un patrón literal (sin `*`) de una ficha con acción declara una ruta dentro de `folder`
@@ -217,8 +239,8 @@ public struct HardProtections: Sendable {
         return false
     }
 
-    private func airy(_ pattern: String, _ reason: String) -> ProtectionMatch {
-        ProtectionMatch(source: .airy, pattern: pattern, reason: reason)
+    private func airy(_ pattern: String, _ reason: String, _ rule: ProtectionMatch.Rule) -> ProtectionMatch {
+        ProtectionMatch(source: .airy, pattern: pattern, reason: reason, rule: rule)
     }
 
     static func components(_ path: String) -> [String] {
