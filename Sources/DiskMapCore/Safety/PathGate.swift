@@ -152,12 +152,16 @@ public struct PathGate: Sendable {
     private let catalog: Catalog?
     private let userProtected: ProtectList
     private let protections: HardProtections
+    /// Solo para el `{target}` de una orden: la ficha cuya ruta declarada vale como excepción de la capa C.
+    private let commandTarget: CatalogEntry?
     /// Inodo → raíz crítica (o home) a la que pertenece; calculado una vez con `stat`.
     private let criticalInodes: [InodeKey: String]
     /// Inodo de `/Users`: ninguna carpeta directamente dentro se borra.
     private let usersInode: InodeKey?
 
-    public init(home: String, catalog: Catalog?, userProtected: ProtectList, protections: HardProtections = .standard) {
+    public init(home: String, catalog: Catalog?, userProtected: ProtectList, protections: HardProtections = .standard,
+                commandTarget: CatalogEntry? = nil) {
+        self.commandTarget = commandTarget
         self.home = home
         self.catalog = catalog
         self.userProtected = userProtected
@@ -220,10 +224,14 @@ public struct PathGate: Sendable {
     private func refusal(forForm form: String, waiver: ProtectionWaiver?, isBundle: Bool) -> String? {
         for base in homeForms {
             guard let waiver else {
-                if let match = protections.match(canonicalPath: form, home: base, catalog: catalog) { return match.reason }
+                if let match = protections.match(canonicalPath: form, home: base, catalog: catalog,
+                                                     commandTarget: commandTarget) {
+                    return match.reason
+                }
                 continue
             }
-            let matches = protections.matches(canonicalPath: form, home: base, catalog: catalog)
+            let matches = protections.matches(canonicalPath: form, home: base, catalog: catalog,
+                                              commandTarget: commandTarget)
             if let match = matches.first(where: { !waiver.waives($0, form: form, isBundle: isBundle, home: base) }) {
                 return match.reason
             }

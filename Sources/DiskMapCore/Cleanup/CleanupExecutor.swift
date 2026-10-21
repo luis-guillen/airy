@@ -607,7 +607,7 @@ public struct CleanupExecutor: Sendable {
     private func targetGate(entry: CatalogEntry, load: SettingsLoad) -> PathGate {
         PathGate(home: home, catalog: Catalog(entries: catalog.entries.filter { $0.id != entry.id }),
                  userProtected: ProtectList(patterns: load.effective.protectedPaths, home: home),
-                 protections: protections)
+                 protections: protections, commandTarget: entry)
     }
 
     private static func pathRefusal(_ refusal: PathRefusal, _ path: String) -> PathRefusal {

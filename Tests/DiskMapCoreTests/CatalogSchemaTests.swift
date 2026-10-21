@@ -331,7 +331,9 @@ private func replaceWithLink(_ path: String, to destination: String) {
         let db2 = home + "/Library/Safari/Other.db"
         writeFile(db1)
         writeFile(db2)
-        let compact = entry("safari-compact", paths: ["~/Library/Safari/*.db"],
+        // Literales: `~/Library/Safari` es de una app sensible y un comodín a su nivel nunca vale de excepción.
+        let compact = entry("safari-compact", paths: ["~/Library/Safari/History.db", "~/Library/Safari/Other.db",
+                                                      "~/Library/Safari/Evil.db"],
                             cleanup: .command(executable: "sqlite3", arguments: ["{target}", "VACUUM;"], sizeProbe: nil))
         let runner = FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])
         let detected = try #require(await scanner([compact], home: home, runner: runner).findItems(scan: nil).first)
@@ -393,7 +395,7 @@ private func replaceWithLink(_ path: String, to destination: String) {
         let db2 = home + "/Library/Safari/Other.db"
         let keychain = home + "/Library/Keychains/login.keychain-db"
         for path in [db1, db2, keychain] { writeFile(path) }
-        let compact = entry("safari-compact", paths: ["~/Library/Safari/*.db"],
+        let compact = entry("safari-compact", paths: ["~/Library/Safari/History.db", "~/Library/Safari/Other.db"],
                             cleanup: .command(executable: "sqlite3", arguments: ["{target}", "VACUUM;"], sizeProbe: nil))
         let detected = try #require(await scanner(
             [compact], home: home, runner: FakeRunner(resolved: ["sqlite3": "/usr/bin/sqlite3"])).findItems(scan: nil).first)
