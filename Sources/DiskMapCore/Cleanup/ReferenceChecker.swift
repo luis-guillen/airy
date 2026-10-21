@@ -51,6 +51,8 @@ public struct ReferenceChecker: Sendable {
         var stack = roots.reversed().map { $0 }
         while let path = stack.popLast() {
             if Date() >= deadline || Task.isCancelled { complete = false; break }
+            // Fuera del ámbito de la detección (DEBUG, `AIRY_SCAN_ROOTS`) no se lee nada.
+            guard DiskScope.allowsWalk(path) else { continue }
             var info = stat()
             guard lstat(path, &info) == 0 else { continue }
             switch info.st_mode & S_IFMT {

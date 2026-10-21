@@ -176,6 +176,8 @@ final class AppModel {
     private var cleanupTask: Task<Void, Never>?
     private var scanGeneration = 0
     private var cleanupGeneration = 0
+    /// Cuándo puede correr la detección automática (tras el índice guardado o tras el análisis nuevo).
+    private var detectionGate = DetectionGate()
     private var observers: [NSObjectProtocol] = []
     /// Turno de acceso al árbol vivo: lectores en segundo plano frente a cambios (Papelera).
     let treeGate = TreeGate()
@@ -531,6 +533,9 @@ final class AppModel {
             return
         }
         #endif
+        // La detección automática espera al índice o al análisis nuevo; mientras, Limpieza dice «Buscando…».
+        detectionGate.scanStarted()
+        isRefreshingCleanup = true
 
         // Llega como mucho cada 100 ms desde los hilos del escáner.
         let onProgress: @Sendable (ScanProgress) -> Void = { [weak self] snapshot in
@@ -557,7 +562,6 @@ final class AppModel {
             guard generation == self.scanGeneration else { return }
             if let (result, date) = stored {
                 self.show(result, date: date, volume: volume)
-                self.refreshCleanup()
             } else {
                 self.scan = nil
                 self.lastScanDate = nil
@@ -565,8 +569,14 @@ final class AppModel {
             }
 
             // 2. ¿Hace falta? Un índice reciente se queda (el mapa dice «Último análisis: hace…»).
+            // La detección automática corre ya sobre un índice que se queda; si viene un análisis, lo espera
+            // (detectar sobre un árbol que se va a sustituir es trabajo tirado, y competiría con el análisis).
+            let plan = ScanSchedule.plan(trigger, hasIndex: stored != nil, indexDate: stored?.1, now: Date())
+            if let detection = self.detectionGate.indexRead(hasIndex: stored != nil, plan: plan) {
+                self.refreshCleanup(detection)
+            }
             let intensity: ScanIntensity
-            switch ScanSchedule.plan(trigger, hasIndex: stored != nil, indexDate: stored?.1, now: Date()) {
+            switch plan {
             case .skip:
                 self.isScanning = false
                 return
@@ -590,6 +600,7 @@ final class AppModel {
             } catch {
                 if generation == self.scanGeneration {
                     self.isScanning = false
+                    self.detectionAfterStoppedScan()
                     if !(error is CancellationError) {
                         let message = "No se pudo analizar «\(volume.name)»: \(error.localizedDescription)"
                         self.scanError = message
@@ -617,7 +628,7 @@ final class AppModel {
             self.isScanning = false
             self.progress = nil
             self.refreshSystemState()
-            self.refreshCleanup()
+            if let detection = self.detectionGate.scanFinished(trigger) { self.refreshCleanup(detection) }
             await self.saveIndex(result, to: store, key: volume.url.path)
         }
     }
@@ -673,6 +684,18 @@ final class AppModel {
         scanGeneration += 1
         isScanning = false
         progress = nil
+        detectionAfterStoppedScan()
+    }
+
+    /// Un análisis cancelado o fallido ya no traerá árbol: la detección automática corre sobre lo que se ve.
+    private func detectionAfterStoppedScan() {
+        let wasWaiting = !detectionGate.allowsAutomatic
+        if let detection = detectionGate.scanStopped(hasTree: scan != nil) {
+            refreshCleanup(detection)
+        } else if wasWaiting {
+            // Sin árbol no hay nada que detectar: Limpieza deja de decir «Buscando…».
+            isRefreshingCleanup = false
+        }
     }
 
     /// Publica un árbol. Si es del mismo volumen que el que se ve, se conserva el nivel del mapa
@@ -697,8 +720,12 @@ final class AppModel {
     // MARK: Limpieza
 
     /// Vuelve a detectar las limpiezas sobre el último análisis y actualiza Papelera y total liberado.
-    func refreshCleanup() {
-        cleanupTask?.cancel()
+    /// `.user` (por defecto): lo pidió el usuario, en QoS `.utility`. `.automatic`: al abrir o tras un
+    /// análisis automático, en QoS `.background`; solo con el árbol definitivo (`detectionGate`).
+    /// La detección reutiliza el índice (tamaños y rutas) y solo lee el disco para lo que el índice no tiene.
+    func refreshCleanup(_ trigger: DetectionTrigger = .user) {
+        let previous = cleanupTask
+        previous?.cancel()
         cleanupGeneration += 1
         let generation = cleanupGeneration
         isRefreshingCleanup = true
@@ -707,16 +734,19 @@ final class AppModel {
         let classifier = classifier
         let scanner = catalog.map {
             CleanupScanner(catalog: $0, runner: runner, probes: probes, references: ReferenceChecker(),
-                           classifier: classifier)
+                           classifier: classifier, scope: Self.detectionScope)
         }
-        // Prioridad `.utility` también para la tarea que espera: si la esperara una tarea del hilo
-        // principal (`.userInitiated`), la detección (que puede medir carpetas fuera del índice)
-        // subiría a esa prioridad.
-        cleanupTask = Task(priority: .utility) { [weak self] in
+        // La misma prioridad para la tarea que espera: si la esperara una tarea del hilo principal
+        // (`.userInitiated`), la detección subiría a esa prioridad.
+        let priority = DetectionSchedule.priority(for: DetectionSchedule.current(trigger))
+        cleanupTask = Task(priority: priority) { [weak self] in
+            // Una pasada a la vez: la cancelada deja de leer el disco antes de que empiece esta.
+            await previous?.value
+            guard !Task.isCancelled else { return }
             await self?.refreshCounters()
             // Lee el árbol vivo: lector cancelable de `treeGate` (un cambio la cancela y la espera).
             guard let gate = self?.treeGate else { return }
-            let job = gate.read(cancellable: true) {
+            let job = gate.read(cancellable: true, priority: priority) {
                 await scanner?.findItems(scan: root, inaccessible: inaccessible) ?? []
             }
             // La tarea suelta no hereda la cancelación: se le pasa a mano.
@@ -727,6 +757,24 @@ final class AppModel {
             self.cleanupItems = items
             self.isRefreshingCleanup = false
         }
+    }
+
+    /// Ámbito de disco de la detección: en DEBUG con `AIRY_SCAN_ROOTS`, solo esas raíces (ni proyectos ni
+    /// carpetas del catálogo del home real). Si no, todo.
+    private static var detectionScope: DiskScope? {
+        #if DEBUG
+        if let roots = ScanRootsOverride.roots(from: ProcessInfo.processInfo.environment) {
+            return DiskScope(roots: roots.map(\.path))
+        }
+        #endif
+        return nil
+    }
+
+    /// Al abrir Limpieza mientras la detección automática espera a un análisis: se detecta ya (QoS del
+    /// usuario) sobre el índice que se ve. Con la detección automática ya hecha o en marcha, nada.
+    func cleanupOpened() {
+        guard let trigger = detectionGate.cleanupOpened(hasTree: scan != nil) else { return }
+        refreshCleanup(trigger)
     }
 
     /// Lo que haría cada elemento ahora (mismo plan que `perform`), sin hacerlo: la hoja de confirmación

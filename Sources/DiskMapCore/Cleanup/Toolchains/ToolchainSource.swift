@@ -191,7 +191,9 @@ public struct ToolchainSource: CleanupTargetSource {
             }
             if manager == .homebrew {
                 let left = max(.zero, ContinuousClock().now.duration(to: sizeDeadline))
-                if let summary = TreeWalk.summarize(install.path, budget: left) {
+                if let scan = context.scan, let node = CleanupScanner.node(at: install.path, in: scan) {
+                    target.bytes = node.allocatedSize
+                } else if let summary = TreeWalk.summarize(install.path, budget: left) {
                     target.bytes = summary.bytes
                 } else {
                     target.bytes = 0

@@ -38,7 +38,9 @@ public struct DependencyDuplicateSource: CleanupTargetSource {
         var rows: [(key: String, count: Int, size: Int64)] = []
         for (key, folders) in repeated {
             let left = max(.zero, clock.now.duration(to: deadline))
-            guard let size = TreeWalk.summarize(folders[0], budget: left)?.bytes else { cut = true; continue }
+            // El índice, si tiene la carpeta; si no, el disco.
+            let indexed = context.scan.flatMap { CleanupScanner.node(at: folders[0], in: $0) }?.allocatedSize
+            guard let size = indexed ?? TreeWalk.summarize(folders[0], budget: left)?.bytes else { cut = true; continue }
             rows.append((key, folders.count, size))
         }
         rows.sort { Int64($0.count - 1) * $0.size > Int64($1.count - 1) * $1.size }
