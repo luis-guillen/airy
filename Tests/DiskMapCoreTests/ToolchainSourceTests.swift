@@ -236,6 +236,15 @@ private func pyenvHome() -> String {
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-n", "base", "-y"]) != nil)
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["remove", "--all", "-y"]) != nil)
         #expect(CommandPolicy.refusal(executable: "conda", arguments: ["clean", "--all", "-y"]) == nil)
+        // Por ruta, solo `…/envs/<nombre>` (M3).
+        for prefix in ["/Users/x/miniconda3", "/Users/x/miniconda3/envs/../", "relative/envs/a", "/Users/x/envs/a/"] {
+            #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-p", prefix, "-y"]) != nil,
+                    "\(prefix)")
+        }
+        #expect(CommandPolicy.refusal(executable: "conda", arguments: ["remove", "--prefix=/Users/x/miniconda3"]) != nil)
+        #expect(CommandPolicy.refusal(executable: "conda", arguments: ["env", "remove", "-p"]) != nil)
+        #expect(CommandPolicy.refusal(executable: "conda",
+                                      arguments: ["env", "remove", "-p", "/Users/x/miniconda3/envs/old", "-y"]) == nil)
     }
 
     @Test func agentCanOnlyList() async throws {
@@ -265,13 +274,15 @@ private func pyenvHome() -> String {
         #expect(label(.goSDK, .go, "go1.21.0") == "Go 1.21.0 (~/sdk)")
     }
 
-    @Test func detectionBudgetExceededOffersNothing() async throws {
+    @Test func detectionBudgetExceededBlocksRowsWithAReason() async throws {
         let base = pyenvHome()
         let catalog = try tcCatalog("toolchain-pyenv")
         let source = ToolchainSource(roots: { _ in tcRoots(base) }, budget: .zero)
         let context = DiscoveryContext(catalog: catalog, home: base + "/home", runner: FakeRunner(),
                                        processListing: TCListing(), now: Date(), scan: nil)
-        #expect(await source.discover(catalog.entries[0], context: context).isEmpty)
+        let rows = await source.discover(catalog.entries[0], context: context)
+        #expect(rows.count == 3)
+        #expect(rows.allSatisfy { $0.blockedReason == ToolchainSource.incompleteReason && !$0.preselectable })
     }
 }
 

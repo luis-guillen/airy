@@ -367,6 +367,70 @@ private func record(_ id: String, _ name: String, _ path: String, helpers: [Stri
         #expect(gate.validate(h + "/Library/Caches/Google/Chrome", waiver: nil).failure == nil)
     }
 
+    /// M5: con el catálogo incluido, los datos de perfil nunca pasan aunque haya fichas con comodín al lado.
+    @Test func bundledCatalogNeverOpensProfileData() throws {
+        let gate = gate()
+        let paths = [support + "/Google/Chrome/Default", support + "/Google/Chrome/Default/Service Worker",
+                     support + "/Google/Chrome/Default/History", support + "/Google/Chrome/Profile 1/Cookies",
+                     support + "/BraveSoftware/Brave-Browser/Profile 1/Cookies",
+                     support + "/BraveSoftware/Brave-Browser/Default/Login Data"]
+        for path in paths {
+            touch(path + "/x")
+            #expect(gate.validate(path, waiver: nil).failure != nil, "\(path)")
+        }
+    }
+
+    /// I2: Safari, Arc, Opera y Chromium, igual que Chrome, Brave, Firefox, Vivaldi, Edge y Signal.
+    @Test func moreBrowserProfilesProtectedAndTheirCachesStillAllowed() throws {
+        let gate = gate()
+        let containers = h + "/Library/Containers"
+        let protected: [(String, String)] = [
+            (h + "/Library/Safari", "Safari"), (h + "/Library/Safari/Bookmarks.plist", "Safari"),
+            (h + "/Library/Safari/LastSession.plist", "Safari"),
+            (containers + "/com.apple.Safari", "Safari"), (containers + "/com.apple.Safari/Data/Library/Safari", "Safari"),
+            (support + "/Arc", "Arc"), (support + "/Arc/User Data", "Arc"), (support + "/Arc/User Data/Default", "Arc"),
+            (support + "/Arc/User Data/Default/Cookies", "Arc"), (support + "/Arc/User Data/Profile 1/History", "Arc"),
+            (containers + "/company.thebrowser.Browser", "Arc"),
+            (support + "/com.operasoftware.Opera", "Opera"), (support + "/com.operasoftware.Opera/Cookies", "Opera"),
+            (support + "/com.operasoftware.Opera/Login Data", "Opera"),
+            (support + "/Chromium", "Chromium"), (support + "/Chromium/Default", "Chromium"),
+            (support + "/Chromium/Default/Login Data", "Chromium"),
+            (support + "/Chromium/Default/Service Worker", "Chromium"),
+        ]
+        for (path, name) in protected {
+            touch(path + "/x")
+            #expect(gate.validate(path, waiver: nil).failure?.reason == "Datos de una app sensible (\(name)).", "\(path)")
+        }
+        // History.db: nunca a la Papelera (es de un comando oficial y está en ~/Library/Safari).
+        touch(h + "/Library/Safari/History.db")
+        #expect(gate.validate(h + "/Library/Safari/History.db", waiver: nil).failure != nil)
+        // Pero sí como `{target}` de su propia ficha (`sqlite3 … VACUUM`), y solo esa ruta.
+        let bundled = try Catalog.bundled()
+        let compact = try #require(bundled.entry(id: "safari-compact"))
+        let targetGate = PathGate(home: h, catalog: Catalog(entries: bundled.entries.filter { $0.id != compact.id }),
+                                  userProtected: ProtectList(patterns: [], home: h),
+                                  protections: HardProtections(criticalRoots: [], sealedSystemLocations: [apps]),
+                                  commandTarget: compact)
+        #expect(targetGate.validate(h + "/Library/Safari/History.db").failure == nil)
+        #expect(targetGate.validate(h + "/Library/Safari/Bookmarks.plist").failure != nil)
+        #expect(targetGate.validate(h + "/Library/Safari").failure != nil)
+        // Las cachés que declara el catálogo (literales y por perfil) siguen limpiables.
+        for path in [support + "/Arc/User Data/Cache/x", support + "/Arc/User Data/Default/Cache/x",
+                     support + "/Arc/User Data/Profile 1/Code Cache/js/x",
+                     support + "/Arc/User Data/Default/Service Worker/CacheStorage/x",
+                     support + "/com.operasoftware.Opera/Cache/x", support + "/com.operasoftware.Opera/GPUCache/x",
+                     support + "/com.operasoftware.Opera/Profile 2/Code Cache/x",
+                     support + "/Chromium/Default/GPUCache/x", support + "/Chromium/Profile 1/Cache/x",
+                     support + "/Chromium/ShaderCache/x",
+                     containers + "/com.apple.Safari/Data/Library/Caches/x",
+                     containers + "/company.thebrowser.Browser/Data/Library/Caches/x",
+                     h + "/Library/Caches/com.apple.Safari/x", h + "/Library/Caches/company.thebrowser.Browser/x",
+                     h + "/Library/Caches/com.operasoftware.Opera/x", h + "/Library/Caches/Chromium/x"] {
+            touch(path)
+            #expect(gate.validate(path, waiver: nil).failure == nil, "\(path)")
+        }
+    }
+
     @Test func sealedHomeNeverWaived() throws {
         let gate = gate()
         let docker = h + "/Library/Containers/com.docker.docker"

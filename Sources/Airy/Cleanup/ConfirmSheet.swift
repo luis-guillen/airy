@@ -261,6 +261,9 @@ struct ConfirmSheet: View {
 
     private var keptItems: [CleanupItem] { let s = sections; return s.regular + s.review }
 
+    /// Lo que de verdad se ejecutará: sin lo que la vista previa dejó bloqueado (sale tachado).
+    private var runnableItems: [CleanupItem] { keptItems.filter { blockReasons?[$0.id] == nil } }
+
     /// Lo que no se ejecuta: lo quitado y lo que la hoja no enseña (rojo, protegido o bloqueado).
     private var excluded: Set<String> {
         let kept = Set(keptItems.map(\.id))
@@ -321,7 +324,7 @@ struct ConfirmSheet: View {
         case .trashPaths(let paths, let title):
             return paths.count == 1 ? "¿Mover «\(title)» a la Papelera?" : "¿Mover \(Theme.count(paths.count)) elementos a la Papelera?"
         case .items:
-            let count = keptItems.count
+            let count = runnableItems.count
             return count == 1 ? "¿Borrar 1 elemento?" : "¿Borrar \(Theme.count(count)) elementos?"
         case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         case .quitApps, .forceQuitApps: return ""
@@ -399,7 +402,11 @@ struct ConfirmSheet: View {
                                   // Dónde: imprescindible cuando una ficha abarca muchas carpetas (p. ej. ~/Library/Logs/*).
                                   location: CleanupBoard.locationSummary(item),
                                   blockedReason: blockReasons?[item.id],
-                                  why: item.risk == .yourCall ? RiskExplanation.why(item) : nil,
+                                  // Ámbar: siempre; verde con comando: su motivo corto (p. ej. que hay que volver a
+                                  // descargar las imágenes de Docker).
+                                  why: item.risk == .yourCall || (item.risk == .safe && item.entry.shortReason != nil)
+                                      ? RiskExplanation.why(item) : nil,
+                                  whyIsWarning: item.risk == .yourCall,
                                   detail: Self.detailLine(item))
     }
 
@@ -487,8 +494,8 @@ struct ConfirmSheet: View {
         case .trashPaths: return "Mover a la Papelera"
         case .items:
             if keptItems.allSatisfy({ $0.entry.section == .maintenance }) { return "Aplicar" }
-            let (bytes, upperBound) = CleanupBoard.total(keptItems)
-            return "Borrar \(Theme.count(keptItems.count)) · " + CleanupBoard.amountText(bytes, upperBound: upperBound)
+            let (bytes, upperBound) = CleanupBoard.total(runnableItems)
+            return "Borrar \(Theme.count(runnableItems.count)) · " + CleanupBoard.amountText(bytes, upperBound: upperBound)
         case .uninstall, .orphans, .brokenLinks, .duplicates: return ""
         case .quitApps, .forceQuitApps: return ""
         }
@@ -510,8 +517,10 @@ struct ConfirmRow: Identifiable {
     var location: String?
     /// La vista previa dice que no se hará (y por qué): la fila sale tachada.
     var blockedReason: String?
-    /// Por qué es ámbar (solo en el bloque ámbar).
+    /// Por qué es ámbar, o el motivo corto de una fila verde que lo tiene.
     var why: String?
+    /// Ámbar: en su color; verde: en secundario.
+    var whyIsWarning = true
     /// Línea extra, p. ej. «Contenedores parados: a, b y c».
     var detail: String?
 }
@@ -571,7 +580,8 @@ private struct ConfirmRowView: View {
                 if let why = row.why {
                     Text(why)
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Theme.Airy.riskInk(.yourCall))
+                        .foregroundStyle(row.whyIsWarning ? AnyShapeStyle(Theme.Airy.riskInk(.yourCall))
+                                                          : AnyShapeStyle(.secondary))
                         .lineLimit(nil)
                 }
                 if let detail = row.detail {
