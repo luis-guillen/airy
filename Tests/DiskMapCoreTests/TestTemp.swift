@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Single entry point for every temporary folder the tests create.
 ///
@@ -16,6 +17,7 @@ enum TestTemp {
         let path = base + "/\(getpid())-\(UUID().uuidString)"
         try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
         sweepStaleRuns(excluding: path)
+        sweepStaleSuites()
         atexit { TestTemp.removeAll() }
         return path
     }()
@@ -37,10 +39,47 @@ enum TestTemp {
         root + "/\(label)-\(UUID().uuidString)"
     }
 
+    // MARK: Preference suites
+
+    /// A `UserDefaults` suite for one test. `cfprefsd` rewrites the suite's .plist after it is removed, so the
+    /// file is deleted at process exit instead (together with the temp root). Returns the suite name.
+    static func defaultsSuiteName(_ label: String) -> String {
+        let name = "airy.test.\(label).\(UUID().uuidString)"
+        _ = root // make sure the exit handler is registered
+        suites.withLock { $0.append(name) }
+        return name
+    }
+
+    private static let suites = Mutex<[String]>([])
+
+    /// `cfprefsd` recreates a suite's file after the process that used it exits, so a run always leaves its last
+    /// few behind. The next run removes the ones older than an hour, so they never accumulate.
+    private static func sweepStaleSuites() {
+        let dir = NSHomeDirectory() + "/Library/Preferences"
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return }
+        let cutoff = Date().addingTimeInterval(-3600)
+        for name in names where name.hasPrefix("airy.test.") && name.hasSuffix(".plist") {
+            let path = dir + "/" + name
+            if let modified = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date,
+               modified < cutoff {
+                unlink(path)
+            }
+        }
+    }
+
+    private static func removeSuites() {
+        for name in suites.withLock({ $0 }) {
+            UserDefaults.standard.removePersistentDomain(forName: name)
+            let plist = NSHomeDirectory() + "/Library/Preferences/\(name).plist"
+            unlink(plist)
+        }
+    }
+
     // MARK: Cleanup
 
     /// Removes this process's root, restoring permissions first so locked folders go too.
     static func removeAll() {
+        removeSuites()
         remove(root)
         // Drop `airy-tests/` itself when no other run is using it.
         rmdir(base)

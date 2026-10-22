@@ -19,7 +19,7 @@ struct Sidebar: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(minWidth: 250, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .ignoresSafeArea(.container, edges: .top)
         .focusable()
         .focusEffectDisabled()

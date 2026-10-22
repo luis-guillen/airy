@@ -5,6 +5,10 @@ All notable changes to Airy are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The sidebar could open too narrow (a stale saved width) and truncate every label; Airy now discards any saved sidebar width below the minimum at launch.
+- Tests no longer leave preference files behind in `~/Library/Preferences`.
+
 ### Added
 
 - Cleanup: **Old temporary files**, one row with the entries of your user temporary folder that nothing changed

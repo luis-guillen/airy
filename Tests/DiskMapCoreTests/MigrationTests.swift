@@ -97,13 +97,9 @@ import Testing
     }
 
     @Test func defaultsMigrationCopiesOnlyMissingKeys() throws {
-        let suffix = UUID().uuidString
-        let legacy = try #require(UserDefaults(suiteName: "airy.test.legacy.\(suffix)"))
-        let current = try #require(UserDefaults(suiteName: "airy.test.current.\(suffix)"))
-        defer {
-            UserDefaults.standard.removePersistentDomain(forName: "airy.test.legacy.\(suffix)")
-            UserDefaults.standard.removePersistentDomain(forName: "airy.test.current.\(suffix)")
-        }
+        let legacyName = TestTemp.defaultsSuiteName("legacy"), currentName = TestTemp.defaultsSuiteName("current")
+        let legacy = try #require(UserDefaults(suiteName: legacyName))
+        let current = try #require(UserDefaults(suiteName: currentName))
         legacy.set("/old/claude", forKey: "claudePath")
         legacy.set("/old/other", forKey: "other")
         #expect(DataMigration.migrateDefaults(from: legacy, to: current, keys: ["claudePath", "absent"]) == ["claudePath"])

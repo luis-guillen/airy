@@ -51,6 +51,23 @@ struct AiryApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
+        Self.dropNarrowSidebarState()
+    }
+
+    /// AppKit restores the split view's saved column widths, and it can restore one below the sidebar's
+    /// minimum (a stale or dragged value), which truncates every label. Forget any saved width under the minimum
+    /// before the window is built, so the sidebar always opens at its normal width.
+    static let sidebarMinimumWidth: Double = 250
+
+    static func dropNarrowSidebarState(defaults: UserDefaults = .standard) {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("NSSplitView Subview Frames") {
+            guard let frames = defaults.stringArray(forKey: key), let first = frames.first else { continue }
+            // Each entry is "x, y, width, height, hidden, ..."; the first subview is the sidebar.
+            let parts = first.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count >= 3, let width = Double(parts[2]), width < sidebarMinimumWidth {
+                defaults.removeObject(forKey: key)
+            }
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
