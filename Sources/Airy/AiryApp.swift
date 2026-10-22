@@ -26,6 +26,12 @@ struct AiryApp: App {
                 Button("About Airy") { AppDelegate.showAbout() }
             }
             CommandGroup(replacing: .newItem) {}
+            CommandGroup(replacing: .sidebar) {
+                Button("Toggle Sidebar") {
+                    NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("s", modifiers: [.command, .control])
+            }
             CommandMenu("Scan") {
                 Button("Scan Again") { model.startScan() }
                     .keyboardShortcut("r")

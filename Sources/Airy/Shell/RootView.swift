@@ -44,6 +44,8 @@ struct RootView: View {
             Sidebar()
         } detail: {
             detail
+                // The system toggle is removed, so when the sidebar is folded away this is the way back.
+                .overlay(alignment: .topLeading) { showSidebarButton.ignoresSafeArea(.container, edges: .top) }
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 1100, minHeight: 720)
@@ -165,6 +167,29 @@ struct RootView: View {
 }
 
 extension RootView {
+    /// A floating button next to the window controls, shown only while the sidebar is hidden.
+    @ViewBuilder fileprivate var showSidebarButton: some View {
+        if columnVisibility != .all {
+            Button {
+                withAnimation(Theme.sectionSpring) { columnVisibility = .all }
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 26, height: 26)
+                    .background(.thinMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Show sidebar")
+            .accessibilityLabel("Show sidebar")
+            // Same row as the window controls (traffic lights), so it never covers a section title.
+            .padding(.leading, 80)
+            .padding(.top, 1)
+            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        }
+    }
+
     @ViewBuilder fileprivate var launchLayer: some View {
         if launching {
             LaunchSwirl { launching = false }
