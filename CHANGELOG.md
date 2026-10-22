@@ -5,12 +5,9 @@ All notable changes to Airy are documented here. The format follows
 
 ## [Unreleased]
 
-### Fixed
-- The sidebar could be dragged shut or restored too narrow (truncating every label). It is now fixed-width and always visible; the content area adapts to the window.
-- Tests no longer leave preference files behind in `~/Library/Preferences`.
+## [0.4.0] - 2026-10-22
 
 ### Added
-
 - Cleanup: **Old temporary files**, one row with the entries of your user temporary folder that nothing changed
   in 3 days and no process has open (green in Aggressive, amber in Careful). `/private/tmp` stays protected.
 - Cleanup: **Archives already extracted**, `.zip`, `.dmg`, `.tar`, `.7z` and `.rar` files over 200 MB in
@@ -28,6 +25,10 @@ All notable changes to Airy are documented here. The format follows
   on click to show the full explanation. Airy remembers which groups you left open.
 - Performance: scans read folders with `getattrlistbulk` and fold small files while reading (about 2.5× faster and less than half the CPU on a 220k-item tree), tree nodes are smaller, and the index is written in a compact format about a third of the size (older indexes are read and converted). Only the Map is redrawn by the 30-second "Last scan" clock.
 - Folders Airy protects only as a whole (`/Users`, your home, `~/Library`, `~/Documents`…) no longer show the red “Don't delete”: the Map card and the rows show a blue “Protected folder” and say that what's inside can still be cleaned. Locations sealed with their contents (`/System`, Mail, keychains, browser profiles…) keep “Don't delete” and say that nothing inside is touched either. `explain_path` gains `protection_scope` (`folder_only` / `folder_and_contents`) and `protection_scope_note`. Display only: what is protected doesn't change.
+
+### Fixed
+- The sidebar could be dragged shut or restored too narrow (truncating every label). It is now fixed-width and always visible; the content area adapts to the window.
+- Tests no longer leave preference files behind in `~/Library/Preferences`.
 
 ## [0.3.0] - 2026-10-21
 
@@ -76,6 +77,7 @@ All notable changes to Airy are documented here. The format follows
 ### Added
 - First version (DiskMap): disk map, incremental index, basic catalog-driven cleanup to the Trash.
 
-[Unreleased]: https://github.com/luis-guillen/airy/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/luis-guillen/airy/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/luis-guillen/airy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/luis-guillen/airy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/luis-guillen/airy/releases/tag/v0.2.0
