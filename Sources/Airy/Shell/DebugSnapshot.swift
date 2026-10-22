@@ -21,6 +21,7 @@ import AppKit
 /// - `AIRY_MOTION_GALLERY`: "1" replaces the content with the motion gallery (`MotionGallery`) and
 ///   doesn't scan the disk.
 /// - `AIRY_GALLERY_AUTOPLAY`: seconds after launch at which the gallery presses "Simulate Deletion" by itself.
+/// - `AIRY_LAUNCH_LOG`: "1" writes to stderr how long after the process started the first frame was committed.
 @MainActor
 enum DebugSnapshot {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
@@ -45,6 +46,7 @@ enum DebugSnapshot {
 
     static func configure(_ model: AppModel) {
         start = Date()
+        if environment["AIRY_LAUNCH_LOG"] == "1" { logFirstFrame() }
         switch environment["AIRY_APPEARANCE"] {
         case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
         case "light": NSApp.appearance = NSAppearance(named: .aqua)
@@ -78,6 +80,24 @@ enum DebugSnapshot {
                     .appendingPathComponent("\(prefix)-\(time == time.rounded() ? String(Int(time)) : String(time))s.png"))
             }
         }
+    }
+
+    /// The first `onAppear` runs right before the first commit: the frame is on screen once the
+    /// transaction that carries it completes.
+    private static func logFirstFrame() {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0 else { return }
+        let started = info.kp_proc.p_starttime
+        let processStart = Double(started.tv_sec) + Double(started.tv_usec) / 1e6
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            let now = Date().timeIntervalSince1970
+            FileHandle.standardError.write(Data(String(format: "[launch] first frame %.0f ms after process start\n",
+                                                       (now - processStart) * 1000).utf8))
+        }
+        CATransaction.commit()
     }
 
     /// Runs `block` `time` seconds after launch with a zero-tolerance `Timer`: `asyncAfter` with

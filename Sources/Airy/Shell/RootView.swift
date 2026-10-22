@@ -191,16 +191,13 @@ private struct SectionContent: View {
     @Environment(AppModel.self) private var model
     let section: Section
 
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            content(now: context.date)
-        }
-    }
-
-    @ViewBuilder private func content(now: Date) -> some View {
+    @ViewBuilder var body: some View {
         switch section {
         case .map:
-            MapView(subtitle: mapSubtitle(now: now))
+            // Only the map's "Last scan: … ago" needs the 30 s clock; the other sections are not rebuilt by it.
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                MapView(subtitle: mapSubtitle(now: context.date))
+            }
         case .cleanup:
             CleanupView()
         case .performance:
