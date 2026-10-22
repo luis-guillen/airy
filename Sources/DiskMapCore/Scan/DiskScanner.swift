@@ -16,6 +16,8 @@ public struct ScanOptions: Sendable {
     /// one does (only its own size), but it is not reported as unreadable. Matched case-insensitively, also
     /// through the root's real path (`/var` ⇄ `/private/var`).
     public var userExcluded: [String]
+    /// `false` reads every folder with `readdir` + `fstatat` (the reference the bulk reader is tested against).
+    var usesBulkReader = true
 
     public init(
         roots: [URL],
@@ -129,6 +131,9 @@ public final class DiskScanner: Sendable {
 
     // MARK: - Walk
 
+    /// Bytes each scan thread gives `getattrlistbulk` per call (a few hundred entries).
+    static let bulkBufferSize = 64 * 1024
+
     /// Walks a root with the budget's threads and returns its closed node. Without blocking
     /// the cooperative pool: the task waits on a continuation.
     private func scanTree(_ root: DirectoryEntry, _ context: ScanContext) async -> FileNode {
@@ -138,7 +143,10 @@ public final class DiskScanner: Sendable {
                 queue.push([Job(entry: root, parent: nil)])
                 for index in 0..<max(1, budget.workers) {
                     let thread = Thread { [self] in
-                        while let job = queue.next() { process(job, context, queue) }
+                        // One buffer per thread for the whole walk.
+                        let buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: Self.bulkBufferSize, alignment: 16)
+                        defer { buffer.deallocate() }
+                        while let job = queue.next() { process(job, context, queue, buffer) }
                     }
                     thread.name = "Airy scan \(index)"
                     thread.qualityOfService = budget.qos
@@ -151,20 +159,23 @@ public final class DiskScanner: Sendable {
     }
 
     /// Reads a folder: if it has no subfolders it is closed right away; otherwise it pushes its subfolders onto the stack.
-    private func process(_ job: Job, _ context: ScanContext, _ queue: WorkQueue) {
+    private func process(_ job: Job, _ context: ScanContext, _ queue: WorkQueue, _ buffer: UnsafeMutableRawBufferPointer) {
         // Cancelled: what is left is closed empty without touching the disk (the result is discarded).
         guard !context.shared.isCancelled else {
-            deliver(close(job.entry, children: []), to: job.parent, queue)
+            deliver(close(job.entry, children: [], small: SmallFiles()), to: job.parent, queue)
             return
         }
-        let (files, subdirectories) = read(job.entry, context)
-        guard !subdirectories.isEmpty else {
-            deliver(close(job.entry, children: files), to: job.parent, queue)
+        let listing = read(job.entry, context, buffer)
+        var nodes = listing.nodes
+        // Excluded by the user: closed empty without opening it, like an unreadable folder.
+        for entry in listing.closedEmpty { nodes.append(close(entry, children: [], small: SmallFiles())) }
+        guard !listing.subdirectories.isEmpty else {
+            deliver(close(job.entry, children: nodes, small: listing.small), to: job.parent, queue)
             return
         }
-        let pending = PendingDirectory(entry: job.entry, children: files,
-                                       remaining: subdirectories.count, parent: job.parent)
-        queue.push(subdirectories.map { Job(entry: $0, parent: pending) })
+        let pending = PendingDirectory(entry: job.entry, children: nodes, small: listing.small,
+                                       remaining: listing.subdirectories.count, parent: job.parent)
+        queue.push(listing.subdirectories.map { Job(entry: $0, parent: pending) })
     }
 
     /// Hands a closed node to its parent; the last child to arrive closes the parent, and so on
@@ -174,21 +185,117 @@ public final class DiskScanner: Sendable {
         var parent = parent
         while let current = parent {
             guard let children = queue.attach(node, to: current) else { return }
-            node = close(current.entry, children: children)
+            node = close(current.entry, children: children, small: current.small)
             parent = current.parent
         }
         queue.finish(node)
     }
 
-    private func read(_ directory: DirectoryEntry, _ context: ScanContext) -> ([FileNode], [DirectoryEntry]) {
+    /// Attribute bits of the bulk request.
+    private enum Bulk {
+        static let returned = attrgroup_t(truncatingIfNeeded: ATTR_CMN_RETURNED_ATTRS)
+        static let error = attrgroup_t(truncatingIfNeeded: ATTR_CMN_ERROR)
+        static let name = attrgroup_t(truncatingIfNeeded: ATTR_CMN_NAME)
+        static let device = attrgroup_t(truncatingIfNeeded: ATTR_CMN_DEVID)
+        static let type = attrgroup_t(truncatingIfNeeded: ATTR_CMN_OBJTYPE)
+        static let modified = attrgroup_t(truncatingIfNeeded: ATTR_CMN_MODTIME)
+        static let inode = attrgroup_t(truncatingIfNeeded: ATTR_CMN_FILEID)
+        static let links = attrgroup_t(truncatingIfNeeded: ATTR_FILE_LINKCOUNT)
+        static let allocated = attrgroup_t(truncatingIfNeeded: ATTR_FILE_ALLOCSIZE)
+    }
+
+    /// What `getattrlistbulk` is asked for each entry. Folders still go through `fstatat` (see `read`).
+    private static let bulkRequest: attrlist = {
+        var request = attrlist()
+        request.bitmapcount = u_short(ATTR_BIT_MAP_COUNT)
+        request.commonattr = Bulk.returned | Bulk.error | Bulk.name | Bulk.device | Bulk.type | Bulk.modified | Bulk.inode
+        request.fileattr = Bulk.links | Bulk.allocated
+        return request
+    }()
+
+    /// Reads a folder with `getattrlistbulk`: one call returns the name and metadata of hundreds of entries, so
+    /// files no longer cost one `fstatat` each. Folders (≈ 1 in 10 entries) still use `fstatat`, because through a
+    /// firmlink the bulk call describes the stub on the system volume, not the folder it leads to. Any entry
+    /// the call cannot fully describe also falls back to `fstatat`; a volume without the call is read with
+    /// `readdir` (`readLegacy`). Both paths produce exactly the same listing.
+    private func read(_ directory: DirectoryEntry, _ context: ScanContext,
+                      _ buffer: UnsafeMutableRawBufferPointer) -> Listing {
+        guard options.usesBulkReader else { return readLegacy(directory, context) }
+        let fd = open(directory.path, O_RDONLY | O_DIRECTORY | O_NONBLOCK | O_CLOEXEC)
+        guard fd >= 0 else {
+            context.shared.markInaccessible(directory.path)
+            return Listing()
+        }
+        var builder = ListingBuilder(directory: directory, context: context, threshold: options.pruneThreshold)
+        var request = Self.bulkRequest
+        var readAny = false
+        let errorBit = Bulk.error, nameBit = Bulk.name, deviceBit = Bulk.device, typeBit = Bulk.type
+        let timeBit = Bulk.modified, inodeBit = Bulk.inode, linksBit = Bulk.links, allocBit = Bulk.allocated
+        while true {
+            let count = getattrlistbulk(fd, &request, buffer.baseAddress, buffer.count, 0)
+            if count < 0, !readAny {
+                // This volume does not support it (or refused the first read): the old way, from scratch.
+                Darwin.close(fd)
+                return readLegacy(directory, context)
+            }
+            guard count > 0 else { break }
+            readAny = true
+            var entry = UnsafeRawPointer(buffer.baseAddress!)
+            for _ in 0..<count {
+                let length = Int(entry.loadUnaligned(as: UInt32.self))
+                defer { entry += length }
+                var field = entry + 4
+                let returned = field.loadUnaligned(as: attribute_set_t.self)
+                field += MemoryLayout<attribute_set_t>.size
+                var failed = false
+                if returned.commonattr & errorBit != 0 {
+                    failed = field.loadUnaligned(as: UInt32.self) != 0
+                    field += 4
+                }
+                guard returned.commonattr & nameBit != 0 else { continue }
+                let reference = field.loadUnaligned(as: attrreference_t.self)
+                let cName = (field + Int(reference.attr_dataoffset)).assumingMemoryBound(to: CChar.self)
+                let nameLength = max(Int(reference.attr_length) - 1, 0)
+                field += MemoryLayout<attrreference_t>.size
+                let complete = returned.commonattr & (deviceBit | typeBit | timeBit | inodeBit) == (deviceBit | typeBit | timeBit | inodeBit)
+                    && returned.fileattr & (linksBit | allocBit) == (linksBit | allocBit)
+                var device: dev_t = 0, type: UInt32 = 0, modified = timespec(), inode: UInt64 = 0
+                if returned.commonattr & deviceBit != 0 { device = field.loadUnaligned(as: dev_t.self); field += 4 }
+                if returned.commonattr & typeBit != 0 { type = field.loadUnaligned(as: UInt32.self); field += 4 }
+                if returned.commonattr & timeBit != 0 {
+                    modified = field.loadUnaligned(as: timespec.self); field += MemoryLayout<timespec>.size
+                }
+                if returned.commonattr & inodeBit != 0 { inode = field.loadUnaligned(as: UInt64.self); field += 8 }
+
+                // Folders, and anything not fully described: `fstatat`, exactly as before.
+                guard !failed, complete, type != UInt32(VDIR.rawValue) else {
+                    var info = stat()
+                    // If it disappears in between, it is skipped.
+                    guard fstatat(fd, cName, &info, AT_SYMLINK_NOFOLLOW) == 0 else { continue }
+                    builder.add(name: String(cString: cName), info: info)
+                    continue
+                }
+                let links = field.loadUnaligned(as: UInt32.self)
+                field += 4
+                let allocated = field.loadUnaligned(as: Int64.self)
+                let name = UnsafeBufferPointer(start: UnsafeRawPointer(cName).assumingMemoryBound(to: UInt8.self),
+                                               count: nameLength)
+                builder.addFile(name: name, allocated: allocated, links: links,
+                                isRegular: type == UInt32(VREG.rawValue), device: device, inode: inode,
+                                modified: modified)
+            }
+        }
+        Darwin.close(fd)
+        return builder.finish()
+    }
+
+    /// `opendir/readdir` + `fstatat` per entry: for volumes without `getattrlistbulk`.
+    private func readLegacy(_ directory: DirectoryEntry, _ context: ScanContext) -> Listing {
         guard let handle = opendir(directory.path) else {
             context.shared.markInaccessible(directory.path)
-            return ([], [])
+            return Listing()
         }
-
-        var children: [FileNode] = []
-        var subdirectories: [DirectoryEntry] = []
-        var fileBytes: Int64 = 0
+        var builder = ListingBuilder(directory: directory, context: context, threshold: options.pruneThreshold)
         let fd = dirfd(handle)
         while let entry = readdir(handle) {
             let found: (String, stat)? = withUnsafePointer(to: &entry.pointee.d_name) { tuple in
@@ -202,31 +309,13 @@ public final class DiskScanner: Sendable {
                 }
             }
             guard let (name, info) = found else { continue }
-            let childPath = directory.path == "/" ? "/" + name : directory.path + "/" + name
-            if context.excluded.contains(childPath) || context.otherRoots.contains(childPath) { continue }
-
-            if (info.st_mode & S_IFMT) == S_IFDIR {
-                guard info.st_dev == context.device else { continue }
-                let entry = DirectoryEntry(
-                    path: childPath, name: name,
-                    ownSize: Int64(info.st_blocks) * 512, modified: Self.date(info.st_mtimespec))
-                // Excluded by the user: closed empty without opening it, like an unreadable folder.
-                if !context.userExcluded.isEmpty, context.userExcluded.contains(childPath.lowercased()) {
-                    children.append(close(entry, children: []))
-                    continue
-                }
-                subdirectories.append(entry)
-            } else {
-                let file = makeFile(name: name, directory: directory.path, info: info, shared: context.shared)
-                fileBytes += file.allocatedSize
-                children.append(file)
-            }
+            builder.add(name: name, info: info)
         }
         closedir(handle)
-        context.shared.record(files: children.count, bytes: fileBytes, path: directory.path)
-        return (children, subdirectories)
+        return builder.finish()
     }
 
+    /// Only for a root that is a file.
     private func makeFile(name: String, directory: String, info: stat, shared: SharedScanState) -> FileNode {
         var size = Int64(info.st_blocks) * 512
         if info.st_nlink > 1, (info.st_mode & S_IFMT) == S_IFREG,
@@ -234,21 +323,22 @@ public final class DiskScanner: Sendable {
             size = 0
         }
         let kind = FileKindClassifier.kind(forFileNamed: name, inDirectoryPath: directory)
-        var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
-        kindBytes[kind.index] = size
-        return FileNode(
-            name: name, isDirectory: false, allocatedSize: size,
-            lastModified: Self.date(info.st_mtimespec), kind: kind, kindBytes: kindBytes)
+        return Self.fileNode(name: name, size: size, modified: Self.date(info.st_mtimespec), kind: kind)
+    }
+
+    fileprivate static func fileNode(name: String, size: Int64, modified: Date, kind: ContentKind) -> FileNode {
+        FileNode(name: name, isDirectory: false, allocatedSize: size, lastModified: modified,
+                 kind: kind, kindBytes: KindBytes(kind, size))
     }
 
     /// Closes a folder: adds up sizes and kinds, decides its `kind` and groups the small children.
-    private func close(_ directory: DirectoryEntry, children: [FileNode]) -> FileNode {
+    private func close(_ directory: DirectoryEntry, children: [FileNode], small: SmallFiles) -> FileNode {
         let folderKind = FileKindClassifier.kind(forDirectoryPath: directory.path)
-        var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
-        kindBytes[(folderKind ?? .other).index] = directory.ownSize
-        var descendants = 0
+        var kindBytes = KindBytes(folderKind ?? .other, directory.ownSize)
+        var descendants = small.count
+        kindBytes.add(small.kindBytes)
         for child in children {
-            for index in kindBytes.indices { kindBytes[index] += child.kindBytes[index] }
+            kindBytes.add(child.kindBytes)
             descendants += 1 + child.descendantCount
         }
         // What is not recognized by extension takes the folder's meaning (binaries of an .app, Caches blobs…).
@@ -260,43 +350,48 @@ public final class DiskScanner: Sendable {
         let node = FileNode(
             name: directory.name, isDirectory: true,
             allocatedSize: kindBytes.reduce(0, +), lastModified: directory.modified,
-            kindBytes: kindBytes, children: Self.pruned(children, below: options.pruneThreshold),
+            kindBytes: kindBytes, children: Self.pruned(children, small: small, below: options.pruneThreshold),
             descendantCount: descendants)
         node.kind = folderKind ?? node.dominantKind
         return node
     }
 
-    private static func pruned(_ children: [FileNode], below threshold: Int64) -> [FileNode] {
+    /// Groups the children below `threshold` into one "Other" node when there are at least two of them. The
+    /// small files were already folded while reading (`small`); here they join the small closed children.
+    private static func pruned(_ children: [FileNode], small files: SmallFiles, below threshold: Int64) -> [FileNode] {
         var kept: [FileNode] = []
         var small: [FileNode] = []
         for child in children {
             if child.allocatedSize < threshold { small.append(child) } else { kept.append(child) }
         }
-        if small.count >= 2 {
-            var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
+        if small.count + files.count >= 2 {
+            var kindBytes = files.kindBytes
             var hidden = 0
+            var newest = files.newest
             for child in small {
-                for index in kindBytes.indices { kindBytes[index] += child.kindBytes[index] }
+                kindBytes.add(child.kindBytes)
                 hidden += child.descendantCount
+                if let modified = child.lastModified { newest = max(newest ?? modified, modified) }
             }
             let aggregate = FileNode(
                 name: "Other", isDirectory: false, allocatedSize: kindBytes.reduce(0, +),
-                lastModified: small.compactMap(\.lastModified).max(),
-                kindBytes: kindBytes, descendantCount: hidden, aggregatedCount: small.count)
+                lastModified: newest,
+                kindBytes: kindBytes, descendantCount: hidden, aggregatedCount: small.count + files.count)
             aggregate.kind = aggregate.dominantKind
             kept.append(aggregate)
         } else {
             kept.append(contentsOf: small)
+            if let only = files.first {
+                kept.append(fileNode(name: only.name, size: only.size, modified: only.modified, kind: only.kind))
+            }
         }
         return kept.sorted { $0.allocatedSize > $1.allocatedSize }
     }
 
     /// Several roots hang from an unnamed node so that each one's `path` stays absolute.
     private static func combine(_ roots: [FileNode]) -> FileNode {
-        var kindBytes = Array(repeating: Int64(0), count: ContentKind.allCases.count)
-        for root in roots {
-            for index in kindBytes.indices { kindBytes[index] += root.kindBytes[index] }
-        }
+        var kindBytes = KindBytes()
+        for root in roots { kindBytes.add(root.kindBytes) }
         let node = FileNode(
             name: "", isDirectory: true, allocatedSize: kindBytes.reduce(0, +), kindBytes: kindBytes,
             children: roots.sorted { $0.allocatedSize > $1.allocatedSize },
@@ -355,7 +450,7 @@ public final class DiskScanner: Sendable {
         prefix == "/" || path == prefix || path.hasPrefix(prefix + "/")
     }
 
-    private static func date(_ time: timespec) -> Date {
+    static func date(_ time: timespec) -> Date {
         Date(timeIntervalSince1970: Double(time.tv_sec) + Double(time.tv_nsec) / 1e9)
     }
 }
@@ -375,6 +470,138 @@ private struct ScanContext: Sendable {
     /// Lowercased paths of the folders the user excluded (`DiskScanner.userExcludedKeys`).
     let userExcluded: Set<String>
     let shared: SharedScanState
+    /// Folders that directly contain an excluded path or another root: only there does a file need its full
+    /// path built to be checked against `excluded` and `otherRoots`.
+    let excludedParents: Set<String>
+
+    init(device: dev_t, excluded: Set<String>, otherRoots: Set<String>, userExcluded: Set<String>,
+         shared: SharedScanState) {
+        self.device = device
+        self.excluded = excluded
+        self.otherRoots = otherRoots
+        self.userExcluded = userExcluded
+        self.shared = shared
+        excludedParents = Set(excluded.union(otherRoots).map { path in
+            guard let slash = path.lastIndex(of: "/"), slash != path.startIndex else { return "/" }
+            return String(path[..<slash])
+        })
+    }
+
+    func isExcluded(_ path: String) -> Bool { excluded.contains(path) || otherRoots.contains(path) }
+}
+
+/// Files below the prune threshold, folded while the folder is read: they would end up inside its "Other"
+/// node anyway, so no `FileNode` (nor name) is made for each one. Only the first is kept whole, in case it
+/// turns out to be the folder's only small child (then it is shown on its own, as before).
+struct SmallFiles: Sendable {
+    struct File: Sendable {
+        let name: String
+        let size: Int64
+        let modified: Date
+        let kind: ContentKind
+    }
+
+    private(set) var count = 0
+    private(set) var kindBytes = KindBytes()
+    private(set) var newest: Date?
+    private(set) var first: File?
+
+    /// `name` is only called for the first one.
+    mutating func add(size: Int64, modified: Date, kind: ContentKind, name: () -> String) {
+        if count == 0 {
+            first = File(name: name(), size: size, modified: modified, kind: kind)
+        }
+        count += 1
+        kindBytes[kind.index] += size
+        newest = max(newest ?? modified, modified)
+    }
+}
+
+/// What reading one folder yields: its kept children, its folded small files and the subfolders to walk.
+private struct Listing {
+    var nodes: [FileNode] = []
+    var small = SmallFiles()
+    var subdirectories: [DirectoryEntry] = []
+    /// Subfolders the user excluded: closed empty without opening them.
+    var closedEmpty: [DirectoryEntry] = []
+}
+
+/// Turns the entries of one folder into a `Listing`, the same way whichever call read them.
+private struct ListingBuilder {
+    let directory: DirectoryEntry
+    let context: ScanContext
+    let threshold: Int64
+    /// The folder's files can only be excluded if it directly contains an excluded path.
+    let checksFiles: Bool
+    var listing = Listing()
+    var entries = 0
+    var fileBytes: Int64 = 0
+
+    init(directory: DirectoryEntry, context: ScanContext, threshold: Int64) {
+        self.directory = directory
+        self.context = context
+        self.threshold = threshold
+        checksFiles = context.excludedParents.contains(directory.path)
+    }
+
+    private func childPath(_ name: String) -> String {
+        directory.path == "/" ? "/" + name : directory.path + "/" + name
+    }
+
+    /// An entry described by `fstatat`/`lstat`.
+    mutating func add(name: String, info: stat) {
+        let path = childPath(name)
+        if context.isExcluded(path) { return }
+        if (info.st_mode & S_IFMT) == S_IFDIR {
+            guard info.st_dev == context.device else { return }
+            let entry = DirectoryEntry(
+                path: path, name: name,
+                ownSize: Int64(info.st_blocks) * 512, modified: DiskScanner.date(info.st_mtimespec))
+            // Excluded by the user: closed empty without opening it, like an unreadable folder.
+            if !context.userExcluded.isEmpty, context.userExcluded.contains(path.lowercased()) {
+                listing.closedEmpty.append(entry)
+                entries += 1
+                return
+            }
+            listing.subdirectories.append(entry)
+        } else {
+            var size = Int64(info.st_blocks) * 512
+            if info.st_nlink > 1, (info.st_mode & S_IFMT) == S_IFREG,
+               !context.shared.claimHardLink(device: info.st_dev, inode: info.st_ino) {
+                size = 0
+            }
+            let kind = FileKindClassifier.kind(forFileNamed: name, inDirectoryPath: directory.path)
+            addFile(size: size, modified: DiskScanner.date(info.st_mtimespec), kind: kind) { name }
+        }
+    }
+
+    /// A file (anything but a folder) described by `getattrlistbulk`. `allocated` is the total allocated size,
+    /// which `stat` reports rounded up to 512-byte blocks.
+    mutating func addFile(name: UnsafeBufferPointer<UInt8>, allocated: Int64, links: UInt32, isRegular: Bool,
+                          device: dev_t, inode: UInt64, modified: timespec) {
+        if checksFiles, context.isExcluded(childPath(String(decoding: name, as: UTF8.self))) { return }
+        var size = (max(allocated, 0) + 511) / 512 * 512
+        if links > 1, isRegular, !context.shared.claimHardLink(device: device, inode: ino_t(inode)) {
+            size = 0
+        }
+        let kind = FileKindClassifier.kind(forFileNameBytes: name, inDirectoryPath: directory.path)
+        addFile(size: size, modified: DiskScanner.date(modified), kind: kind) { String(decoding: name, as: UTF8.self) }
+    }
+
+    private mutating func addFile(size: Int64, modified: Date, kind: ContentKind, name: () -> String) {
+        entries += 1
+        fileBytes += size
+        if size < threshold {
+            listing.small.add(size: size, modified: modified, kind: kind, name: name)
+        } else {
+            listing.nodes.append(DiskScanner.fileNode(name: name(), size: size, modified: modified, kind: kind))
+        }
+    }
+
+    func finish() -> Listing {
+        context.shared.record(files: entries, bytes: fileBytes, path: directory.path)
+        return listing
+    }
 }
 
 /// A read folder waiting for its subfolders. Its mutable fields are only touched under the
@@ -382,12 +609,14 @@ private struct ScanContext: Sendable {
 private final class PendingDirectory: @unchecked Sendable {
     let entry: DirectoryEntry
     let parent: PendingDirectory?
+    let small: SmallFiles
     var children: [FileNode]
     var remaining: Int
 
-    init(entry: DirectoryEntry, children: [FileNode], remaining: Int, parent: PendingDirectory?) {
+    init(entry: DirectoryEntry, children: [FileNode], small: SmallFiles, remaining: Int, parent: PendingDirectory?) {
         self.entry = entry
         self.children = children
+        self.small = small
         self.remaining = remaining
         self.parent = parent
     }

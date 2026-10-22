@@ -100,7 +100,7 @@ private func tree(after: Bool) -> ScanResult {
         // Legacy v2 index (no date in the header) as the fallback.
         let legacyDir = TestTemp.url("changes-legacy")
         try FileManager.default.createDirectory(at: legacyDir, withIntermediateDirectories: true)
-        var data = IndexStore.serialize(IndexStore.flatten(tree(after: false)))
+        var data = IndexStore.serializeV3(IndexStore.flatten(tree(after: false)))
         data.replaceSubrange(4..<8, with: withUnsafeBytes(of: UInt32(2)) { Data($0) })
         data.removeSubrange(32..<40)
         try data.write(to: legacyDir.appendingPathComponent("scan.plist"))

@@ -22,6 +22,7 @@ All notable changes to Airy are documented here. The format follows
 - Cleanup: each group (Safe to remove, Your call, Don't delete, Review only) is now a collapsible section whose
   header shows its items, total and what is selected, and stays pinned while you scroll. Rows are one line and open
   on click to show the full explanation. Airy remembers which groups you left open.
+- Performance: scans read folders with `getattrlistbulk` and fold small files while reading (about 2.5× faster and less than half the CPU on a 220k-item tree), tree nodes are smaller, and the index is written in a compact format about a third of the size (older indexes are read and converted). Only the Map is redrawn by the 30-second "Last scan" clock.
 - Folders Airy protects only as a whole (`/Users`, your home, `~/Library`, `~/Documents`…) no longer show the red “Don't delete”: the Map card and the rows show a blue “Protected folder” and say that what's inside can still be cleaned. Locations sealed with their contents (`/System`, Mail, keychains, browser profiles…) keep “Don't delete” and say that nothing inside is touched either. `explain_path` gains `protection_scope` (`folder_only` / `folder_and_contents`) and `protection_scope_note`. Display only: what is protected doesn't change.
 
 ## [0.3.0] - 2026-10-21
