@@ -5,11 +5,8 @@ All notable changes to Airy are documented here. The format follows
 
 ## [Unreleased]
 
-### Added
-- A **Show sidebar** button next to the window controls (and ⌃⌘S in the View menu) to bring the sidebar back when it has been folded away.
-
 ### Fixed
-- The sidebar could open too narrow (a stale saved width) and truncate every label; Airy now discards any saved sidebar width below the minimum at launch.
+- The sidebar could be dragged shut or restored too narrow (truncating every label). It is now fixed-width and always visible; the content area adapts to the window.
 - Tests no longer leave preference files behind in `~/Library/Preferences`.
 
 ### Added

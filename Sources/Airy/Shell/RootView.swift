@@ -5,7 +5,7 @@ import DiskMapCore
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @ViewState private var bannerDismissed = false
-    @ViewState private var columnVisibility = NavigationSplitViewVisibility.all
+    private static let sidebarWidth: CGFloat = 260
     /// Confirmations, cleanup batches, Trash and celebration (shared with the sidebar).
     @ViewState private var cleanupFlow = CleanupFlow()
     /// Motion gatekeeper: until the window reports, everything stays still.
@@ -40,14 +40,15 @@ struct RootView: View {
     }
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        // A fixed sidebar with a plain stack instead of a split view: it can't be dragged shut or restored
+        // too narrow, and the content area absorbs every change of window size.
+        HStack(spacing: 0) {
             Sidebar()
-        } detail: {
+                .frame(width: Self.sidebarWidth)
+                .frame(maxHeight: .infinity)
             detail
-                // The system toggle is removed, so when the sidebar is folded away this is the way back.
-                .overlay(alignment: .topLeading) { showSidebarButton.ignoresSafeArea(.container, edges: .top) }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 1100, minHeight: 720)
         .tint(Theme.Airy.accent)
         .foregroundStyle(Theme.Airy.text, Theme.Airy.textSecondary, Theme.Airy.textSecondary)
@@ -162,34 +163,10 @@ struct RootView: View {
         .animation(Theme.sectionSpring, value: model.isScanning)
         .overlay { celebrationLayer }
         .ignoresSafeArea(edges: .top)
-        .toolbar(removing: .sidebarToggle)
     }
 }
 
 extension RootView {
-    /// A floating button next to the window controls, shown only while the sidebar is hidden.
-    @ViewBuilder fileprivate var showSidebarButton: some View {
-        if columnVisibility != .all {
-            Button {
-                withAnimation(Theme.sectionSpring) { columnVisibility = .all }
-            } label: {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 26, height: 26)
-                    .background(.thinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help("Show sidebar")
-            .accessibilityLabel("Show sidebar")
-            // Same row as the window controls (traffic lights), so it never covers a section title.
-            .padding(.leading, 80)
-            .padding(.top, 1)
-            .transition(.opacity.combined(with: .scale(scale: 0.9)))
-        }
-    }
-
     @ViewBuilder fileprivate var launchLayer: some View {
         if launching {
             LaunchSwirl { launching = false }

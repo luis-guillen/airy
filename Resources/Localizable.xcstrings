@@ -4861,16 +4861,6 @@
         }
       }
     },
-    "Show sidebar" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar barra lateral"
-          }
-        }
-      }
-    },
     "Since the scan %@" : {
       "localizations" : {
         "es" : {
@@ -5447,16 +5437,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A la Papelera: %@"
-          }
-        }
-      }
-    },
-    "Toggle Sidebar" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar u ocultar barra lateral"
           }
         }
       }

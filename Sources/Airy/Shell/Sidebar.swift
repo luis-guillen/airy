@@ -19,7 +19,7 @@ struct Sidebar: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
-        .frame(minWidth: 250, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .ignoresSafeArea(.container, edges: .top)
         .focusable()
         .focusEffectDisabled()
@@ -41,8 +41,6 @@ struct Sidebar: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
-        .navigationSplitViewColumnWidth(min: 250, ideal: 270, max: 330)
-        .toolbar(removing: .sidebarToggle)
     }
 
     private func select(_ section: Section) {
